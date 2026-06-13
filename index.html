@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sweepstake Tracker — WC 2026</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #080c18;
+      color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+    }
+    #root { max-width: 620px; margin: 0 auto; }
+    button { font-family: inherit; }
+
+    @keyframes pulse-red {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .spinning { animation: spin 1s linear infinite; display: inline-block; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+// ─────────────────────────────────────────────────────────────────────────────
+// CONFIG — update WORKER_URL after you deploy your Cloudflare Worker
+// ─────────────────────────────────────────────────────────────────────────────
+const WORKER_URL = "https://YOUR_WORKER_NAME.YOUR_SUBDOMAIN.workers.dev";
+const WC_CODE = "WC";
+const SEASON = 2026;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PLAYER → TEAM ASSIGNMENTS
+// ─────────────────────────────────────────────────────────────────────────────
+const PLAYERS = [
+  { name: "Auz",      teams: ["Portugal","Morocco","Scotland","Jordan","Cape Verde","Turkey"],         codes: ["POR","MAR","SCO","JOR","CPV","TUR"] },
+  { name: "George",   teams: ["Mexico","Canada","Germany","Japan","Panama","Iraq"],                    codes: ["MEX","CAN","GER","JPN","PAN","IRQ"] },
+  { name: "Toby",     teams: ["Argentina","Uruguay","Egypt","Tunisia","Curaçao","Sweden"],             codes: ["ARG","URU","EGY","TUN","CUW","SWE"] },
+  { name: "Sam",      teams: ["Netherlands","United States","Senegal","Austria","Paraguay","Bosnia"],  codes: ["NED","USA","SEN","AUT","PAR","BIH"] },
+  { name: "Paul",     teams: ["Spain","Belgium","Croatia","Algeria","Haiti","Czech Republic"],         codes: ["ESP","BEL","CRO","ALG","HAI","CZE"] },
+  { name: "Elliott",  teams: ["England","Iran","South Korea","Ecuador","Qatar","Ghana"],               codes: ["ENG","IRN","KOR","ECU","QAT","GHA"] },
+  { name: "Christoph",teams: ["France","Switzerland","Norway","Uzbekistan","South Africa","New Zealand"], codes: ["FRA","SUI","NOR","UZB","RSA","NZL"] },
+  { name: "Dollie",   teams: ["Brazil","Colombia","Australia","Ivory Coast","Saudi Arabia","DR Congo"], codes: ["BRA","COL","AUS","CIV","KSA","DRC"] },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POT SEEDINGS  (1 = favourite, 4 = underdog)
+// ─────────────────────────────────────────────────────────────────────────────
+const POT = {
+  POR:1,MEX:1,ARG:1,NED:1,ESP:1,ENG:1,FRA:1,BRA:1,CAN:1,GER:1,USA:1,BEL:1,
+  MAR:2,JPN:2,URU:2,SEN:2,CRO:2,IRN:2,SUI:2,COL:2,AUT:2,ECU:2,KOR:2,AUS:2,
+  SCO:3,EGY:3,PAR:3,ALG:3,QAT:3,NOR:3,CIV:3,KSA:3,PAN:3,TUN:3,UZB:3,RSA:3,
+  JOR:4,CUW:4,BIH:4,HAI:4,GHA:4,NZL:4,CPV:4,IRQ:4,SWE:4,CZE:4,TUR:4,DRC:4,
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POINTS MATRIX  [Pot1, Pot2, Pot3, Pot4]
+// ─────────────────────────────────────────────────────────────────────────────
+const PTS = {
+  WINNER:        [100, 500, 1000, 2000],
+  FINALIST:      [50,  250, 500,  1000],
+  SEMI_FINALS:   [25,  100, 200,  500],
+  QUARTER_FINALS:[15,  50,  100,  300],
+  LAST_16:       [5,   25,  50,   150],
+  LAST_32:       [0,   15,  25,   50],
+  GROUP_ELIM:    [-50, -15, 0,    0],
+};
+
+const STAGE_LABEL = {
+  WINNER:         "Winner 🏆",
+  FINALIST:       "Finalist",
+  SEMI_FINALS:    "Semi-Final",
+  QUARTER_FINALS: "Quarter-Final",
+  LAST_16:        "Last 16",
+  LAST_32:        "Last 32",
+  GROUP_ELIM:     "Group Stage Out",
+};
+
+const STAGE_COLOR = {
+  WINNER:         "#f59e0b",
+  FINALIST:       "#a78bfa",
+  SEMI_FINALS:    "#60a5fa",
+  QUARTER_FINALS: "#34d399",
+  LAST_16:        "#fb923c",
+  LAST_32:        "#94a3b8",
+  GROUP_ELIM:     "#ef4444",
+};
+
+// ISO codes for flagcdn.com
+const FLAG_ISO = {
+  POR:"pt",MEX:"mx",ARG:"ar",NED:"nl",ESP:"es",ENG:"gb-eng",FRA:"fr",BRA:"br",
+  CAN:"ca",GER:"de",USA:"us",BEL:"be",MAR:"ma",JPN:"jp",URU:"uy",SEN:"sn",
+  CRO:"hr",IRN:"ir",SUI:"ch",COL:"co",AUT:"at",ECU:"ec",KOR:"kr",AUS:"au",
+  SCO:"gb-sct",EGY:"eg",PAR:"py",ALG:"dz",QAT:"qa",NOR:"no",CIV:"ci",KSA:"sa",
+  PAN:"pa",TUN:"tn",UZB:"uz",RSA:"za",JOR:"jo",CUW:"cw",BIH:"ba",HAI:"ht",
+  GHA:"gh",NZL:"nz",CPV:"cv",IRQ:"iq",SWE:"se",CZE:"cz",TUR:"tr",DRC:"cd",
+};
+
+const flag = (code) => FLAG_ISO[code] ? `https://flagcdn.com/h40/${FLAG_ISO[code]}.png` : null;
+const pts  = (code, stage) => (PTS[stage] || [0,0,0,0])[(POT[code] || 4) - 1];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DERIVE TEAM STAGES FROM MATCH DATA
+// ─────────────────────────────────────────────────────────────────────────────
+function deriveStages(matches) {
+  const eliminated = {};
+  const winners    = {};
+
+  const done = matches.filter(m => m.status === "FINISHED");
+
+  done.forEach(m => {
+    const stage = (m.stage || "").toUpperCase();
+    const h = m.homeTeam?.tla?.toUpperCase();
+    const a = m.awayTeam?.tla?.toUpperCase();
+    const hs = m.score?.fullTime?.home ?? 0;
+    const as_ = m.score?.fullTime?.away ?? 0;
+    const pen = m.score?.penalties;
+
+    let loser = null, winner = null;
+    if (hs > as_)       { loser = a; winner = h; }
+    else if (as_ > hs)  { loser = h; winner = a; }
+    else if (pen) {
+      if (pen.home > pen.away) { loser = a; winner = h; }
+      else                     { loser = h; winner = a; }
+    }
+
+    if (stage === "FINAL") {
+      if (winner) winners[winner] = true;
+      if (loser)  eliminated[loser] = "FINALIST";
+    } else if (stage.includes("SEMI"))    { if (loser) eliminated[loser] = "SEMI_FINALS"; }
+    else if (stage.includes("QUARTER"))   { if (loser) eliminated[loser] = "QUARTER_FINALS"; }
+    else if (stage.includes("LAST_16") || stage.includes("ROUND OF 16"))  { if (loser) eliminated[loser] = "LAST_16"; }
+    else if (stage.includes("LAST_32") || stage.includes("ROUND OF 32"))  { if (loser) eliminated[loser] = "LAST_32"; }
+  });
+
+  // Group elimination: played 3 group games, not in any knockout fixture
+  const knockoutTeams = new Set();
+  matches.filter(m => !(m.stage||"").toUpperCase().includes("GROUP")).forEach(m => {
+    if (m.homeTeam?.tla) knockoutTeams.add(m.homeTeam.tla.toUpperCase());
+    if (m.awayTeam?.tla) knockoutTeams.add(m.awayTeam.tla.toUpperCase());
+  });
+
+  const groupGames = {};
+  done.filter(m => (m.stage||"").toUpperCase().includes("GROUP")).forEach(m => {
+    const h = m.homeTeam?.tla?.toUpperCase();
+    const a = m.awayTeam?.tla?.toUpperCase();
+    if (h) groupGames[h] = (groupGames[h]||0) + 1;
+    if (a) groupGames[a] = (groupGames[a]||0) + 1;
+  });
+  Object.entries(groupGames).forEach(([code, n]) => {
+    if (n >= 3 && !knockoutTeams.has(code) && !eliminated[code]) {
+      eliminated[code] = "GROUP_ELIM";
+    }
+  });
+
+  return { eliminated, winners };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SCORE PLAYERS
+// ─────────────────────────────────────────────────────────────────────────────
+function scorePlayers(matches) {
+  const { eliminated, winners } = deriveStages(matches);
+  return PLAYERS.map(p => {
+    let total = 0;
+    const teams = p.codes.map((code, i) => {
+      let stage = null, p_pts = 0;
+      if (winners[code])         { stage = "WINNER";      p_pts = pts(code, "WINNER"); }
+      else if (eliminated[code]) { stage = eliminated[code]; p_pts = pts(code, stage); }
+      total += p_pts;
+      return { name: p.teams[i], code, pot: POT[code]||4, stage, pts: p_pts };
+    });
+    return { ...p, total, teams };
+  }).sort((a, b) => b.total - a.total);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+const fmt = (str) => {
+  if (!str) return "";
+  const d = new Date(str);
+  return d.toLocaleDateString("en-GB", { weekday:"short", day:"numeric", month:"short" })
+    + " " + d.toLocaleTimeString("en-GB", { hour:"2-digit", minute:"2-digit" });
+};
+
+const ownerOf = (tla, ranked) => ranked.find(p => p.codes.includes(tla?.toUpperCase()))?.name;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STYLES (tokens)
+// ─────────────────────────────────────────────────────────────────────────────
+const C = {
+  bg:      "#080c18",
+  surface: "#0f1623",
+  card:    "#111827",
+  border:  "#1e293b",
+  muted:   "#475569",
+  dim:     "#64748b",
+  text:    "#e2e8f0",
+  accent:  "#3b82f6",
+  green:   "#22c55e",
+  red:     "#ef4444",
+  gold:    "#f59e0b",
+};
+
+const s = {
+  card: {
+    background: C.card,
+    border: `1px solid ${C.border}`,
+    borderRadius: 10,
+    marginBottom: 8,
+    overflow: "hidden",
+  },
+  label: {
+    fontSize: 11,
+    color: C.dim,
+    fontWeight: 600,
+    letterSpacing: "0.1em",
+    textTransform: "uppercase",
+    marginBottom: 10,
+    marginTop: 4,
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPONENTS
+// ─────────────────────────────────────────────────────────────────────────────
+const { useState, useEffect, useCallback } = React;
+
+function Flag({ code, size = 20 }) {
+  const url = flag(code);
+  if (!url) return null;
+  return <img src={url} alt={code} style={{ height: size, borderRadius: 2, display:"block" }} />;
+}
+
+function TabBtn({ id, label, active, onClick }) {
+  return (
+    <button onClick={() => onClick(id)} style={{
+      flex: 1, padding: "8px 4px", fontSize: 11, fontWeight: 700,
+      background: active ? C.accent : "transparent",
+      color: active ? "white" : C.dim,
+      border: `1px solid ${active ? C.accent : C.border}`,
+      borderRadius: 6, cursor: "pointer",
+    }}>{label}</button>
+  );
+}
+
+function MatchCard({ m, ranked }) {
+  const h = m.homeTeam?.tla?.toUpperCase();
+  const a = m.awayTeam?.tla?.toUpperCase();
+  const fin = m.status === "FINISHED";
+  const live = m.status === "IN_PLAY" || m.status === "PAUSED";
+
+  return (
+    <div style={s.card}>
+      <div style={{ padding: "10px 14px" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", marginBottom: 8 }}>
+          <span style={{ fontSize:10, color: live ? C.red : C.muted, fontWeight:700, letterSpacing:"0.08em",
+            animation: live ? "pulse-red 1.5s infinite" : "none" }}>
+            {live ? "⚡ LIVE" : (m.stage||"").replace(/_/g," ")}
+          </span>
+          <span style={{ fontSize:10, color: C.muted }}>{fmt(m.utcDate)}</span>
+        </div>
+        <div style={{ display:"flex", alignItems:"center" }}>
+          {/* Home */}
+          <div style={{ flex:1, display:"flex", alignItems:"center", gap:8 }}>
+            <Flag code={h} />
+            <div>
+              <div style={{ fontSize:13, fontWeight:700 }}>{m.homeTeam?.name || "TBD"}</div>
+              {ownerOf(h, ranked) && <div style={{ fontSize:10, color: C.accent }}>{ownerOf(h, ranked)}</div>}
+            </div>
+          </div>
+          {/* Score / VS */}
+          <div style={{ minWidth:56, textAlign:"center" }}>
+            {fin || live
+              ? <span style={{ fontSize:18, fontWeight:800, letterSpacing:2 }}>
+                  {m.score?.fullTime?.home ?? 0}–{m.score?.fullTime?.away ?? 0}
+                </span>
+              : <span style={{ fontSize:12, color: C.muted }}>vs</span>
+            }
+          </div>
+          {/* Away */}
+          <div style={{ flex:1, display:"flex", alignItems:"center", gap:8, justifyContent:"flex-end" }}>
+            <div style={{ textAlign:"right" }}>
+              <div style={{ fontSize:13, fontWeight:700 }}>{m.awayTeam?.name || "TBD"}</div>
+              {ownerOf(a, ranked) && <div style={{ fontSize:10, color: C.accent }}>{ownerOf(a, ranked)}</div>}
+            </div>
+            <Flag code={a} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PlayerRow({ player, rank, expanded, onToggle }) {
+  const rankColors = ["#84cc16","#94a3b8","#b45309"];
+  const isTop = rank < 3;
+
+  return (
+    <div style={{
+      ...s.card,
+      border: `1px solid ${rank === 0 ? "#365314" : C.border}`,
+      background: rank === 0 ? "linear-gradient(135deg,#111f07,#0c1505)" : C.card,
+    }}>
+      <div onClick={onToggle} style={{ display:"flex", alignItems:"center", padding:"12px 14px", cursor:"pointer" }}>
+        {/* Rank badge */}
+        <div style={{
+          width:28, height:28, borderRadius:"50%", flexShrink:0, marginRight:12,
+          background: isTop ? rankColors[rank] : C.border,
+          display:"flex", alignItems:"center", justifyContent:"center",
+          fontSize:13, fontWeight:800, color: isTop ? "#080c18" : C.dim,
+        }}>{rank+1}</div>
+
+        {/* Name + flags */}
+        <div style={{ flex:1 }}>
+          <div style={{ fontWeight:700, fontSize:15, color: rank===0 ? "#84cc16" : C.text, marginBottom:5 }}>
+            {player.name}
+          </div>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
+            {player.teams.map(t => (
+              <div key={t.code} style={{ position:"relative" }}>
+                <img
+                  src={flag(t.code)} alt={t.name}
+                  title={`${t.name} (Pot ${t.pot})${t.stage ? " — "+STAGE_LABEL[t.stage] : ""}`}
+                  style={{
+                    height:16, borderRadius:2, display:"block",
+                    opacity: t.stage === "GROUP_ELIM" ? 0.25 : 1,
+                    outline: t.stage === "WINNER" ? "2px solid #f59e0b" : "none",
+                  }}
+                />
+                {t.stage === "GROUP_ELIM" &&
+                  <span style={{ position:"absolute", top:-3, right:-3, fontSize:8, color:C.red, lineHeight:1 }}>✕</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Points */}
+        <div style={{ textAlign:"right", marginRight:8 }}>
+          <div style={{ fontSize:26, fontWeight:800, color: player.total < 0 ? C.red : C.text, lineHeight:1 }}>
+            {player.total > 0 ? "+" : ""}{player.total}
+          </div>
+          <div style={{ fontSize:10, color: C.muted }}>pts</div>
+        </div>
+        <div style={{ color: C.muted, fontSize:11 }}>{expanded ? "▲" : "▼"}</div>
+      </div>
+
+      {/* Expanded team detail */}
+      {expanded && (
+        <div style={{ borderTop:`1px solid ${C.border}`, padding:"8px 14px 4px" }}>
+          {player.teams.map(t => (
+            <div key={t.code} style={{
+              display:"flex", alignItems:"center", padding:"7px 0",
+              borderBottom:`1px solid #0a1020`,
+              opacity: t.stage === "GROUP_ELIM" ? 0.45 : 1,
+            }}>
+              <Flag code={t.code} size={18} />
+              <div style={{ flex:1, marginLeft:10 }}>
+                <div style={{ fontSize:13, fontWeight:600 }}>{t.name}</div>
+                <div style={{ fontSize:11, color: C.muted }}>Pot {t.pot}</div>
+              </div>
+              <div style={{ textAlign:"right" }}>
+                {t.stage ? (
+                  <>
+                    <div style={{ fontSize:10, fontWeight:700, color: STAGE_COLOR[t.stage] }}>
+                      {STAGE_LABEL[t.stage]}
+                    </div>
+                    <div style={{ fontSize:13, fontWeight:700, color: t.pts < 0 ? C.red : C.dim }}>
+                      {t.pts > 0 ? "+" : ""}{t.pts}
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ fontSize:11, color: C.green }}>Still in ●</div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// APP
+// ─────────────────────────────────────────────────────────────────────────────
+function App() {
+  const [matches,     setMatches]     = useState([]);
+  const [loading,     setLoading]     = useState(true);
+  const [error,       setError]       = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [tab,         setTab]         = useState("table");
+  const [expanded,    setExpanded]    = useState(null);
+  const [refreshing,  setRefreshing]  = useState(false);
+
+  const fetchMatches = useCallback(async (isManual = false) => {
+    if (isManual) setRefreshing(true);
+    try {
+      const res  = await fetch(`${WORKER_URL}/competitions/${WC_CODE}/matches?season=${SEASON}`);
+      if (!res.ok) throw new Error(`API returned ${res.status}`);
+      const data = await res.json();
+      setMatches(data.matches || []);
+      setLastUpdated(new Date());
+      setError(null);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchMatches();
+    const id = setInterval(() => fetchMatches(), 60_000);
+    return () => clearInterval(id);
+  }, [fetchMatches]);
+
+  const ranked   = scorePlayers(matches);
+  const live     = matches.filter(m => m.status === "IN_PLAY" || m.status === "PAUSED");
+  const upcoming = matches.filter(m => m.status === "SCHEDULED" || m.status === "TIMED").slice(0, 10);
+  const recent   = matches.filter(m => m.status === "FINISHED").slice(-10).reverse();
+
+  return (
+    <div style={{ minHeight:"100vh", paddingBottom:40 }}>
+
+      {/* ── Header ── */}
+      <div style={{
+        background: "linear-gradient(180deg, #0d1526 0%, #080c18 100%)",
+        borderBottom: `1px solid ${C.border}`,
+        padding:"18px 16px 0",
+        position:"sticky", top:0, zIndex:10,
+      }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:14 }}>
+          <div>
+            <div style={{ fontSize:11, color: C.accent, fontWeight:700, letterSpacing:"0.15em", textTransform:"uppercase", marginBottom:3 }}>
+              FIFA World Cup 2026
+            </div>
+            <div style={{ fontSize:20, fontWeight:800, color: C.text }}>Sweepstake Tracker</div>
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4 }}>
+            {live.length > 0 && (
+              <div style={{
+                background: C.red, color:"white", fontSize:10, fontWeight:800,
+                padding:"3px 8px", borderRadius:4, letterSpacing:"0.12em",
+                animation:"pulse-red 1.5s infinite",
+              }}>⚡ LIVE</div>
+            )}
+            <button
+              onClick={() => fetchMatches(true)}
+              disabled={refreshing}
+              style={{
+                background:"transparent", border:`1px solid ${C.border}`,
+                color: C.dim, fontSize:11, padding:"4px 10px",
+                borderRadius:4, cursor:"pointer", display:"flex", alignItems:"center", gap:4,
+              }}
+            >
+              <span className={refreshing ? "spinning" : ""}>↻</span> Refresh
+            </button>
+            {lastUpdated && (
+              <div style={{ fontSize:10, color:"#334155" }}>
+                {lastUpdated.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div style={{ display:"flex", gap:4, paddingBottom:12 }}>
+          {[["table","Table"],["fixtures","Fixtures"],["results","Results"],["matrix","Points"]].map(([id,label]) => (
+            <TabBtn key={id} id={id} label={label} active={tab===id} onClick={setTab} />
+          ))}
+        </div>
+      </div>
+
+      {/* ── Body ── */}
+      <div style={{ padding:"12px 12px 0" }}>
+
+        {loading && (
+          <div style={{ textAlign:"center", padding:48, color: C.muted }}>
+            <div className="spinning" style={{ fontSize:24, marginBottom:12 }}>↻</div>
+            <div style={{ fontSize:13 }}>Loading live data…</div>
+          </div>
+        )}
+
+        {error && (
+          <div style={{
+            background:"#1a0a0a", border:`1px solid #7f1d1d`,
+            borderRadius:8, padding:"12px 14px", color:"#fca5a5",
+            fontSize:13, marginBottom:12,
+          }}>
+            ⚠️ {error}
+            <div style={{ fontSize:11, color: C.muted, marginTop:4 }}>
+              Check your Cloudflare Worker URL is set in WORKER_URL and the Worker is deployed.
+            </div>
+          </div>
+        )}
+
+        {/* ── LEAGUE TABLE ── */}
+        {tab === "table" && !loading && (
+          <>
+            {live.length > 0 && (
+              <div style={{
+                background:"#1a0808", border:`1px solid #7f1d1d`,
+                borderRadius:8, padding:"10px 14px", marginBottom:12,
+              }}>
+                <div style={{ fontSize:11, color:C.red, fontWeight:700, marginBottom:6, letterSpacing:"0.1em" }}>
+                  ⚡ LIVE NOW
+                </div>
+                {live.map(m => (
+                  <div key={m.id} style={{ display:"flex", justifyContent:"space-between", fontSize:13, padding:"3px 0" }}>
+                    <span>{m.homeTeam?.name} vs {m.awayTeam?.name}</span>
+                    <span style={{ color:C.red, fontWeight:700 }}>
+                      {m.score?.fullTime?.home??0}–{m.score?.fullTime?.away??0}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {ranked.map((player, i) => (
+              <PlayerRow
+                key={player.name}
+                player={player}
+                rank={i}
+                expanded={expanded === player.name}
+                onToggle={() => setExpanded(expanded === player.name ? null : player.name)}
+              />
+            ))}
+          </>
+        )}
+
+        {/* ── FIXTURES ── */}
+        {tab === "fixtures" && !loading && (
+          <>
+            <div style={s.label}>Next {upcoming.length} Matches</div>
+            {upcoming.length === 0
+              ? <div style={{ color:C.muted, textAlign:"center", padding:32, fontSize:14 }}>No upcoming fixtures</div>
+              : upcoming.map(m => <MatchCard key={m.id} m={m} ranked={ranked} />)
+            }
+          </>
+        )}
+
+        {/* ── RESULTS ── */}
+        {tab === "results" && !loading && (
+          <>
+            <div style={s.label}>Recent Results</div>
+            {recent.length === 0
+              ? <div style={{ color:C.muted, textAlign:"center", padding:32, fontSize:14 }}>No results yet</div>
+              : recent.map(m => <MatchCard key={m.id} m={m} ranked={ranked} />)
+            }
+          </>
+        )}
+
+        {/* ── POINTS MATRIX ── */}
+        {tab === "matrix" && (
+          <>
+            <div style={s.label}>Points by Stage & Pot</div>
+            <div style={{ ...s.card, overflowX:"auto" }}>
+              <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+                <thead>
+                  <tr style={{ borderBottom:`1px solid ${C.border}` }}>
+                    <th style={{ padding:"10px 12px", textAlign:"left", color:C.dim, fontWeight:700 }}>Stage</th>
+                    {["Pot 1","Pot 2","Pot 3","Pot 4"].map((p,i) => (
+                      <th key={p} style={{ padding:"10px 8px", textAlign:"center", fontWeight:700,
+                        color:["#f59e0b","#a78bfa","#60a5fa","#34d399"][i] }}>{p}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(PTS).map(([key, vals]) => (
+                    <tr key={key} style={{ borderBottom:`1px solid #0a1020` }}>
+                      <td style={{ padding:"9px 12px", color: STAGE_COLOR[key]||C.dim, fontWeight:600, fontSize:11 }}>
+                        {STAGE_LABEL[key]}
+                      </td>
+                      {vals.map((v,i) => (
+                        <td key={i} style={{ padding:"9px 8px", textAlign:"center", fontWeight:700,
+                          color: v < 0 ? C.red : v === 0 ? C.muted : C.text }}>
+                          {v > 0 ? `+${v}` : v}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div style={{ ...s.label, marginTop:20 }}>Team Assignments</div>
+            {PLAYERS.map(p => (
+              <div key={p.name} style={{ ...s.card, padding:"10px 12px" }}>
+                <div style={{ fontWeight:700, fontSize:13, marginBottom:8 }}>{p.name}</div>
+                <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+                  {p.codes.map((code, i) => (
+                    <div key={code} style={{
+                      display:"flex", alignItems:"center", gap:5,
+                      background:"#0a1020", borderRadius:4, padding:"3px 7px",
+                    }}>
+                      <Flag code={code} size={12} />
+                      <span style={{ fontSize:11, color:"#94a3b8" }}>{p.teams[i]}</span>
+                      <span style={{ fontSize:9, color:C.muted }}>P{POT[code]}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
