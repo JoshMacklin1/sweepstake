@@ -474,7 +474,7 @@ function App() {
   const upcoming = matches.filter(m => m.status === "SCHEDULED" || m.status === "TIMED").slice(0, 10);
   const recent   = matches.filter(m => m.status === "FINISHED").slice(-10).reverse();
 
-  : Creturn (
+  return (
     <div style={{ minHeight:"100vh", paddingBottom:40 }}>
       <div style={{
         background: "linear-gradient(180deg, #0d1526 0%, #080c18 100%)",
