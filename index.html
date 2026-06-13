@@ -35,7 +35,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // CONFIG — update WORKER_URL after you deploy your Cloudflare Worker
 // ─────────────────────────────────────────────────────────────────────────────
-const WORKER_URL = "https://football-proxy.joshmacklin7.workers.dev";
+const WORKER_URL = "https://YOUR_WORKER_NAME.YOUR_SUBDOMAIN.workers.dev";
 const WC_CODE = "WC";
 const SEASON = 2026;
 
@@ -167,21 +167,56 @@ function deriveStages(matches) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// W/D/L TALLY  — count match results for every team across all finished games
+// ─────────────────────────────────────────────────────────────────────────────
+function deriveWDL(matches) {
+  const record = {}; // code → { w, d, l }
+  const ensure = c => { if (c && !record[c]) record[c] = { w:0, d:0, l:0 }; };
+
+  matches.filter(m => m.status === "FINISHED").forEach(m => {
+    const h = m.homeTeam?.tla?.toUpperCase();
+    const a = m.awayTeam?.tla?.toUpperCase();
+    const hs = m.score?.fullTime?.home ?? 0;
+    const as_ = m.score?.fullTime?.away ?? 0;
+    ensure(h); ensure(a);
+    if (!h || !a) return;
+    if (hs > as_)      { record[h].w++; record[a].l++; }
+    else if (as_ > hs) { record[a].w++; record[h].l++; }
+    else               { record[h].d++; record[a].d++; }
+  });
+  return record;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // SCORE PLAYERS
 // ─────────────────────────────────────────────────────────────────────────────
 function scorePlayers(matches) {
   const { eliminated, winners } = deriveStages(matches);
+  const wdlByTeam = deriveWDL(matches);
+
   return PLAYERS.map(p => {
     let total = 0;
+    let w = 0, d = 0, l = 0;
+
     const teams = p.codes.map((code, i) => {
       let stage = null, p_pts = 0;
-      if (winners[code])         { stage = "WINNER";      p_pts = pts(code, "WINNER"); }
+      if (winners[code])         { stage = "WINNER";        p_pts = pts(code, "WINNER"); }
       else if (eliminated[code]) { stage = eliminated[code]; p_pts = pts(code, stage); }
       total += p_pts;
-      return { name: p.teams[i], code, pot: POT[code]||4, stage, pts: p_pts };
+
+      const teamRecord = wdlByTeam[code] || { w:0, d:0, l:0 };
+      w += teamRecord.w;
+      d += teamRecord.d;
+      l += teamRecord.l;
+
+      return { name: p.teams[i], code, pot: POT[code]||4, stage, pts: p_pts,
+               w: teamRecord.w, d: teamRecord.d, l: teamRecord.l };
     });
-    return { ...p, total, teams };
-  }).sort((a, b) => b.total - a.total);
+
+    // Tiebreaker: football points (3W + 1D)
+    const tiebreak = w * 3 + d;
+    return { ...p, total, teams, w, d, l, tiebreak };
+  }).sort((a, b) => b.total - a.total || b.tiebreak - a.tiebreak);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -346,6 +381,16 @@ function PlayerRow({ player, rank, expanded, onToggle }) {
           </div>
         </div>
 
+        {/* W/D/L */}
+        <div style={{ textAlign:"center", marginRight:10, minWidth:54 }}>
+          <div style={{ display:"flex", gap:3, justifyContent:"center" }}>
+            <span style={{ fontSize:11, fontWeight:700, color:"#22c55e" }}>{player.w}W</span>
+            <span style={{ fontSize:11, fontWeight:700, color:"#94a3b8" }}>{player.d}D</span>
+            <span style={{ fontSize:11, fontWeight:700, color:"#ef4444" }}>{player.l}L</span>
+          </div>
+          <div style={{ fontSize:9, color: C.muted, marginTop:2 }}>record</div>
+        </div>
+
         {/* Points */}
         <div style={{ textAlign:"right", marginRight:8 }}>
           <div style={{ fontSize:26, fontWeight:800, color: player.total < 0 ? C.red : C.text, lineHeight:1 }}>
@@ -382,6 +427,13 @@ function PlayerRow({ player, rank, expanded, onToggle }) {
                   </>
                 ) : (
                   <div style={{ fontSize:11, color: C.green }}>Still in ●</div>
+                )}
+                {(t.w + t.d + t.l) > 0 && (
+                  <div style={{ fontSize:10, color: C.muted, marginTop:2 }}>
+                    <span style={{ color:"#22c55e" }}>{t.w}W</span>{" "}
+                    <span style={{ color:"#94a3b8" }}>{t.d}D</span>{" "}
+                    <span style={{ color:"#ef4444" }}>{t.l}L</span>
+                  </div>
                 )}
               </div>
             </div>
@@ -433,195 +485,4 @@ function App() {
   const recent   = matches.filter(m => m.status === "FINISHED").slice(-10).reverse();
 
   return (
-    <div style={{ minHeight:"100vh", paddingBottom:40 }}>
-
-      {/* ── Header ── */}
-      <div style={{
-        background: "linear-gradient(180deg, #0d1526 0%, #080c18 100%)",
-        borderBottom: `1px solid ${C.border}`,
-        padding:"18px 16px 0",
-        position:"sticky", top:0, zIndex:10,
-      }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:14 }}>
-          <div>
-            <div style={{ fontSize:11, color: C.accent, fontWeight:700, letterSpacing:"0.15em", textTransform:"uppercase", marginBottom:3 }}>
-              FIFA World Cup 2026
-            </div>
-            <div style={{ fontSize:20, fontWeight:800, color: C.text }}>Sweepstake Tracker</div>
-          </div>
-          <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4 }}>
-            {live.length > 0 && (
-              <div style={{
-                background: C.red, color:"white", fontSize:10, fontWeight:800,
-                padding:"3px 8px", borderRadius:4, letterSpacing:"0.12em",
-                animation:"pulse-red 1.5s infinite",
-              }}>⚡ LIVE</div>
-            )}
-            <button
-              onClick={() => fetchMatches(true)}
-              disabled={refreshing}
-              style={{
-                background:"transparent", border:`1px solid ${C.border}`,
-                color: C.dim, fontSize:11, padding:"4px 10px",
-                borderRadius:4, cursor:"pointer", display:"flex", alignItems:"center", gap:4,
-              }}
-            >
-              <span className={refreshing ? "spinning" : ""}>↻</span> Refresh
-            </button>
-            {lastUpdated && (
-              <div style={{ fontSize:10, color:"#334155" }}>
-                {lastUpdated.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <div style={{ display:"flex", gap:4, paddingBottom:12 }}>
-          {[["table","Table"],["fixtures","Fixtures"],["results","Results"],["matrix","Points"]].map(([id,label]) => (
-            <TabBtn key={id} id={id} label={label} active={tab===id} onClick={setTab} />
-          ))}
-        </div>
-      </div>
-
-      {/* ── Body ── */}
-      <div style={{ padding:"12px 12px 0" }}>
-
-        {loading && (
-          <div style={{ textAlign:"center", padding:48, color: C.muted }}>
-            <div className="spinning" style={{ fontSize:24, marginBottom:12 }}>↻</div>
-            <div style={{ fontSize:13 }}>Loading live data…</div>
-          </div>
-        )}
-
-        {error && (
-          <div style={{
-            background:"#1a0a0a", border:`1px solid #7f1d1d`,
-            borderRadius:8, padding:"12px 14px", color:"#fca5a5",
-            fontSize:13, marginBottom:12,
-          }}>
-            ⚠️ {error}
-            <div style={{ fontSize:11, color: C.muted, marginTop:4 }}>
-              Check your Cloudflare Worker URL is set in WORKER_URL and the Worker is deployed.
-            </div>
-          </div>
-        )}
-
-        {/* ── LEAGUE TABLE ── */}
-        {tab === "table" && !loading && (
-          <>
-            {live.length > 0 && (
-              <div style={{
-                background:"#1a0808", border:`1px solid #7f1d1d`,
-                borderRadius:8, padding:"10px 14px", marginBottom:12,
-              }}>
-                <div style={{ fontSize:11, color:C.red, fontWeight:700, marginBottom:6, letterSpacing:"0.1em" }}>
-                  ⚡ LIVE NOW
-                </div>
-                {live.map(m => (
-                  <div key={m.id} style={{ display:"flex", justifyContent:"space-between", fontSize:13, padding:"3px 0" }}>
-                    <span>{m.homeTeam?.name} vs {m.awayTeam?.name}</span>
-                    <span style={{ color:C.red, fontWeight:700 }}>
-                      {m.score?.fullTime?.home??0}–{m.score?.fullTime?.away??0}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {ranked.map((player, i) => (
-              <PlayerRow
-                key={player.name}
-                player={player}
-                rank={i}
-                expanded={expanded === player.name}
-                onToggle={() => setExpanded(expanded === player.name ? null : player.name)}
-              />
-            ))}
-          </>
-        )}
-
-        {/* ── FIXTURES ── */}
-        {tab === "fixtures" && !loading && (
-          <>
-            <div style={s.label}>Next {upcoming.length} Matches</div>
-            {upcoming.length === 0
-              ? <div style={{ color:C.muted, textAlign:"center", padding:32, fontSize:14 }}>No upcoming fixtures</div>
-              : upcoming.map(m => <MatchCard key={m.id} m={m} ranked={ranked} />)
-            }
-          </>
-        )}
-
-        {/* ── RESULTS ── */}
-        {tab === "results" && !loading && (
-          <>
-            <div style={s.label}>Recent Results</div>
-            {recent.length === 0
-              ? <div style={{ color:C.muted, textAlign:"center", padding:32, fontSize:14 }}>No results yet</div>
-              : recent.map(m => <MatchCard key={m.id} m={m} ranked={ranked} />)
-            }
-          </>
-        )}
-
-        {/* ── POINTS MATRIX ── */}
-        {tab === "matrix" && (
-          <>
-            <div style={s.label}>Points by Stage & Pot</div>
-            <div style={{ ...s.card, overflowX:"auto" }}>
-              <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
-                <thead>
-                  <tr style={{ borderBottom:`1px solid ${C.border}` }}>
-                    <th style={{ padding:"10px 12px", textAlign:"left", color:C.dim, fontWeight:700 }}>Stage</th>
-                    {["Pot 1","Pot 2","Pot 3","Pot 4"].map((p,i) => (
-                      <th key={p} style={{ padding:"10px 8px", textAlign:"center", fontWeight:700,
-                        color:["#f59e0b","#a78bfa","#60a5fa","#34d399"][i] }}>{p}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {Object.entries(PTS).map(([key, vals]) => (
-                    <tr key={key} style={{ borderBottom:`1px solid #0a1020` }}>
-                      <td style={{ padding:"9px 12px", color: STAGE_COLOR[key]||C.dim, fontWeight:600, fontSize:11 }}>
-                        {STAGE_LABEL[key]}
-                      </td>
-                      {vals.map((v,i) => (
-                        <td key={i} style={{ padding:"9px 8px", textAlign:"center", fontWeight:700,
-                          color: v < 0 ? C.red : v === 0 ? C.muted : C.text }}>
-                          {v > 0 ? `+${v}` : v}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div style={{ ...s.label, marginTop:20 }}>Team Assignments</div>
-            {PLAYERS.map(p => (
-              <div key={p.name} style={{ ...s.card, padding:"10px 12px" }}>
-                <div style={{ fontWeight:700, fontSize:13, marginBottom:8 }}>{p.name}</div>
-                <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
-                  {p.codes.map((code, i) => (
-                    <div key={code} style={{
-                      display:"flex", alignItems:"center", gap:5,
-                      background:"#0a1020", borderRadius:4, padding:"3px 7px",
-                    }}>
-                      <Flag code={code} size={12} />
-                      <span style={{ fontSize:11, color:"#94a3b8" }}>{p.teams[i]}</span>
-                      <span style={{ fontSize:9, color:C.muted }}>P{POT[code]}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-ReactDOM.createRoot(document.getElementById("root")).render(<App />);
-</script>
-</body>
-</html>
+  
