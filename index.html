@@ -39,6 +39,68 @@ const WORKER_URL = "https://football-proxy.joshmacklin7.workers.dev";
 const WC_CODE = "WC";
 const SEASON = 2026;
 
+// DEV_MODE is now controlled via UI toggle — default off
+const DEV_MODE_DEFAULT = false;
+
+const MOCK_MATCHES = [
+  // Finished group games — mix of results to give players W/D/L
+  { id:1, status:"FINISHED", stage:"GROUP_STAGE", utcDate:"2026-06-11T19:00:00Z",
+    homeTeam:{name:"Mexico",tla:"MEX"}, awayTeam:{name:"South Africa",tla:"RSA"},
+    score:{fullTime:{home:2,away:1}, penalties:null} },
+  { id:2, status:"FINISHED", stage:"GROUP_STAGE", utcDate:"2026-06-12T19:00:00Z",
+    homeTeam:{name:"Canada",tla:"CAN"}, awayTeam:{name:"Bosnia-Herzegovina",tla:"BIH"},
+    score:{fullTime:{home:1,away:1}, penalties:null} },
+  { id:3, status:"FINISHED", stage:"GROUP_STAGE", utcDate:"2026-06-13T22:00:00Z",
+    homeTeam:{name:"Brazil",tla:"BRA"}, awayTeam:{name:"Morocco",tla:"MAR"},
+    score:{fullTime:{home:1,away:1}, penalties:null} },
+  { id:4, status:"FINISHED", stage:"GROUP_STAGE", utcDate:"2026-06-13T01:00:00Z",
+    homeTeam:{name:"USA",tla:"USA"}, awayTeam:{name:"Paraguay",tla:"PAR"},
+    score:{fullTime:{home:3,away:0}, penalties:null} },
+  { id:5, status:"FINISHED", stage:"GROUP_STAGE", utcDate:"2026-06-14T04:00:00Z",
+    homeTeam:{name:"Australia",tla:"AUS"}, awayTeam:{name:"Turkey",tla:"TUR"},
+    score:{fullTime:{home:0,away:2}, penalties:null} },
+  { id:6, status:"FINISHED", stage:"GROUP_STAGE", utcDate:"2026-06-14T01:00:00Z",
+    homeTeam:{name:"Haiti",tla:"HAI"}, awayTeam:{name:"Scotland",tla:"SCO"},
+    score:{fullTime:{home:0,away:1}, penalties:null} },
+  { id:7, status:"FINISHED", stage:"GROUP_STAGE", utcDate:"2026-06-15T19:00:00Z",
+    homeTeam:{name:"France",tla:"FRA"}, awayTeam:{name:"Senegal",tla:"SEN"},
+    score:{fullTime:{home:2,away:0}, penalties:null} },
+  { id:8, status:"FINISHED", stage:"GROUP_STAGE", utcDate:"2026-06-16T19:00:00Z",
+    homeTeam:{name:"England",tla:"ENG"}, awayTeam:{name:"Croatia",tla:"CRO"},
+    score:{fullTime:{home:2,away:1}, penalties:null} },
+  { id:9, status:"FINISHED", stage:"GROUP_STAGE", utcDate:"2026-06-17T19:00:00Z",
+    homeTeam:{name:"Argentina",tla:"ARG"}, awayTeam:{name:"Algeria",tla:"ALG"},
+    score:{fullTime:{home:3,away:0}, penalties:null} },
+  { id:10, status:"FINISHED", stage:"GROUP_STAGE", utcDate:"2026-06-17T17:00:00Z",
+    homeTeam:{name:"Portugal",tla:"POR"}, awayTeam:{name:"DR Congo",tla:"DRC"},
+    score:{fullTime:{home:4,away:0}, penalties:null} },
+  { id:11, status:"FINISHED", stage:"GROUP_STAGE", utcDate:"2026-06-18T19:00:00Z",
+    homeTeam:{name:"Germany",tla:"GER"}, awayTeam:{name:"Curaçao",tla:"CUW"},
+    score:{fullTime:{home:5,away:0}, penalties:null} },
+  { id:12, status:"FINISHED", stage:"GROUP_STAGE", utcDate:"2026-06-19T22:00:00Z",
+    homeTeam:{name:"Scotland",tla:"SCO"}, awayTeam:{name:"Morocco",tla:"MAR"},
+    score:{fullTime:{home:1,away:2}, penalties:null} },
+  // Knockout — Spain eliminated in Last 16 (points for Paul)
+  { id:20, status:"FINISHED", stage:"LAST_16", utcDate:"2026-07-01T19:00:00Z",
+    homeTeam:{name:"Spain",tla:"ESP"}, awayTeam:{name:"Netherlands",tla:"NED"},
+    score:{fullTime:{home:1,away:2}, penalties:null} },
+  // Semi — France eliminated (points for Christoph)
+  { id:21, status:"FINISHED", stage:"SEMI_FINALS", utcDate:"2026-07-10T19:00:00Z",
+    homeTeam:{name:"Argentina",tla:"ARG"}, awayTeam:{name:"France",tla:"FRA"},
+    score:{fullTime:{home:2,away:1}, penalties:null} },
+  // Live game right now — Elliott (England) vs Dollie (Ivory Coast)
+  { id:99, status:"IN_PLAY", stage:"GROUP_STAGE", utcDate:"2026-06-14T18:00:00Z",
+    homeTeam:{name:"England",tla:"ENG"}, awayTeam:{name:"Ivory Coast",tla:"CIV"},
+    score:{fullTime:{home:1,away:0}, penalties:null} },
+  // Upcoming
+  { id:100, status:"SCHEDULED", stage:"GROUP_STAGE", utcDate:"2026-06-21T19:00:00Z",
+    homeTeam:{name:"Brazil",tla:"BRA"}, awayTeam:{name:"Haiti",tla:"HAI"},
+    score:{fullTime:{home:null,away:null}, penalties:null} },
+  { id:101, status:"SCHEDULED", stage:"GROUP_STAGE", utcDate:"2026-06-22T19:00:00Z",
+    homeTeam:{name:"Germany",tla:"GER"}, awayTeam:{name:"Ivory Coast",tla:"CIV"},
+    score:{fullTime:{home:null,away:null}, penalties:null} },
+];
+
 // ─────────────────────────────────────────────────────────────────────────────
 // PLAYER → TEAM ASSIGNMENTS
 // ─────────────────────────────────────────────────────────────────────────────
@@ -213,15 +275,79 @@ function scorePlayers(matches) {
                w: teamRecord.w, d: teamRecord.d, l: teamRecord.l };
     });
 
-    // Tiebreaker: football points (3W + 1D)
-    const tiebreak = w * 3 + d;
+    // Tiebreaker: football points (3W + 1D - L penalises losses)
+    const tiebreak = w * 3 + d - l;
     return { ...p, total, teams, w, d, l, tiebreak };
   }).sort((a, b) => b.total - a.total || b.tiebreak - a.tiebreak);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// HELPERS
+// UK BROADCASTER LOOKUP  key: "HOME_TLA-AWAY_TLA" → {broadcaster, url}
+// Group stage sourced from Sports Mole / BBC / ITV confirmed schedule
+// Knockout stage TBC — defaults to BBC for now, update as announced
 // ─────────────────────────────────────────────────────────────────────────────
+const BROADCAST = {
+  // Group stage
+  "MEX-RSA": {b:"ITV", url:"https://www.itv.com/"},
+  "KOR-CZE": {b:"ITV", url:"https://www.itv.com/"},
+  "CAN-BIH": {b:"BBC", url:"https://www.bbc.co.uk/iplayer"},
+  "USA-PAR": {b:"BBC", url:"https://www.bbc.co.uk/iplayer"},
+  "QAT-SUI": {b:"ITV", url:"https://www.itv.com/"},
+  "BRA-MAR": {b:"BBC", url:"https://www.bbc.co.uk/iplayer"},
+  "HAI-SCO": {b:"BBC", url:"https://www.bbc.co.uk/iplayer"},
+  "AUS-TUR": {b:"ITV", url:"https://www.itv.com/"},
+  "GER-CUW": {b:"ITV", url:"https://www.itv.com/"},
+  "NED-JPN": {b:"ITV", url:"https://www.itv.com/"},
+  "CIV-ECU": {b:"BBC", url:"https://www.bbc.co.uk/iplayer"},
+  "SWE-TUN": {b:"ITV", url:"https://www.itv.com/"},
+  "ESP-CPV": {b:"ITV", url:"https://www.itv.com/"},
+  "BEL-EGY": {b:"BBC", url:"https://www.bbc.co.uk/iplayer"},
+  "KSA-URU": {b:"ITV", url:"https://www.itv.com/"},
+  "IRN-NZL": {b:"BBC", url:"https://www.bbc.co.uk/iplayer"},
+  "FRA-SEN": {b:"BBC", url:"https://www.bbc.co.uk/iplayer"},
+  "IRQ-NOR": {b:"BBC", url:"https://www.bbc.co.uk/iplayer"},
+  "ARG-ALG": {b:"ITV", url:"https://www.itv.com/"},
+  "AUT-JOR": {b:"BBC", url:"https://www.bbc.co.uk/iplayer"},
+  "POR-DRC": {b:"BBC", url:"https://www.bbc.co.uk/iplayer"},
+  "ENG-CRO": {b:"ITV", url:"https://www.itv.com/"},
+  "GHA-PAN": {b:"ITV", url:"https://www.itv.com/"},
+  "UZB-COL": {b:"BBC", url:"https://www.bbc.co.uk/iplayer"},
+  "CZE-RSA": {b:"BBC", url:"https://www.bbc.co.uk/iplayer"},
+  "SUI-BIH": {b:"ITV", url:"https://www.itv.com/"},
+  "CAN-QAT": {b:"ITV", url:"https://www.itv.com/"},
+  "MEX-KOR": {b:"BBC", url:"https://www.bbc.co.uk/iplayer"},
+  "USA-AUS": {b:"BBC", url:"https://www.bbc.co.uk/iplayer"},
+  "SCO-MAR": {b:"ITV", url:"https://www.itv.com/"},
+  "BRA-HAI": {b:"ITV", url:"https://www.itv.com/"},
+  "TUR-PAR": {b:"ITV", url:"https://www.itv.com/"},
+  "NED-SWE": {b:"BBC", url:"https://www.bbc.co.uk/iplayer"},
+  "GER-CIV": {b:"ITV", url:"https://www.itv.com/"},
+  "ECU-CUW": {b:"BBC", url:"https://www.bbc.co.uk/iplayer"},
+  "TUN-JPN": {b:"BBC", url:"https://www.bbc.co.uk/iplayer"},
+  "ESP-KSA": {b:"BBC", url:"https://www.bbc.co.uk/iplayer"},
+  "BEL-IRN": {b:"ITV", url:"https://www.itv.com/"},
+  "URU-CPV": {b:"BBC", url:"https://www.bbc.co.uk/iplayer"},
+  "NZL-EGY": {b:"ITV", url:"https://www.itv.com/"},
+  "ARG-AUT": {b:"BBC", url:"https://www.bbc.co.uk/iplayer"},
+  "FRA-IRQ": {b:"BBC", url:"https://www.bbc.co.uk/iplayer"},
+  "NOR-SEN": {b:"ITV", url:"https://www.itv.com/"},
+  "JOR-ALG": {b:"ITV", url:"https://www.itv.com/"},
+  "POR-UZB": {b:"ITV", url:"https://www.itv.com/"},
+  "ENG-GHA": {b:"BBC", url:"https://www.bbc.co.uk/iplayer"},
+  "PAN-CRO": {b:"BBC", url:"https://www.bbc.co.uk/iplayer"},
+  "COL-DRC": {b:"ITV", url:"https://www.itv.com/"},
+  "BIH-QAT": {b:"ITV", url:"https://www.itv.com/"},
+  "SUI-CAN": {b:"ITV", url:"https://www.itv.com/"},
+  "MAR-HAI": {b:"BBC", url:"https://www.bbc.co.uk/iplayer"},
+  "SCO-BRA": {b:"BBC", url:"https://www.bbc.co.uk/iplayer"},
+  // Knockout stage TBC — will default to BBC
+};
+
+const getBroadcast = (homeTla, awayTla) => {
+  const key = `${homeTla}-${awayTla}`;
+  const alt = `${awayTla}-${homeTla}`;
+  return BROADCAST[key] || BROADCAST[alt] || {b:"BBC", url:"https://www.bbc.co.uk/iplayer"};
+};
 const fmt = (str) => {
   if (!str) return "";
   const d = new Date(str);
@@ -295,6 +421,8 @@ function MatchCard({ m, ranked }) {
   const a = m.awayTeam?.tla?.toUpperCase();
   const fin = m.status === "FINISHED";
   const live = m.status === "IN_PLAY" || m.status === "PAUSED";
+  const scheduled = m.status === "SCHEDULED" || m.status === "TIMED";
+  const broadcast = getBroadcast(h, a);
 
   return (
     <div style={s.card}>
@@ -309,10 +437,10 @@ function MatchCard({ m, ranked }) {
         <div style={{ display:"flex", alignItems:"center" }}>
           {/* Home */}
           <div style={{ flex:1, display:"flex", alignItems:"center", gap:8 }}>
-            <Flag code={h} />
+            <Flag code={h} size={20} />
             <div>
-              <div style={{ fontSize:13, fontWeight:700 }}>{m.homeTeam?.name || "TBD"}</div>
-              {ownerOf(h, ranked) && <div style={{ fontSize:10, color: C.accent }}>{ownerOf(h, ranked)}</div>}
+              <div style={{ fontSize:13, fontWeight:700, color: C.text }}>{ownerOf(h, ranked) || ""}</div>
+              <div style={{ fontSize:11, color: C.muted }}>{m.homeTeam?.name || "TBD"}</div>
             </div>
           </div>
           {/* Score / VS */}
@@ -321,16 +449,19 @@ function MatchCard({ m, ranked }) {
               ? <span style={{ fontSize:18, fontWeight:800, letterSpacing:2 }}>
                   {m.score?.fullTime?.home ?? 0}–{m.score?.fullTime?.away ?? 0}
                 </span>
-              : <span style={{ fontSize:12, color: C.muted }}>vs</span>
+              : <div>
+                  <div style={{ fontSize:12, color: C.muted, marginBottom:4 }}>vs</div>
+                  <div style={{ fontSize:9, color: C.dim, fontWeight:600 }}>{broadcast.b}</div>
+                </div>
             }
           </div>
           {/* Away */}
           <div style={{ flex:1, display:"flex", alignItems:"center", gap:8, justifyContent:"flex-end" }}>
             <div style={{ textAlign:"right" }}>
-              <div style={{ fontSize:13, fontWeight:700 }}>{m.awayTeam?.name || "TBD"}</div>
-              {ownerOf(a, ranked) && <div style={{ fontSize:10, color: C.accent }}>{ownerOf(a, ranked)}</div>}
+              <div style={{ fontSize:13, fontWeight:700, color: C.text }}>{ownerOf(a, ranked) || ""}</div>
+              <div style={{ fontSize:11, color: C.muted }}>{m.awayTeam?.name || "TBD"}</div>
             </div>
-            <Flag code={a} />
+            <Flag code={a} size={20} />
           </div>
         </div>
       </div>
@@ -338,41 +469,35 @@ function MatchCard({ m, ranked }) {
   );
 }
 
-function PlayerRow({ player, rank, expanded, onToggle }) {
+function PlayerRow({ player, rank, displayRank, expanded, onToggle }) {
   const rankColors = ["#84cc16","#94a3b8","#b45309"];
-  const isTop = rank < 3;
+  const isTop = displayRank <= 3;
 
   return (
     <div style={{
       ...s.card,
-      border: `1px solid ${rank === 0 ? "#365314" : C.border}`,
-      background: rank === 0 ? "linear-gradient(135deg,#111f07,#0c1505)" : C.card,
+      border: `1px solid ${displayRank === 1 ? "#365314" : C.border}`,
+      background: displayRank === 1 ? "linear-gradient(135deg,#111f07,#0c1505)" : C.card,
     }}>
       <div onClick={onToggle} style={{ display:"flex", alignItems:"center", padding:"12px 14px", cursor:"pointer" }}>
-        {/* Rank badge */}
         <div style={{
           width:28, height:28, borderRadius:"50%", flexShrink:0, marginRight:12,
-          background: isTop ? rankColors[rank] : C.border,
+          background: isTop ? rankColors[displayRank-1] : C.border,
           display:"flex", alignItems:"center", justifyContent:"center",
           fontSize:13, fontWeight:800, color: isTop ? "#080c18" : C.dim,
-        }}>{rank+1}</div>
-
-        {/* Name + flags */}
+        }}>{displayRank}</div>
         <div style={{ flex:1 }}>
-          <div style={{ fontWeight:700, fontSize:15, color: rank===0 ? "#84cc16" : C.text, marginBottom:5 }}>
+          <div style={{ fontWeight:700, fontSize:15, color: displayRank===1 ? "#84cc16" : C.text, marginBottom:5 }}>
             {player.name}
           </div>
           <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
             {player.teams.map(t => (
               <div key={t.code} style={{ position:"relative" }}>
-                <img
-                  src={flag(t.code)} alt={t.name}
+                <img src={flag(t.code)} alt={t.name}
                   title={`${t.name} (Pot ${t.pot})${t.stage ? " — "+STAGE_LABEL[t.stage] : ""}`}
-                  style={{
-                    height:16, borderRadius:2, display:"block",
+                  style={{ height:16, borderRadius:2, display:"block",
                     opacity: t.stage === "GROUP_ELIM" ? 0.25 : 1,
-                    outline: t.stage === "WINNER" ? "2px solid #f59e0b" : "none",
-                  }}
+                    outline: t.stage === "WINNER" ? "2px solid #f59e0b" : "none" }}
                 />
                 {t.stage === "GROUP_ELIM" &&
                   <span style={{ position:"absolute", top:-3, right:-3, fontSize:8, color:C.red, lineHeight:1 }}>✕</span>}
@@ -380,8 +505,6 @@ function PlayerRow({ player, rank, expanded, onToggle }) {
             ))}
           </div>
         </div>
-
-        {/* Points */}
         <div style={{ textAlign:"right", marginRight:8 }}>
           <div style={{ fontSize:26, fontWeight:800, color: player.total < 0 ? C.red : C.text, lineHeight:1 }}>
             {player.total > 0 ? "+" : ""}{player.total}
@@ -390,16 +513,11 @@ function PlayerRow({ player, rank, expanded, onToggle }) {
         </div>
         <div style={{ color: C.muted, fontSize:11 }}>{expanded ? "▲" : "▼"}</div>
       </div>
-
-      {/* Expanded team detail */}
       {expanded && (
         <div style={{ borderTop:`1px solid ${C.border}`, padding:"8px 14px 4px" }}>
           {player.teams.map(t => (
-            <div key={t.code} style={{
-              display:"flex", alignItems:"center", padding:"7px 0",
-              borderBottom:`1px solid #0a1020`,
-              opacity: t.stage === "GROUP_ELIM" ? 0.45 : 1,
-            }}>
+            <div key={t.code} style={{ display:"flex", alignItems:"center", padding:"7px 0",
+              borderBottom:`1px solid #0a1020`, opacity: t.stage === "GROUP_ELIM" ? 0.45 : 1 }}>
               <Flag code={t.code} size={18} />
               <div style={{ flex:1, marginLeft:10 }}>
                 <div style={{ fontSize:13, fontWeight:600 }}>{t.name}</div>
@@ -408,9 +526,7 @@ function PlayerRow({ player, rank, expanded, onToggle }) {
               <div style={{ textAlign:"right" }}>
                 {t.stage ? (
                   <>
-                    <div style={{ fontSize:10, fontWeight:700, color: STAGE_COLOR[t.stage] }}>
-                      {STAGE_LABEL[t.stage]}
-                    </div>
+                    <div style={{ fontSize:10, fontWeight:700, color: STAGE_COLOR[t.stage] }}>{STAGE_LABEL[t.stage]}</div>
                     <div style={{ fontSize:13, fontWeight:700, color: t.pts < 0 ? C.red : C.dim }}>
                       {t.pts > 0 ? "+" : ""}{t.pts}
                     </div>
@@ -434,9 +550,6 @@ function PlayerRow({ player, rank, expanded, onToggle }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// APP
-// ─────────────────────────────────────────────────────────────────────────────
 function App() {
   const [matches,     setMatches]     = useState([]);
   const [loading,     setLoading]     = useState(true);
@@ -445,9 +558,18 @@ function App() {
   const [tab,         setTab]         = useState("table");
   const [expanded,    setExpanded]    = useState(null);
   const [refreshing,  setRefreshing]  = useState(false);
+  const [devMode,     setDevMode]     = useState(DEV_MODE_DEFAULT);
 
-  const fetchMatches = useCallback(async (isManual = false) => {
+  const fetchMatches = useCallback(async (isManual = false, forceDev = null) => {
     if (isManual) setRefreshing(true);
+    const useDev = forceDev !== null ? forceDev : devMode;
+    if (useDev) {
+      setMatches(MOCK_MATCHES);
+      setLastUpdated(new Date());
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
     try {
       const res  = await fetch(`${WORKER_URL}/competitions/${WC_CODE}/matches?season=${SEASON}`);
       if (!res.ok) throw new Error(`API returned ${res.status}`);
@@ -491,16 +613,14 @@ function App() {
           </div>
           <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4 }}>
             {live.length > 0 && (
-              <div style={{
-                background: C.red, color:"white", fontSize:10, fontWeight:800,
+              <div style={{ background: C.red, color:"white", fontSize:10, fontWeight:800,
                 padding:"3px 8px", borderRadius:4, letterSpacing:"0.12em",
-                animation:"pulse-red 1.5s infinite",
-              }}>⚡ LIVE</div>
+                animation:"pulse-red 1.5s infinite" }}>⚡ LIVE</div>
             )}
             <button onClick={() => fetchMatches(true)} disabled={refreshing} style={{
-                background:"transparent", border:`1px solid ${C.border}`,
-                color: C.dim, fontSize:11, padding:"4px 10px",
-                borderRadius:4, cursor:"pointer", display:"flex", alignItems:"center", gap:4,
+              background:"transparent", border:`1px solid ${C.border}`,
+              color: C.dim, fontSize:11, padding:"4px 10px",
+              borderRadius:4, cursor:"pointer", display:"flex", alignItems:"center", gap:4,
             }}>
               <span className={refreshing ? "spinning" : ""}>↻</span> Refresh
             </button>
@@ -509,6 +629,12 @@ function App() {
                 {lastUpdated.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}
               </div>
             )}
+            <span onClick={() => { const next = !devMode; setDevMode(next); setLoading(true); fetchMatches(false, next); }}
+              title={devMode ? "Dev mode ON — tap to go live" : "Tap for dev mode"}
+              style={{ fontSize:9, color: devMode ? "#f59e0b" : "#1e293b", cursor:"pointer", userSelect:"none",
+                border: `1px solid ${devMode ? "#f59e0b" : "#1e293b"}`,
+                borderRadius:3, padding:"1px 4px", letterSpacing:"0.05em", alignSelf:"flex-end" }}
+            >{devMode ? "DEV" : "···"}</span>
           </div>
         </div>
         <div style={{ display:"flex", gap:4, paddingBottom:12 }}>
@@ -517,6 +643,7 @@ function App() {
           ))}
         </div>
       </div>
+
       <div style={{ padding:"12px 12px 0" }}>
         {loading && (
           <div style={{ textAlign:"center", padding:48, color: C.muted }}>
@@ -525,47 +652,73 @@ function App() {
           </div>
         )}
         {error && (
-          <div style={{ background:"#1a0a0a", border:`1px solid #7f1d1d`, borderRadius:8, padding:"12px 14px", color:"#fca5a5", fontSize:13, marginBottom:12 }}>
+          <div style={{ background:"#1a0a0a", border:`1px solid #7f1d1d`, borderRadius:8,
+            padding:"12px 14px", color:"#fca5a5", fontSize:13, marginBottom:12 }}>
             ⚠️ {error}
-            <div style={{ fontSize:11, color: C.muted, marginTop:4 }}>Check your Cloudflare Worker URL is set in WORKER_URL and the Worker is deployed.</div>
+            <div style={{ fontSize:11, color: C.muted, marginTop:4 }}>
+              Check your Cloudflare Worker URL is set in WORKER_URL and the Worker is deployed.
+            </div>
           </div>
         )}
         {tab === "table" && !loading && (
           <>
             {live.length > 0 && (
-              <div style={{ background:"#1a0808", border:`1px solid #7f1d1d`, borderRadius:8, padding:"10px 14px", marginBottom:12 }}>
+              <div style={{ background:"#1a0808", border:`1px solid #7f1d1d`,
+                borderRadius:8, padding:"10px 14px", marginBottom:12 }}>
                 <div style={{ fontSize:11, color:C.red, fontWeight:700, marginBottom:6, letterSpacing:"0.1em" }}>⚡ LIVE NOW</div>
                 {live.map(m => {
                   const h = m.homeTeam?.tla?.toUpperCase();
                   const a = m.awayTeam?.tla?.toUpperCase();
                   const hOwner = ownerOf(h, ranked);
                   const aOwner = ownerOf(a, ranked);
+                  const broadcast = getBroadcast(h, a);
                   return (
-                  <div key={m.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"4px 0" }}>
-                    <div>
-                      <div style={{ fontSize:13 }}>{m.homeTeam?.name} vs {m.awayTeam?.name}</div>
-                      {(hOwner || aOwner) && (
-                        <div style={{ fontSize:10, color:"#f87171", marginTop:2 }}>
-                          {hOwner && <span>⚑ {hOwner} ({m.homeTeam?.name})</span>}
-                          {hOwner && aOwner && <span style={{ color:"#475569" }}> · </span>}
-                          {aOwner && <span>⚑ {aOwner} ({m.awayTeam?.name})</span>}
+                  <div key={m.id} style={{ padding:"6px 0" }}>
+                    <div style={{ display:"flex", alignItems:"center" }}>
+                      <div style={{ flex:1, display:"flex", alignItems:"center", gap:8 }}>
+                        <Flag code={h} size={20} />
+                        <div>
+                          <div style={{ fontSize:13, fontWeight:700, color: C.text }}>{hOwner || m.homeTeam?.name}</div>
+                          <div style={{ fontSize:11, color: C.muted }}>{m.homeTeam?.name}</div>
                         </div>
-                      )}
+                      </div>
+                      <div style={{ textAlign:"center", padding:"0 8px" }}>
+                        <div style={{ fontSize:18, fontWeight:800, color:C.red, letterSpacing:2 }}>
+                          {m.score?.fullTime?.home??0}–{m.score?.fullTime?.away??0}
+                        </div>
+                        <a href={broadcast.url} target="_blank" rel="noopener noreferrer" style={{
+                          background: broadcast.b === "ITV" ? "#003087" : "#FF6B35",
+                          color:"white", fontSize:9, fontWeight:800,
+                          padding:"2px 6px", borderRadius:3, textDecoration:"none",
+                          whiteSpace:"nowrap", marginTop:3, display:"inline-block",
+                        }}>▶ {broadcast.b}</a>
+                      </div>
+                      <div style={{ flex:1, display:"flex", alignItems:"center", gap:8, justifyContent:"flex-end" }}>
+                        <div style={{ textAlign:"right" }}>
+                          <div style={{ fontSize:13, fontWeight:700, color: C.text }}>{aOwner || m.awayTeam?.name}</div>
+                          <div style={{ fontSize:11, color: C.muted }}>{m.awayTeam?.name}</div>
+                        </div>
+                        <Flag code={a} size={20} />
+                      </div>
                     </div>
-                    <span style={{ color:C.red, fontWeight:700, fontSize:16, marginLeft:12 }}>
-                      {m.score?.fullTime?.home??0}–{m.score?.fullTime?.away??0}
-                    </span>
                   </div>
                   );
                 })}
               </div>
             )}
-            {ranked.map((player, i) => (
-              <PlayerRow key={player.name} player={player} rank={i}
+            {ranked.map((player, i) => {
+              const prev = ranked[i - 1];
+              const displayRank = i === 0 ? 1
+                : (player.total === prev.total && player.tiebreak === prev.tiebreak)
+                  ? ranked[i-1]._displayRank : i + 1;
+              player._displayRank = displayRank;
+              return (
+              <PlayerRow key={player.name} player={player} rank={i} displayRank={displayRank}
                 expanded={expanded === player.name}
                 onToggle={() => setExpanded(expanded === player.name ? null : player.name)}
               />
-            ))}
+              );
+            })}
           </>
         )}
         {tab === "fixtures" && !loading && (
@@ -595,16 +748,20 @@ function App() {
                   <tr style={{ borderBottom:`1px solid ${C.border}` }}>
                     <th style={{ padding:"10px 12px", textAlign:"left", color:C.dim, fontWeight:700 }}>Stage</th>
                     {["Pot 1","Pot 2","Pot 3","Pot 4"].map((p,i) => (
-                      <th key={p} style={{ padding:"10px 8px", textAlign:"center", fontWeight:700, color:["#f59e0b","#a78bfa","#60a5fa","#34d399"][i] }}>{p}</th>
+                      <th key={p} style={{ padding:"10px 8px", textAlign:"center", fontWeight:700,
+                        color:["#f59e0b","#a78bfa","#60a5fa","#34d399"][i] }}>{p}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {Object.entries(PTS).map(([key, vals]) => (
                     <tr key={key} style={{ borderBottom:`1px solid #0a1020` }}>
-                      <td style={{ padding:"9px 12px", color: STAGE_COLOR[key]||C.dim, fontWeight:600, fontSize:11 }}>{STAGE_LABEL[key]}</td>
+                      <td style={{ padding:"9px 12px", color: STAGE_COLOR[key]||C.dim, fontWeight:600, fontSize:11 }}>
+                        {STAGE_LABEL[key]}
+                      </td>
                       {vals.map((v,i) => (
-                        <td key={i} style={{ padding:"9px 8px", textAlign:"center", fontWeight:700, color: v < 0 ? C.red : v === 0 ? C.muted : C.text }}>
+                        <td key={i} style={{ padding:"9px 8px", textAlign:"center", fontWeight:700,
+                          color: v < 0 ? C.red : v === 0 ? C.muted : C.text }}>
                           {v > 0 ? `+${v}` : v}
                         </td>
                       ))}
@@ -619,7 +776,8 @@ function App() {
                 <div style={{ fontWeight:700, fontSize:13, marginBottom:8 }}>{p.name}</div>
                 <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
                   {p.codes.map((code, i) => (
-                    <div key={code} style={{ display:"flex", alignItems:"center", gap:5, background:"#0a1020", borderRadius:4, padding:"3px 7px" }}>
+                    <div key={code} style={{ display:"flex", alignItems:"center", gap:5,
+                      background:"#0a1020", borderRadius:4, padding:"3px 7px" }}>
                       <Flag code={code} size={12} />
                       <span style={{ fontSize:11, color:"#94a3b8" }}>{p.teams[i]}</span>
                       <span style={{ fontSize:9, color:C.muted }}>P{POT[code]}</span>
