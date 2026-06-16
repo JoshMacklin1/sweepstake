@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sweepstake Tracker — WC 2026</title>
+  <title>Silverstream Sweepstakes — WC 2026</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
@@ -15,8 +15,94 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
       min-height: 100vh;
     }
-    #root { max-width: 620px; margin: 0 auto; }
+    #root { max-width: 480px; margin: 0 auto; min-height: 100vh; }
     button { font-family: inherit; -webkit-tap-highlight-color: transparent; }
+
+    /* ── Desktop ── */
+    @media (min-width: 768px) {
+      body { background: #060f0a; }
+      /* Sidebar background strip */
+      body::before {
+        content: "";
+        display: block;
+        width: 260px;
+        min-height: 100vh;
+        background: #0a1a0f;
+        border-right: 1px solid #1e3d28;
+        position: fixed;
+        top: 0; left: 0; bottom: 0;
+        z-index: 1;
+      }
+
+      #root {
+        max-width: 1200px;
+        margin: 0 0 0 260px;
+        min-height: 100vh;
+        background: #0d1f12;
+        box-shadow: 4px 0 40px rgba(0,0,0,0.3);
+      }
+      /* Single column on desktop for all cards */
+      .league-grid {
+        display: block;
+        max-width: 680px;
+      }
+      /* Bottom nav → sidebar nav */
+      div[style*="bottom:0"][style*="fixed"],
+      div[style*="bottom: 0"][style*="fixed"] {
+        bottom: auto !important;
+        top: 120px !important;
+        left: 0 !important;
+        right: auto !important;
+        width: 260px !important;
+        max-width: 260px !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        border-top: none !important;
+        border-right: 1px solid #1e3d28 !important;
+        background: transparent !important;
+        padding: 8px 12px !important;
+        gap: 2px !important;
+        transform: translateY(0) !important;
+        z-index: 5 !important;
+      }
+      /* Nav buttons row → column with label */
+      div[style*="bottom:0"][style*="fixed"] button,
+      div[style*="bottom: 0"][style*="fixed"] button {
+        flex-direction: row !important;
+        justify-content: flex-start !important;
+        align-items: center !important;
+        padding: 11px 14px !important;
+        border-radius: 10px !important;
+        gap: 12px !important;
+        width: 100% !important;
+      }
+      div[style*="bottom:0"][style*="fixed"] button > div,
+      div[style*="bottom: 0"][style*="fixed"] button > div {
+        padding: 0 !important;
+        background: transparent !important;
+        border-radius: 0 !important;
+      }
+      div[style*="bottom:0"][style*="fixed"] button span,
+      div[style*="bottom: 0"][style*="fixed"] button span {
+        font-size: 14px !important;
+        font-weight: 500 !important;
+        text-rendering: optimizeLegibility !important;
+        -webkit-font-smoothing: antialiased !important;
+      }
+      /* Hide mobile info tab in desktop sidebar nav */
+      div[style*="bottom:0"][style*="fixed"] button:last-child,
+      div[style*="bottom: 0"][style*="fixed"] button:last-child {
+        display: none !important;
+      }
+      /* Sticky header → hide */
+      div[style*="sticky"] {
+        display: none !important;
+      }
+      /* Content padding */
+      div[style*="14px 14px 0"] {
+        padding: 20px 28px 0 !important;
+      }
+    }
 
     @keyframes goalFlash {
       0%   { background-color: #0d1f12; }
@@ -46,6 +132,40 @@
 </head>
 <body>
 <div id="root"></div>
+<div id="sidebar-header" style="display:none;position:fixed;top:16px;left:12px;z-index:2;pointer-events:none;width:236px;opacity:0;transition:opacity 0.3s;">
+  <div style="display:flex;align-items:center;gap:10px;">
+    <div>
+      <div style="font-size:9px;color:#22c55e;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;margin-bottom:4px;">FIFA World Cup 2026</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="font-size:20px;font-weight:900;color:#f0faf3;letter-spacing:-0.02em;line-height:1.15;">Silverstream<br>Sweepstakes</div>
+        <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxODAgMTgwIj48Y2lyY2xlIGN4PSI5MCIgY3k9IjkwIiByPSI4NiIgZmlsbD0iIzFhM2QyMiIgb3BhY2l0eT0iMC41Ii8+PGNpcmNsZSBjeD0iMTE1LjgiIGN5PSIxNDMuNiIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjE1MS41IiBjeT0iOTAuMCIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9Ijc5LjEiIGN5PSI1NC4zIiByPSI1LjUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTE1LjgiIGN5PSI3Mi4yIiByPSI1LjUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iOTcuOSIgY3k9IjU0LjMiIHI9IjUuNSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxMzMuNiIgY3k9IjcyLjIiIHI9IjUuNSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSI0My40IiBjeT0iOTAuMCIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjExNS44IiBjeT0iOTAuMCIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjEzMy42IiBjeT0iOTAuMCIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjYxLjIiIGN5PSIxMDcuOCIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjQzLjQiIGN5PSIzNi40IiByPSI1LjUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iNjEuMiIgY3k9IjEyNS43IiByPSI1LjUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTE1LjgiIGN5PSIzNi40IiByPSI1LjUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iNzkuMSIgY3k9IjE0My42IiByPSI1LjUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iNzkuMSIgY3k9IjcyLjIiIHI9IjUuNSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSI2MS4yIiBjeT0iNTQuMyIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjE1MS41IiBjeT0iMTA3LjgiIHI9IjUuNSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSI5Ny45IiBjeT0iMTQzLjYiIHI9IjUuNSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSI3OS4xIiBjeT0iOTAuMCIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9Ijk3LjkiIGN5PSI3Mi4yIiByPSI1LjUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iNDMuNCIgY3k9IjEwNy44IiByPSI1LjUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iOTcuOSIgY3k9IjkwLjAiIHI9IjUuNSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSI0My40IiBjeT0iMTI1LjciIHI9IjUuNSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxMTUuOCIgY3k9IjEwNy44IiByPSI1LjUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTMzLjYiIGN5PSIxMDcuOCIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9Ijc5LjEiIGN5PSIzNi40IiByPSI1LjUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTE1LjgiIGN5PSIxMjUuNyIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjQzLjQiIGN5PSI1NC4zIiByPSI1LjUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTMzLjYiIGN5PSIxMjUuNyIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjExNS44IiBjeT0iNTQuMyIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjYxLjIiIGN5PSIxNDMuNiIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjYxLjIiIGN5PSI3Mi4yIiByPSI1LjUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iOTcuOSIgY3k9IjM2LjQiIHI9IjUuNSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxMzMuNiIgY3k9IjU0LjMiIHI9IjUuNSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSI2MS4yIiBjeT0iOTAuMCIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9Ijc5LjEiIGN5PSIxMDcuOCIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjE1MS41IiBjeT0iNzIuMiIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9Ijc5LjEiIGN5PSIxMjUuNyIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjQzLjQiIGN5PSIxNDMuNiIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9Ijk3LjkiIGN5PSIxMDcuOCIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjYxLjIiIGN5PSIzNi40IiByPSI1LjUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iNDMuNCIgY3k9IjcyLjIiIHI9IjUuNSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSI5Ny45IiBjeT0iMTI1LjciIHI9IjUuNSIgZmlsbD0id2hpdGUiLz48L3N2Zz4=" style="width:46px;height:46px;flex-shrink:0;" alt="logo"/>
+      </div>
+    </div>
+  </div>
+</div>
+<button id="desktop-info-btn" onclick="document.querySelector('[data-info-trigger]') && document.querySelector('[data-info-trigger]').click()" style="display:none;position:fixed;top:280px;left:12px;z-index:6;width:236px;align-items:center;gap:12px;padding:11px 14px;border-radius:10px;background:transparent;border:1px solid #1e3d28;cursor:pointer;font-family:inherit;color:#8fba9a;font-size:14px;font-weight:500;opacity:0;transition:opacity 0.3s;">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#8fba9a" stroke-width="2"/><path d="M12 8v1M12 11v5" stroke="#8fba9a" stroke-width="2" stroke-linecap="round"/></svg>
+  Rules &amp; Info
+</button>
+<script>
+  // Show desktop elements only on desktop
+  function checkDesktop() {
+    var isDesktop = window.innerWidth >= 768;
+    var header = document.getElementById('sidebar-header');
+    var btn = document.getElementById('desktop-info-btn');
+    if (header) { header.style.display = isDesktop ? 'block' : 'none'; }
+    if (btn) { btn.style.display = isDesktop ? 'flex' : 'none'; }
+  }
+  // Delay show until after React has mounted to avoid flash
+  checkDesktop();
+  window.addEventListener('resize', checkDesktop);
+  window.addEventListener('load', function() {
+    var header = document.getElementById('sidebar-header');
+    var btn = document.getElementById('desktop-info-btn');
+    if (header) header.style.opacity = '1';
+    if (btn) btn.style.opacity = '1';
+  });
+</script>
 
 <script type="text/babel">
 // ─────────────────────────────────────────────────────────────────────────────
@@ -210,14 +330,32 @@ const MOCK_MATCHES = [
 // PLAYER → TEAM ASSIGNMENTS
 // ─────────────────────────────────────────────────────────────────────────────
 const PLAYERS = [
-  { name: "Auz",      teams: ["Portugal","Morocco","Scotland","Jordan","Cape Verde","Turkey"],         codes: ["POR","MAR","SCO","JOR","CPV","TUR"] },
-  { name: "George",   teams: ["Mexico","Canada","Germany","Japan","Panama","Iraq"],                    codes: ["MEX","CAN","GER","JPN","PAN","IRQ"] },
-  { name: "Toby",     teams: ["Argentina","Uruguay","Egypt","Tunisia","Curaçao","Sweden"],             codes: ["ARG","URU","EGY","TUN","CUW","SWE"] },
-  { name: "Sam",      teams: ["Netherlands","United States","Senegal","Austria","Paraguay","Bosnia"],  codes: ["NED","USA","SEN","AUT","PAR","BIH"] },
-  { name: "Paul",     teams: ["Spain","Belgium","Croatia","Algeria","Haiti","Czech Republic"],         codes: ["ESP","BEL","CRO","ALG","HAI","CZE"] },
-  { name: "Elliott",  teams: ["England","Iran","South Korea","Ecuador","Qatar","Ghana"],               codes: ["ENG","IRN","KOR","ECU","QAT","GHA"] },
-  { name: "Christoph",teams: ["France","Switzerland","Norway","Uzbekistan","South Africa","New Zealand"], codes: ["FRA","SUI","NOR","UZB","RSA","NZL"] },
-  { name: "Dollie",   teams: ["Brazil","Colombia","Australia","Ivory Coast","Saudi Arabia","DR Congo"], codes: ["BRA","COL","AUS","CIV","KSA","DRC"] },
+  { name: "Alex",     teams: ["Belgium","Paraguay A"],           codes: ["BEL","PAR"],  lateB: [false,false] },
+  { name: "Ben",      teams: ["Brazil","Sweden A"],              codes: ["BRA","SWE"],  lateB: [false,false] },
+  { name: "Charlotte",teams: ["Mexico","DR Congo"],              codes: ["MEX","DRC"],  lateB: [false,false] },
+  { name: "Craig",    teams: ["Australia","Scotland"],           codes: ["AUS","SCO"],  lateB: [false,false] },
+  { name: "Ahmet",    teams: ["Croatia","Egypt"],                codes: ["CRO","EGY"],  lateB: [false,false] },
+  { name: "Dharma",   teams: ["England","Uzbekistan"],           codes: ["ENG","UZB"],  lateB: [false,false] },
+  { name: "Gary",     teams: ["Spain","Saudi Arabia"],           codes: ["ESP","KSA"],  lateB: [false,false] },
+  { name: "Henry",    teams: ["Netherlands","Norway"],           codes: ["NED","NOR"],  lateB: [false,false] },
+  { name: "Katrina",  teams: ["Switzerland","Bosnia"],           codes: ["SUI","BIH"],  lateB: [false,false] },
+  { name: "Luke",     teams: ["Ecuador","New Zealand"],          codes: ["ECU","NZL"],  lateB: [false,false] },
+  { name: "Marco",    teams: ["Japan","Ghana A"],                codes: ["JPN","GHA"],  lateB: [false,false] },
+  { name: "Michelle", teams: ["Argentina","Ivory Coast"],        codes: ["ARG","CIV"],  lateB: [false,false] },
+  { name: "Natalie",  teams: ["Senegal","Turkey"],               codes: ["SEN","TUR"],  lateB: [false,false] },
+  { name: "Nick",     teams: ["Morocco","Cape Verde"],           codes: ["MAR","CPV"],  lateB: [false,false] },
+  { name: "Ollie",    teams: ["Uruguay","Qatar"],                codes: ["URU","QAT"],  lateB: [false,false] },
+  { name: "Paul",     teams: ["South Korea","Iraq"],             codes: ["KOR","IRQ"],  lateB: [false,false] },
+  { name: "Peter",    teams: ["Austria","Czech Republic"],       codes: ["AUT","CZE"],  lateB: [false,false] },
+  { name: "Ramon",    teams: ["Portugal","Algeria"],             codes: ["POR","ALG"],  lateB: [false,false] },
+  { name: "Sam",      teams: ["Canada","Curaçao"],               codes: ["CAN","CUW"],  lateB: [false,false] },
+  { name: "Stephen",  teams: ["Colombia","Panama"],              codes: ["COL","PAN"],  lateB: [false,false] },
+  { name: "Stuart",   teams: ["Iran","Jordan"],                  codes: ["IRN","JOR"],  lateB: [false,false] },
+  { name: "Wes",      teams: ["France","Haiti"],                 codes: ["FRA","HAI"],  lateB: [false,false] },
+  { name: "Will A",   teams: ["Germany A","South Africa"],       codes: ["GER","RSA"],  lateB: [false,false] },
+  { name: "Will B",   teams: ["United States","Tunisia"],        codes: ["USA","TUN"],  lateB: [false,false] },
+  { name: "Pete",     teams: ["Sweden B","Paraguay B"],          codes: ["SWE","PAR"],  lateB: [true,true] },
+  { name: "Alex L",   teams: ["Germany B","Ghana B"],            codes: ["GER","GHA"],  lateB: [true,true] },
   { name: "Josh",     teams: [], codes: [], grimReaper: true },
 ];
 
@@ -336,8 +474,7 @@ function goalDroughtPts(m) {
   const hs = m.score?.fullTime?.home ?? 0;
   const as_ = m.score?.fullTime?.away ?? 0;
   const total = hs + as_;
-  if (total === 0) return 3; // 0-0
-  if (total === 1) return 1; // single goal game
+  if (total === 0) return 3; // 0-0 only
   return 0;
 }
 // ─────────────────────────────────────────────────────────────────────────────
@@ -461,7 +598,8 @@ function scorePlayers(matches) {
         w += teamRecord.w; d += teamRecord.d; l += teamRecord.l;
         return { name: p.teams[i], code, pot: POT[code]||4, stage, pts: p_pts + gp,
                  w: teamRecord.w, d: teamRecord.d, l: teamRecord.l,
-                 eliminated: !!eliminated[code], won: !!winners[code] };
+                 eliminated: !!eliminated[code], won: !!winners[code],
+                 lateB: !!(p.lateB?.[i]) };
       });
     }
 
@@ -746,7 +884,17 @@ const fmt = (str) => {
     + " " + d.toLocaleTimeString("en-GB", { hour:"2-digit", minute:"2-digit" });
 };
 
-const ownerOf = (tla, ranked) => ranked.find(p => p.codes.includes(tla?.toUpperCase()))?.name;
+const ownerOf = (tla, ranked) => {
+  const code = tla?.toUpperCase();
+  // Prefer non-lateB player when duplicate codes exist
+  const matches = ranked.filter(p => p.codes.includes(code));
+  if (!matches.length) return undefined;
+  const primary = matches.find(p => {
+    const idx = p.codes.indexOf(code);
+    return !(PLAYERS.find(pl => pl.name === p.name)?.lateB?.[idx]);
+  });
+  return (primary || matches[0]).name;
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HISTORY — replay matches chronologically, compute per-player cumulative points
@@ -756,8 +904,11 @@ function deriveHistory(matches) {
     .filter(m => m.status === "FINISHED")
     .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
 
-  const teamPlayer = {};
-  PLAYERS.forEach(p => p.codes.forEach(c => { teamPlayer[c] = p.name; }));
+  const teamPlayer = {}; // code -> array of player names
+  PLAYERS.forEach(p => p.codes.forEach((c) => {
+    if (!teamPlayer[c]) teamPlayer[c] = [];
+    if (!teamPlayer[c].includes(p.name)) teamPlayer[c].push(p.name);
+  }));
 
   const running = {};
   const history = {};
@@ -774,13 +925,14 @@ function deriveHistory(matches) {
   });
 
   const award = (code, stageKey) => {
-    const pl = teamPlayer[code];
-    if (pl) {
-      const newPts = ptsTotal(code, stageKey);
-      const oldPts = teamPts[code] || 0;
+    const pls = teamPlayer[code] || [];
+    const newPts = ptsTotal(code, stageKey);
+    pls.forEach(pl => {
+      const key = pl + ":" + code;
+      const oldPts = teamPts[key] || 0;
       running[pl] += (newPts - oldPts);
-      teamPts[code] = newPts;
-    }
+      teamPts[key] = newPts;
+    });
   };
 
   const reaperBounty = (code, stageKey) => {
@@ -849,10 +1001,10 @@ function deriveHistory(matches) {
       else               { hResult = "D"; aResult = "D"; }
 
       [[h, hResult], [a, aResult]].forEach(([code, result]) => {
-        const pl = teamPlayer[code];
-        if (pl && result !== "L") {
-          running[pl] = (running[pl] || 0) + groupGamePts(code, result);
-        }
+        const pls = teamPlayer[code] || [];
+        pls.forEach(pl => {
+          if (result !== "L") running[pl] = (running[pl] || 0) + groupGamePts(code, result);
+        });
       });
 
       // Grim Reaper goal drought curse
@@ -883,8 +1035,11 @@ function deriveSparklineHistory(matches) {
     .filter(m => m.status === "FINISHED")
     .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
 
-  const teamPlayer = {};
-  PLAYERS.forEach(p => p.codes.forEach(c => { teamPlayer[c] = p.name; }));
+  const teamPlayer = {}; // code -> array of player names
+  PLAYERS.forEach(p => p.codes.forEach((c) => {
+    if (!teamPlayer[c]) teamPlayer[c] = [];
+    if (!teamPlayer[c].includes(p.name)) teamPlayer[c].push(p.name);
+  }));
 
   const running = {};
   const history = {};
@@ -914,14 +1069,15 @@ function deriveSparklineHistory(matches) {
 
     let changed = false;
     const award = (code, stageKey) => {
-      const pl = teamPlayer[code];
-      if (pl) {
-        const newPts = ptsTotal(code, stageKey);
-        const oldPts = teamPts[code] || 0;
+      const pls = teamPlayer[code] || [];
+      const newPts = ptsTotal(code, stageKey);
+      pls.forEach(pl => {
+        const key = pl + ":" + code;
+        const oldPts = teamPts[key] || 0;
         running[pl] += (newPts - oldPts);
-        teamPts[code] = newPts;
+        teamPts[key] = newPts;
         changed = true;
-      }
+      });
     };
 
     if (stage === "FINAL") {
@@ -945,11 +1101,13 @@ function deriveSparklineHistory(matches) {
       else if (as_ > hs) { hResult = "L"; aResult = "W"; }
       else               { hResult = "D"; aResult = "D"; }
       [[h, hResult], [a, aResult]].forEach(([code, result]) => {
-        const pl = teamPlayer[code];
-        if (pl && result !== "L") {
-          running[pl] = (running[pl] || 0) + groupGamePts(code, result);
-          changed = true;
-        }
+        const pls = teamPlayer[code] || [];
+        pls.forEach(pl => {
+          if (result !== "L") {
+            running[pl] = (running[pl] || 0) + groupGamePts(code, result);
+            changed = true;
+          }
+        });
       });
       // Grim Reaper goal drought curse
       const drought = goalDroughtPts(m);
@@ -1050,11 +1208,16 @@ const s = {
 // ─────────────────────────────────────────────────────────────────────────────
 const { useState, useEffect, useCallback } = React;
 
-function Flag({ code, size = 18 }) {
+function Flag({ code, size = 18, snail = false }) {
   const url = flag(code);
   if (!url) return null;
-  const w = Math.round(size * 1.33); // 4:3 ratio
-  return <img src={url} alt={code} style={{ height:size, width:"auto", borderRadius:2, display:"block", flexShrink:0 }} />;
+  if (!snail) return <img src={url} alt={code} style={{ height:size, width:"auto", borderRadius:2, display:"block", flexShrink:0 }} />;
+  return (
+    <div style={{ position:"relative", display:"inline-flex", flexShrink:0 }}>
+      <img src={url} alt={code} style={{ height:size, width:"auto", borderRadius:2, display:"block", opacity:0.75 }} />
+      <span style={{ position:"absolute", bottom:-3, right:-4, fontSize:size*0.55, lineHeight:1 }}>🐌</span>
+    </div>
+  );
 }
 
 function TabBtn({ id, label, active, onClick }) {
@@ -1099,14 +1262,34 @@ function MatchCard({ m, ranked, upcoming = [] }) {
 
   const clashLabel = (() => {
     if (!isFirstClash) return null;
+    // Title: 1st vs 2nd
     const positions = new Set([hRank, aRank]);
     if (positions.has(0) && positions.has(1)) return { icon:"👑", label:"TITLE SHOWDOWN" };
-    if (Math.abs(hRank - aRank) === 1) return { icon:"🥊", label:"GRUDGE MATCH" };
+    // Grudge: a win could cause a leapfrog in the table
+    const hPts = ranked[hRank]?.total ?? 0;
+    const aPts = ranked[aRank]?.total ?? 0;
+    const hMaxGain = GROUP_WIN_PTS[(POT[h]||1)-1];
+    const aMaxGain = GROUP_WIN_PTS[(POT[a]||1)-1];
+    const hCouldLeap = hRank > aRank && (hPts + hMaxGain) >= aPts;
+    const aCouldLeap = aRank > hRank && (aPts + aMaxGain) >= hPts;
+    if (hCouldLeap || aCouldLeap) return { icon:"🥊", label:"GRUDGE MATCH" };
     return null;
   })();
 
+  const rivalryBorder = clashLabel?.label === "TITLE SHOWDOWN"
+    ? `2px solid ${C.gold}`
+    : clashLabel
+    ? `2px solid ${C.accent}`
+    : `1px solid ${C.border}`;
+
+  const rivalryGlow = clashLabel?.label === "TITLE SHOWDOWN"
+    ? "0 0 10px #f59e0b44"
+    : clashLabel
+    ? "0 0 10px #22c55e33"
+    : "none";
+
   return (
-    <div style={{ ...s.card, border: clashLabel ? `1px solid ${C.accent}55` : `1px solid ${C.border}` }}>
+    <div style={{ ...s.card, border: rivalryBorder, boxShadow: rivalryGlow }}>
       <div style={{ padding: "12px 14px" }}>
         {/* Header row: stage left | rivalry centre | date right */}
         <div style={{ display:"flex", alignItems:"center", marginBottom:10 }}>
@@ -1183,13 +1366,17 @@ function PlayerRow({ player, rank, displayRank, expanded, onToggle, badges = [] 
         <div style={{ flex:1, minWidth:0 }}>
           <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:5 }}>
             <div style={{ fontWeight:700, fontSize:15, color: C.text }}>
-              {player.grimReaper ? "💀 Josh" : player.name}
+              {player.grimReaper
+                ? <>Josh <span style={{ fontSize:13 }}>💀</span></>
+                : player.lateB?.some(Boolean)
+                ? <>{player.name} <span style={{ fontSize:13 }}>🐌</span></>
+                : player.name}
             </div>
 
           </div>
           {player.grimReaper ? (
             <div style={{ fontSize:10, color:"#f87171", lineHeight:1.5, opacity:0.7 }}>
-              Grim Reaper<br/>earns on eliminations
+              Grim Reaper — earns on boring football &amp; eliminations
             </div>
           ) : (
           <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
@@ -1201,17 +1388,36 @@ function PlayerRow({ player, rank, displayRank, expanded, onToggle, badges = [] 
               return [ordered.slice(0,3), ordered.slice(3)].map((row, ri) => (
               <div key={ri} style={{ display:"flex", gap:6 }}>
                 {row.map(t => (
-                  <div key={t.code} style={{ position:"relative" }}>
-                    <img
-                      src={flag(t.code)} alt={t.name}
-                      title={`${t.name} (Pot ${t.pot})${t.stage ? " — "+STAGE_LABEL[t.stage] : ""}`}
-                      style={{
-                        height:18, width:"auto", borderRadius:2, display:"block",
-                        opacity: (t.eliminated || t.stage === "GROUP_ELIM") && !t.won ? 0.25 : 1,
-                        outline: t.won ? "2px solid #f59e0b" : "none",
-                      }}
-                    />
-                    {(t.eliminated || t.stage === "GROUP_ELIM") && !t.won && null}
+                  <div key={t.code} style={{ position:"relative", display:"inline-flex", flexShrink:0 }}>
+                    {t.lateB ? (
+                      <div style={{ position:"relative", height:18, width:36, display:"inline-block" }}>
+                        {/* Left half — unique tear per code */}
+                        {(() => {
+                          const tears = {
+                            SWE: { lc:"polygon(0% 3%, 40% 0%, 37% 18%, 43% 42%, 38% 58%, 41% 82%, 38% 100%, 0% 98%, 1% 55%, 0% 28%)", rc:"polygon(53% 1%, 100% 0%, 99% 45%, 100% 75%, 98% 100%, 51% 97%, 54% 78%, 47% 55%, 55% 40%, 49% 16%)", gap:6 },
+                            PAR: { lc:"polygon(0% 6%, 35% 0%, 33% 30%, 38% 50%, 34% 65%, 37% 90%, 33% 100%, 0% 97%, 2% 50%, 0% 22%)", rc:"polygon(50% 2%, 100% 1%, 98% 38%, 100% 68%, 97% 100%, 48% 98%, 51% 72%, 45% 52%, 52% 35%, 47% 12%)", gap:5 },
+                            GER: { lc:"polygon(0% 2%, 42% 0%, 39% 25%, 45% 44%, 40% 60%, 44% 80%, 41% 100%, 0% 99%, 2% 62%, 1% 32%)", rc:"polygon(57% 3%, 100% 0%, 99% 42%, 100% 72%, 98% 100%, 54% 98%, 58% 77%, 51% 57%, 58% 42%, 54% 18%)", gap:7 },
+                            GHA: { lc:"polygon(0% 4%, 38% 0%, 36% 20%, 41% 46%, 35% 56%, 40% 78%, 36% 100%, 0% 96%, 2% 58%, 0% 26%)", rc:"polygon(52% 0%, 100% 2%, 97% 44%, 100% 66%, 96% 100%, 50% 97%, 53% 76%, 47% 58%, 54% 44%, 49% 14%)", gap:5 },
+                          };
+                          const t_ = tears[t.code] || tears.SWE;
+                          const fadeOp = (t.eliminated || t.stage === "GROUP_ELIM") && !t.won ? 0.25 : 1;
+                          return <>
+                            <img src={flag(t.code)} alt={t.name}
+                              style={{ position:"absolute", top:0, left:0, height:18, width:"auto", borderRadius:2,
+                                clipPath: t_.lc, opacity: fadeOp }} />
+                            <img src={flag(t.code)} alt={t.name}
+                              style={{ position:"absolute", top:0, left:t_.gap, height:18, width:"auto", borderRadius:2,
+                                clipPath: t_.rc, opacity: fadeOp }} />
+                          </>;
+                        })()}
+                      </div>
+                    ) : (
+                      <img src={flag(t.code)} alt={t.name}
+                        title={`${t.name} (Pot ${t.pot})${t.stage ? " — "+STAGE_LABEL[t.stage] : ""}`}
+                        style={{ height:18, width:"auto", borderRadius:2, display:"block",
+                          opacity: (t.eliminated || t.stage === "GROUP_ELIM") && !t.won ? 0.25 : 1,
+                          outline: t.won ? "2px solid #f59e0b" : "none" }} />
+                    )}
                   </div>
                 ))}
               </div>
@@ -1343,18 +1549,36 @@ function PlayerRow({ player, rank, displayRank, expanded, onToggle, badges = [] 
 // BUMP CHART
 // ─────────────────────────────────────────────────────────────────────────────
 const PLAYER_COLORS = [
-  "#f59e0b", // Auz - amber
-  "#818cf8", // George - indigo
-  "#fb923c", // Toby - orange
-  "#f472b6", // Sam - pink
-  "#a78bfa", // Paul - violet
-  "#f87171", // Elliott - red
-  "#34d399", // Christoph - emerald
-  "#60a5fa", // Dollie - blue
+  "#f59e0b", // Alex - amber
+  "#60a5fa", // Ben - blue
+  "#f472b6", // Charlotte - pink
+  "#34d399", // Craig - emerald
+  "#fb923c", // Ahmet - orange
+  "#818cf8", // Dharma - indigo
+  "#f87171", // Gary - red
+  "#a78bfa", // Henry - violet
+  "#2dd4bf", // Katrina - teal
+  "#facc15", // Luke - yellow
+  "#c084fc", // Marco - purple
+  "#4ade80", // Michelle - light green
+  "#38bdf8", // Natalie - sky
+  "#fb7185", // Nick - rose
+  "#fbbf24", // Ollie - gold
+  "#6ee7b7", // Paul - mint
+  "#93c5fd", // Peter - light blue
+  "#fca5a5", // Ramon - light red
+  "#86efac", // Sam - pale green
+  "#e879f9", // Stephen - fuchsia
+  "#67e8f9", // Stuart - cyan
+  "#fde68a", // Wes - pale yellow
+  "#a5b4fc", // Will A - periwinkle
+  "#fdba74", // Will B - peach
+  "#e2e8f0", // Pete - slate
+  "#94a3b8", // Alex L - cool grey
   "#22c55e", // Josh - green
 ];
 
-const PLAYER_NAME_ORDER = ["Auz","George","Toby","Sam","Paul","Elliott","Christoph","Dollie","Josh"];
+const PLAYER_NAME_ORDER = ["Alex","Ben","Charlotte","Craig","Ahmet","Dharma","Gary","Henry","Katrina","Luke","Marco","Michelle","Natalie","Nick","Ollie","Paul","Peter","Ramon","Sam","Stephen","Stuart","Wes","Will A","Will B","Pete","Alex L","Josh"];
 
 const playerColor = (name) => {
   const idx = PLAYER_NAME_ORDER.indexOf(name);
@@ -1388,8 +1612,9 @@ function BumpChart({ history, allRanked, bucketLabels = [], raceHistory }) {
 
   const n = history.length;
   const padL = 16, padR = 72, padT = 16, padB = 24;
-  const screenW = Math.min(window.innerWidth, 620);
-  const availW = screenW - padL - padR - 28; // 28 for container padding
+  const sidebarW = window.innerWidth >= 768 ? 260 : 0;
+  const screenW = window.innerWidth - sidebarW;
+  const availW = screenW - padL - padR - 56;
   const COL_W = maxLen <= 2 ? availW : Math.max(40, Math.floor(availW / (maxLen - 1)));
   const rowH = 34;
   const chartW = (maxLen - 1) * COL_W;
@@ -1700,12 +1925,7 @@ function App() {
   const [error,       setError]       = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [tab,         setTab]         = useState("table");
-  const [playerName,  setPlayerName]  = useState(() => localStorage.getItem("sw_player") || null);
-  const [predictions, setPredictions] = useState({});  // { matchId: "HOME"|"DRAW"|"AWAY" }
-  const [allPredictions, setAllPredictions] = useState({}); // { playerName: { matchId: pick } }
-  const [predScores,  setPredScores]  = useState({}); // { playerName: points }
-  const [claiming,    setClaiming]    = useState(false);
-  const [claimError,  setClaimError]  = useState(null);
+
   const [expanded,    setExpanded]    = useState(null);
   const [refreshing,  setRefreshing]  = useState(false);
   const [devMode,     setDevMode]     = useState(DEV_MODE_DEFAULT);
@@ -1801,6 +2021,7 @@ function App() {
 
   return (
     <div style={{ minHeight:"100vh", paddingBottom:106, animation: goalFlash ? "goalFlash 2.5s ease" : "none" }}>
+
       {goalFlash && (
         <div style={{
           position:"fixed", inset:0, zIndex:50, pointerEvents:"none",
@@ -1827,8 +2048,11 @@ function App() {
         {/* Title row */}
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"14px 16px 12px" }}>
           <div>
-            <div style={{ fontSize:10, color:C.accent, fontWeight:700, letterSpacing:"0.18em", textTransform:"uppercase", marginBottom:2 }}>FIFA World Cup 2026</div>
-            <div style={{ fontSize:22, fontWeight:900, color:C.text, letterSpacing:"-0.02em" }}>Sweepstake Tracker</div>
+            <div style={{ fontSize:10, color:C.accent, fontWeight:700, letterSpacing:"0.18em", textTransform:"uppercase", marginBottom:4 }}>FIFA World Cup 2026</div>
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              <div style={{ fontSize:22, fontWeight:900, color:C.text, letterSpacing:"-0.02em", lineHeight:1.1 }}>Silverstream<br/>Sweepstakes</div>
+              <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxODAgMTgwIj48Y2lyY2xlIGN4PSI5MCIgY3k9IjkwIiByPSI4NiIgZmlsbD0iIzFhM2QyMiIgb3BhY2l0eT0iMC41Ii8+PGNpcmNsZSBjeD0iMTE1LjgiIGN5PSIxNDMuNiIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjE1MS41IiBjeT0iOTAuMCIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9Ijc5LjEiIGN5PSI1NC4zIiByPSI1LjUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTE1LjgiIGN5PSI3Mi4yIiByPSI1LjUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iOTcuOSIgY3k9IjU0LjMiIHI9IjUuNSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxMzMuNiIgY3k9IjcyLjIiIHI9IjUuNSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSI0My40IiBjeT0iOTAuMCIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjExNS44IiBjeT0iOTAuMCIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjEzMy42IiBjeT0iOTAuMCIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjYxLjIiIGN5PSIxMDcuOCIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjQzLjQiIGN5PSIzNi40IiByPSI1LjUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iNjEuMiIgY3k9IjEyNS43IiByPSI1LjUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTE1LjgiIGN5PSIzNi40IiByPSI1LjUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iNzkuMSIgY3k9IjE0My42IiByPSI1LjUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iNzkuMSIgY3k9IjcyLjIiIHI9IjUuNSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSI2MS4yIiBjeT0iNTQuMyIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjE1MS41IiBjeT0iMTA3LjgiIHI9IjUuNSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSI5Ny45IiBjeT0iMTQzLjYiIHI9IjUuNSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSI3OS4xIiBjeT0iOTAuMCIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9Ijk3LjkiIGN5PSI3Mi4yIiByPSI1LjUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iNDMuNCIgY3k9IjEwNy44IiByPSI1LjUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iOTcuOSIgY3k9IjkwLjAiIHI9IjUuNSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSI0My40IiBjeT0iMTI1LjciIHI9IjUuNSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxMTUuOCIgY3k9IjEwNy44IiByPSI1LjUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTMzLjYiIGN5PSIxMDcuOCIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9Ijc5LjEiIGN5PSIzNi40IiByPSI1LjUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTE1LjgiIGN5PSIxMjUuNyIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjQzLjQiIGN5PSI1NC4zIiByPSI1LjUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTMzLjYiIGN5PSIxMjUuNyIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjExNS44IiBjeT0iNTQuMyIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjYxLjIiIGN5PSIxNDMuNiIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjYxLjIiIGN5PSI3Mi4yIiByPSI1LjUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iOTcuOSIgY3k9IjM2LjQiIHI9IjUuNSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxMzMuNiIgY3k9IjU0LjMiIHI9IjUuNSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSI2MS4yIiBjeT0iOTAuMCIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9Ijc5LjEiIGN5PSIxMDcuOCIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjE1MS41IiBjeT0iNzIuMiIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9Ijc5LjEiIGN5PSIxMjUuNyIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjQzLjQiIGN5PSIxNDMuNiIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9Ijk3LjkiIGN5PSIxMDcuOCIgcj0iNS41IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjYxLjIiIGN5PSIzNi40IiByPSI1LjUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iNDMuNCIgY3k9IjcyLjIiIHI9IjUuNSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSI5Ny45IiBjeT0iMTI1LjciIHI9IjUuNSIgZmlsbD0id2hpdGUiLz48L3N2Zz4=" style={{ width:46, height:46, flexShrink:0 }} alt="logo"/>
+            </div>
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
             <span onClick={() => { const next = !devMode; devModeRef.current = next; setDevMode(next); setLoading(true); setTab("table"); fetchMatches(false, next); }}
@@ -1837,7 +2061,6 @@ function App() {
             </span>
             <button onClick={() => {
               const top3 = ranked.slice(0,3).map((p,i) => `${["🥇","🥈","🥉"][i]} ${p.name} — ${p.total}pts`).join("\n");
-              const leader = ranked[0];
               const mover = [...ranked].filter(p => p.lastChange > 0).sort((a,b) => b.lastChange - a.lastChange)[0];
               const text = `🏆 WC2026 Sweepstake Update\n\n${top3}\n\n${mover ? `⚡ Biggest mover: ${mover.name} (+${mover.lastChange}pts)` : ""}\n\nFull table: https://joshmacklin1.github.io/sweepstake/`;
               navigator.clipboard.writeText(text).then(() => setCopied(true));
@@ -1845,10 +2068,10 @@ function App() {
             }} style={{ background:C.card, border:`1px solid ${C.border}`, color:C.dim, fontSize:13, width:30, height:30, borderRadius:"50%", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
               {copied ? "✓" : "⎘"}
             </button>
-            <button onClick={() => setShowInfo(true)} style={{ background:C.card, border:`1px solid ${C.border}`, color:C.dim, fontSize:13, width:30, height:30, borderRadius:"50%", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:700 }}>?</button>
+            <button data-info-trigger="1" onClick={() => setShowInfo(true)} style={{ background:C.card, border:`1px solid ${C.border}`, color:C.dim, fontSize:13, width:30, height:30, borderRadius:"50%", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:700 }}>?</button>
           </div>
         </div>
-        {/* Live banner — expands into header */}
+                {/* Live banner — expands into header */}
         {live.length > 0 && (
           <div style={{
             padding:"8px 14px 12px",
@@ -1981,23 +2204,17 @@ function App() {
               <path d="M8 12l3 3 5-5" stroke={active ? "white" : C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           )],
-          ["predict", "Predict", (active) => (
+          ["info", "Rules & Info", (active) => (
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-              <rect x="3" y="3" width="4" height="4" rx="1" fill={active ? "white" : C.muted}/>
-              <rect x="10" y="3" width="4" height="4" rx="1" fill={active ? "white" : C.muted}/>
-              <rect x="17" y="3" width="4" height="4" rx="1" fill={active ? "white" : C.muted}/>
-              <rect x="3" y="10" width="4" height="4" rx="1" fill={active ? "white" : C.muted}/>
-              <rect x="10" y="10" width="4" height="4" rx="1" fill={active ? "white" : C.muted}/>
-              <rect x="17" y="10" width="4" height="4" rx="1" fill={active ? "white" : C.muted}/>
-              <rect x="3" y="17" width="4" height="4" rx="1" fill={active ? "white" : C.muted}/>
-              <rect x="10" y="17" width="4" height="4" rx="1" fill={active ? "white" : C.muted}/>
-              <rect x="17" y="17" width="4" height="4" rx="1" fill={active ? "white" : C.muted}/>
+              <circle cx="12" cy="12" r="9" stroke={active ? "white" : C.muted} strokeWidth="2" fill="none"/>
+              <path d="M12 8v1M12 11v5" stroke={active ? "white" : C.muted} strokeWidth="2" strokeLinecap="round"/>
             </svg>
           )],
+
         ].map(([id, label, renderIcon]) => {
           const active = tab === id;
           return (
-            <button key={id} onClick={() => setTab(id)} style={{ flex:1, padding:"14px 4px 12px", background:"transparent", border:"none", cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:5, WebkitTapHighlightColor:"transparent" }}>
+            <button key={id} onClick={() => { if (id === "info") { setShowInfo(true); } else { setTab(id); } }} style={{ flex:1, padding:"14px 4px 12px", background:"transparent", border:"none", cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:5, WebkitTapHighlightColor:"transparent" }}>
               <div style={{
                 padding:"8px 20px", borderRadius:20,
                 background: active ? C.accent : "transparent",
@@ -2069,7 +2286,7 @@ function App() {
             : groupByDay(upcoming).map(([day, ms]) => (
               <div key={day}>
                 <div style={{ fontSize:11, color:C.text, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", padding:"12px 2px 6px" }}>{day}</div>
-                {ms.map(m => <MatchCard key={m.id} m={m} ranked={ranked} upcoming={upcoming} />)}
+                <div className="league-grid fixture-grid">{ms.map(m => <MatchCard key={m.id} m={m} ranked={ranked} upcoming={upcoming} />)}</div>
               </div>
             ))
         )}
@@ -2081,176 +2298,10 @@ function App() {
             : groupByDay(recent).map(([day, ms]) => (
               <div key={day}>
                 <div style={{ fontSize:11, color:C.text, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", padding:"12px 2px 6px" }}>{day}</div>
-                {ms.map(m => <MatchCard key={m.id} m={m} ranked={ranked} upcoming={upcoming} />)}
+                <div className="league-grid fixture-grid">{ms.map(m => <MatchCard key={m.id} m={m} ranked={ranked} upcoming={upcoming} />)}</div>
               </div>
             ))
         )}
-
-        {/* ── PREDICT ── */}
-        {tab === "predict" && !loading && (() => {
-          const PLAYERS_ALL = [...PLAYERS.map(p => p.name), "Josh"];
-
-          // Name picker
-          if (!playerName) {
-            return (
-              <div>
-                <div style={{ fontSize:13, color:C.muted, marginBottom:16, lineHeight:1.6 }}>
-                  Pick your name to start predicting. First come, first served — once claimed on a device it's yours.
-                </div>
-                {claimError && (
-                  <div style={{ background:"#3f1212", border:"1px solid #7f1d1d", borderRadius:8, padding:"10px 12px", marginBottom:12, fontSize:13, color:"#fca5a5" }}>
-                    {claimError}
-                  </div>
-                )}
-                <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-                  {PLAYERS_ALL.map(name => (
-                    <button key={name} onClick={() => claimName(name)} disabled={claiming} style={{
-                      background: C.card, border:`1px solid ${C.border}`, borderRadius:10,
-                      padding:"14px 16px", textAlign:"left", cursor:"pointer",
-                      fontSize:14, fontWeight:700, color:C.text,
-                      opacity: claiming ? 0.6 : 1,
-                    }}>
-                      {name === "Josh" ? "💀 Josh" : name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            );
-          }
-
-          // Prediction leaderboard + picks
-          const sortedPred = PLAYERS_ALL
-            .map(name => ({ name, pts: predScores[name] || 0 }))
-            .sort((a, b) => b.pts - a.pts);
-
-          const upcomingForPick = matches.filter(m =>
-            (m.status === "SCHEDULED" || m.status === "TIMED") &&
-            new Date(m.utcDate) > new Date()
-          ).slice(0, 20);
-
-          const recentFinished = matches.filter(m => m.status === "FINISHED")
-            .sort((a,b) => new Date(b.utcDate) - new Date(a.utcDate))
-            .slice(0, 10);
-
-          return (
-            <div>
-              {/* Who you are */}
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
-                <div style={{ fontSize:13, color:C.muted }}>Playing as <span style={{ color:C.accent, fontWeight:700 }}>{playerName}</span></div>
-              </div>
-
-              {/* Prediction leaderboard */}
-              <div style={{ fontSize:11, color:C.text, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:8 }}>🎲 Prediction League</div>
-              <div style={{ ...s.card, marginBottom:20 }}>
-                {sortedPred.map((p, i) => (
-                  <div key={p.name} style={{
-                    display:"flex", alignItems:"center", gap:10,
-                    padding:"10px 12px",
-                    borderBottom: i < sortedPred.length - 1 ? `1px solid ${C.border}` : "none",
-                  }}>
-                    <div style={{
-                      width:24, height:24, borderRadius:"50%", flexShrink:0,
-                      background: i === 0 ? "#84cc16" : i === 1 ? "#94a3b8" : i === 2 ? "#b45309" : C.border,
-                      display:"flex", alignItems:"center", justifyContent:"center",
-                      fontSize:11, fontWeight:800, color: i < 3 ? "#080c18" : C.dim,
-                    }}>{i + 1}</div>
-                    <div style={{ flex:1, fontSize:13, fontWeight:700, color: p.name === playerName ? C.accent : C.text }}>
-                      {p.name === "Josh" ? "💀 Josh" : p.name}
-                    </div>
-                    <div style={{ fontSize:15, fontWeight:800, color:C.text }}>{p.pts}<span style={{ fontSize:10, color:C.muted, fontWeight:400 }}> pts</span></div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Upcoming picks */}
-              <div style={{ fontSize:11, color:C.text, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:8 }}>Make your picks</div>
-              {upcomingForPick.length === 0
-                ? <div style={{ color:C.muted, fontSize:13, marginBottom:20 }}>No upcoming fixtures to predict</div>
-                : upcomingForPick.map(m => {
-                    const h = m.homeTeam?.tla?.toUpperCase();
-                    const a = m.awayTeam?.tla?.toUpperCase();
-                    const pick = predictions[m.id];
-                    const locked = new Date() >= new Date(m.utcDate);
-                    return (
-                      <div key={m.id} style={{ ...s.card, marginBottom:8, padding:"12px 14px" }}>
-                        <div style={{ display:"flex", justifyContent:"space-between", marginBottom:10 }}>
-                          <span style={{ fontSize:10, color:C.dim, fontWeight:700, letterSpacing:"0.08em" }}>{(m.stage||"").replace(/_/g," ")}</span>
-                          <span style={{ fontSize:10, color:C.muted }}>{fmt(m.utcDate)}</span>
-                        </div>
-                        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
-                          <div style={{ display:"flex", alignItems:"center", gap:6, flex:1 }}>
-                            <Flag code={h} size={18} />
-                            <span style={{ fontSize:12, fontWeight:700 }}>{m.homeTeam?.name || "TBD"}</span>
-                          </div>
-                          <span style={{ fontSize:10, color:C.muted, padding:"0 8px" }}>vs</span>
-                          <div style={{ display:"flex", alignItems:"center", gap:6, flex:1, justifyContent:"flex-end" }}>
-                            <span style={{ fontSize:12, fontWeight:700 }}>{m.awayTeam?.name || "TBD"}</span>
-                            <Flag code={a} size={18} />
-                          </div>
-                        </div>
-                        <div style={{ display:"flex", gap:6 }}>
-                          {[["HOME", m.homeTeam?.name || "Home"], ["DRAW", "Draw"], ["AWAY", m.awayTeam?.name || "Away"]].map(([val, label]) => (
-                            <button key={val} onClick={() => !locked && submitPick(m.id, val)} style={{
-                              flex:1, padding:"8px 4px", borderRadius:8, border:"none", cursor: locked ? "default" : "pointer",
-                              fontSize:10, fontWeight:700,
-                              background: pick === val ? C.accent : C.border,
-                              color: pick === val ? "white" : locked ? C.muted : C.dim,
-                              opacity: locked && pick !== val ? 0.4 : 1,
-                              transition:"background 0.15s",
-                            }}>{label}</button>
-                          ))}
-                        </div>
-                        {locked && <div style={{ fontSize:9, color:C.muted, marginTop:6, textAlign:"center" }}>🔒 Locked — kicked off</div>}
-                      </div>
-                    );
-                  })
-              }
-
-              {/* Recent results with your pick */}
-              {recentFinished.length > 0 && <>
-                <div style={{ fontSize:11, color:C.text, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", margin:"16px 0 8px" }}>Recent results</div>
-                {recentFinished.map(m => {
-                  const h = m.homeTeam?.tla?.toUpperCase();
-                  const a = m.awayTeam?.tla?.toUpperCase();
-                  const pick = predictions[m.id];
-                  const hs = m.score?.fullTime?.home ?? 0;
-                  const as_ = m.score?.fullTime?.away ?? 0;
-                  const actual = hs > as_ ? "HOME" : as_ > hs ? "AWAY" : "DRAW";
-                  const correct = pick && pick === actual;
-                  const pts = pick ? predPoints(m, pick) : null;
-                  return (
-                    <div key={m.id} style={{ ...s.card, marginBottom:8, padding:"10px 14px", opacity: pick ? 1 : 0.5 }}>
-                      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-                        <div style={{ display:"flex", alignItems:"center", gap:6, flex:1 }}>
-                          <Flag code={h} size={16} />
-                          <span style={{ fontSize:12, fontWeight:700 }}>{m.homeTeam?.name}</span>
-                        </div>
-                        <span style={{ fontSize:13, fontWeight:800, padding:"0 10px" }}>{hs}–{as_}</span>
-                        <div style={{ display:"flex", alignItems:"center", gap:6, flex:1, justifyContent:"flex-end" }}>
-                          <span style={{ fontSize:12, fontWeight:700 }}>{m.awayTeam?.name}</span>
-                          <Flag code={a} size={16} />
-                        </div>
-                      </div>
-                      {pick && (
-                        <div style={{ marginTop:8, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-                          <span style={{ fontSize:11, color:C.muted }}>
-                            Your pick: <span style={{ color: correct ? C.accent : C.red, fontWeight:700 }}>
-                              {pick === "HOME" ? m.homeTeam?.name : pick === "AWAY" ? m.awayTeam?.name : "Draw"}
-                            </span>
-                          </span>
-                          <span style={{ fontSize:12, fontWeight:800, color: correct ? C.accent : C.muted }}>
-                            {correct ? `+${pts}pts` : "✕"}
-                          </span>
-                        </div>
-                      )}
-                      {!pick && <div style={{ fontSize:10, color:C.muted, marginTop:6 }}>No prediction made</div>}
-                    </div>
-                  );
-                })}
-              </>}
-            </div>
-          );
-        })()}
 
         {/* ── INFO MODAL ── */}
         {showInfo && (
