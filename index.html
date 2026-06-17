@@ -270,10 +270,25 @@ const { useState, useEffect, useCallback } = React;
 function Flag({ code, size = 18, snail = false }) {
   const url = flag(code);
   if (!url) return null;
-  if (!snail) return <img src={url} alt={code} style={{ height:size, width:"auto", borderRadius:2, display:"block", flexShrink:0 }} />;
+  // onError fallback: if the flagcdn image fails to load for any reason
+  // (network blip, CDN issue, etc.), swap to a small text badge showing the
+  // code instead of silently rendering nothing — added after an unconfirmed
+  // report of DR Congo's flag occasionally not appearing; root cause wasn't
+  // conclusively isolated (the flagcdn URL itself was verified correct), so
+  // this is a defensive safety net rather than a fix for a confirmed root
+  // cause. If this badge ever shows up in practice, that's a strong signal
+  // the image genuinely failed to load — worth re-investigating with that
+  // confirmation in hand, rather than the inconclusive evidence available now.
+  const fallback = (e) => {
+    const span = document.createElement("span");
+    span.textContent = code;
+    span.style.cssText = `display:inline-block;font-size:${size*0.5}px;font-weight:700;color:${C.muted};background:${C.border};border-radius:2px;padding:1px 3px;line-height:${size}px;`;
+    e.target.replaceWith(span);
+  };
+  if (!snail) return <img src={url} alt={code} onError={fallback} style={{ height:size, width:"auto", borderRadius:2, display:"block", flexShrink:0 }} />;
   return (
     <div style={{ position:"relative", display:"inline-flex", flexShrink:0 }}>
-      <img src={url} alt={code} style={{ height:size, width:"auto", borderRadius:2, display:"block", opacity:0.75 }} />
+      <img src={url} alt={code} onError={fallback} style={{ height:size, width:"auto", borderRadius:2, display:"block", opacity:0.75 }} />
       <span style={{ position:"absolute", bottom:-3, right:-4, fontSize:size*0.55, lineHeight:1 }}>🐌</span>
     </div>
   );
