@@ -1995,10 +1995,8 @@ function App() {
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, []);
-  const paymentShownRef = React.useRef(false);
   const triggerPayment = React.useCallback(() => {
-    if (!paymentShownRef.current && localStorage.getItem("sw_paid") !== "yes") {
-      paymentShownRef.current = true;
+    if (localStorage.getItem("sw_paid") !== "yes") {
       setShowPayment(true);
     }
   }, []);
@@ -2044,6 +2042,19 @@ function App() {
     const id = setInterval(() => { if (!devModeRef.current) fetchMatches(); }, 60_000);
     return () => clearInterval(id);
   }, [fetchMatches]);
+
+  useEffect(() => {
+    const id = setTimeout(() => { triggerPayment(); }, 5000);
+    return () => clearTimeout(id);
+  }, [triggerPayment]);
+
+  useEffect(() => {
+    if (showPayment) {
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = prevOverflow; };
+    }
+  }, [showPayment]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -2182,7 +2193,7 @@ function App() {
               {devMode ? "DEV" : "···"}
             </span>
             {devMode && (
-              <span onClick={() => { localStorage.removeItem("sw_paid"); paymentShownRef.current = false; setShowPayment(true); }}
+              <span onClick={() => { localStorage.removeItem("sw_paid"); setShowPayment(true); }}
                 style={{ fontSize:9, color:"#f59e0b", cursor:"pointer", userSelect:"none", border:"1px solid #f59e0b", borderRadius:3, padding:"1px 5px" }}>
                 💳
               </span>
@@ -2513,9 +2524,8 @@ function App() {
         {/* ── PAYMENT PROMPT ── */}
         {showPayment && (
           <div style={{ position:"fixed", inset:0, zIndex:50, display:"flex", alignItems:"flex-end", justifyContent:"center",
-            background:"rgba(0,0,0,0.6)", backdropFilter:"blur(4px)" }}
-            onClick={() => { localStorage.setItem("sw_paid","remind"); setShowPayment(false); }}>
-            <div onClick={e => e.stopPropagation()} style={{
+            background:"rgba(0,0,0,0.6)", backdropFilter:"blur(4px)" }}>
+            <div style={{
               background:"#122018", border:`1px solid ${C.border}`, borderRadius:"20px 20px 0 0",
               padding:"28px 20px 36px", width:"100%", maxWidth:480,
             }}>
