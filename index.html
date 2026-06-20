@@ -338,10 +338,14 @@ const C = {
   dim:     "#8fba9a",
   text:    "#f0faf3",
   accent:  "#22c55e",
-  red:     "#ef4444",
+  // Lightened from #ef4444 — the original failed WCAG AA (4.5:1) for small
+  // text on card/surface/negBg backgrounds by a small margin (~4.0-4.5:1).
+  red:     "#f15a5a",
   gold:    "#f59e0b",
-  // Status-pill backgrounds (24h rank-change pill, goal-flash keyframe)
-  posBg:   "#14532d",
+  // Status-pill backgrounds (24h rank-change pill, goal-flash keyframe).
+  // posBg darkened from #14532d — the original only gave the green pill
+  // text 4.0:1 contrast, just under WCAG AA's 4.5:1 for small text.
+  posBg:   "#104224",
   negBg:   "#450a0a",
   // Zero-state grey (sparklines/bump-chart lines with nothing to show)
   neutral: "#334155",
