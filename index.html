@@ -517,7 +517,7 @@ function MatchCard({ m, ranked, upcoming = [] }) {
   );
 }
 
-function PlayerRow({ player, rank, displayRank, onOpen, expanded, onToggle, badges = [], rank24hChange = 0 }) {
+function PlayerRow({ player, rank, displayRank, onOpen, badges = [], rank24hChange = 0 }) {
   const rankColors = ["#84cc16","#94a3b8","#b45309"];
   const isTop = displayRank <= 3;
 
@@ -626,91 +626,10 @@ function PlayerRow({ player, rank, displayRank, onOpen, expanded, onToggle, badg
           )}
         </div>
 
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink:0, transform: expanded ? "rotate(180deg)" : "none", transition:"transform 0.2s ease" }}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink:0, transform:"rotate(-90deg)" }}>
           <path d="M6 9l6 6 6-6" stroke={player.grimReaper ? "#f87171" : C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       </div>
-
-      {/* Expanded detail */}
-      {expanded && (
-        <div style={{ borderTop:`1px solid ${C.border}`, padding:"8px 14px 4px" }}>
-          {player.grimReaper ? (
-            <>
-              <div style={{ fontSize:10, color:"#f87171", fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:10 }}>
-                Bounty Board
-              </div>
-              {[["Pot 1 upset", 1, 50], ["Pot 2 upset", 2, 15]].map(([label, pot, bounty]) => {
-                const count = Object.entries(player._eliminated||{}).filter(([code, stage]) => stage === "GROUP_ELIM" && (POT[code]||4) === pot).length;
-                return (
-                  <div key={label} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"7px 0", borderBottom:`1px solid #3f1212` }}>
-                    <div>
-                      <div style={{ fontSize:12, color: count > 0 ? C.text : "#f87171", opacity: count > 0 ? 1 : 0.5 }}>{label}</div>
-                      <div style={{ fontSize:10, color:"#f87171", opacity:0.6 }}>{bounty}pts per team</div>
-                    </div>
-                    <div style={{ textAlign:"right" }}>
-                      {count > 0
-                        ? <div style={{ fontSize:13, fontWeight:700, color:"#ef4444" }}>+{count * bounty}pts <span style={{ fontSize:10, color:"#f87171", opacity:0.7, fontWeight:400 }}>({count} team{count > 1 ? "s" : ""})</span></div>
-                        : <div style={{ fontSize:11, color:"#f87171", opacity:0.35 }}>none yet</div>
-                      }
-                    </div>
-                  </div>
-                );
-              })}
-              {(() => {
-                const groupMatches = (player._matches||[]).filter(m => (m.stage||"").toUpperCase().includes("GROUP") && m.status === "FINISHED");
-                const droughtGames = groupMatches.filter(m => goalDroughtPts(m) > 0);
-                const droughtTotal = droughtGames.reduce((sum, m) => sum + goalDroughtPts(m), 0);
-                return (
-                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"7px 0" }}>
-                    <div>
-                      <div style={{ fontSize:12, color: droughtTotal > 0 ? C.text : "#f87171", opacity: droughtTotal > 0 ? 1 : 0.5 }}>Goal drought curse</div>
-                      <div style={{ fontSize:10, color:"#f87171", opacity:0.6 }}>3pts (0-0)</div>
-                    </div>
-                    <div style={{ textAlign:"right" }}>
-                      {droughtTotal > 0
-                        ? <div style={{ fontSize:13, fontWeight:700, color:"#ef4444" }}>+{droughtTotal}pts <span style={{ fontSize:10, color:"#f87171", opacity:0.7, fontWeight:400 }}>({droughtGames.length} game{droughtGames.length !== 1 ? "s" : ""})</span></div>
-                        : <div style={{ fontSize:11, color:"#f87171", opacity:0.35 }}>none yet</div>
-                      }
-                    </div>
-                  </div>
-                );
-              })()}
-            </>
-          ) : (
-            player.teams.map(t => (
-              <div key={t.code} style={{
-                display:"flex", alignItems:"center", padding:"7px 0",
-                borderBottom:`1px solid ${C.border}`,
-                opacity: t.stage === "GROUP_ELIM" || (t.eliminated && !t.won) ? 0.45 : 1,
-              }}>
-                <div style={{ position:"relative", marginRight:10 }}>
-                  <Flag code={t.code} size={18} />
-                  {(t.eliminated && !t.won) && null}
-                </div>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontSize:13, fontWeight:600 }}>
-                    {t.name}
-                    <span style={{ fontSize:10, color:C.muted, fontWeight:400, marginLeft:5 }}>
-                      (P{t.pot})
-                    </span>
-                  </div>
-                  <div style={{ fontSize:11, color: C.muted }}>
-                    {(t.w + t.d + t.l) > 0 ? `${t.w}W ${t.d}D ${t.l}L` : "0W 0D 0L"}
-                  </div>
-                </div>
-                <div style={{ textAlign:"right" }}>
-                  <div style={{ fontSize:10, fontWeight:700, color: t.won ? C.gold : t.eliminated ? C.muted : C.green }}>
-                    {t.won ? "Winner 🏆" : t.stage ? STAGE_LABEL[t.stage] : "Group Stage"}
-                  </div>
-                  <div style={{ fontSize:13, fontWeight:700, color: t.pts < 0 ? C.red : t.pts > 0 ? C.text : C.muted }}>
-                    {t.pts > 0 ? "+" : ""}{t.pts}pts
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      )}
     </div>
   );
 }
