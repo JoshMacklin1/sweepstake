@@ -257,6 +257,23 @@ var POT = {
   // which code a given match object happens to use.
 };
 
+// Group assignments (A–L) — shared World Cup data. Used for mathematical
+// group-stage elimination timing in computeBadges.
+var GROUP_ASSIGNMENTS = {
+  A: ["MEX","RSA","KOR","CZE"],
+  B: ["CAN","BIH","QAT","SUI"],
+  C: ["BRA","MAR","HAI","SCO"],
+  D: ["USA","PAR","AUS","TUR"],
+  E: ["GER","CUW","CIV","ECU"],
+  F: ["NED","JPN","SWE","TUN"],
+  G: ["BEL","EGY","IRN","NZL"],
+  H: ["ESP","CPV","KSA","URU"],
+  I: ["FRA","SEN","IRQ","NOR"],
+  J: ["ARG","ALG","AUT","JOR"],
+  K: ["POR","DRC","UZB","COL"],
+  L: ["ENG","CRO","GHA","PAN"],
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // POINTS MATRIX  — INCREMENTAL points earned at each stage [Pot1, Pot2, Pot3, Pot4]
 // A team earns ALL stages they reach cumulatively
@@ -843,14 +860,18 @@ function computeBadges(ranked, matches, rank24hChange) {
   if (coldest) add(coldest.name, { icon:"💨", label:"Firing Blanks", desc:`Teams have scored the fewest goals (${coldest.g})`, tone:"bad" });
 
   // Elimination dates — replay finished matches chronologically to find WHEN each
-  // team went out (group: their 3rd group game if not in a knockout; KO: the loss).
+  // team went OUT (used by the First Casualty / Wiped Out badges).
+  //   Group: the match after which the team is mathematically locked into 4th of
+  //   its group — i.e. ≥3 teams are guaranteed above it on points (their CURRENT
+  //   points already exceed the team's MAX possible). 4th can't be top-2 or a
+  //   best-third, so the team is genuinely out. (Points-only test, so it never
+  //   false-flags; it may lag a GD-only lock-in by a game.)
+  //   Knockout: the match they lost.
   const elimDate = {};
-  const koTeams = new Set();
-  matches.filter(m => !(m.stage||"").toUpperCase().includes("GROUP") && isSettled(m.status)).forEach(m => {
-    if (m.homeTeam?.tla) koTeams.add(m.homeTeam.tla.toUpperCase());
-    if (m.awayTeam?.tla) koTeams.add(m.awayTeam.tla.toUpperCase());
-  });
-  const grpGames = {};
+  const groupOf = {};
+  Object.entries(GROUP_ASSIGNMENTS).forEach(([g, codes]) => codes.forEach(c => { groupOf[c] = g; }));
+  const gpts = {}, gplayed = {};
+  Object.keys(groupOf).forEach(c => { gpts[c] = 0; gplayed[c] = 0; });
   [...done].sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate)).forEach(m => {
     const stage = (m.stage || "").toUpperCase();
     const h = m.homeTeam?.tla?.toUpperCase();
@@ -859,8 +880,18 @@ function computeBadges(ranked, matches, rank24hChange) {
     const as_ = m.score?.fullTime?.away ?? 0;
     const pen = m.score?.penalties;
     if (stage.includes("GROUP")) {
-      [h, a].forEach(c => { if (c) grpGames[c] = (grpGames[c] || 0) + 1; });
-      [h, a].forEach(c => { if (c && grpGames[c] >= 3 && !koTeams.has(c) && !elimDate[c]) elimDate[c] = m.utcDate; });
+      if (h) gplayed[h] = (gplayed[h] || 0) + 1;
+      if (a) gplayed[a] = (gplayed[a] || 0) + 1;
+      if (hs > as_) gpts[h] = (gpts[h] || 0) + 3;
+      else if (as_ > hs) gpts[a] = (gpts[a] || 0) + 3;
+      else { gpts[h] = (gpts[h] || 0) + 1; gpts[a] = (gpts[a] || 0) + 1; }
+      const g = groupOf[h] || groupOf[a];
+      if (g) GROUP_ASSIGNMENTS[g].forEach(t => {
+        if (elimDate[t]) return;
+        const tMax = (gpts[t] || 0) + 3 * (3 - (gplayed[t] || 0));
+        const guaranteedAbove = GROUP_ASSIGNMENTS[g].filter(x => x !== t && (gpts[x] || 0) > tMax).length;
+        if (guaranteedAbove >= 3) elimDate[t] = m.utcDate; // locked into 4th → out
+      });
     } else {
       let loser = null;
       if (hs > as_) loser = a; else if (as_ > hs) loser = h; else if (pen) loser = pen.home > pen.away ? a : h;
