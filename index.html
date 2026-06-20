@@ -663,18 +663,18 @@ function PlayerModal({ player, displayRank, winPct, winTeams, badges = [], onClo
         </div>
         <div style={{ flex:1, overflowY:"auto", padding:"16px 14px 28px" }}>
           <div style={{ display:"flex", gap:10, marginBottom:18 }}>
-            <div style={{ flex:1, background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:"12px 8px", textAlign:"center" }}>
+            <div style={{ flex:1, background:C.card, border:`1px solid ${C.border}`, borderRadius:s.card.borderRadius, padding:"12px 8px", textAlign:"center" }}>
               <div style={{ fontSize:24, fontWeight:900, color: player.total < 0 ? C.red : C.text }}>{player.total}</div>
               <div style={{ fontSize:9, color:C.muted, textTransform:"uppercase", letterSpacing:"0.08em" }}>Points</div>
             </div>
-            <div style={{ flex:1, background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:"12px 8px", textAlign:"center" }}>
+            <div style={{ flex:1, background:C.card, border:`1px solid ${C.border}`, borderRadius:s.card.borderRadius, padding:"12px 8px", textAlign:"center" }}>
               <div style={{ fontSize:24, fontWeight:900, color: isReaper ? C.dangerText : C.accent }}>{isReaper ? "—" : `${winPct ?? 0}%`}</div>
               <div style={{ fontSize:9, color:C.muted, textTransform:"uppercase", letterSpacing:"0.08em" }}>Sweeps win chance</div>
             </div>
           </div>
 
           <div style={{ fontSize:11, color:C.text, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:8 }}>Points over time</div>
-          <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:"12px 8px", marginBottom:18, display:"flex", justifyContent:"center" }}>
+          <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:s.card.borderRadius, padding:"12px 8px", marginBottom:18, display:"flex", justifyContent:"center" }}>
             <Sparkline data={player.hist} width={300} height={72} color={isReaper ? C.red : player.total < 0 ? C.red : player.total === 0 ? C.neutral : C.accent} />
           </div>
 
@@ -2062,7 +2062,7 @@ function TeamsTab({ matches, view, setView }) {
               return (groupStats[b]?.gf||0) - (groupStats[a]?.gf||0);
             });
             return (
-              <div key={letter} style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, overflow:"hidden" }}>
+              <div key={letter} style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:s.card.borderRadius, overflow:"hidden" }}>
                 <div style={{ padding:"8px 12px", background:C.surface, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
                   <span style={{ fontSize:12, fontWeight:700, color:C.accent, letterSpacing:1 }}>GROUP {letter}</span>
                   <div style={{ display:"flex", gap:0, flexShrink:0 }}>
@@ -2903,7 +2903,7 @@ function App() {
               <div style={{ fontSize:13, color:C.muted, marginBottom:20, textAlign:"center", lineHeight:1.6 }}>
                 All money goes to charity — the winner picks which one!
               </div>
-              <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:"14px 16px", marginBottom:20 }}>
+              <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:s.card.borderRadius, padding:"14px 16px", marginBottom:20 }}>
                 <div style={{ fontSize:11, color:C.muted, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:10 }}>Payment details</div>
                 <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}>
                   <span style={{ fontSize:13, color:C.dim }}>Amount</span>
