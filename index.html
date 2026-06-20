@@ -2240,6 +2240,13 @@ function InfoContent() {
   );
 }
 
+const PAYMENT_SNOOZE_MS = 3 * 24 * 60 * 60 * 1000; // "Remind me next time" snooze
+// Suppressed on request after player complaints — sweepstake's been running
+// long enough that most people have already paid. Flip back on if the
+// organiser says it's needed again; the dev 💳 button still force-triggers
+// it for testing regardless of this flag.
+const PAYMENT_PROMPT_ENABLED = false;
+
 function App() {
   const [matches,     setMatches]     = useState([]);
   const [loading,     setLoading]     = useState(true);
@@ -2270,9 +2277,11 @@ function App() {
     return () => clearInterval(id);
   }, []);
   const triggerPayment = React.useCallback(() => {
-    if (localStorage.getItem("sw_paid") !== "yes") {
-      setShowPayment(true);
-    }
+    if (!PAYMENT_PROMPT_ENABLED) return;
+    if (localStorage.getItem("sw_paid") === "yes") return;
+    const snoozeUntil = Number(localStorage.getItem("sw_paid_snooze_until") || 0);
+    if (Date.now() < snoozeUntil) return;
+    setShowPayment(true);
   }, []);
 
   const [selectedPlayer, setSelectedPlayer] = useState(null);
@@ -2551,7 +2560,7 @@ function App() {
               {devMode ? "DEV" : "···"}
             </span>
             {devMode && (
-              <span onClick={() => { localStorage.removeItem("sw_paid"); setShowPayment(true); }}
+              <span onClick={() => { localStorage.removeItem("sw_paid"); localStorage.removeItem("sw_paid_snooze_until"); setShowPayment(true); }}
                 style={{ fontSize:9, color:C.gold, cursor:"pointer", userSelect:"none", border:"1px solid #f59e0b", borderRadius:3, padding:"1px 5px" }}>
                 💳
               </span>
@@ -2893,9 +2902,13 @@ function App() {
           <div style={{ position:"fixed", inset:0, zIndex:50, display:"flex", alignItems:"flex-end", justifyContent:"center",
             background:"rgba(0,0,0,0.6)", backdropFilter:"blur(4px)" }}>
             <div style={{
+              position:"relative",
               background:C.surface, border:`1px solid ${C.border}`, borderRadius:"20px 20px 0 0",
               padding:"28px 20px 36px", width:"100%", maxWidth:480,
             }}>
+              <button onClick={() => { localStorage.setItem("sw_paid_snooze_until", String(Date.now() + PAYMENT_SNOOZE_MS)); setShowPayment(false); }}
+                aria-label="Dismiss"
+                style={{ position:"absolute", top:12, right:14, background:"transparent", border:"none", color:C.muted, fontSize:20, cursor:"pointer", lineHeight:1, padding:4 }}>✕</button>
               <div style={{ fontSize:24, marginBottom:12, textAlign:"center" }}>💳</div>
               <div style={{ fontSize:18, fontWeight:900, color:C.text, marginBottom:8, textAlign:"center" }}>
                 Have you paid your £5?
@@ -2919,11 +2932,11 @@ function App() {
               }}>
                 ✓ I've paid
               </button>
-              <button onClick={() => { localStorage.setItem("sw_paid","remind"); setShowPayment(false); }} style={{
+              <button onClick={() => { localStorage.setItem("sw_paid_snooze_until", String(Date.now() + PAYMENT_SNOOZE_MS)); setShowPayment(false); }} style={{
                 width:"100%", padding:"12px", borderRadius:12, border:`1px solid ${C.border}`,
                 background:"transparent", color:C.muted, fontSize:14, fontWeight:600, cursor:"pointer",
               }}>
-                Remind me next time
+                Remind me in 3 days
               </button>
             </div>
           </div>
