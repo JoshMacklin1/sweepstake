@@ -542,14 +542,14 @@ function PlayerRow({ player, rank, displayRank, onOpen, badges = [], rank24hChan
       border: `1px solid ${player.grimReaper ? C.reaperAccent : C.border}`,
       background: player.grimReaper ? C.reaperBg : C.card,
     }}>
-      <div className="player-card" onClick={onOpen} style={{ display:"flex", alignItems:"center", padding:"9px 12px", cursor:"pointer", gap:7 }}>
+      <div className="player-card" onClick={onOpen} style={{ display:"flex", alignItems:"center", padding:"10px 14px", cursor:"pointer", gap:10 }}>
 
         {/* Rank badge */}
         <div style={{
-          width:26, height:26, borderRadius:"50%", flexShrink:0,
+          width:30, height:30, borderRadius:"50%", flexShrink:0,
           background: player.grimReaper ? C.reaperAccent : isTop ? rankColors[displayRank-1] : C.border,
           display:"flex", alignItems:"center", justifyContent:"center",
-          fontSize:12, fontWeight:800, color: player.grimReaper ? C.dangerTextBright : isTop ? "#080c18" : C.dim,
+          fontSize:13, fontWeight:800, color: player.grimReaper ? C.dangerTextBright : isTop ? "#080c18" : C.dim,
         }}>{displayRank}</div>
 
         {/* Left: name + flags */}
@@ -581,7 +581,7 @@ function PlayerRow({ player, rank, displayRank, onOpen, badges = [], rank24hChan
                       // B-team treatment: normal flag + "B" badge to signal second-draw duplicate.
                       <div style={{ position:"relative", display:"inline-block", height:18, flexShrink:0 }}>
                         <img src={flag(t.code)} alt={t.name}
-                          style={{ width:23, height:16, objectFit:"cover", borderRadius:2, display:"block",
+                          style={{ width:27, height:18, objectFit:"cover", borderRadius:2, display:"block",
                             opacity: (t.eliminated || t.stage === "GROUP_ELIM") && !t.won ? 0.25 : 1,
                             outline: t.won ? "2px solid #f59e0b" : "none" }} />
                         {/* B badge — bottom-right */}
@@ -596,7 +596,7 @@ function PlayerRow({ player, rank, displayRank, onOpen, badges = [], rank24hChan
                     ) : (
                       <img src={flag(t.code)} alt={t.name}
                         title={`${t.name} (Pot ${t.pot})${t.stage ? " — "+STAGE_LABEL[t.stage] : ""}`}
-                        style={{ width:23, height:16, objectFit:"cover", borderRadius:2, display:"block",
+                        style={{ width:27, height:18, objectFit:"cover", borderRadius:2, display:"block",
                           opacity: (t.eliminated || t.stage === "GROUP_ELIM") && !t.won ? 0.25 : 1,
                           outline: t.won ? "2px solid #f59e0b" : "none" }} />
                     )}
@@ -611,11 +611,11 @@ function PlayerRow({ player, rank, displayRank, onOpen, badges = [], rank24hChan
 
         {/* Middle: sparkline */}
         <div style={{ flexShrink:0 }}>
-          <Sparkline data={player.hist} width={48} height={40} color={player.grimReaper ? C.red : player.total < 0 ? C.red : player.total === 0 ? C.neutral : C.accent} />
+          <Sparkline data={player.hist} width={100} height={56} color={player.grimReaper ? C.red : player.total < 0 ? C.red : player.total === 0 ? C.neutral : C.accent} />
         </div>
 
         {/* Right: points + change */}
-        <div style={{ textAlign:"right", flexShrink:0, minWidth:44 }}>
+        <div style={{ textAlign:"right", flexShrink:0, minWidth:56 }}>
           <div style={{ fontSize:22, fontWeight:800, color: player.total < 0 ? C.red : C.text, lineHeight:1 }}>
             {player.total}
           </div>
