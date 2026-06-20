@@ -545,7 +545,7 @@ function PlayerRow({ player, rank, displayRank, onOpen, expanded, onToggle, badg
                 ? <>Josh <span style={{ fontSize:13 }}>💀</span></>
                 : player.name}
             </div>
-            {(badges || []).slice(0, 3).map((b, i) => (
+            {(badges || []).slice(0, 2).map((b, i) => (
               <span key={i} title={`${b.label} — ${b.desc}`} style={{ fontSize:13, lineHeight:1 }}>{b.icon}</span>
             ))}
           </div>

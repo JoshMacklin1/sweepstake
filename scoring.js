@@ -822,6 +822,14 @@ function computeBadges(ranked, matches, rank24hChange) {
     if (p.total === 0) add(p.name, { icon:"🦆", label:"Still Quacking", desc:"Yet to score a point", tone:"bad" });
   });
 
+  // Order each player's badges rarest-first so the row preview (which shows only
+  // the first couple) highlights what's UNIQUE to them rather than common
+  // accolades (e.g. Clean Sheet) that lots of players share. Stable sort keeps
+  // the original push order for ties (headline badges first).
+  const freq = {};
+  Object.values(badges).forEach(list => list.forEach(b => { freq[b.label] = (freq[b.label] || 0) + 1; }));
+  Object.values(badges).forEach(list => list.sort((a, b) => freq[a.label] - freq[b.label]));
+
   return badges;
 }
 
