@@ -287,7 +287,7 @@
 
 <script type="text/babel">
 // ─────────────────────────────────────────────────────────────────────────────
-function Sparkline({ data, width = 90, height = 28, color = "#22c55e" }) {
+function Sparkline({ data, width = 90, height = 28, color = C.accent }) {
   if (!data || data.length < 2) {
     return (
       <svg width={width} height={height} style={{ display:"block" }}>
@@ -338,9 +338,20 @@ const C = {
   dim:     "#8fba9a",
   text:    "#f0faf3",
   accent:  "#22c55e",
-  green:   "#22c55e",
   red:     "#ef4444",
   gold:    "#f59e0b",
+  // Status-pill backgrounds (24h rank-change pill, goal-flash keyframe)
+  posBg:   "#14532d",
+  negBg:   "#450a0a",
+  // Zero-state grey (sparklines/bump-chart lines with nothing to show)
+  neutral: "#334155",
+  // Danger/alert red-on-dark — shared by the Grim Reaper theme and the
+  // fetch-error banner, not just one or the other
+  dangerText:       "#f87171",
+  dangerTextBright: "#fca5a5",
+  // Grim Reaper card theme specifically (border/badge-bg + card bg)
+  reaperAccent: "#3f1212",
+  reaperBg:     "#1a1210",
 };
 
 const s = {
@@ -524,17 +535,17 @@ function PlayerRow({ player, rank, displayRank, onOpen, badges = [], rank24hChan
   return (
     <div style={{
       ...s.card,
-      border: `1px solid ${player.grimReaper ? "#3f1212" : C.border}`,
-      background: player.grimReaper ? "#1a1210" : C.card,
+      border: `1px solid ${player.grimReaper ? C.reaperAccent : C.border}`,
+      background: player.grimReaper ? C.reaperBg : C.card,
     }}>
       <div className="player-card" onClick={onOpen} style={{ display:"flex", alignItems:"center", padding:"10px 14px", cursor:"pointer", gap:10 }}>
 
         {/* Rank badge */}
         <div style={{
           width:30, height:30, borderRadius:"50%", flexShrink:0,
-          background: player.grimReaper ? "#3f1212" : isTop ? rankColors[displayRank-1] : C.border,
+          background: player.grimReaper ? C.reaperAccent : isTop ? rankColors[displayRank-1] : C.border,
           display:"flex", alignItems:"center", justifyContent:"center",
-          fontSize:13, fontWeight:800, color: player.grimReaper ? "#fca5a5" : isTop ? "#080c18" : C.dim,
+          fontSize:13, fontWeight:800, color: player.grimReaper ? C.dangerTextBright : isTop ? "#080c18" : C.dim,
         }}>{displayRank}</div>
 
         {/* Left: name + flags */}
@@ -548,7 +559,7 @@ function PlayerRow({ player, rank, displayRank, onOpen, badges = [], rank24hChan
             ))}
           </div>
           {player.grimReaper ? (
-            <div style={{ fontSize:10, color:"#f87171", lineHeight:1.5, opacity:0.7 }}>
+            <div style={{ fontSize:10, color:C.dangerText, lineHeight:1.5, opacity:0.7 }}>
               Grim Reaper — earns on boring football &amp; eliminations
             </div>
           ) : (
@@ -596,7 +607,7 @@ function PlayerRow({ player, rank, displayRank, onOpen, badges = [], rank24hChan
 
         {/* Middle: sparkline */}
         <div style={{ flexShrink:0 }}>
-          <Sparkline data={player.hist} width={100} height={56} color={player.grimReaper ? "#ef4444" : player.total < 0 ? "#ef4444" : player.total === 0 ? "#334155" : "#22c55e"} />
+          <Sparkline data={player.hist} width={100} height={56} color={player.grimReaper ? C.red : player.total < 0 ? C.red : player.total === 0 ? C.neutral : C.accent} />
         </div>
 
         {/* Right: points + change */}
@@ -604,14 +615,14 @@ function PlayerRow({ player, rank, displayRank, onOpen, badges = [], rank24hChan
           <div style={{ fontSize:22, fontWeight:800, color: player.total < 0 ? C.red : C.text, lineHeight:1 }}>
             {player.total}
           </div>
-          <div style={{ fontSize:10, color: player.grimReaper ? "#f87171" : C.muted, marginBottom:4 }}>pts</div>
+          <div style={{ fontSize:10, color: player.grimReaper ? C.dangerText : C.muted, marginBottom:4 }}>pts</div>
           {rank24hChange !== 0 ? (
             <div style={{
               display:"inline-block",
               fontSize:10, fontWeight:700, padding:"1px 5px",
               borderRadius:3,
-              background: player.grimReaper ? "#450a0a" : rank24hChange > 0 ? "#14532d" : "#450a0a",
-              color: player.grimReaper ? "#ef4444" : rank24hChange > 0 ? "#22c55e" : "#ef4444",
+              background: player.grimReaper ? C.negBg : rank24hChange > 0 ? C.posBg : C.negBg,
+              color: player.grimReaper ? C.red : rank24hChange > 0 ? C.accent : C.red,
             }}>
               {rank24hChange > 0 ? "▲" : "▼"}{" "}
               {Math.abs(rank24hChange)} pos
@@ -627,7 +638,7 @@ function PlayerRow({ player, rank, displayRank, onOpen, badges = [], rank24hChan
         </div>
 
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink:0, transform:"rotate(-90deg)" }}>
-          <path d="M6 9l6 6 6-6" stroke={player.grimReaper ? "#f87171" : C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M6 9l6 6 6-6" stroke={player.grimReaper ? C.dangerText : C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       </div>
     </div>
@@ -657,28 +668,28 @@ function PlayerModal({ player, displayRank, winPct, winTeams, badges = [], onClo
               <div style={{ fontSize:9, color:C.muted, textTransform:"uppercase", letterSpacing:"0.08em" }}>Points</div>
             </div>
             <div style={{ flex:1, background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:"12px 8px", textAlign:"center" }}>
-              <div style={{ fontSize:24, fontWeight:900, color: isReaper ? "#f87171" : C.accent }}>{isReaper ? "—" : `${winPct ?? 0}%`}</div>
+              <div style={{ fontSize:24, fontWeight:900, color: isReaper ? C.dangerText : C.accent }}>{isReaper ? "—" : `${winPct ?? 0}%`}</div>
               <div style={{ fontSize:9, color:C.muted, textTransform:"uppercase", letterSpacing:"0.08em" }}>Sweeps win chance</div>
             </div>
           </div>
 
           <div style={{ fontSize:11, color:C.text, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:8 }}>Points over time</div>
           <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:"12px 8px", marginBottom:18, display:"flex", justifyContent:"center" }}>
-            <Sparkline data={player.hist} width={300} height={72} color={isReaper ? "#ef4444" : player.total < 0 ? "#ef4444" : player.total === 0 ? "#334155" : "#22c55e"} />
+            <Sparkline data={player.hist} width={300} height={72} color={isReaper ? C.red : player.total < 0 ? C.red : player.total === 0 ? C.neutral : C.accent} />
           </div>
 
           {isReaper ? (
             <>
-              <div style={{ fontSize:11, color:"#f87171", fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:8 }}>Bounty Board</div>
+              <div style={{ fontSize:11, color:C.dangerText, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:8 }}>Bounty Board</div>
               {[["Pot 1 upset", 1, 50], ["Pot 2 upset", 2, 15]].map(([label, pot, bounty]) => {
                 const count = Object.entries(player._eliminated || {}).filter(([code, stage]) => stage === "GROUP_ELIM" && (POT[code] || 4) === pot).length;
                 return (
                   <div key={label} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", borderBottom:`1px solid #3f1212` }}>
                     <div>
-                      <div style={{ fontSize:12, color: count > 0 ? C.text : "#f87171", opacity: count > 0 ? 1 : 0.5 }}>{label}</div>
-                      <div style={{ fontSize:10, color:"#f87171", opacity:0.6 }}>{bounty}pts per team</div>
+                      <div style={{ fontSize:12, color: count > 0 ? C.text : C.dangerText, opacity: count > 0 ? 1 : 0.5 }}>{label}</div>
+                      <div style={{ fontSize:10, color:C.dangerText, opacity:0.6 }}>{bounty}pts per team</div>
                     </div>
-                    <div style={{ fontSize:13, fontWeight:700, color: count > 0 ? "#ef4444" : "#f87171" }}>{count > 0 ? `+${count * bounty}pts` : "—"}</div>
+                    <div style={{ fontSize:13, fontWeight:700, color: count > 0 ? C.red : C.dangerText }}>{count > 0 ? `+${count * bounty}pts` : "—"}</div>
                   </div>
                 );
               })}
@@ -689,10 +700,10 @@ function PlayerModal({ player, displayRank, winPct, winTeams, badges = [], onClo
                 return (
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0" }}>
                     <div>
-                      <div style={{ fontSize:12, color: droughtTotal > 0 ? C.text : "#f87171", opacity: droughtTotal > 0 ? 1 : 0.5 }}>Goal drought curse</div>
-                      <div style={{ fontSize:10, color:"#f87171", opacity:0.6 }}>3pts per 0-0</div>
+                      <div style={{ fontSize:12, color: droughtTotal > 0 ? C.text : C.dangerText, opacity: droughtTotal > 0 ? 1 : 0.5 }}>Goal drought curse</div>
+                      <div style={{ fontSize:10, color:C.dangerText, opacity:0.6 }}>3pts per 0-0</div>
                     </div>
-                    <div style={{ fontSize:13, fontWeight:700, color: droughtTotal > 0 ? "#ef4444" : "#f87171" }}>{droughtTotal > 0 ? `+${droughtTotal}pts` : "—"}</div>
+                    <div style={{ fontSize:13, fontWeight:700, color: droughtTotal > 0 ? C.red : C.dangerText }}>{droughtTotal > 0 ? `+${droughtTotal}pts` : "—"}</div>
                   </div>
                 );
               })()}
@@ -729,7 +740,7 @@ function PlayerModal({ player, displayRank, winPct, winTeams, badges = [], onClo
                 <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0", borderBottom:`1px solid ${C.border}` }}>
                   <span style={{ fontSize:20, flexShrink:0, width:24, textAlign:"center" }}>{b.icon}</span>
                   <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontSize:13, fontWeight:700, color: b.tone === "bad" ? "#f87171" : C.accent }}>{b.label}</div>
+                    <div style={{ fontSize:13, fontWeight:700, color: b.tone === "bad" ? C.dangerText : C.accent }}>{b.label}</div>
                     <div style={{ fontSize:11, color:C.muted }}>{b.desc}</div>
                   </div>
                 </div>
@@ -896,14 +907,14 @@ function BumpChart({ history, allRanked, bucketLabels = [], raceHistory }) {
         <svg width={W} height={H} style={{ display:"block" }}>
           {/* Horizontal grid lines */}
           {Array.from({length: n}, (_, i) => (
-            <line key={i} x1={padL} y1={yScale(i+1)} x2={padL+chartW} y2={yScale(i+1)} stroke="#1e3d28" strokeWidth={1} />
+            <line key={i} x1={padL} y1={yScale(i+1)} x2={padL+chartW} y2={yScale(i+1)} stroke={C.border} strokeWidth={1} />
           ))}
           {/* Lines */}
           {history.map(p => {
             const dim = selected && selected !== p.name;
             return (
             <path key={p.name} d={buildPath(p.name)} fill="none"
-              stroke={dim ? "#1e3d28" : colorOf(p.name)}
+              stroke={dim ? C.border : colorOf(p.name)}
               strokeWidth={selected === p.name ? 3.5 : 2.5}
               strokeLinecap="round" strokeLinejoin="round"
               opacity={dim ? 0.3 : 0.9} />
@@ -916,7 +927,7 @@ function BumpChart({ history, allRanked, bucketLabels = [], raceHistory }) {
               <circle key={`${p.name}-${t}`}
                 cx={xScale(t)} cy={yScale(tp[p.name])}
                 r={t === maxLen-1 ? 5 : 3}
-                fill={dim ? "#1e3d28" : colorOf(p.name)}
+                fill={dim ? C.border : colorOf(p.name)}
                 stroke="#080c18" strokeWidth={1.5}
                 opacity={dim ? 0.3 : 1} />
             ));
@@ -927,7 +938,7 @@ function BumpChart({ history, allRanked, bucketLabels = [], raceHistory }) {
             return (
             <text key={`s-${p.name}`} x={padL-5} y={yScale(startRanks[p.name])+4}
               textAnchor="end" fontSize={10} fontWeight={700}
-              fill={dim ? "#1e3d28" : colorOf(p.name)}
+              fill={dim ? C.border : colorOf(p.name)}
               opacity={dim ? 0.3 : 1}>
               {startRanks[p.name]}
             </text>
@@ -939,7 +950,7 @@ function BumpChart({ history, allRanked, bucketLabels = [], raceHistory }) {
             return (
             <text key={`e-${p.name}`} x={padL+chartW+8} y={yScale(endRanks[p.name])+4}
               textAnchor="start" fontSize={11} fontWeight={700}
-              fill={dim ? "#334155" : colorOf(p.name)}
+              fill={dim ? C.neutral : colorOf(p.name)}
               opacity={dim ? 0.4 : 1}
               style={{ cursor:"pointer" }}
               onClick={() => setSelected(selected === p.name ? null : p.name)}>
@@ -1050,7 +1061,7 @@ function BarRaceModal({ history, allRanked, bucketLabels = [], elimByFrame = [],
   const ROW_H = `${100 / n}%`;
 
   return (
-    <div style={{ position:"fixed", inset:0, zIndex:60, background:"#0d1f12", display:"flex", flexDirection:"column" }}>
+    <div style={{ position:"fixed", inset:0, zIndex:60, background:C.bg, display:"flex", flexDirection:"column" }}>
       {/* Header */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"12px 16px", borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
         <div style={{ fontSize:15, fontWeight:800, color:C.text }}>🏁 The Race</div>
@@ -1094,19 +1105,19 @@ function BarRaceModal({ history, allRanked, bucketLabels = [], elimByFrame = [],
                       <div key={t.code} style={{ position:"relative", width:22, height:15, flexShrink:0 }}>
                         <div style={{
                           position:"absolute", inset:0, borderRadius:2,
-                          backgroundImage: url ? `url(${url})` : "none", backgroundColor:"#1e3d28",
+                          backgroundImage: url ? `url(${url})` : "none", backgroundColor:C.border,
                           backgroundSize:"cover", backgroundPosition:"center",
                           filter: out ? "grayscale(1)" : "none", opacity: out ? 0.4 : 1,
                         }}/>
                         {out && (
-                          <span style={{ position:"absolute", top:-2, right:-1, fontSize:9, fontWeight:900, color:"#ef4444", textShadow:"0 0 2px rgba(0,0,0,0.9)", lineHeight:1, zIndex:1 }}>✕</span>
+                          <span style={{ position:"absolute", top:-2, right:-1, fontSize:9, fontWeight:900, color:C.red, textShadow:"0 0 2px rgba(0,0,0,0.9)", lineHeight:1, zIndex:1 }}>✕</span>
                         )}
                       </div>
                     );
                   })}
                 </div>
                 <div style={{ flex:1, position:"relative", height:"55%", minHeight:18 }}>
-                  <div style={{ position:"absolute", inset:0, background:"#1e3d28", borderRadius:"0 3px 3px 0" }}/>
+                  <div style={{ position:"absolute", inset:0, background:C.border, borderRadius:"0 3px 3px 0" }}/>
                   <div style={{
                     position:"absolute", left:0, top:0, bottom:0,
                     width:`${barW}%`,
@@ -1155,7 +1166,7 @@ function BarRaceModal({ history, allRanked, bucketLabels = [], elimByFrame = [],
           <span style={{ fontSize:11, color:C.muted }}>Event {frame + 1} of {maxLen}</span>
         </div>
         <div style={{ display:"flex", justifyContent:"flex-end", gap:8, marginTop:8 }}>
-          <button onClick={restart} style={{ background:"#1e3d28", border:"none", color:C.text, padding:"8px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontWeight:600 }}>Restart</button>
+          <button onClick={restart} style={{ background:C.border, border:"none", color:C.text, padding:"8px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontWeight:600 }}>Restart</button>
           <button onClick={toggle} style={{ background:C.accent, border:"none", color:"white", padding:"8px 24px", borderRadius:6, cursor:"pointer", fontSize:14, fontWeight:700 }}>
             {playing ? "⏸" : frame >= maxLen - 1 ? "↺" : "▶"}
           </button>
@@ -1977,7 +1988,7 @@ function TeamsTab({ matches, view, setView }) {
         )}
         {score != null && (
           <span style={{ fontSize:13, fontWeight:700, color: isWinner ? C.accent : C.dim, flexShrink:0, marginLeft:2 }}>
-            {score}{isLive ? <span style={{color:"#ef4444",fontSize:9}}> ●</span> : ""}
+            {score}{isLive ? <span style={{color:C.red,fontSize:9}}> ●</span> : ""}
           </span>
         )}
       </div>
@@ -2155,13 +2166,13 @@ function InfoContent() {
                   <tr style={{ borderBottom:`1px solid ${C.border}` }}>
                     <th style={{ padding:"10px 12px", textAlign:"left", color:C.dim, fontWeight:700 }}>Stage</th>
                     {["Pot 1","Pot 2","Pot 3","Pot 4"].map((p,i) => (
-                      <th key={p} style={{ padding:"10px 8px", textAlign:"center", fontWeight:700, color:["#f59e0b","#a78bfa","#60a5fa","#34d399"][i] }}>{p}</th>
+                      <th key={p} style={{ padding:"10px 8px", textAlign:"center", fontWeight:700, color:[C.gold,"#a78bfa","#60a5fa","#34d399"][i] }}>{p}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   <tr style={{ borderBottom:`1px solid ${C.border}` }}>
-                    <td style={{ padding:"9px 12px", color:"#22c55e", fontWeight:600, fontSize:11 }}>Group Win</td>
+                    <td style={{ padding:"9px 12px", color:C.accent, fontWeight:600, fontSize:11 }}>Group Win</td>
                     {[2,4,8,12].map((v,i) => <td key={i} style={{ padding:"9px 8px", textAlign:"center", fontWeight:700, color:C.text }}>+{v}</td>)}
                   </tr>
                   <tr style={{ borderBottom:`1px solid ${C.border}` }}>
@@ -2204,7 +2215,7 @@ function InfoContent() {
                     <tr key={label} style={{ borderBottom:`1px solid ${C.border}` }}>
                       <td style={{ padding:"7px 8px", color: josh > 0 ? C.text : C.muted }}>{label}</td>
                       <td style={{ padding:"7px 8px", textAlign:"center", color: owner < 0 ? C.red : C.muted, fontWeight:700 }}>{owner < 0 ? owner : "—"}</td>
-                      <td style={{ padding:"7px 8px", textAlign:"center", color: josh > 0 ? "#22c55e" : C.muted, fontWeight:700 }}>{josh > 0 ? `+${josh}` : "—"}</td>
+                      <td style={{ padding:"7px 8px", textAlign:"center", color: josh > 0 ? C.accent : C.muted, fontWeight:700 }}>{josh > 0 ? `+${josh}` : "—"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -2516,7 +2527,7 @@ function App() {
       {/* ── Sticky header: title (collapses on scroll) + live banner + toggle ── */}
       <div id="appHeader" style={{
         position:"sticky", top:0, zIndex:20,
-        background:"#0d1f12",
+        background:C.bg,
         borderBottom:`1px solid ${C.border}`,
       }}>
         {/* Title row — collapses away on scroll-down (mobile); hidden on desktop (it's in the sidebar) */}
@@ -2536,12 +2547,12 @@ function App() {
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
             <span onClick={() => { const next = !devMode; devModeRef.current = next; setDevMode(next); setLoading(true); setTab("table"); setLeagueView("league"); fetchMatches(false, next); }}
-              style={{ fontSize:9, color:devMode?"#f59e0b":"#1e3d28", cursor:"pointer", userSelect:"none", border:`1px solid ${devMode?"#f59e0b":"#1e3d28"}`, borderRadius:3, padding:"1px 5px" }}>
+              style={{ fontSize:9, color:devMode?C.gold:C.border, cursor:"pointer", userSelect:"none", border:`1px solid ${devMode?C.gold:C.border}`, borderRadius:3, padding:"1px 5px" }}>
               {devMode ? "DEV" : "···"}
             </span>
             {devMode && (
               <span onClick={() => { localStorage.removeItem("sw_paid"); setShowPayment(true); }}
-                style={{ fontSize:9, color:"#f59e0b", cursor:"pointer", userSelect:"none", border:"1px solid #f59e0b", borderRadius:3, padding:"1px 5px" }}>
+                style={{ fontSize:9, color:C.gold, cursor:"pointer", userSelect:"none", border:"1px solid #f59e0b", borderRadius:3, padding:"1px 5px" }}>
                 💳
               </span>
             )}
@@ -2552,7 +2563,7 @@ function App() {
                 setGoalFlash(true);
                 setTimeout(() => setGoalFlash(false), 2500);
               }}
-                style={{ fontSize:9, color:"#f59e0b", cursor:"pointer", userSelect:"none", border:"1px solid #f59e0b", borderRadius:3, padding:"1px 5px" }}>
+                style={{ fontSize:9, color:C.gold, cursor:"pointer", userSelect:"none", border:"1px solid #f59e0b", borderRadius:3, padding:"1px 5px" }}>
                 ⚽
               </span>
             )}
@@ -2701,7 +2712,7 @@ function App() {
       {/* ── Bottom nav ── */}
       <div style={{
         position:"fixed", bottom:0, left:0, right:0,
-        background:"#0d1f12", borderTop:`1px solid ${C.border}`,
+        background:C.bg, borderTop:`1px solid ${C.border}`,
         display:"flex", zIndex:30,
         paddingBottom:"env(safe-area-inset-bottom)",
         maxWidth:620, margin:"0 auto",
@@ -2785,7 +2796,7 @@ function App() {
       {/* ── Desktop-only dev toggle (bottom-left of sidebar) ── */}
       <div className="desktop-dev"
         onClick={() => { const next = !devMode; devModeRef.current = next; setDevMode(next); setLoading(true); setTab("table"); setLeagueView("league"); setShowInfo(false); fetchMatches(false, next); }}
-        style={{ color: devMode ? "#f59e0b" : "#2a4a33", border:`1px solid ${devMode ? "#f59e0b" : "#1e3d28"}` }}>
+        style={{ color: devMode ? C.gold : "#2a4a33", border:`1px solid ${devMode ? C.gold : C.border}` }}>
         {devMode ? "DEV" : "···"}
       </div>
 
@@ -2802,7 +2813,7 @@ function App() {
         {error && (
           <div style={{
             background:"#1a0a0a", border:`1px solid #7f1d1d`,
-            borderRadius:8, padding:"12px 14px", color:"#fca5a5",
+            borderRadius:8, padding:"12px 14px", color:C.dangerTextBright,
             fontSize:13, marginBottom:12,
           }}>
             ⚠️ {error}
@@ -2882,7 +2893,7 @@ function App() {
           <div style={{ position:"fixed", inset:0, zIndex:50, display:"flex", alignItems:"flex-end", justifyContent:"center",
             background:"rgba(0,0,0,0.6)", backdropFilter:"blur(4px)" }}>
             <div style={{
-              background:"#122018", border:`1px solid ${C.border}`, borderRadius:"20px 20px 0 0",
+              background:C.surface, border:`1px solid ${C.border}`, borderRadius:"20px 20px 0 0",
               padding:"28px 20px 36px", width:"100%", maxWidth:480,
             }}>
               <div style={{ fontSize:24, marginBottom:12, textAlign:"center" }}>💳</div>
