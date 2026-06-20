@@ -688,35 +688,70 @@ function PlayerModal({ player, displayRank, winPct, winTeams, badges = [], onClo
   }, []);
 
   // Swipe-to-dismiss (mobile only — desktop's centred card isn't draggable).
-  // Scoped to the handle + header only, not the scrollable body below, so it
-  // can't fight with the user trying to scroll the team list.
+  // Covers the WHOLE sheet, including the scrollable body — not just the
+  // handle/header — so it's reachable in the natural thumb zone instead of
+  // forcing a reach to the top of the card. To not fight with scrolling the
+  // team list, a downward drag only starts dismissing once the body is
+  // already scrolled to its top; otherwise it scrolls normally.
+  // Native (non-passive) listeners, not React's onTouch* props — React
+  // attaches touch listeners as passive by default, which would silently
+  // no-op our preventDefault() and let the body rubber-band under the drag.
   const sheetRef = React.useRef(null);
-  const dragInfo = React.useRef({ startY: 0, startTime: 0, active: false });
+  const bodyRef = React.useRef(null);
+  const dragInfo = React.useRef({ startY: 0, startTime: 0, active: false, dragY: 0 });
   const [dragY, setDragY] = React.useState(0);
   const [dragging, setDragging] = React.useState(false);
 
-  const onDragStart = (e) => {
-    dragInfo.current = { startY: e.touches[0].clientY, startTime: Date.now(), active: true };
-    setDragging(true);
-  };
-  const onDragMove = (e) => {
-    if (!dragInfo.current.active) return;
-    const delta = e.touches[0].clientY - dragInfo.current.startY;
-    if (delta > 0) setDragY(delta); // only follow downward drags
-  };
-  const onDragEnd = () => {
-    if (!dragInfo.current.active) return;
-    dragInfo.current.active = false;
-    setDragging(false);
-    const elapsed = Date.now() - dragInfo.current.startTime;
-    const velocity = dragY / Math.max(elapsed, 1); // px/ms
-    const sheetHeight = sheetRef.current ? sheetRef.current.offsetHeight : 400;
-    if (dragY > sheetHeight * 0.25 || velocity > 0.5) {
-      onClose();
-    } else {
-      setDragY(0); // didn't clear the threshold — spring back open
-    }
-  };
+  React.useEffect(() => {
+    const el = sheetRef.current;
+    if (!el) return;
+    const onStart = (e) => {
+      dragInfo.current = { startY: e.touches[0].clientY, startTime: Date.now(), active: true, dragY: 0 };
+    };
+    const onMove = (e) => {
+      if (!dragInfo.current.active) return;
+      const delta = e.touches[0].clientY - dragInfo.current.startY;
+      const atTop = !bodyRef.current || bodyRef.current.scrollTop <= 0;
+      if (delta > 0 && atTop) {
+        e.preventDefault(); // we're taking over the gesture — stop the body bouncing under it
+        dragInfo.current.dragY = delta;
+        setDragging(true);
+        setDragY(delta);
+      } else if (dragInfo.current.dragY > 0) {
+        // finger moved back above the start point mid-drag — clamp rather than go negative
+        dragInfo.current.dragY = 0;
+        setDragY(0);
+      }
+    };
+    const onEnd = () => {
+      if (!dragInfo.current.active) return;
+      dragInfo.current.active = false;
+      setDragging(false);
+      const { dragY: finalDragY, startTime } = dragInfo.current;
+      if (finalDragY === 0) return; // never actually became a sheet-drag — was just a scroll
+      const elapsed = Date.now() - startTime;
+      const velocity = finalDragY / Math.max(elapsed, 1); // px/ms
+      const sheetHeight = el.offsetHeight;
+      if (finalDragY > sheetHeight * 0.25 || velocity > 0.5) {
+        onClose();
+      } else {
+        setDragY(0); // didn't clear the threshold — spring back open
+      }
+    };
+    el.addEventListener("touchstart", onStart, { passive: true });
+    el.addEventListener("touchmove", onMove, { passive: false });
+    el.addEventListener("touchend", onEnd, { passive: true });
+    return () => {
+      el.removeEventListener("touchstart", onStart);
+      el.removeEventListener("touchmove", onMove);
+      el.removeEventListener("touchend", onEnd);
+    };
+    // [] deliberately, not [onClose] — App re-renders (poll, countdown tick,
+    // etc.) recreate the onClose closure constantly, which would tear down
+    // and reattach these native listeners mid-gesture if it were a dep. The
+    // captured onClose still does the right thing: this instance only ever
+    // closes itself.
+  }, []);
 
   if (!player) return null;
   const isReaper = player.grimReaper;
@@ -726,17 +761,15 @@ function PlayerModal({ player, displayRank, winPct, winTeams, badges = [], onClo
         background:C.bg, display:"flex", flexDirection:"column", border:`1px solid ${C.border}`, boxShadow:"0 24px 64px rgba(0,0,0,0.55)",
         transform:`translateY(${dragY}px)`, transition: dragging ? "none" : "transform 0.25s ease",
       }}>
-        <div onTouchStart={onDragStart} onTouchMove={onDragMove} onTouchEnd={onDragEnd} style={{ touchAction:"none" }}>
-          <div className="sheet-handle"><span></span></div>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", padding:"14px 16px", borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
-            <div>
-              <div style={{ fontSize:18, fontWeight:900, color:C.text }}>{player.name}</div>
-              <div style={{ fontSize:11, color:C.muted, marginTop:2 }}>{isReaper ? "Grim Reaper" : `Rank ${displayRank} · ${player.total} pts`}</div>
-            </div>
-            <button onClick={onClose} aria-label="Close" style={{ background:"transparent", border:"none", color:C.muted, fontSize:22, cursor:"pointer", lineHeight:1 }}>✕</button>
+        <div className="sheet-handle"><span></span></div>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", padding:"14px 16px", borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
+          <div>
+            <div style={{ fontSize:18, fontWeight:900, color:C.text }}>{player.name}</div>
+            <div style={{ fontSize:11, color:C.muted, marginTop:2 }}>{isReaper ? "Grim Reaper" : `Rank ${displayRank} · ${player.total} pts`}</div>
           </div>
+          <button onClick={onClose} aria-label="Close" style={{ background:"transparent", border:"none", color:C.muted, fontSize:22, cursor:"pointer", lineHeight:1 }}>✕</button>
         </div>
-        <div style={{ flex:1, overflowY:"auto", padding:"16px 14px 28px" }}>
+        <div ref={bodyRef} style={{ flex:1, overflowY:"auto", padding:"16px 14px 28px" }}>
           <div style={{ display:"flex", gap:10, marginBottom:18 }}>
             <div style={{ flex:1, background:C.card, border:`1px solid ${C.border}`, borderRadius:s.card.borderRadius, padding:"12px 8px", textAlign:"center" }}>
               <div style={{ fontSize:24, fontWeight:900, color: player.total < 0 ? C.red : C.text }}>{player.total}</div>
