@@ -541,17 +541,16 @@ function PlayerRow({ player, rank, displayRank, onOpen, expanded, onToggle, badg
         <div style={{ flex:1, minWidth:0 }}>
           <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:5 }}>
             <div style={{ fontWeight:700, fontSize:15, color: C.text }}>
-              {player.grimReaper
-                ? <>Josh <span style={{ fontSize:13 }}>💀</span></>
-                : player.name}
+              {player.name}
             </div>
             {(badges || []).slice(0, 2).map((b, i) => (
               <span key={i} title={`${b.label} — ${b.desc}`} style={{ fontSize:13, lineHeight:1 }}>{b.icon}</span>
             ))}
           </div>
           {player.grimReaper ? (
-            <div style={{ fontSize:10, color:"#f87171", lineHeight:1.5, opacity:0.7 }}>
-              Grim Reaper — earns on boring football &amp; eliminations
+            <div style={{ display:"flex", gap:6 }}>
+              <span style={{ fontSize:18, lineHeight:1 }}>🏴‍☠️</span>
+              <span style={{ fontSize:18, lineHeight:1 }}>🏴‍☠️</span>
             </div>
           ) : (
           <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
@@ -729,7 +728,7 @@ function PlayerModal({ player, displayRank, winPct, winTeams, badges = [], onClo
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", padding:"14px 16px", borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
           <div>
             <div style={{ fontSize:18, fontWeight:900, color:C.text }}>{player.name}</div>
-            <div style={{ fontSize:11, color:C.muted, marginTop:2 }}>{isReaper ? "💀 Grim Reaper" : `Rank ${displayRank} · ${player.total} pts`}</div>
+            <div style={{ fontSize:11, color:C.muted, marginTop:2 }}>{isReaper ? "Grim Reaper" : `Rank ${displayRank} · ${player.total} pts`}</div>
           </div>
           <button onClick={onClose} style={{ background:"transparent", border:"none", color:C.muted, fontSize:22, cursor:"pointer", lineHeight:1 }}>✕</button>
         </div>

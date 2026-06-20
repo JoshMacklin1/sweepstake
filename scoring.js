@@ -748,6 +748,10 @@ function computeBadges(ranked, matches, rank24hChange) {
   const KO = ["LAST_32","LAST_16","QUARTER_FINALS","SEMI_FINALS","FINALIST","WINNER"];
   const add = (name, b) => { if (badges[name]) badges[name].push(b); };
 
+  // 💀 Grim Reaper — Josh's one and only accolade
+  const reaper = ranked.find(p => p.grimReaper);
+  if (reaper) add(reaper.name, { icon:"💀", label:"Grim Reaper", desc:"Feasts on group-stage upsets and 0-0s — can haunt the table, but can't win it", tone:"bad" });
+
   // 🏆 Top Dog — current leader (once anyone has scored)
   if (real.length && real[0].total > 0) add(real[0].name, { icon:"🏆", label:"Top Dog", desc:"Top of the table", tone:"good" });
 
@@ -791,17 +795,7 @@ function computeBadges(ranked, matches, rank24hChange) {
       add(p.name, { icon:"💎", label:"Underdog", desc:"A Pot 3/4 team made the knockouts", tone:"good" });
   });
 
-  // 🧤 Clean Sheet — a team kept a clean sheet in the groups
-  const cs = new Set();
-  done.filter(m => (m.stage||"").toUpperCase().includes("GROUP")).forEach(m => {
-    const h = m.homeTeam?.tla?.toUpperCase();
-    const a = m.awayTeam?.tla?.toUpperCase();
-    const hs = m.score?.fullTime?.home ?? 0;
-    const as_ = m.score?.fullTime?.away ?? 0;
-    if (as_ === 0 && hs > 0) { const o = real.find(p => p.codes?.includes(h)); if (o) cs.add(o.name); }
-    if (hs === 0 && as_ > 0) { const o = real.find(p => p.codes?.includes(a)); if (o) cs.add(o.name); }
-  });
-  cs.forEach(name => add(name, { icon:"🧤", label:"Clean Sheet", desc:"A team kept a clean sheet", tone:"good" }));
+  // (Clean Sheet replaced by 🧱 Brick Wall — the single best-defence player, below.)
 
   // 🥚 Early Bird — first to get on the board
   const firstScorer = real.filter(p => p.total > 0).sort((a,b) => {
@@ -822,9 +816,77 @@ function computeBadges(ranked, matches, rank24hChange) {
     if (p.total === 0) add(p.name, { icon:"🦆", label:"Still Quacking", desc:"Yet to score a point", tone:"bad" });
   });
 
+  // 💥 Firepower (most goals scored) / 🚰 Leaky (most goals conceded) by a player's teams
+  const goalsFor = {}, goalsAgainst = {};
+  done.forEach(m => {
+    const h = m.homeTeam?.tla?.toUpperCase();
+    const a = m.awayTeam?.tla?.toUpperCase();
+    const hs = m.score?.fullTime?.home ?? 0;
+    const as_ = m.score?.fullTime?.away ?? 0;
+    if (h) { goalsFor[h] = (goalsFor[h] || 0) + hs;  goalsAgainst[h] = (goalsAgainst[h] || 0) + as_; }
+    if (a) { goalsFor[a] = (goalsFor[a] || 0) + as_; goalsAgainst[a] = (goalsAgainst[a] || 0) + hs;  }
+  });
+  let firepower = null, leaky = null, fortress = null, coldest = null;
+  real.forEach(p => {
+    const codes = p.codes || [];
+    const played = codes.some(c => goalsAgainst[c] !== undefined); // at least one team has played
+    const gf = codes.reduce((s, c) => s + (goalsFor[c] || 0), 0);
+    const ga = codes.reduce((s, c) => s + (goalsAgainst[c] || 0), 0);
+    if (gf > 0 && (!firepower || gf > firepower.g)) firepower = { name: p.name, g: gf };
+    if (ga > 0 && (!leaky || ga > leaky.g)) leaky = { name: p.name, g: ga };
+    if (played && (!fortress || ga < fortress.g)) fortress = { name: p.name, g: ga }; // fewest conceded
+    if (played && (!coldest || gf < coldest.g)) coldest = { name: p.name, g: gf };    // fewest scored
+  });
+  if (firepower) add(firepower.name, { icon:"💥", label:"Firepower", desc:`Teams have scored the most goals (${firepower.g})`, tone:"good" });
+  if (leaky) add(leaky.name, { icon:"🚰", label:"Leaky", desc:`Teams have conceded the most goals (${leaky.g})`, tone:"bad" });
+  if (fortress) add(fortress.name, { icon:"🧱", label:"Brick Wall", desc:`Teams have conceded the fewest goals (${fortress.g})`, tone:"good" });
+  if (coldest) add(coldest.name, { icon:"💨", label:"Firing Blanks", desc:`Teams have scored the fewest goals (${coldest.g})`, tone:"bad" });
+
+  // Elimination dates — replay finished matches chronologically to find WHEN each
+  // team went out (group: their 3rd group game if not in a knockout; KO: the loss).
+  const elimDate = {};
+  const koTeams = new Set();
+  matches.filter(m => !(m.stage||"").toUpperCase().includes("GROUP") && isSettled(m.status)).forEach(m => {
+    if (m.homeTeam?.tla) koTeams.add(m.homeTeam.tla.toUpperCase());
+    if (m.awayTeam?.tla) koTeams.add(m.awayTeam.tla.toUpperCase());
+  });
+  const grpGames = {};
+  [...done].sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate)).forEach(m => {
+    const stage = (m.stage || "").toUpperCase();
+    const h = m.homeTeam?.tla?.toUpperCase();
+    const a = m.awayTeam?.tla?.toUpperCase();
+    const hs = m.score?.fullTime?.home ?? 0;
+    const as_ = m.score?.fullTime?.away ?? 0;
+    const pen = m.score?.penalties;
+    if (stage.includes("GROUP")) {
+      [h, a].forEach(c => { if (c) grpGames[c] = (grpGames[c] || 0) + 1; });
+      [h, a].forEach(c => { if (c && grpGames[c] >= 3 && !koTeams.has(c) && !elimDate[c]) elimDate[c] = m.utcDate; });
+    } else {
+      let loser = null;
+      if (hs > as_) loser = a; else if (as_ > hs) loser = h; else if (pen) loser = pen.home > pen.away ? a : h;
+      if (loser && !elimDate[loser]) elimDate[loser] = m.utcDate;
+    }
+  });
+  // 🩸 First Casualty — first player to lose a team / ⚰️ Wiped Out — first to lose both
+  let firstOne = null, firstBoth = null;
+  real.forEach(p => {
+    const codes = p.codes || [];
+    const ds = codes.map(c => elimDate[c]).filter(Boolean).map(d => new Date(d).getTime());
+    if (ds.length >= 1) {
+      const f = Math.min(...ds);
+      if (!firstOne || f < firstOne.d) firstOne = { name: p.name, d: f };
+    }
+    if (ds.length >= 2 && codes.every(c => elimDate[c])) {
+      const b = Math.max(...ds);
+      if (!firstBoth || b < firstBoth.d) firstBoth = { name: p.name, d: b };
+    }
+  });
+  if (firstOne) add(firstOne.name, { icon:"🩸", label:"First Casualty", desc:"First to lose a team", tone:"bad" });
+  if (firstBoth) add(firstBoth.name, { icon:"⚰️", label:"Wiped Out", desc:"First to lose both teams", tone:"bad" });
+
   // Order each player's badges rarest-first so the row preview (which shows only
   // the first couple) highlights what's UNIQUE to them rather than common
-  // accolades (e.g. Clean Sheet) that lots of players share. Stable sort keeps
+  // accolades (e.g. Underdog) that lots of players share. Stable sort keeps
   // the original push order for ties (headline badges first).
   const freq = {};
   Object.values(badges).forEach(list => list.forEach(b => { freq[b.label] = (freq[b.label] || 0) + 1; }));
