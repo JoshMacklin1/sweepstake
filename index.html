@@ -2506,6 +2506,64 @@ function App() {
   const badges = React.useMemo(() => computeBadges(ranked, matches, rank24hChange, winPct.players), [matches]);
   const isDesktop = window.innerWidth >= 768;
 
+  // Main-nav icons — defined once here so desktop (flat Sweeps/Groups/
+  // Knockouts) and mobile (single League item, nested toggle) can share
+  // the ones that appear on both without duplicating the SVG markup.
+  const navIconTable = (active) => (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? "white" : C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M7 4h10v5a5 5 0 0 1-10 0z" />
+      <path d="M7 5H4.5A1.5 1.5 0 0 0 3 6.5C3 8.5 4.4 10 7 10" />
+      <path d="M17 5h2.5A1.5 1.5 0 0 1 21 6.5C21 8.5 19.6 10 17 10" />
+      <path d="M12 14v3" />
+      <path d="M8.5 21h7" />
+      <path d="M10 17h4l.5 4h-5z" />
+    </svg>
+  );
+  const navIconGroups = (active) => (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <rect x="3" y="3" width="8" height="8" rx="1.5" stroke={active ? "white" : C.muted} strokeWidth="2"/>
+      <rect x="13" y="3" width="8" height="8" rx="1.5" stroke={active ? "white" : C.muted} strokeWidth="2"/>
+      <rect x="3" y="13" width="8" height="8" rx="1.5" stroke={active ? "white" : C.muted} strokeWidth="2"/>
+      <rect x="13" y="13" width="8" height="8" rx="1.5" stroke={active ? "white" : C.muted} strokeWidth="2"/>
+    </svg>
+  );
+  const navIconKnockout = (active) => (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? "white" : C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 4v6a2 2 0 0 0 2 2M3 20v-6a2 2 0 0 1 2-2M5 12h5M14 12h5M19 4v6a2 2 0 0 1-2 2M19 20v-6a2 2 0 0 0-2-2"/>
+    </svg>
+  );
+  const navIconSchedule = (active) => (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <rect x="3" y="4" width="18" height="17" rx="2" stroke={active ? "white" : C.muted} strokeWidth="2" fill="none"/>
+      <line x1="3" y1="10" x2="21" y2="10" stroke={active ? "white" : C.muted} strokeWidth="2"/>
+      <line x1="8" y1="2" x2="8" y2="6" stroke={active ? "white" : C.muted} strokeWidth="2" strokeLinecap="round"/>
+      <line x1="16" y1="2" x2="16" y2="6" stroke={active ? "white" : C.muted} strokeWidth="2" strokeLinecap="round"/>
+      <circle cx="8" cy="15" r="1.5" fill={active ? "white" : C.muted}/>
+      <circle cx="12" cy="15" r="1.5" fill={active ? "white" : C.muted}/>
+      <circle cx="16" cy="15" r="1.5" fill={active ? "white" : C.muted}/>
+    </svg>
+  );
+  const navIconRace = (active) => (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <line x1="5" y1="3" x2="5" y2="21" stroke={active ? "white" : C.muted} strokeWidth="2" strokeLinecap="round"/>
+      <rect x="6" y="4" width="12" height="9" stroke={active ? "white" : C.muted} strokeWidth="1.5" fill="none"/>
+      <g fill={active ? "white" : C.muted}>
+        <rect x="6" y="4" width="4" height="3"/>
+        <rect x="14" y="4" width="4" height="3"/>
+        <rect x="10" y="7" width="4" height="3"/>
+        <rect x="6" y="10" width="4" height="3"/>
+        <rect x="14" y="10" width="4" height="3"/>
+      </g>
+    </svg>
+  );
+  const navIconInfo = (active) => (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="9" stroke={active ? "white" : C.muted} strokeWidth="2" fill="none"/>
+      <path d="M9.2 9.3a2.9 2.9 0 1 1 4.3 2.8c-.9.5-1.5 1.05-1.5 2.1" stroke={active ? "white" : C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+      <circle cx="12" cy="17.2" r="1" fill={active ? "white" : C.muted}/>
+    </svg>
+  );
+
   const groupByDay = (ms) => {
     const groups = {};
     ms.forEach(m => {
@@ -2692,7 +2750,7 @@ function App() {
             </div>
           );
         })()}
-        {tab === "table" && !loading && (
+        {tab === "table" && !loading && !isDesktop && (
           <div className="sweeps-nav">
             <div className="sweeps-seg">
               {[["league","Sweeps"],["groups","Groups"],["knockout","Knockouts"]].map(([id, label]) => (
@@ -2747,65 +2805,44 @@ function App() {
         transform: barsVisible ? "translateY(0)" : "translateY(100%)",
         transition: "transform 0.25s ease",
       }}>
-        {[
-          ["table", "League", (active) => (
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? "white" : C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M7 4h10v5a5 5 0 0 1-10 0z" />
-              <path d="M7 5H4.5A1.5 1.5 0 0 0 3 6.5C3 8.5 4.4 10 7 10" />
-              <path d="M17 5h2.5A1.5 1.5 0 0 1 21 6.5C21 8.5 19.6 10 17 10" />
-              <path d="M12 14v3" />
-              <path d="M8.5 21h7" />
-              <path d="M10 17h4l.5 4h-5z" />
-            </svg>
-          )],
-          ["matches", "Schedule", (active) => (
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-              <rect x="3" y="4" width="18" height="17" rx="2" stroke={active ? "white" : C.muted} strokeWidth="2" fill="none"/>
-              <line x1="3" y1="10" x2="21" y2="10" stroke={active ? "white" : C.muted} strokeWidth="2"/>
-              <line x1="8" y1="2" x2="8" y2="6" stroke={active ? "white" : C.muted} strokeWidth="2" strokeLinecap="round"/>
-              <line x1="16" y1="2" x2="16" y2="6" stroke={active ? "white" : C.muted} strokeWidth="2" strokeLinecap="round"/>
-              <circle cx="8" cy="15" r="1.5" fill={active ? "white" : C.muted}/>
-              <circle cx="12" cy="15" r="1.5" fill={active ? "white" : C.muted}/>
-              <circle cx="16" cy="15" r="1.5" fill={active ? "white" : C.muted}/>
-            </svg>
-          )],
-          ["race", "The Race", (active) => (
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-              <line x1="5" y1="3" x2="5" y2="21" stroke={active ? "white" : C.muted} strokeWidth="2" strokeLinecap="round"/>
-              <rect x="6" y="4" width="12" height="9" stroke={active ? "white" : C.muted} strokeWidth="1.5" fill="none"/>
-              <g fill={active ? "white" : C.muted}>
-                <rect x="6" y="4" width="4" height="3"/>
-                <rect x="14" y="4" width="4" height="3"/>
-                <rect x="10" y="7" width="4" height="3"/>
-                <rect x="6" y="10" width="4" height="3"/>
-                <rect x="14" y="10" width="4" height="3"/>
-              </g>
-            </svg>
-          )],
-          ["info", "Rules & Info", (active) => (
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="9" stroke={active ? "white" : C.muted} strokeWidth="2" fill="none"/>
-              <path d="M9.2 9.3a2.9 2.9 0 1 1 4.3 2.8c-.9.5-1.5 1.05-1.5 2.1" stroke={active ? "white" : C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-              <circle cx="12" cy="17.2" r="1" fill={active ? "white" : C.muted}/>
-            </svg>
-          )],
-
-        ].map(([id, label, renderIcon]) => {
+        {(isDesktop ? [
+          // Desktop has room to flatten League's Sweeps/Groups/Knockouts
+          // into three direct destinations instead of a tab + inline toggle.
+          ["table-sweeps",   "Sweeps",    navIconTable],
+          ["table-groups",   "Groups",    navIconGroups],
+          ["table-knockout", "Knockouts", navIconKnockout],
+          ["matches", "Schedule", navIconSchedule],
+          ["race", "The Race", navIconRace],
+          ["info", "Rules & Info", navIconInfo],
+        ] : [
+          ["table", "League", navIconTable],
+          ["matches", "Schedule", navIconSchedule],
+          ["race", "The Race", navIconRace],
+          ["info", "Rules & Info", navIconInfo],
+        ]).map(([id, label, renderIcon]) => {
           // Rules & Info: a real tab on DESKTOP (sidebar nav, no pop-over);
-          // a pop-over dialog on MOBILE (highlighted while open). Other items
-          // switch tab and dismiss any open mobile dialog.
-          const active = id === "info"
-            ? (isDesktop ? tab === "info" : showInfo)
-            : (tab === id && !(showInfo && !isDesktop));
-          const onNav = id === "info"
-            ? (isDesktop ? () => { setShowInfo(false); setTab("info"); } : () => setShowInfo(true))
-            : () => {
-                setShowInfo(false);
-                setSelectedPlayer(null);
-                setTab(id);
-                if (id === "table") setLeagueView("league");    // League always opens on Sweeps
-                if (id === "matches") setMatchView("fixtures");  // Schedule always opens on Fixtures
-              };
+          // a pop-over dialog on MOBILE (highlighted while open).
+          // table-sweeps/groups/knockout (desktop only) need both tab AND
+          // leagueView to match, since they all share tab === "table".
+          // Other items just switch tab and dismiss any open mobile dialog.
+          let active, onNav;
+          if (id === "info") {
+            active = isDesktop ? tab === "info" : showInfo;
+            onNav = isDesktop ? () => { setShowInfo(false); setTab("info"); } : () => setShowInfo(true);
+          } else if (id === "table-sweeps" || id === "table-groups" || id === "table-knockout") {
+            const view = id === "table-sweeps" ? "league" : id === "table-groups" ? "groups" : "knockout";
+            active = tab === "table" && leagueView === view;
+            onNav = () => { setShowInfo(false); setSelectedPlayer(null); setTab("table"); setLeagueView(view); };
+          } else {
+            active = tab === id && !(showInfo && !isDesktop);
+            onNav = () => {
+              setShowInfo(false);
+              setSelectedPlayer(null);
+              setTab(id);
+              if (id === "table") setLeagueView("league");    // League always opens on Sweeps
+              if (id === "matches") setMatchView("fixtures");  // Schedule always opens on Fixtures
+            };
+          }
           return (
             <button key={id} data-active={active} onClick={onNav} style={{ flex:1, padding:"14px 4px 12px", background:"transparent", border:"none", cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:5, WebkitTapHighlightColor:"transparent" }}>
               <div style={{
