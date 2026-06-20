@@ -880,16 +880,23 @@ function computeBadges(ranked, matches, rank24hChange, winPctPlayers) {
   // Elimination dates — replay finished matches chronologically to find WHEN each
   // team went OUT (used by the First Casualty / Wiped Out badges).
   //   Group: the match after which the team is mathematically locked into 4th of
-  //   its group — i.e. ≥3 teams are guaranteed above it on points (their CURRENT
-  //   points already exceed the team's MAX possible). 4th can't be top-2 or a
-  //   best-third, so the team is genuinely out. (Points-only test, so it never
-  //   false-flags; it may lag a GD-only lock-in by a game.)
+  //   its group — i.e. ≥3 teams are guaranteed above it. A rival counts as
+  //   guaranteed above if either (a) their CURRENT points already exceed the
+  //   team's MAX possible (points-only, no game data needed), or (b) their
+  //   current points exactly equal the team's MAX *and* the two have already
+  //   played each other in the group with a decisive (non-draw) result — per
+  //   FIFA's 2026 tiebreak order, head-to-head outranks overall goal difference,
+  //   and a played head-to-head result can't change, so this stays gapless
+  //   (never false-flags) without needing to bound future goal difference.
+  //   4th can't be top-2 or a best-third, so the team is genuinely out.
   //   Knockout: the match they lost.
   const elimDate = {};
   const groupOf = {};
   Object.entries(GROUP_ASSIGNMENTS).forEach(([g, codes]) => codes.forEach(c => { groupOf[c] = g; }));
   const gpts = {}, gplayed = {};
   Object.keys(groupOf).forEach(c => { gpts[c] = 0; gplayed[c] = 0; });
+  const pairKey = (x, y) => [x, y].sort().join("-");
+  const h2hWinner = {}; // pairKey → winning code, or "DRAW"
   [...done].sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate)).forEach(m => {
     const stage = (m.stage || "").toUpperCase();
     const h = m.homeTeam?.tla?.toUpperCase();
@@ -903,11 +910,23 @@ function computeBadges(ranked, matches, rank24hChange, winPctPlayers) {
       if (hs > as_) gpts[h] = (gpts[h] || 0) + 3;
       else if (as_ > hs) gpts[a] = (gpts[a] || 0) + 3;
       else { gpts[h] = (gpts[h] || 0) + 1; gpts[a] = (gpts[a] || 0) + 1; }
+      if (h && a && !h2hWinner[pairKey(h, a)]) {
+        h2hWinner[pairKey(h, a)] = hs > as_ ? h : as_ > hs ? a : "DRAW";
+      }
       const g = groupOf[h] || groupOf[a];
       if (g) GROUP_ASSIGNMENTS[g].forEach(t => {
         if (elimDate[t]) return;
         const tMax = (gpts[t] || 0) + 3 * (3 - (gplayed[t] || 0));
-        const guaranteedAbove = GROUP_ASSIGNMENTS[g].filter(x => x !== t && (gpts[x] || 0) > tMax).length;
+        const guaranteedAbove = GROUP_ASSIGNMENTS[g].filter(x => {
+          if (x === t) return false;
+          const xPts = gpts[x] || 0;
+          if (xPts > tMax) return true;
+          if (xPts === tMax) {
+            const winner = h2hWinner[pairKey(t, x)];
+            if (winner && winner === x) return true; // decisive h2h already favours x
+          }
+          return false;
+        }).length;
         if (guaranteedAbove >= 3) elimDate[t] = m.utcDate; // locked into 4th → out
       });
     } else {
@@ -920,17 +939,25 @@ function computeBadges(ranked, matches, rank24hChange, winPctPlayers) {
   let firstOne = null, firstBoth = null;
   real.forEach(p => {
     const codes = p.codes || [];
-    const ds = codes.map(c => elimDate[c]).filter(Boolean).map(d => new Date(d).getTime());
-    if (ds.length >= 1) {
-      const f = Math.min(...ds);
-      if (!firstOne || f < firstOne.d) firstOne = { name: p.name, d: f };
+    const dated = codes.map(c => ({ code: c, t: elimDate[c] ? new Date(elimDate[c]).getTime() : null })).filter(x => x.t !== null);
+    if (dated.length >= 1) {
+      const f = dated.reduce((m, x) => x.t < m.t ? x : m);
+      if (!firstOne || f.t < firstOne.d) firstOne = { name: p.name, d: f.t, code: f.code };
     }
-    if (ds.length >= 2 && codes.every(c => elimDate[c])) {
-      const b = Math.max(...ds);
-      if (!firstBoth || b < firstBoth.d) firstBoth = { name: p.name, d: b };
+    if (dated.length >= 2 && codes.every(c => elimDate[c])) {
+      const b = dated.reduce((m, x) => x.t > m.t ? x : m);
+      if (!firstBoth || b.t < firstBoth.d) firstBoth = { name: p.name, d: b.t, code: b.code };
     }
   });
-  if (firstOne) add(firstOne.name, { icon:"🩸", label:"First Casualty", desc:"First to lose a team", tone:"bad" });
+  // Readable team name from the live match data (matches the displayed-name
+  // convention used elsewhere, e.g. `teamName()` in index.html).
+  const teamNameOf = (code) => {
+    if (!code) return code;
+    const m = matches.find(mm => mm.homeTeam?.tla?.toUpperCase() === code || mm.awayTeam?.tla?.toUpperCase() === code);
+    if (!m) return code;
+    return (m.homeTeam?.tla?.toUpperCase() === code ? m.homeTeam?.name : m.awayTeam?.name) || code;
+  };
+  if (firstOne) add(firstOne.name, { icon:"🩸", label:"First Casualty", desc:`First to have a team eliminated (${teamNameOf(firstOne.code)})`, tone:"bad" });
   if (firstBoth) add(firstBoth.name, { icon:"⚰️", label:"Wiped Out", desc:"First to lose both teams", tone:"bad" });
 
   // Order each player's badges rarest-first so the row preview (which shows only
