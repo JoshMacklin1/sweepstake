@@ -736,64 +736,90 @@ function teamPts_sim(code, stageReached) {
 // ─────────────────────────────────────────────────────────────────────────────
 // BADGES
 // ─────────────────────────────────────────────────────────────────────────────
-function computeBadges(ranked, matches) {
+// Accolades shown next to a player's name and listed in their pop-over.
+// Each badge: { icon, label, desc, tone:"good"|"bad" }.
+function computeBadges(ranked, matches, rank24hChange) {
   const done = matches.filter(m => isSettled(m.status));
+  const started = done.length > 0;
   const badges = {};
   ranked.forEach(p => { badges[p.name] = []; });
+  const real = ranked.filter(p => !p.grimReaper);
+  const rc = (rank24hChange && rank24hChange.get) ? rank24hChange : new Map();
+  const KO = ["LAST_32","LAST_16","QUARTER_FINALS","SEMI_FINALS","FINALIST","WINNER"];
+  const add = (name, b) => { if (badges[name]) badges[name].push(b); };
 
-  // Early Bird — first player to score any pts
-  const firstScorer = ranked.filter(p => !p.grimReaper && p.total > 0)
-    .sort((a,b) => {
-      const aFirst = a.hist.findIndex((v,i) => i > 0 && v > a.hist[i-1]);
-      const bFirst = b.hist.findIndex((v,i) => i > 0 && v > b.hist[i-1]);
-      return aFirst - bFirst;
-    })[0];
-  if (firstScorer) badges[firstScorer.name].push({ icon:"🥚", label:"Early Bird", desc:"First to score points" });
+  // 🏆 Top Dog — current leader (once anyone has scored)
+  if (real.length && real[0].total > 0) add(real[0].name, { icon:"🏆", label:"Top Dog", desc:"Top of the table", tone:"good" });
 
-  // Giant Killer — owns team that beat a higher-pot team in groups
+  // 🥄 Wooden Spoon — currently last (once the tournament's underway)
+  if (started && real.length > 1) add(real[real.length - 1].name, { icon:"🥄", label:"Wooden Spoon", desc:"Bottom of the table", tone:"bad" });
+
+  // 🚀 Climber / 📉 Sliding — biggest 24h table moves
+  let up = null, down = null;
+  real.forEach(p => {
+    const d = rc.get(p.name) || 0;
+    if (d > 0 && (!up || d > up.d)) up = { name:p.name, d };
+    if (d < 0 && (!down || d < down.d)) down = { name:p.name, d };
+  });
+  if (up) add(up.name, { icon:"🚀", label:"Climber", desc:`Up ${up.d} place${up.d>1?"s":""} in the last 24h`, tone:"good" });
+  if (down) add(down.name, { icon:"📉", label:"Sliding", desc:`Down ${Math.abs(down.d)} place${Math.abs(down.d)>1?"s":""} in the last 24h`, tone:"bad" });
+
+  // ⚡ On Fire — biggest points gain last round
+  const onFire = real.filter(p => p.lastChange > 0).sort((a,b) => b.lastChange - a.lastChange)[0];
+  if (onFire) add(onFire.name, { icon:"⚡", label:"On Fire", desc:`+${onFire.lastChange}pts last round`, tone:"good" });
+
+  // 🔪 Giant Killer — a team beat a higher-pot team in the groups
   done.filter(m => (m.stage||"").toUpperCase().includes("GROUP")).forEach(m => {
     const h = m.homeTeam?.tla?.toUpperCase();
     const a = m.awayTeam?.tla?.toUpperCase();
     const hs = m.score?.fullTime?.home ?? 0;
     const as_ = m.score?.fullTime?.away ?? 0;
     if (!h || !a) return;
-    const hPot = POT[h] || 4;
-    const aPot = POT[a] || 4;
-    if (hs > as_ && hPot > aPot) {
-      const owner = ranked.find(p => p.codes?.includes(h));
-      if (owner && !badges[owner.name].find(b => b.icon === "🔪"))
-        badges[owner.name].push({ icon:"🔪", label:"Giant Killer", desc:`${h} beat a higher-pot team` });
+    if (hs > as_ && (POT[h]||4) > (POT[a]||4)) {
+      const o = real.find(p => p.codes?.includes(h));
+      if (o && !badges[o.name].some(b => b.icon === "🔪")) add(o.name, { icon:"🔪", label:"Giant Killer", desc:`${h} beat a higher-pot team`, tone:"good" });
     }
-    if (as_ > hs && aPot > hPot) {
-      const owner = ranked.find(p => p.codes?.includes(a));
-      if (owner && !badges[owner.name].find(b => b.icon === "🔪"))
-        badges[owner.name].push({ icon:"🔪", label:"Giant Killer", desc:`${a} beat a higher-pot team` });
+    if (as_ > hs && (POT[a]||4) > (POT[h]||4)) {
+      const o = real.find(p => p.codes?.includes(a));
+      if (o && !badges[o.name].some(b => b.icon === "🔪")) add(o.name, { icon:"🔪", label:"Giant Killer", desc:`${a} beat a higher-pot team`, tone:"good" });
     }
   });
 
-  // On Fire — biggest points gain last round
-  const onFire = ranked.filter(p => p.lastChange > 0)
-    .sort((a,b) => b.lastChange - a.lastChange)[0];
-  if (onFire) badges[onFire.name].push({ icon:"⚡", label:"On Fire", desc:`+${onFire.lastChange}pts last round` });
+  // 💎 Underdog — owns a Pot 3/4 team that reached the knockouts
+  real.forEach(p => {
+    if (p.teams?.some(t => t.pot >= 3 && t.stage && KO.includes(t.stage)))
+      add(p.name, { icon:"💎", label:"Underdog", desc:"A Pot 3/4 team made the knockouts", tone:"good" });
+  });
 
-  // Rough Night — owns most eliminated teams
-  const mostElim = ranked.filter(p => !p.grimReaper)
-    .sort((a,b) => (b.teams?.filter(t => t.eliminated && !t.won).length||0) - (a.teams?.filter(t => t.eliminated && !t.won).length||0))[0];
-  if (mostElim && mostElim.teams?.filter(t => t.eliminated && !t.won).length > 0)
-    badges[mostElim.name].push({ icon:"💀", label:"Rough Night", desc:"Most teams eliminated" });
-
-  // Clean Sheet — owns a team that kept a clean sheet in groups
-  const cleanSheetOwners = new Set();
+  // 🧤 Clean Sheet — a team kept a clean sheet in the groups
+  const cs = new Set();
   done.filter(m => (m.stage||"").toUpperCase().includes("GROUP")).forEach(m => {
     const h = m.homeTeam?.tla?.toUpperCase();
     const a = m.awayTeam?.tla?.toUpperCase();
     const hs = m.score?.fullTime?.home ?? 0;
     const as_ = m.score?.fullTime?.away ?? 0;
-    if (as_ === 0 && hs > 0) { const owner = ranked.find(p => p.codes?.includes(h)); if (owner) cleanSheetOwners.add(owner.name); }
-    if (hs === 0 && as_ > 0) { const owner = ranked.find(p => p.codes?.includes(a)); if (owner) cleanSheetOwners.add(owner.name); }
+    if (as_ === 0 && hs > 0) { const o = real.find(p => p.codes?.includes(h)); if (o) cs.add(o.name); }
+    if (hs === 0 && as_ > 0) { const o = real.find(p => p.codes?.includes(a)); if (o) cs.add(o.name); }
   });
-  cleanSheetOwners.forEach(name => {
-    if (badges[name]) badges[name].push({ icon:"🧤", label:"Clean Sheet", desc:"A team kept a clean sheet" });
+  cs.forEach(name => add(name, { icon:"🧤", label:"Clean Sheet", desc:"A team kept a clean sheet", tone:"good" }));
+
+  // 🥚 Early Bird — first to get on the board
+  const firstScorer = real.filter(p => p.total > 0).sort((a,b) => {
+    const af = a.hist.findIndex((v,i) => i > 0 && v > a.hist[i-1]);
+    const bf = b.hist.findIndex((v,i) => i > 0 && v > b.hist[i-1]);
+    return af - bf;
+  })[0];
+  if (firstScorer) add(firstScorer.name, { icon:"🥚", label:"Early Bird", desc:"First to get on the board", tone:"good" });
+
+  // 🤡 Big Flop — a Pot 1 favourite crashed out in the groups
+  real.forEach(p => {
+    if (p.teams?.some(t => t.pot === 1 && t.stage === "GROUP_ELIM"))
+      add(p.name, { icon:"🤡", label:"Big Flop", desc:"A Pot 1 favourite went out in the groups", tone:"bad" });
+  });
+
+  // 🦆 Still Quacking — yet to score (once underway)
+  if (started) real.forEach(p => {
+    if (p.total === 0) add(p.name, { icon:"🦆", label:"Still Quacking", desc:"Yet to score a point", tone:"bad" });
   });
 
   return badges;

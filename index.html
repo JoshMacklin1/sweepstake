@@ -545,7 +545,9 @@ function PlayerRow({ player, rank, displayRank, onOpen, expanded, onToggle, badg
                 ? <>Josh <span style={{ fontSize:13 }}>💀</span></>
                 : player.name}
             </div>
-
+            {(badges || []).slice(0, 3).map((b, i) => (
+              <span key={i} title={`${b.label} — ${b.desc}`} style={{ fontSize:13, lineHeight:1 }}>{b.icon}</span>
+            ))}
           </div>
           {player.grimReaper ? (
             <div style={{ fontSize:10, color:"#f87171", lineHeight:1.5, opacity:0.7 }}>
@@ -718,7 +720,7 @@ function PlayerRow({ player, rank, displayRank, onOpen, expanded, onToggle, badg
 // ─────────────────────────────────────────────────────────────────────────────
 // PLAYER MODAL — pop-over with points, results, win chances
 // ─────────────────────────────────────────────────────────────────────────────
-function PlayerModal({ player, displayRank, winPct, winTeams, onClose }) {
+function PlayerModal({ player, displayRank, winPct, winTeams, badges = [], onClose }) {
   if (!player) return null;
   const isReaper = player.grimReaper;
   return (
@@ -801,6 +803,20 @@ function PlayerModal({ player, displayRank, winPct, winTeams, onClose }) {
               <div style={{ fontSize:9, color:C.muted, marginTop:12, lineHeight:1.4 }}>
                 Win chances are rough Monte Carlo estimates (pot-weighted) — for fun, not real odds.
               </div>
+            </>
+          )}
+          {badges && badges.length > 0 && (
+            <>
+              <div style={{ fontSize:11, color:C.text, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", margin:"22px 0 8px" }}>Accolades</div>
+              {badges.map((b, i) => (
+                <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0", borderBottom:`1px solid ${C.border}` }}>
+                  <span style={{ fontSize:20, flexShrink:0, width:24, textAlign:"center" }}>{b.icon}</span>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:13, fontWeight:700, color: b.tone === "bad" ? "#f87171" : C.accent }}>{b.label}</div>
+                    <div style={{ fontSize:11, color:C.muted }}>{b.desc}</div>
+                  </div>
+                </div>
+              ))}
             </>
           )}
         </div>
@@ -2488,7 +2504,7 @@ function App() {
     return () => observers.forEach(o => o.disconnect());
   }, [ranked]);
   const { history: bumpHistoryMap, bucketLabels } = deriveHistory(matches);
-  const badges = React.useMemo(() => computeBadges(ranked, matches), [matches]);
+  const badges = React.useMemo(() => computeBadges(ranked, matches, rank24hChange), [matches]);
   // Guard against a stale scoring.js (e.g. index.html deployed but scoring.js
   // not re-uploaded) — falling back to [] keeps the app alive (the bar race just
   // won't grey out flags progressively) instead of crashing to a blank screen.
@@ -2897,6 +2913,7 @@ function App() {
                       rank={i}
                       displayRank={displayRank}
                       onOpen={() => setSelectedPlayer(player.name)}
+                      badges={badges[player.name] || []}
                       rank24hChange={rank24hChange.get(player.name)}
                     />
                   );
@@ -3007,7 +3024,7 @@ function App() {
           const idx = ranked.findIndex(x => x.name === selectedPlayer);
           const p = ranked[idx];
           if (!p) return null;
-          return <PlayerModal player={p} displayRank={p._displayRank || (idx + 1)} winPct={winPct.players ? winPct.players[selectedPlayer] : 0} winTeams={winPct.teams} onClose={() => setSelectedPlayer(null)} />;
+          return <PlayerModal player={p} displayRank={p._displayRank || (idx + 1)} winPct={winPct.players ? winPct.players[selectedPlayer] : 0} winTeams={winPct.teams} badges={badges[selectedPlayer] || []} onClose={() => setSelectedPlayer(null)} />;
         })()}
       </div>
     </div>
