@@ -2502,7 +2502,6 @@ function App() {
     return () => observers.forEach(o => o.disconnect());
   }, [ranked]);
   const { history: bumpHistoryMap, bucketLabels } = deriveHistory(matches);
-  const badges = React.useMemo(() => computeBadges(ranked, matches, rank24hChange, winPct.players), [matches]);
   // Guard against a stale scoring.js (e.g. index.html deployed but scoring.js
   // not re-uploaded) — falling back to [] keeps the app alive (the bar race just
   // won't grey out flags progressively) instead of crashing to a blank screen.
@@ -2546,6 +2545,8 @@ function App() {
     if (matches.length === 0) return { players:{}, teams:{} };
     return simulateWinProbability(ranked, matches, 5000);
   }, [matches]);
+  // Must come AFTER winPct — computeBadges reads winPct.players (The Prophecy badge).
+  const badges = React.useMemo(() => computeBadges(ranked, matches, rank24hChange, winPct.players), [matches]);
   const isDesktop = window.innerWidth >= 768;
 
   const groupByDay = (ms) => {
