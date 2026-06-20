@@ -58,7 +58,7 @@
     /* Desktop-only dev toggle, bottom-left of the sidebar */
     .desktop-dev { display: none; }
     /* Rules & Info pop-over — windowed card with space around it (mobile) */
-    .info-backdrop { padding: 24px 18px 88px; }
+    .info-backdrop { padding: 24px 18px 88px; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
     .info-card { width: 100%; max-width: 460px; max-height: 68vh; border-radius: 16px; overflow: hidden; animation: modalIn 0.18s ease-out; }
     /* Player detail bottom sheet (mobile) — slides up from the bottom edge,
        deliberately covering the bottom nav (higher z-index than it) rather
@@ -70,6 +70,7 @@
       position: fixed; inset: 0; z-index: 35;
       display: flex; align-items: flex-end; justify-content: center;
       background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
     }
     .detail-sheet {
       width: 100%; max-width: 480px; max-height: 75vh;
@@ -677,6 +678,15 @@ function PlayerRow({ player, rank, displayRank, onOpen, badges = [], rank24hChan
 // PLAYER MODAL — pop-over with points, results, win chances
 // ─────────────────────────────────────────────────────────────────────────────
 function PlayerModal({ player, displayRank, winPct, winTeams, badges = [], onClose }) {
+  // Freeze background scroll for as long as the sheet is mounted — it's
+  // mounted/unmounted with selectedPlayer, so a plain mount/unmount effect
+  // is enough (no need to watch a prop, unlike the payment modal's effect).
+  React.useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prevOverflow; };
+  }, []);
+
   // Swipe-to-dismiss (mobile only — desktop's centred card isn't draggable).
   // Scoped to the handle + header only, not the scrollable body below, so it
   // can't fight with the user trying to scroll the team list.
@@ -2286,6 +2296,37 @@ function InfoContent() {
                 </tbody>
               </table>
             </div>
+            <div style={{ fontSize:11, color:C.text, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:8, marginTop:20 }}>Accolades</div>
+            <div style={{ ...s.card, padding:"4px 12px", marginBottom:6 }}>
+              {[
+                { icon:"💀", label:"Grim Reaper", desc:"Feasts on group-stage upsets and 0-0s — can haunt the table, but can't win it", tone:"bad" },
+                { icon:"🏆", label:"Top Dog", desc:"Top of the table", tone:"good" },
+                { icon:"🔮", label:"The Prophecy", desc:"Favourite to win the sweep (highest win %)", tone:"good" },
+                { icon:"🚀", label:"Climber", desc:"Biggest rise up the table in the last 24h", tone:"good" },
+                { icon:"📉", label:"Sliding", desc:"Biggest drop down the table in the last 24h", tone:"bad" },
+                { icon:"⚡", label:"On Fire", desc:"Most points scored last round", tone:"good" },
+                { icon:"🔪", label:"Giant Killer", desc:"A team beat a higher-pot opponent", tone:"good" },
+                { icon:"💎", label:"Underdog", desc:"A Pot 3/4 team made the knockouts", tone:"good" },
+                { icon:"🥚", label:"Early Bird", desc:"First to get on the board", tone:"good" },
+                { icon:"🤡", label:"Big Flop", desc:"A Pot 1 favourite went out in the groups", tone:"bad" },
+                { icon:"🦆", label:"Still Quacking", desc:"Yet to score a point", tone:"bad" },
+                { icon:"🎸", label:"One Man Band", desc:"One team carrying — big points gap between a player's two teams", tone:"good" },
+                { icon:"💥", label:"Firepower", desc:"Teams have scored the most goals", tone:"good" },
+                { icon:"🚰", label:"Leaky", desc:"Teams have conceded the most goals", tone:"bad" },
+                { icon:"🧱", label:"Brick Wall", desc:"Teams have conceded the fewest goals", tone:"good" },
+                { icon:"💨", label:"Firing Blanks", desc:"Teams have scored the fewest goals", tone:"bad" },
+                { icon:"🩸", label:"First Casualty", desc:"First to have a team eliminated", tone:"bad" },
+                { icon:"⚰️", label:"Wiped Out", desc:"First to lose both teams", tone:"bad" },
+              ].map((b, i) => (
+                <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0", borderBottom: i < 17 ? `1px solid ${C.border}` : "none" }}>
+                  <span style={{ fontSize:20, flexShrink:0, width:24, textAlign:"center" }}>{b.icon}</span>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:13, fontWeight:700, color: b.tone === "bad" ? C.dangerText : C.accent }}>{b.label}</div>
+                    <div style={{ fontSize:11, color:C.muted }}>{b.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
             <div style={{ fontSize:11, color:C.text, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:8, marginTop:20 }}>Players &amp; Team Selection</div>
             {PLAYERS.filter(p => !p.grimReaper).map(p => (
               <div key={p.name} style={{ ...s.card, padding:"10px 12px", marginBottom:6 }}>
@@ -2421,6 +2462,14 @@ function App() {
       return () => { document.body.style.overflow = prevOverflow; };
     }
   }, [showPayment]);
+
+  useEffect(() => {
+    if (showInfo && !isDesktop) {
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = prevOverflow; };
+    }
+  }, [showInfo, isDesktop]);
 
   // Escape closes whichever modal/pop-over is open — keyboard users
   // otherwise have no way to dismiss them at all.
