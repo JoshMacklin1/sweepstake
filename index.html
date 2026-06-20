@@ -60,8 +60,24 @@
     /* Rules & Info pop-over — windowed card with space around it (mobile) */
     .info-backdrop { padding: 24px 18px 88px; }
     .info-card { width: 100%; max-width: 460px; max-height: 68vh; border-radius: 16px; overflow: hidden; animation: modalIn 0.18s ease-out; }
-    /* Player detail pop-over — windowed on ALL sizes (unlike the Rules card, which goes full-screen on desktop) */
-    .detail-card { width: 100%; max-width: 460px; max-height: 68vh; border-radius: 16px; overflow: hidden; animation: modalIn 0.18s ease-out; }
+    /* Player detail bottom sheet (mobile) — slides up from the bottom edge,
+       deliberately covering the bottom nav (higher z-index than it) rather
+       than floating above it like the Rules card does. Drag-to-resize/flick
+       to dismiss is a deliberate follow-up, not part of this pass — for now
+       it opens/closes the same way the old centred modal did (backdrop tap,
+       X, Escape), just restyled and repositioned. */
+    .detail-backdrop {
+      position: fixed; inset: 0; z-index: 35;
+      display: flex; align-items: flex-end; justify-content: center;
+      background: rgba(0,0,0,0.55);
+    }
+    .detail-sheet {
+      width: 100%; max-width: 480px; max-height: 75vh;
+      border-radius: 20px 20px 0 0; overflow: hidden;
+      animation: sheetIn 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .sheet-handle { display: flex; justify-content: center; padding: 8px 0 0; flex-shrink: 0; }
+    .sheet-handle span { width: 36px; height: 4px; border-radius: 2px; background: rgba(143,186,154,0.35); }
     /* Player row hover affordance (desktop) */
     .player-card { transition: background 0.15s ease; }
     .player-card:hover { background: rgba(34,197,94,0.06); }
@@ -98,7 +114,11 @@
          only wanted on mobile — it didn't suit desktop) */
       .info-backdrop { padding: 0; }
       .info-card { max-width: none; max-height: none; width: 100%; height: 100%; border-radius: 0; border: none !important; box-shadow: none !important; animation: none; }
-      .detail-card { max-width: 520px; max-height: 82vh; } /* player pop-over stays windowed on desktop */
+      /* Desktop: stay a centred windowed card — a sheet sliding up off a
+         huge viewport doesn't read as a native pattern there, unlike mobile. */
+      .detail-backdrop { align-items: center; left: 260px !important; right: auto !important; width: min(760px, calc(100vw - 260px)) !important; }
+      .detail-sheet { max-width: 520px; max-height: 82vh; border-radius: 16px; animation: modalIn 0.18s ease-out; }
+      .sheet-handle { display: none; }
       /* Centre the pop-over over the CONTENT column (right of the 260px sidebar,
          max 760px wide), not the whole viewport, so it aligns with the list behind it */
       .info-backdrop { left: 260px !important; right: auto !important; width: min(760px, calc(100vw - 260px)) !important; }
@@ -227,6 +247,10 @@
     @keyframes modalIn {
       from { transform: scale(0.96); opacity: 0; }
       to   { transform: scale(1); opacity: 1; }
+    }
+    @keyframes sheetIn {
+      from { transform: translateY(100%); }
+      to   { transform: translateY(0); }
     }
     @keyframes pulse-red {
       50% { opacity: 0.5; }
@@ -653,17 +677,54 @@ function PlayerRow({ player, rank, displayRank, onOpen, badges = [], rank24hChan
 // PLAYER MODAL — pop-over with points, results, win chances
 // ─────────────────────────────────────────────────────────────────────────────
 function PlayerModal({ player, displayRank, winPct, winTeams, badges = [], onClose }) {
+  // Swipe-to-dismiss (mobile only — desktop's centred card isn't draggable).
+  // Scoped to the handle + header only, not the scrollable body below, so it
+  // can't fight with the user trying to scroll the team list.
+  const sheetRef = React.useRef(null);
+  const dragInfo = React.useRef({ startY: 0, startTime: 0, active: false });
+  const [dragY, setDragY] = React.useState(0);
+  const [dragging, setDragging] = React.useState(false);
+
+  const onDragStart = (e) => {
+    dragInfo.current = { startY: e.touches[0].clientY, startTime: Date.now(), active: true };
+    setDragging(true);
+  };
+  const onDragMove = (e) => {
+    if (!dragInfo.current.active) return;
+    const delta = e.touches[0].clientY - dragInfo.current.startY;
+    if (delta > 0) setDragY(delta); // only follow downward drags
+  };
+  const onDragEnd = () => {
+    if (!dragInfo.current.active) return;
+    dragInfo.current.active = false;
+    setDragging(false);
+    const elapsed = Date.now() - dragInfo.current.startTime;
+    const velocity = dragY / Math.max(elapsed, 1); // px/ms
+    const sheetHeight = sheetRef.current ? sheetRef.current.offsetHeight : 400;
+    if (dragY > sheetHeight * 0.25 || velocity > 0.5) {
+      onClose();
+    } else {
+      setDragY(0); // didn't clear the threshold — spring back open
+    }
+  };
+
   if (!player) return null;
   const isReaper = player.grimReaper;
   return (
-    <div className="info-backdrop" onClick={onClose} style={{ position:"fixed", inset:0, zIndex:25, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,0.55)" }}>
-      <div className="detail-card" onClick={(e) => e.stopPropagation()} style={{ background:C.bg, display:"flex", flexDirection:"column", border:`1px solid ${C.border}`, boxShadow:"0 24px 64px rgba(0,0,0,0.55)" }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", padding:"14px 16px", borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
-          <div>
-            <div style={{ fontSize:18, fontWeight:900, color:C.text }}>{player.name}</div>
-            <div style={{ fontSize:11, color:C.muted, marginTop:2 }}>{isReaper ? "Grim Reaper" : `Rank ${displayRank} · ${player.total} pts`}</div>
+    <div className="detail-backdrop" onClick={onClose}>
+      <div className="detail-sheet" ref={sheetRef} onClick={(e) => e.stopPropagation()} style={{
+        background:C.bg, display:"flex", flexDirection:"column", border:`1px solid ${C.border}`, boxShadow:"0 24px 64px rgba(0,0,0,0.55)",
+        transform:`translateY(${dragY}px)`, transition: dragging ? "none" : "transform 0.25s ease",
+      }}>
+        <div onTouchStart={onDragStart} onTouchMove={onDragMove} onTouchEnd={onDragEnd} style={{ touchAction:"none" }}>
+          <div className="sheet-handle"><span></span></div>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", padding:"14px 16px", borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
+            <div>
+              <div style={{ fontSize:18, fontWeight:900, color:C.text }}>{player.name}</div>
+              <div style={{ fontSize:11, color:C.muted, marginTop:2 }}>{isReaper ? "Grim Reaper" : `Rank ${displayRank} · ${player.total} pts`}</div>
+            </div>
+            <button onClick={onClose} aria-label="Close" style={{ background:"transparent", border:"none", color:C.muted, fontSize:22, cursor:"pointer", lineHeight:1 }}>✕</button>
           </div>
-          <button onClick={onClose} aria-label="Close" style={{ background:"transparent", border:"none", color:C.muted, fontSize:22, cursor:"pointer", lineHeight:1 }}>✕</button>
         </div>
         <div style={{ flex:1, overflowY:"auto", padding:"16px 14px 28px" }}>
           <div style={{ display:"flex", gap:10, marginBottom:18 }}>
