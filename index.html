@@ -548,9 +548,8 @@ function PlayerRow({ player, rank, displayRank, onOpen, expanded, onToggle, badg
             ))}
           </div>
           {player.grimReaper ? (
-            <div style={{ display:"flex", gap:6 }}>
-              <span style={{ fontSize:18, lineHeight:1 }}>🏴‍☠️</span>
-              <span style={{ fontSize:18, lineHeight:1 }}>🏴‍☠️</span>
+            <div style={{ fontSize:10, color:"#f87171", lineHeight:1.5, opacity:0.7 }}>
+              Grim Reaper — earns on boring football &amp; eliminations
             </div>
           ) : (
           <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
@@ -2503,7 +2502,7 @@ function App() {
     return () => observers.forEach(o => o.disconnect());
   }, [ranked]);
   const { history: bumpHistoryMap, bucketLabels } = deriveHistory(matches);
-  const badges = React.useMemo(() => computeBadges(ranked, matches, rank24hChange), [matches]);
+  const badges = React.useMemo(() => computeBadges(ranked, matches, rank24hChange, winPct.players), [matches]);
   // Guard against a stale scoring.js (e.g. index.html deployed but scoring.js
   // not re-uploaded) — falling back to [] keeps the app alive (the bar race just
   // won't grey out flags progressively) instead of crashing to a blank screen.

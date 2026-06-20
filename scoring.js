@@ -755,7 +755,7 @@ function teamPts_sim(code, stageReached) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Accolades shown next to a player's name and listed in their pop-over.
 // Each badge: { icon, label, desc, tone:"good"|"bad" }.
-function computeBadges(ranked, matches, rank24hChange) {
+function computeBadges(ranked, matches, rank24hChange, winPctPlayers) {
   const done = matches.filter(m => isSettled(m.status));
   const started = done.length > 0;
   const badges = {};
@@ -772,8 +772,15 @@ function computeBadges(ranked, matches, rank24hChange) {
   // 🏆 Top Dog — current leader (once anyone has scored)
   if (real.length && real[0].total > 0) add(real[0].name, { icon:"🏆", label:"Top Dog", desc:"Top of the table", tone:"good" });
 
-  // 🥄 Wooden Spoon — currently last (once the tournament's underway)
-  if (started && real.length > 1) add(real[real.length - 1].name, { icon:"🥄", label:"Wooden Spoon", desc:"Bottom of the table", tone:"bad" });
+  // 🔮 The Prophecy — current favourite (highest sweepstake win %)
+  if (winPctPlayers) {
+    let fav = null;
+    real.forEach(p => {
+      const w = winPctPlayers[p.name] || 0;
+      if (w > 0 && (!fav || w > fav.w)) fav = { name: p.name, w };
+    });
+    if (fav) add(fav.name, { icon:"🔮", label:"The Prophecy", desc:`Foretold to win the sweep (${fav.w}% chance)`, tone:"good" });
+  }
 
   // 🚀 Climber / 📉 Sliding — biggest 24h table moves
   let up = null, down = null;
@@ -832,6 +839,17 @@ function computeBadges(ranked, matches, rank24hChange) {
   if (started) real.forEach(p => {
     if (p.total === 0) add(p.name, { icon:"🦆", label:"Still Quacking", desc:"Yet to score a point", tone:"bad" });
   });
+
+  // 🎸 One Man Band — biggest points gap between a player's two teams (one carrying)
+  let oneMan = null;
+  real.forEach(p => {
+    const tp = (p.teams || []).map(t => t.pts);
+    if (tp.length >= 2) {
+      const gap = Math.max(...tp) - Math.min(...tp);
+      if (gap > 0 && (!oneMan || gap > oneMan.g)) oneMan = { name: p.name, g: gap };
+    }
+  });
+  if (oneMan) add(oneMan.name, { icon:"🎸", label:"One Man Band", desc:`One team carrying — ${oneMan.g}pt gap between their teams`, tone:"good" });
 
   // 💥 Firepower (most goals scored) / 🚰 Leaky (most goals conceded) by a player's teams
   const goalsFor = {}, goalsAgainst = {};
