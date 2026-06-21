@@ -20,6 +20,44 @@ not this file.
   gracefully rather than blanking the app. Preserve that pattern when
   adding new `scoring.js` functions that `index.html` calls.
 
+## Local preview & verification
+
+Verifying changes in this repo via headless-browser screenshots has been
+consistently unreliable in this environment — don't default to it, and
+don't loop on it if it's not cooperating.
+
+- **`/tmp/` isn't real `/tmp`.** The Bash tool's `/tmp/` maps to
+  `C:\Users\<user>\AppData\Local\Temp\` on this Windows setup. A file
+  written via Bash to `/tmp/foo.png` won't be found by the Read tool at
+  that path — run `cygpath -w /tmp/foo.png` first to get the Windows path
+  Read actually needs.
+- **Headless Chrome hangs on this app specifically.** It polls live match
+  data every 60s and has other timers (countdown ticks); Chrome's
+  `--screenshot` waits for the page to settle, which it often never does
+  here. `--virtual-time-budget=8000` (force a screenshot after ~8s
+  regardless of network state) helps but isn't reliable — Chrome
+  sometimes never returns control to the shell at all, independent of
+  that flag.
+- **Don't retry screenshot attempts more than once.** If it hangs, stop —
+  retrying just burns turns without fixing anything. Instead:
+  1. For logic/syntax changes, validate with a quick Babel parse instead
+     of a visual check:
+     ```
+     node -e 'const fs=require("fs");const Babel=require("@babel/standalone");
+     const t=fs.readFileSync("index.html","utf8");
+     const s=t.indexOf(`<script type="text/babel">`)+`<script type="text/babel">`.length;
+     const e=t.indexOf("</script>",s);
+     try{Babel.transform(t.slice(s,e),{presets:["react"]});console.log("OK")}
+     catch(err){console.log("ERROR:",err.message)}'
+     ```
+     (needs `@babel/standalone` installed somewhere — a scratch `npm install`
+     outside the repo is fine, don't add it as a repo dependency.)
+  2. For anything genuinely visual (layout, color, gesture feel), make a
+     throwaway copy of `index.html` with the change applied and ask the
+     user to open it themselves the way they normally preview the app.
+     This has consistently been faster and more accurate than fighting
+     the screenshot tooling.
+
 ## Git workflow
 
 - **Feature branch per change.** Branch off `main`, make the change, get
