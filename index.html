@@ -707,8 +707,8 @@ function PlayerRow({ player, rank, displayRank, onOpen, badges = [], rank24hChan
               display:"inline-block",
               fontSize:10, fontWeight:700, padding:"1px 5px",
               borderRadius:3,
-              background: player.grimReaper ? C.negBg : rank24hChange > 0 ? C.posBg : C.negBg,
-              color: player.grimReaper ? C.red : rank24hChange > 0 ? C.accent : C.red,
+              background: rank24hChange > 0 ? C.posBg : C.negBg,
+              color: rank24hChange > 0 ? C.accent : C.red,
             }}>
               {rank24hChange > 0 ? "▲" : "▼"}{" "}
               {Math.abs(rank24hChange)} pos
@@ -2747,7 +2747,7 @@ function App() {
     </svg>
   );
   const navIconScores = (active) => (
-    <svg width="22" height="22" viewBox="0 0 24 24">
+    <svg width="27" height="27" viewBox="0 0 24 24">
       <path fill={active ? "white" : C.muted} fillRule="evenodd" d="
         M21,12 A9,9 0 1,0 3,12 A9,9 0 1,0 21,12 Z
         M12,7.228 L16.539,10.525 L14.805,15.861 L9.195,15.861 L7.461,10.525 Z
