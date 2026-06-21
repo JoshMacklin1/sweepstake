@@ -1317,6 +1317,72 @@ function deriveSparklineHistory(matches) {
   return history;
 }
 
+// Per-match sweepstake points — how many points each side EARNED via this
+// specific result. Group stage = that game's W/D/L value (groupGamePts).
+// Knockout = the delta between the stage just reached and whatever stage the
+// team had already banked, so a run of wins isn't double-counted — same
+// model deriveSparklineHistory uses for the points-over-time charts, just
+// keyed by match id instead of accumulated into a running total. Note both
+// sides of a non-final knockout match "reach" that round by playing in it,
+// so winner and loser typically earn the same amount (the model rewards
+// reaching a round, not winning the individual tie) — only the FINAL splits
+// WINNER vs FINALIST. FINISHED only (live scores are unreliable mid-game,
+// same reasoning as the sparkline).
+function deriveMatchPts(matches) {
+  const done = matches.filter(m => m.status === "FINISHED")
+    .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
+
+  const teamPts = {}; // code -> points already banked for the highest stage reached so far
+  const award = (code, stageKey) => {
+    const newPts = ptsTotal(code, stageKey);
+    const delta = newPts - (teamPts[code] || 0);
+    teamPts[code] = newPts;
+    return delta;
+  };
+
+  const result = {};
+  done.forEach(m => {
+    const stage = (m.stage || "").toUpperCase();
+    const h = m.homeTeam?.tla?.toUpperCase();
+    const a = m.awayTeam?.tla?.toUpperCase();
+    const hs = m.score?.fullTime?.home ?? 0;
+    const as_ = m.score?.fullTime?.away ?? 0;
+    const pen = m.score?.penalties;
+    let loser = null, winner = null;
+    if (hs > as_)      { loser = a; winner = h; }
+    else if (as_ > hs) { loser = h; winner = a; }
+    else if (pen)      { if (pen.home > pen.away) { loser = a; winner = h; } else { loser = h; winner = a; } }
+
+    let hPts = 0, aPts = 0;
+
+    if (stage.includes("GROUP")) {
+      let hResult, aResult;
+      if (hs > as_)      { hResult = "W"; aResult = "L"; }
+      else if (as_ > hs) { hResult = "L"; aResult = "W"; }
+      else               { hResult = "D"; aResult = "D"; }
+      hPts = groupGamePts(h, hResult);
+      aPts = groupGamePts(a, aResult);
+    } else if (stage === "FINAL") {
+      if (winner) { const d = award(winner, "WINNER");   if (winner === h) hPts = d; else aPts = d; }
+      if (loser)  { const d = award(loser,  "FINALIST"); if (loser  === h) hPts = d; else aPts = d; }
+    } else {
+      let stageKey = null;
+      if (stage.includes("SEMI"))                                  stageKey = "SEMI_FINALS";
+      else if (stage.includes("QUARTER"))                          stageKey = "QUARTER_FINALS";
+      else if (stage.includes("LAST_16") || stage.includes("16"))  stageKey = "LAST_16";
+      else if (stage.includes("LAST_32") || stage.includes("32"))  stageKey = "LAST_32";
+      if (stageKey && loser) {
+        const dl = award(loser, stageKey);  if (loser  === h) hPts = dl; else aPts = dl;
+        if (winner) { const dw = award(winner, stageKey); if (winner === h) hPts = dw; else aPts = dw; }
+      }
+    }
+
+    result[m.id] = { home: hPts, away: aPts };
+  });
+
+  return result;
+}
+
 // Per-frame elimination snapshots for the bar race. Mirrors the chronological
 // replay + frame-advance gating of deriveSparklineHistory so elimByFrame[i]
 // aligns 1:1 with that function's history frames. elimByFrame[i] = array of team

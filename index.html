@@ -447,7 +447,7 @@ function TabBtn({ id, label, active, onClick }) {
   );
 }
 
-function MatchCard({ m, ranked, upcoming = [] }) {
+function MatchCard({ m, ranked, upcoming = [], pts, significant }) {
   const h = m.homeTeam?.tla?.toUpperCase();
   const a = m.awayTeam?.tla?.toUpperCase();
   const fin = m.status === "FINISHED";
@@ -491,16 +491,48 @@ function MatchCard({ m, ranked, upcoming = [] }) {
     return null;
   })();
 
+  // Result-based banners — winner/loser of THIS match, for finished games only.
+  const hs = m.score?.fullTime?.home ?? 0;
+  const as_ = m.score?.fullTime?.away ?? 0;
+  const pen = m.score?.penalties;
+  let winnerCode = null, loserCode = null;
+  if (hs > as_)      { winnerCode = h; loserCode = a; }
+  else if (as_ > hs) { winnerCode = a; loserCode = h; }
+  else if (pen)      { winnerCode = pen.home > pen.away ? h : a; loserCode = winnerCode === h ? a : h; }
+  const isKnockout = !(m.stage || "").toUpperCase().includes("GROUP");
+
+  // 🔪 Giant Killer — the winner's pot is numerically higher (weaker) than the
+  // loser's, i.e. an underdog won. Broader than the player-accolade version
+  // (group stage only) — a knockout upset is at least as newsworthy.
+  const giantKillerLabel = fin && winnerCode && loserCode && (POT[winnerCode]||4) > (POT[loserCode]||4)
+    ? { icon:"🔪", label:"GIANT KILLER" }
+    : null;
+
+  // 😱 Shock Exit — a Pot 1/2 favourite is out. Knockout losses only: a
+  // single match is an unambiguous elimination there. Group-stage elimination
+  // depends on the whole group (mathematically-locked-into-4th timing), which
+  // is already handled precisely for player badges in computeBadges — not
+  // duplicated here to avoid the two disagreeing.
+  const shockExitLabel = fin && !giantKillerLabel && isKnockout && loserCode && (POT[loserCode]||4) <= 2
+    ? { icon:"😱", label:"SHOCK EXIT" }
+    : null;
+
+  const resultLabel = giantKillerLabel || shockExitLabel;
+
   const rivalryBorder = clashLabel?.label === "TITLE SHOWDOWN"
     ? `2px solid ${C.gold}`
     : clashLabel
     ? `2px solid ${C.accent}`
+    : resultLabel || significant
+    ? `2px solid ${C.gold}`
     : `1px solid ${C.border}`;
 
   const rivalryGlow = clashLabel?.label === "TITLE SHOWDOWN"
     ? "0 0 10px #f59e0b44"
     : clashLabel
     ? "0 0 10px #22c55e33"
+    : resultLabel || significant
+    ? "0 0 10px #f59e0b44"
     : "none";
 
   return (
@@ -517,6 +549,14 @@ function MatchCard({ m, ranked, upcoming = [] }) {
               <span style={{ fontSize:13, lineHeight:1 }}>{clashLabel.icon}</span>
               <span style={{ fontSize:9, fontWeight:900, color:C.accent, letterSpacing:"0.08em" }}>{clashLabel.label}</span>
             </>}
+            {resultLabel && fin && <>
+              <span style={{ fontSize:13, lineHeight:1 }}>{resultLabel.icon}</span>
+              <span style={{ fontSize:9, fontWeight:900, color:C.gold, letterSpacing:"0.08em" }}>{resultLabel.label}</span>
+            </>}
+            {!resultLabel && significant && fin && <>
+              <span style={{ fontSize:13, lineHeight:1 }}>🔥</span>
+              <span style={{ fontSize:9, fontWeight:900, color:C.gold, letterSpacing:"0.08em" }}>BIG SWING</span>
+            </>}
           </div>
           <span style={{ fontSize:10, color: C.muted, flex:1, textAlign:"right" }}>{fmt(m.utcDate)}</span>
         </div>
@@ -527,6 +567,7 @@ function MatchCard({ m, ranked, upcoming = [] }) {
             <div>
               <div style={{ fontSize:13, fontWeight:700, color: C.text }}>{ownerOf(h, ranked) || ""}</div>
               <div style={{ fontSize:11, color: C.muted }}>{m.homeTeam?.name || "TBD"}{POT[h] ? <span style={{ color:C.muted, fontSize:9 }}> (P{POT[h]})</span> : ""}</div>
+              {pts && <div style={{ fontSize:10, fontWeight:800, color: pts.home > 0 ? C.accent : C.muted, marginTop:2 }}>+{pts.home} pts</div>}
             </div>
           </div>
           <div style={{ minWidth:64, textAlign:"center" }}>
@@ -548,6 +589,7 @@ function MatchCard({ m, ranked, upcoming = [] }) {
             <div style={{ textAlign:"right" }}>
               <div style={{ fontSize:13, fontWeight:700, color: C.text }}>{ownerOf(a, ranked) || ""}</div>
               <div style={{ fontSize:11, color: C.muted }}>{m.awayTeam?.name || "TBD"}{POT[a] ? <span style={{ color:C.muted, fontSize:9 }}> (P{POT[a]})</span> : ""}</div>
+              {pts && <div style={{ fontSize:10, fontWeight:800, color: pts.away > 0 ? C.accent : C.muted, marginTop:2 }}>+{pts.away} pts</div>}
             </div>
             <Flag code={a} size={22} />
           </div>
@@ -2393,7 +2435,6 @@ function App() {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [tab,         setTab]         = useState("table");
   const [leagueView,  setLeagueView]  = useState("league"); // "league" | "groups" | "knockout"
-  const [matchView,   setMatchView]   = useState("fixtures"); // "fixtures" | "results"
   const [showRace,    setShowRace]    = useState(false);
   const [showInfo,    setShowInfo]    = useState(false); // Rules & Info dialog (over current tab)
   const [showPayment, setShowPayment] = useState(false);
@@ -2613,6 +2654,22 @@ function App() {
     ((m.status === "SCHEDULED" || m.status === "TIMED") && new Date() > new Date(m.utcDate)));
   const upcoming = matches.filter(m => m.status === "SCHEDULED" || m.status === "TIMED");
   const recent   = matches.filter(m => m.status === "FINISHED").reverse();
+  const matchPtsById = React.useMemo(
+    () => (typeof deriveMatchPts === "function" ? deriveMatchPts(matches) : {}),
+    [matches]
+  );
+  // "Big Swing" — the 3 finished matches with the highest combined sweepstake
+  // points scored by both sides. Naturally shifts toward knockout games once
+  // they start (a QF is worth far more than a group game), which is correct —
+  // significance is relative to the whole tournament, not just its own stage.
+  const significantMatchIds = React.useMemo(() => {
+    const ranked = Object.entries(matchPtsById)
+      .map(([id, p]) => ({ id, total: (p.home || 0) + (p.away || 0) }))
+      .filter(x => x.total > 0)
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 3);
+    return new Set(ranked.map(x => x.id));
+  }, [matchPtsById]);
 
   // Detect goals — compare current scores to previous refresh, and capture
   // WHICH team scored so the GOAL! overlay can show the flag + owner name.
@@ -2684,6 +2741,12 @@ function App() {
       <circle cx="8" cy="15" r="1.5" fill={active ? "white" : C.muted}/>
       <circle cx="12" cy="15" r="1.5" fill={active ? "white" : C.muted}/>
       <circle cx="16" cy="15" r="1.5" fill={active ? "white" : C.muted}/>
+    </svg>
+  );
+  const navIconResults = (active) => (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? "white" : C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="3" width="16" height="18" rx="2" fill="none"/>
+      <path d="M8 12l3 3 5-6"/>
     </svg>
   );
   const navIconRace = (active) => (
@@ -2906,19 +2969,6 @@ function App() {
             </div>
           </div>
         )}
-        {tab === "matches" && !loading && (
-          <div className="sweeps-nav">
-            <div className="sweeps-seg">
-              {[["fixtures","Fixtures"],["results","Results"]].map(([id, label]) => (
-                <button key={id} onClick={() => setMatchView(id)} style={{
-                  background: matchView === id ? C.accent : "transparent",
-                  color: matchView === id ? "#000" : C.muted,
-                  fontSize:13, fontWeight: matchView === id ? 700 : 400,
-                }}>{label}</button>
-              ))}
-            </div>
-          </div>
-        )}
         {tab === "race" && !loading && (
           <div className="sweeps-nav">
             <button onClick={() => setShowRace(true)} style={{
@@ -2955,11 +3005,13 @@ function App() {
           ["table-groups",   "Groups",    navIconGroups],
           ["table-knockout", "Knockouts", navIconKnockout],
           ["matches", "Schedule", navIconSchedule],
+          ["results", "Results", navIconResults],
           ["race", "The Race", navIconRace],
           ["info", "Rules & Info", navIconInfo],
         ] : [
           ["table", "League", navIconTable],
           ["matches", "Schedule", navIconSchedule],
+          ["results", "Results", navIconResults],
           ["race", "The Race", navIconRace],
           ["info", "Rules & Info", navIconInfo],
         ]).map(([id, label, renderIcon]) => {
@@ -2983,7 +3035,6 @@ function App() {
               setSelectedPlayer(null);
               setTab(id);
               if (id === "table") setLeagueView("league");    // League always opens on Sweeps
-              if (id === "matches") setMatchView("fixtures");  // Schedule always opens on Fixtures
             };
           }
           return (
@@ -3064,30 +3115,28 @@ function App() {
             )}
           </>
         )}
-        {/* ── MATCHES (Fixtures / Results toggle) ── */}
+        {/* ── SCHEDULE (upcoming fixtures) ── */}
         {tab === "matches" && !loading && (
-          <>
-            {matchView === "fixtures" && (
-              upcoming.length === 0
-                ? <div style={{ color:C.muted, textAlign:"center", padding:32, fontSize:14 }}>No upcoming fixtures</div>
-                : groupByDay(upcoming).map(([day, ms]) => (
-                  <div key={day}>
-                    <div style={{ fontSize:11, color:C.text, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", padding:"12px 2px 6px" }}>{day}</div>
-                    <div className="league-grid fixture-grid">{ms.map(m => <MatchCard key={m.id} m={m} ranked={ranked} upcoming={upcoming} />)}</div>
-                  </div>
-                ))
-            )}
-            {matchView === "results" && (
-              recent.length === 0
-                ? <div style={{ color:C.muted, textAlign:"center", padding:32, fontSize:14 }}>No results yet</div>
-                : groupByDay(recent).map(([day, ms]) => (
-                  <div key={day}>
-                    <div style={{ fontSize:11, color:C.text, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", padding:"12px 2px 6px" }}>{day}</div>
-                    <div className="league-grid fixture-grid">{ms.map(m => <MatchCard key={m.id} m={m} ranked={ranked} upcoming={upcoming} />)}</div>
-                  </div>
-                ))
-            )}
-          </>
+          upcoming.length === 0
+            ? <div style={{ color:C.muted, textAlign:"center", padding:32, fontSize:14 }}>No upcoming fixtures</div>
+            : groupByDay(upcoming).map(([day, ms]) => (
+              <div key={day}>
+                <div style={{ fontSize:11, color:C.text, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", padding:"12px 2px 6px" }}>{day}</div>
+                <div className="league-grid fixture-grid">{ms.map(m => <MatchCard key={m.id} m={m} ranked={ranked} upcoming={upcoming} />)}</div>
+              </div>
+            ))
+        )}
+
+        {/* ── RESULTS (finished matches, with points scored) ── */}
+        {tab === "results" && !loading && (
+          recent.length === 0
+            ? <div style={{ color:C.muted, textAlign:"center", padding:32, fontSize:14 }}>No results yet</div>
+            : groupByDay(recent).map(([day, ms]) => (
+              <div key={day}>
+                <div style={{ fontSize:11, color:C.text, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", padding:"12px 2px 6px" }}>{day}</div>
+                <div className="league-grid fixture-grid">{ms.map(m => <MatchCard key={m.id} m={m} ranked={ranked} upcoming={upcoming} pts={matchPtsById[m.id]} significant={significantMatchIds.has(String(m.id))} />)}</div>
+              </div>
+            ))
         )}
 
         {/* ── THE RACE ── */}
