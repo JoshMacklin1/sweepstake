@@ -1317,19 +1317,23 @@ function deriveSparklineHistory(matches) {
   return history;
 }
 
-// Per-match sweepstake points — how many points each side EARNED via this
-// specific result. Group stage = that game's W/D/L value (groupGamePts).
-// Knockout = the delta between the stage just reached and whatever stage the
-// team had already banked, so a run of wins isn't double-counted — same
-// model deriveSparklineHistory uses for the points-over-time charts, just
-// keyed by match id instead of accumulated into a running total. Note both
-// sides of a non-final knockout match "reach" that round by playing in it,
-// so winner and loser typically earn the same amount (the model rewards
-// reaching a round, not winning the individual tie) — only the FINAL splits
-// WINNER vs FINALIST. FINISHED only (live scores are unreliable mid-game,
-// same reasoning as the sparkline).
+// Per-match sweepstake points — how many points each side EARNED (or, for a
+// live match, are CURRENTLY PROJECTED to earn) via this specific result.
+// Group stage = that game's W/D/L value (groupGamePts). Knockout = the delta
+// between the stage just reached and whatever stage the team had already
+// banked, so a run of wins isn't double-counted — same model
+// deriveSparklineHistory uses for the points-over-time charts, just keyed by
+// match id instead of accumulated into a running total. Note both sides of a
+// non-final knockout match "reach" that round by playing in it, so winner
+// and loser typically earn the same amount (the model rewards reaching a
+// round, not winning the individual tie) — only the FINAL splits WINNER vs
+// FINALIST. Uses isSettled (FINISHED + IN_PLAY/PAUSED) so live matches show
+// a real-time projection, consistent with how scorePlayers/deriveStages
+// already treat live matches as scoring in real time — these numbers are
+// provisional and will shift if the live score changes, same as the rest of
+// the app's live totals.
 function deriveMatchPts(matches) {
-  const done = matches.filter(m => m.status === "FINISHED")
+  const done = matches.filter(m => isSettled(m.status))
     .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
 
   const teamPts = {}; // code -> points already banked for the highest stage reached so far

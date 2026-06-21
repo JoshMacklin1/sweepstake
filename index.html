@@ -447,7 +447,7 @@ function TabBtn({ id, label, active, onClick }) {
   );
 }
 
-function MatchCard({ m, ranked, upcoming = [], pts, significant }) {
+function MatchCard({ m, ranked, upcoming = [], pts }) {
   const h = m.homeTeam?.tla?.toUpperCase();
   const a = m.awayTeam?.tla?.toUpperCase();
   const fin = m.status === "FINISHED";
@@ -501,29 +501,48 @@ function MatchCard({ m, ranked, upcoming = [], pts, significant }) {
   else if (pen)      { winnerCode = pen.home > pen.away ? h : a; loserCode = winnerCode === h ? a : h; }
   const isKnockout = !(m.stage || "").toUpperCase().includes("GROUP");
 
-  // 🔪 Giant Killer — the winner's pot is numerically higher (weaker) than the
-  // loser's, i.e. an underdog won. Broader than the player-accolade version
-  // (group stage only) — a knockout upset is at least as newsworthy.
-  const giantKillerLabel = fin && winnerCode && loserCode && (POT[winnerCode]||4) > (POT[loserCode]||4)
-    ? { icon:"🔪", label:"GIANT KILLER" }
-    : null;
-
-  // 😱 Shock Exit — a Pot 1/2 favourite is out. Knockout losses only: a
-  // single match is an unambiguous elimination there. Group-stage elimination
-  // depends on the whole group (mathematically-locked-into-4th timing), which
-  // is already handled precisely for player badges in computeBadges — not
-  // duplicated here to avoid the two disagreeing.
-  const shockExitLabel = fin && !giantKillerLabel && isKnockout && loserCode && (POT[loserCode]||4) <= 2
+  // 😱 Shock Exit — a Pot 1/2 favourite is out. Takes priority over the upset
+  // ladder below (an elimination is the bigger story than the pot-gap that
+  // caused it). Knockout losses only: a single match is an unambiguous
+  // elimination there. Group-stage elimination depends on the whole group
+  // (mathematically-locked-into-4th timing), which is already handled
+  // precisely for player badges in computeBadges — not duplicated here to
+  // avoid the two disagreeing.
+  const shockExitLabel = fin && isKnockout && loserCode && (POT[loserCode]||4) <= 2
     ? { icon:"😱", label:"SHOCK EXIT" }
     : null;
 
-  const resultLabel = giantKillerLabel || shockExitLabel;
+  // Upset ladder — escalating banners by pot-gap and win/draw, ranked most-
+  // to-least amazing: a 3-pot win, a 2-pot win, a 3-pot draw, a 2-pot draw,
+  // then a plain 1-pot win. Win always outranks a draw at the same gap (a
+  // result you could lose for real beats merely denying a favourite), which
+  // is why the order isn't a strict "bigger gap wins" sort.
+  const upsetLabel = (() => {
+    if (!fin || shockExitLabel) return null;
+    if (winnerCode && loserCode) {
+      const gap = (POT[winnerCode]||4) - (POT[loserCode]||4); // >0 if the weaker pot won
+      if (gap === 3) return { icon:"🦄", label:"FAIRYTALE" };
+      if (gap === 2) return { icon:"🔪", label:"GIANT KILLER" };
+      if (gap === 1) return { icon:"⚠️", label:"UPSET ALERT" };
+      return null;
+    }
+    // Draws (group stage only — knockouts always resolve via penalties, so
+    // winnerCode/loserCode would already be set above).
+    if (hs === as_) {
+      const gap = Math.abs((POT[h]||4) - (POT[a]||4));
+      if (gap === 3) return { icon:"🛡️", label:"HEROIC STAND" };
+      if (gap === 2) return { icon:"🤝", label:"PUNCHED ABOVE" };
+    }
+    return null;
+  })();
+
+  const resultLabel = shockExitLabel || upsetLabel;
 
   const rivalryBorder = clashLabel?.label === "TITLE SHOWDOWN"
     ? `2px solid ${C.gold}`
     : clashLabel
     ? `2px solid ${C.accent}`
-    : resultLabel || significant
+    : resultLabel
     ? `2px solid ${C.gold}`
     : `1px solid ${C.border}`;
 
@@ -531,7 +550,7 @@ function MatchCard({ m, ranked, upcoming = [], pts, significant }) {
     ? "0 0 10px #f59e0b44"
     : clashLabel
     ? "0 0 10px #22c55e33"
-    : resultLabel || significant
+    : resultLabel
     ? "0 0 10px #f59e0b44"
     : "none";
 
@@ -552,10 +571,6 @@ function MatchCard({ m, ranked, upcoming = [], pts, significant }) {
             {resultLabel && fin && <>
               <span style={{ fontSize:13, lineHeight:1 }}>{resultLabel.icon}</span>
               <span style={{ fontSize:9, fontWeight:900, color:C.gold, letterSpacing:"0.08em" }}>{resultLabel.label}</span>
-            </>}
-            {!resultLabel && significant && fin && <>
-              <span style={{ fontSize:13, lineHeight:1 }}>🔥</span>
-              <span style={{ fontSize:9, fontWeight:900, color:C.gold, letterSpacing:"0.08em" }}>BIG SWING</span>
             </>}
           </div>
           <span style={{ fontSize:10, color: C.muted, flex:1, textAlign:"right" }}>{fmt(m.utcDate)}</span>
@@ -2658,18 +2673,6 @@ function App() {
     () => (typeof deriveMatchPts === "function" ? deriveMatchPts(matches) : {}),
     [matches]
   );
-  // "Big Swing" — the 3 finished matches with the highest combined sweepstake
-  // points scored by both sides. Naturally shifts toward knockout games once
-  // they start (a QF is worth far more than a group game), which is correct —
-  // significance is relative to the whole tournament, not just its own stage.
-  const significantMatchIds = React.useMemo(() => {
-    const ranked = Object.entries(matchPtsById)
-      .map(([id, p]) => ({ id, total: (p.home || 0) + (p.away || 0) }))
-      .filter(x => x.total > 0)
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 3);
-    return new Set(ranked.map(x => x.id));
-  }, [matchPtsById]);
 
   // Detect goals — compare current scores to previous refresh, and capture
   // WHICH team scored so the GOAL! overlay can show the flag + owner name.
@@ -2743,10 +2746,11 @@ function App() {
       <circle cx="16" cy="15" r="1.5" fill={active ? "white" : C.muted}/>
     </svg>
   );
-  const navIconResults = (active) => (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? "white" : C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="4" y="3" width="16" height="18" rx="2" fill="none"/>
-      <path d="M8 12l3 3 5-6"/>
+  const navIconScores = (active) => (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? "white" : C.muted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9"/>
+      <path d="M12 9L14.9 11.1L13.8 14.4L10.2 14.4L9.1 11.1Z" fill={active ? "white" : C.muted} stroke="none"/>
+      <path d="M12 9L12 6.5M14.9 11.1L17.3 10.3M13.8 14.4L15.3 16.4M10.2 14.4L8.7 16.4M9.1 11.1L6.7 10.3"/>
     </svg>
   );
   const navIconRace = (active) => (
@@ -2890,6 +2894,7 @@ function App() {
               const hOwner = ownerOf(h, ranked);
               const aOwner = ownerOf(a, ranked);
               const broadcast = getBroadcast(h, a);
+              const livePts = matchPtsById[m.id];
               return (
                 <div key={m.id} style={{ display:"flex", alignItems:"center" }}>
                   <div style={{ flex:1, display:"flex", alignItems:"center", gap:6 }}>
@@ -2897,6 +2902,7 @@ function App() {
                     <div>
                       <div style={{ fontSize:12, fontWeight:700, color:C.text }}>{hOwner || m.homeTeam?.name}</div>
                       <div style={{ fontSize:10, color:C.muted }}>{m.homeTeam?.name}{POT[h] ? <span style={{ color:C.muted, fontSize:9 }}> (P{POT[h]})</span> : ""}</div>
+                      {livePts && <div style={{ fontSize:10, fontWeight:800, color: livePts.home > 0 ? C.accent : C.muted, marginTop:2 }}>+{livePts.home} pts</div>}
                     </div>
                   </div>
                   <div style={{ textAlign:"center", padding:"0 8px" }}>
@@ -2912,6 +2918,7 @@ function App() {
                     <div style={{ textAlign:"right" }}>
                       <div style={{ fontSize:12, fontWeight:700, color:C.text }}>{aOwner || m.awayTeam?.name}</div>
                       <div style={{ fontSize:10, color:C.muted }}>{m.awayTeam?.name}{POT[a] ? <span style={{ color:C.muted, fontSize:9 }}> (P{POT[a]})</span> : ""}</div>
+                      {livePts && <div style={{ fontSize:10, fontWeight:800, color: livePts.away > 0 ? C.accent : C.muted, marginTop:2 }}>+{livePts.away} pts</div>}
                     </div>
                     <Flag code={a} size={18} />
                   </div>
@@ -3005,13 +3012,13 @@ function App() {
           ["table-groups",   "Groups",    navIconGroups],
           ["table-knockout", "Knockouts", navIconKnockout],
           ["matches", "Schedule", navIconSchedule],
-          ["results", "Results", navIconResults],
+          ["scores", "Scores", navIconScores],
           ["race", "The Race", navIconRace],
           ["info", "Rules & Info", navIconInfo],
         ] : [
           ["table", "League", navIconTable],
           ["matches", "Schedule", navIconSchedule],
-          ["results", "Results", navIconResults],
+          ["scores", "Scores", navIconScores],
           ["race", "The Race", navIconRace],
           ["info", "Rules & Info", navIconInfo],
         ]).map(([id, label, renderIcon]) => {
@@ -3127,14 +3134,14 @@ function App() {
             ))
         )}
 
-        {/* ── RESULTS (finished matches, with points scored) ── */}
-        {tab === "results" && !loading && (
+        {/* ── SCORES (finished matches, with points scored) ── */}
+        {tab === "scores" && !loading && (
           recent.length === 0
-            ? <div style={{ color:C.muted, textAlign:"center", padding:32, fontSize:14 }}>No results yet</div>
+            ? <div style={{ color:C.muted, textAlign:"center", padding:32, fontSize:14 }}>No scores yet</div>
             : groupByDay(recent).map(([day, ms]) => (
               <div key={day}>
                 <div style={{ fontSize:11, color:C.text, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", padding:"12px 2px 6px" }}>{day}</div>
-                <div className="league-grid fixture-grid">{ms.map(m => <MatchCard key={m.id} m={m} ranked={ranked} upcoming={upcoming} pts={matchPtsById[m.id]} significant={significantMatchIds.has(String(m.id))} />)}</div>
+                <div className="league-grid fixture-grid">{ms.map(m => <MatchCard key={m.id} m={m} ranked={ranked} upcoming={upcoming} pts={matchPtsById[m.id]} />)}</div>
               </div>
             ))
         )}
