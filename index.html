@@ -2747,10 +2747,17 @@ function App() {
     </svg>
   );
   const navIconScores = (active) => (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? "white" : C.muted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="9"/>
-      <path d="M12 9L14.9 11.1L13.8 14.4L10.2 14.4L9.1 11.1Z" fill={active ? "white" : C.muted} stroke="none"/>
-      <path d="M12 9L12 6.5M14.9 11.1L17.3 10.3M13.8 14.4L15.3 16.4M10.2 14.4L8.7 16.4M9.1 11.1L6.7 10.3"/>
+    <svg width="22" height="22" viewBox="0 0 24 24">
+      <path fill={active ? "white" : C.muted} fillRule="evenodd" d="
+        M21,12 A9,9 0 1,0 3,12 A9,9 0 1,0 21,12 Z
+        M12,7.228 L16.539,10.525 L14.805,15.861 L9.195,15.861 L7.461,10.525 Z
+        M12,9.7 L14.187,11.289 L13.352,13.861 L10.648,13.861 L9.813,11.289 Z
+        M11,7.228 L11,3 L13,3 L13,7.228 Z
+        M16.23,9.574 L20.25,8.268 L20.869,10.17 L16.848,11.476 Z
+        M15.614,15.273 L18.099,18.693 L16.481,19.869 L13.996,16.449 Z
+        M10.004,16.449 L7.519,19.869 L5.901,18.693 L8.386,15.273 Z
+        M7.152,11.476 L3.131,10.17 L3.75,8.268 L7.77,9.574 Z
+      "/>
     </svg>
   );
   const navIconRace = (active) => (
