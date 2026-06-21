@@ -1,6 +1,6 @@
 # WC2026 Sweepstake Tracker — Project Documentation
 
-_Last updated: 19 June 2026. Rebuilt from the live source (`index.html` + `scoring.js`), not the previous doc — the player roster and architecture had both moved on._
+_Last updated: 21 June 2026. Rebuilt from the live source (`index.html` + `scoring.js`), not the previous doc — the player roster and architecture had both moved on._
 
 ## Overview
 
@@ -16,7 +16,7 @@ The app is **no longer a single file**. Logic is split so the same scoring code 
 | `icon-192*.png`, `icon-512*.png` | PWA icons (standard + maskable). |
 | `README.md` | Effectively empty. |
 
-`scoring.js` is also imported as an ES module by the email worker, so the daily digest and the app can never disagree on anyone's points. **Change scoring rules, pot values, or player assignments in `scoring.js` only** — both consumers pick it up.
+**This was the original intent** — `scoring.js` imported as an ES module by the email Worker, so the daily digest and the app could never disagree. **In practice this is not how it currently works**: the deployed email Worker has its own separately-maintained, manually-pasted bundled copy of the scoring logic with no live link back to this file, and it has already drifted out of sync once (June 2026 — see "Email Worker drift" in Known Issues). Changing `POT`, `PTS_INC`, `PLAYERS`, or any `derive*`/`score*` function here does **not** automatically reach the email — you must manually port the change into the Worker and redeploy it too. Treat this repo's `scoring.js` as the source of truth for the *app*; the email Worker needs its own deliberate sync step.
 
 ---
 
@@ -27,7 +27,7 @@ The app is **no longer a single file**. Logic is split so the same scoring code 
 | **Live app** | https://joshmacklin1.github.io/sweepstake/ |
 | **GitHub repo** | joshmacklin1/sweepstake |
 | **CORS proxy Worker** | https://football-proxy.joshmacklin7.workers.dev (`WORKER_URL` in `scoring.js`) |
-| **Daily email Worker** | `worker-email.js` — imports `scoring.js` as an ES module; **source not in this repo**, deployed separately |
+| **Daily email Worker** | `sweepstake-email` (Cloudflare Workers & Pages, edited via dashboard Quick Edit). **Not in this repo, and does NOT live-import `scoring.js`** — it has its own manually-pasted bundled copy (`src/scoring.source.js` + `src/index.js`, concatenated by esbuild into one file in the dashboard editor) that **drifts unless manually re-synced**. See "Email Worker drift" under Known Issues. |
 | **API** | football-data.org free tier (`WC_CODE = "WC"`, `SEASON = 2026`) |
 | **API key** | Lives in the Worker, not the repo. Previous doc recorded `d06d96f284d244ad9f4f190b6273300a` — verify it's still the live key before relying on it. |
 | **Stack** | React 18 via Babel CDN |
@@ -109,8 +109,8 @@ Pot-scaled to reward underdogs winning:
 | Draw   | +1    | +2    | +3    | +5    |
 | Loss   | 0     | 0     | 0     | 0     |
 
-### Knockout Stage (cumulative — `PTS_INC`, incremental per round)
-A team earns **all** stages it reaches, summed. E.g. a Pot 4 team reaching the SF earns 0 + 50 + 150 + 300 + 500 = 1000.
+### Knockout Stage (flat — `PTS_INC`, single highest stage reached)
+A team earns the value for the **single highest stage it has reached**, not a sum of every stage along the way — `ptsTotal`/`pts` is a flat lookup into `PTS_INC`, it does not accumulate. E.g. a Pot 4 team currently in the SF (win or lose) earns **500**, not 0+50+150+300+500=1000. (Match-card per-game point displays in `index.html` show the *delta* between consecutive stages — see `deriveMatchPts` — which is a different, derived concept from this flat total; don't confuse the two.) This was previously misdocumented as cumulative here, which contributed to a real bug: the email digest Worker (`worker-email.js`, see "Known Issues" below) had an old cumulative version of `ptsTotal` that inflated everyone's knockout points.
 
 | Stage | Pot 1 | Pot 2 | Pot 3 | Pot 4 |
 |-------|-------|-------|-------|-------|
@@ -359,6 +359,10 @@ Points matrix, Grim Reaper explainer, then a **Players & Team Selection** list (
 
 47. **More accolades** — 💨 Firing Blanks (fewest goals scored); 🩸 First Casualty (first to lose a team) and ⚰️ Wiped Out (first to lose both) via chronological elimination dates — group elimination is timed to the match after which a team is **mathematically locked into 4th** of its group (≥3 teams guaranteed above on points; needs `GROUP_ASSIGNMENTS`, added to scoring.js), knockout elimination to the lost match; 💀 Grim Reaper is now Josh's single accolade (badge-driven, removed the hardcoded skull); his league row keeps the text subtitle (pirate-flag idea tried and reverted — emoji didn't match the photo-flags).
 
+50. **Schedule/Results split, points display, result banners** — bottom nav's combined Schedule tab split into separate **Schedule** (upcoming only) and **Scores** (finished only, football-icon nav button — hand-drawn `fill-rule="evenodd"` cutout SVG, several iterations to get a recognizable ball rather than a star/flower at 22px). Scores cards show each team's sweepstake points earned via new `deriveMatchPts` in `scoring.js` (per-match points: group = that game's W/D/L value; knockout = delta between consecutive stages, so a winner/loser of a non-final tie typically show the *same* value — both "reached" that round). Extended to live matches too (`isSettled`, not just `FINISHED`) so the in-progress banner card shows projected points. Added a 5-tier upset ladder banner (Fairytale → Giant Killer → Heroic Stand → Punched Above → Upset Alert, ranked by pot-gap and win-vs-draw) and a Shock Exit banner (Pot 1/2 favourite lost a knockout match, knockout-only — group-stage elimination timing is the complex `GROUP_ASSIGNMENTS` logic from #48, not duplicated here), with Shock Exit taking priority over the upset ladder when both apply. A "Big Swing" banner (top-3 matches by combined points) was tried and removed at the user's request.
+
+51. **Email digest — New Accolades section** — `sweepstake-email` Worker now ports a simplified subset of `computeBadges` (everything except 🔮 The Prophecy and 🩸/⚰️ First Casualty/Wiped Out — see "Email Worker drift" in Known Issues for why those two were deliberately left out) and shows newly-earned badges since the last email by diffing against badge labels stored in the existing KV snapshot. Done as part of fixing the drift incident in the same Known Issues section.
+
 ---
 
 ## Deployment
@@ -366,7 +370,12 @@ Points matrix, Grim Reaper explainer, then a **Players & Team Selection** list (
 1. Go to https://github.com/joshmacklin1/sweepstake
 2. Replace `index.html` **and `scoring.js` together** — they're coupled. `index.html` calls functions defined in `scoring.js` (e.g. `deriveRaceEliminations`), so deploying a new `index.html` against an old `scoring.js` will **blank the whole app** (undefined function on render). When in doubt, re-upload both. (As a safety net, `index.html` now guards calls to newer `scoring.js` functions with a `typeof … === "function"` check, but keeping the two in sync is the real fix.)
 3. GitHub Pages rebuilds automatically (~30s).
-4. The Cloudflare Workers (CORS proxy + email digest) don't need redeploying unless the API key, endpoint, or `scoring.js` logic the email depends on changes.
+4. The CORS proxy Worker doesn't need redeploying unless the API key or endpoint changes.
+5. The **email digest Worker is different — treat any `scoring.js` change as requiring a manual email-Worker update.** It does not auto-pick-up changes from this repo (see "Email Worker drift" in Known Issues for why). Checklist whenever `POT`, `PTS_INC`, `GROUP_WIN_PTS`/`GROUP_DRAW_PTS`, `PLAYERS`, or any `derive*`/`score*`/`computeBadges` function changes in this repo's `scoring.js`:
+   - Open the `sweepstake-email` Worker in the Cloudflare dashboard → Quick Edit.
+   - Manually port the equivalent change into its bundled scoring code.
+   - Save and Deploy, confirm a new version appears in the Worker's **Versions** tab.
+   - Hit `https://sweepstake-email.joshmacklin7.workers.dev/__test-send` to trigger a real send immediately (bypasses the "did anything finish" gate) and sanity-check the numbers against the live app before trusting the next scheduled (7am) run.
 
 ---
 
@@ -374,12 +383,25 @@ Points matrix, Grim Reaper explainer, then a **Players & Team Selection** list (
 
 - football-data.org free tier has rate limits; the key lives in the Worker.
 - Group-stage elimination = team has 3 group games played AND appears in no knockout fixture.
-- Knockout points are cumulative (`PTS_INC` holds the per-stage increment; `stageReached` tracks the highest stage per team).
+- Knockout points are **flat, not cumulative** — `ptsTotal`/`pts` looks up the single highest stage reached in `PTS_INC`; `stageReached` tracks which stage that is. (This line previously said "cumulative" in two places in this doc — that was wrong; see "Scoring System" above for the full correction and why it mattered.)
 - Tiebreak `W×3 + D − L`; Josh always loses ties to regular players.
 - Win% simulation (`simulateWinProbability`) is computed but not rendered anywhere.
 - `BumpChart` `dir="rtl"` trick starts scrolled right — no JS needed.
 - Bar race uses stable alphabetical DOM order so CSS `top` transitions fire both up and down.
 - The `Flag` `onError` text-badge fallback was a defensive net after an unconfirmed report of DR Congo's flag occasionally not rendering; root cause was never isolated (the flagcdn URL checked out).
+
+### Email Worker drift (June 2026 incident)
+
+The `sweepstake-email` Cloudflare Worker was found to be running a stale, manually-pasted copy of the scoring logic that had drifted from this repo's `scoring.js` in **two** ways simultaneously:
+
+1. **Stale `POT` values** — still had the pre-swap `SWE:4`/`TUN:3` (see Recent Changes #15) instead of the corrected `SWE:3`/`TUN:4`.
+2. **Wrong `ptsTotal` formula** — an old **cumulative** version (summing every stage increment a team passed through) instead of the app's actual **flat** version (single highest stage only). This alone inflated every knockout team's points in the email, independent of bug #1.
+
+Root cause: the email Worker is edited via the Cloudflare dashboard's Quick Edit (no Wrangler/local project — confirmed June 2026), so there is **no automatic sync** between this repo's `scoring.js` and what the Worker actually runs, despite earlier docs in this file claiming otherwise (now corrected). Caught because Peter H's email total (20pts) didn't match the live app (16pts).
+
+**Fixed**: both bugs corrected directly in the Worker's bundled code (June 2026) and a "New Accolades" section was added at the same time (see `computeBadges` port in the Worker — deliberately a simplified subset, see comment in that function for what was excluded and why).
+
+**Going forward**: see the Deployment section's email-Worker checklist above. There is currently no tooling to catch this drift automatically — it relies on someone noticing a number looks wrong, same as this time.
 
 ---
 
