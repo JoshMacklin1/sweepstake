@@ -2109,7 +2109,7 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
         {recentResults.length === 0
           ? <div style={{ ...s.card, padding: "14px", fontSize: 12, color: C.muted }}>No matches in the last 24h</div>
           : <div className="league-grid fixture-grid">{recentResults.map(m => <MatchCard key={m.id} m={m} ranked={ranked} upcoming={upcoming} pts={matchPtsById[m.id]} />)}</div>}
-        <button onClick={() => setTab("scores")} style={{
+        <button onClick={() => { window.scrollTo(0, 0); setTab("scores"); }} style={{
           width: "100%", padding: "10px 14px", marginTop: 4, background: "transparent",
           border: `1px solid ${C.border}`, borderRadius: 10, color: C.accent, fontSize: 12, fontWeight: 700,
           cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
@@ -2118,7 +2118,7 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
         </button>
       </div>
 
-      <Section icon="🏆" title="Top of the Table" onOpen={() => setTab("table")} linkLabel="View league"
+      <Section icon="🏆" title="Top of the Table" onOpen={() => { window.scrollTo(0, 0); setTab("table"); }} linkLabel="View league"
         empty={topThree.length === 0 ? "No standings yet" : null}>
         {topThree.map((p, i) => (
           <div key={p.name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderBottom: i < topThree.length - 1 ? `1px solid ${C.border}` : "none" }}>
@@ -2132,7 +2132,7 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
         ))}
       </Section>
 
-      <Section icon="📊" title="Risers & Fallers" onOpen={() => setTab("race")} linkLabel="Watch the race"
+      <Section icon="📊" title="Risers & Fallers" onOpen={() => { window.scrollTo(0, 0); setTab("race"); }} linkLabel="Watch the race"
         empty={risers.length === 0 && fallers.length === 0 ? "No position changes in the last 24h" : null}>
         {risers.length > 0 && <div style={{ fontSize: 10, fontWeight: 700, color: C.accent, letterSpacing: "0.06em", padding: "10px 14px 4px" }}>RISERS</div>}
         {risers.map((p, i) => (
