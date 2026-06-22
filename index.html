@@ -34,7 +34,7 @@
        desktop [style*="sticky"] rules. z-index sits above the live
        banner so it stays pinned at the very top on scroll. */
     .sweeps-nav {
-      padding: 2px 14px 12px;
+      padding: 10px 14px 12px;
     }
     .sweeps-seg {
       display: flex;
@@ -2038,46 +2038,6 @@ function projectR32(groupStandings) {
 }
 
 
-// Condensed match row for the Today digest — same data as MatchCard's teams
-// row, but without the stage header, broadcast badge, or rivalry/upset
-// banners, matching the plainer layout of the email digest this tab mirrors.
-function DigestMatchRow({ m, ranked, pts, showTime }) {
-  const h = m.homeTeam?.tla?.toUpperCase();
-  const a = m.awayTeam?.tla?.toUpperCase();
-  const hOwner = ownerOf(h, ranked);
-  const aOwner = ownerOf(a, ranked);
-  const settled = m.status === "FINISHED" || m.status === "IN_PLAY" || m.status === "PAUSED";
-  const hs = m.score?.fullTime?.home ?? 0;
-  const as_ = m.score?.fullTime?.away ?? 0;
-  return (
-    <div style={{ padding: "12px 14px", borderBottom: `1px solid ${C.border}` }}>
-      {showTime && <div style={{ textAlign: "center", fontSize: 10, color: C.muted, marginBottom: 8 }}>{fmt(m.utcDate)}</div>}
-      <div style={{ display: "flex", alignItems: "center" }}>
-        <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 6 }}>
-          <Flag code={h} size={18} />
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{hOwner || m.homeTeam?.name}</div>
-            <div style={{ fontSize: 10, color: C.muted }}>{m.homeTeam?.name}{POT[h] ? ` (P${POT[h]})` : ""}</div>
-            {pts && <div style={{ fontSize: 10, fontWeight: 800, color: pts.home > 0 ? C.accent : C.muted }}>+{pts.home}pts</div>}
-          </div>
-        </div>
-        <div style={{ minWidth: 54, textAlign: "center" }}>
-          {settled
-            ? <div style={{ fontSize: 18, fontWeight: 900, color: C.text }}>{hs}–{as_}</div>
-            : <div style={{ fontSize: 11, color: C.muted }}>vs</div>}
-        </div>
-        <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-end", textAlign: "right" }}>
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{aOwner || m.awayTeam?.name}</div>
-            <div style={{ fontSize: 10, color: C.muted }}>{m.awayTeam?.name}{POT[a] ? ` (P${POT[a]})` : ""}</div>
-            {pts && <div style={{ fontSize: 10, fontWeight: 800, color: pts.away > 0 ? C.accent : C.muted }}>+{pts.away}pts</div>}
-          </div>
-          <Flag code={a} size={18} />
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // BBC/email-digest-style homepage — a snapshot of yesterday, now, and what's
 // next, mirroring the daily email's sections so the two feel like the same
@@ -2136,12 +2096,29 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
 
   return (
     <div>
-      <Section icon="🌐" title="Recent Results" onOpen={() => setTab("scores")} linkLabel="View all scores"
-        empty={recentResults.length === 0 ? "No matches in the last 24h" : null}>
-        {recentResults.map(m => <DigestMatchRow key={m.id} m={m} ranked={ranked} pts={matchPtsById[m.id]} showTime />)}
-      </Section>
+      {/* Recent Results and Up Next (below) deliberately don't use the
+         Section card-wrapper pattern the other sections use — the user
+         wants these to look exactly like the Scores tab, so they render
+         real MatchCards in the same "league-grid fixture-grid" grid, not
+         wrapped in an extra outer card (MatchCard already draws its own
+         border/background per match; nesting that inside Section's card
+         would double up). The condensed DigestMatchRow component these used
+         before is gone now that nothing renders it any more. */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ ...s.label, display: "flex", alignItems: "center", gap: 6 }}><span>🌐</span>Recent Results</div>
+        {recentResults.length === 0
+          ? <div style={{ ...s.card, padding: "14px", fontSize: 12, color: C.muted }}>No matches in the last 24h</div>
+          : <div className="league-grid fixture-grid">{recentResults.map(m => <MatchCard key={m.id} m={m} ranked={ranked} upcoming={upcoming} pts={matchPtsById[m.id]} />)}</div>}
+        <button onClick={() => setTab("scores")} style={{
+          width: "100%", padding: "10px 14px", marginTop: 4, background: "transparent",
+          border: `1px solid ${C.border}`, borderRadius: 10, color: C.accent, fontSize: 12, fontWeight: 700,
+          cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
+        }}>
+          View all scores <span style={{ fontSize: 14, lineHeight: 1 }}>›</span>
+        </button>
+      </div>
 
-      <Section icon="🏆" title="Top of the Table" onOpen={() => setTab("table")} linkLabel="View full table"
+      <Section icon="🏆" title="Top of the Table" onOpen={() => setTab("table")} linkLabel="View league"
         empty={topThree.length === 0 ? "No standings yet" : null}>
         {topThree.map((p, i) => (
           <div key={p.name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderBottom: i < topThree.length - 1 ? `1px solid ${C.border}` : "none" }}>
@@ -2193,10 +2170,14 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
         ))}
       </Section>
 
-      <Section icon="📅" title="Up Next"
-        empty={upNext.length === 0 ? "No upcoming fixtures" : null}>
-        {upNext.map(m => <DigestMatchRow key={m.id} m={m} ranked={ranked} showTime />)}
-      </Section>
+      {/* Same Scores-tab MatchCard treatment as Recent Results above — see
+         the comment there for why this skips the Section/card wrapper. */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ ...s.label, display: "flex", alignItems: "center", gap: 6 }}><span>📅</span>Up Next</div>
+        {upNext.length === 0
+          ? <div style={{ ...s.card, padding: "14px", fontSize: 12, color: C.muted }}>No upcoming fixtures</div>
+          : <div className="league-grid fixture-grid">{upNext.map(m => <MatchCard key={m.id} m={m} ranked={ranked} upcoming={upcoming} />)}</div>}
+      </div>
     </div>
   );
 }
@@ -3093,7 +3074,6 @@ function App() {
       <div id="appHeader" style={{
         position:"sticky", top:0, zIndex:20,
         background:C.bg,
-        borderBottom:`1px solid ${C.border}`,
       }}>
         {/* Title row — collapses away on scroll-down (mobile); hidden on desktop (it's in the sidebar) */}
         <div data-title-row="1" style={{
@@ -3153,6 +3133,7 @@ function App() {
             overflow:"hidden",
             animation:"expandDown 0.5s cubic-bezier(0.4,0,0.2,1) 1.5s both",
             animationIterationCount: 1,
+            borderBottom:`1px solid ${C.border}`,
           }}>
             <div style={{ fontSize:10, color:C.red, fontWeight:700, marginBottom:6, letterSpacing:"0.1em", display:"flex", alignItems:"center", gap:6 }}>
               <span style={{ display:"inline-block", width:6, height:6, borderRadius:"50%", background:C.red, animation:"pulse-red 1.5s infinite" }}/>
@@ -3205,7 +3186,7 @@ function App() {
           const aOwner = ownerOf(a, ranked);
           const broadcast = getBroadcast(h, a);
           return (
-            <div style={{ padding:"8px 14px 12px" }}>
+            <div style={{ padding:"8px 14px 12px", borderBottom:`1px solid ${C.border}` }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
                 <span style={{ fontSize:10, color:C.muted, fontWeight:700, letterSpacing:"0.1em" }}>NEXT MATCH</span>
                 <span style={{ color:C.accent, fontFamily:"monospace", fontSize:11 }}>{countdown}</span>
@@ -3233,6 +3214,17 @@ function App() {
             </div>
           );
         })()}
+        {/* Sweeps/Groups/Knockouts toggle (mobile League tab) — stays a child
+           of #appHeader, in normal flow right after the banner, rather than
+           a separately-positioned sticky element. A JS-measured separate
+           sticky block (tracking the header's height via --hdr-h) was tried
+           first so the header's own border could end at the banner instead
+           of after this toggle, but that measurement lags a frame or two
+           behind the title row's collapse/expand CSS transition, briefly
+           exposing a sliver of card content in the gap. Reverted: the border
+           now lives on the banner's own div instead (see the live/next-match
+           banners above), so this toggle can stay safely inside the single
+           rigid sticky header box with zero risk of a seam. */}
         {tab === "table" && !loading && !isDesktop && (
           <div className="sweeps-nav">
             <div className="sweeps-seg">
