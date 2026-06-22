@@ -413,29 +413,45 @@ const s = {
 // ─────────────────────────────────────────────────────────────────────────────
 const { useState, useEffect, useCallback } = React;
 
+// Self-healing flag <img> handlers — flagcdn.com occasionally serves a 200 OK
+// with empty/corrupt image data for one asset (an edge-cache blip), which
+// doesn't fire onError and just renders blank. Added after an unconfirmed
+// report of DR Congo's flag occasionally not appearing, later also reported
+// for Uruguay (Ollie P) on a near-1-minute on/off cadence — root cause never
+// conclusively isolated (the flagcdn URL itself checks out, and nothing in
+// this app's own code, the code string/lookup table/React keys, is
+// non-deterministic), so this is presumed to be CDN-side. Catches the "loads
+// but renders blank" case via onLoad's naturalWidth check, not just onError,
+// retries once with a cache-busting query string, then falls back to a small
+// text badge showing the team code if the retry also fails. Shared by the
+// Flag component and PlayerRow's own inline flag <img>s (PlayerRow predates
+// Flag and was never migrated onto it).
+function flagHandlers(code, size) {
+  const onFail = (e) => {
+    if (e.target.dataset.retried) {
+      const span = document.createElement("span");
+      span.textContent = code;
+      span.style.cssText = `display:inline-block;font-size:${size*0.5}px;font-weight:700;color:${C.muted};background:${C.border};border-radius:2px;padding:1px 3px;line-height:${size}px;`;
+      e.target.replaceWith(span);
+      return;
+    }
+    e.target.dataset.retried = "1";
+    const base = e.target.src.split("?")[0];
+    e.target.src = `${base}?retry=${Date.now()}`;
+  };
+  const onLoad = (e) => { if (e.target.naturalWidth === 0) onFail(e); };
+  return { onError: onFail, onLoad };
+}
+
 function Flag({ code, size = 18, snail = false }) {
   const url = flag(code);
   if (!url) return null;
   const w = Math.round(size * 1.5); // uniform 3:2 flag aspect across the app
-  // onError fallback: if the flagcdn image fails to load for any reason
-  // (network blip, CDN issue, etc.), swap to a small text badge showing the
-  // code instead of silently rendering nothing — added after an unconfirmed
-  // report of DR Congo's flag occasionally not appearing; root cause wasn't
-  // conclusively isolated (the flagcdn URL itself was verified correct), so
-  // this is a defensive safety net rather than a fix for a confirmed root
-  // cause. If this badge ever shows up in practice, that's a strong signal
-  // the image genuinely failed to load — worth re-investigating with that
-  // confirmation in hand, rather than the inconclusive evidence available now.
-  const fallback = (e) => {
-    const span = document.createElement("span");
-    span.textContent = code;
-    span.style.cssText = `display:inline-block;font-size:${size*0.5}px;font-weight:700;color:${C.muted};background:${C.border};border-radius:2px;padding:1px 3px;line-height:${size}px;`;
-    e.target.replaceWith(span);
-  };
-  if (!snail) return <img src={url} alt={code} onError={fallback} style={{ width:w, height:size, objectFit:"cover", borderRadius:2, display:"block", flexShrink:0 }} />;
+  const handlers = flagHandlers(code, size);
+  if (!snail) return <img src={url} alt={code} {...handlers} style={{ width:w, height:size, objectFit:"cover", borderRadius:2, display:"block", flexShrink:0 }} />;
   return (
     <div style={{ position:"relative", display:"inline-flex", flexShrink:0 }}>
-      <img src={url} alt={code} onError={fallback} style={{ width:w, height:size, objectFit:"cover", borderRadius:2, display:"block", opacity:0.75 }} />
+      <img src={url} alt={code} {...handlers} style={{ width:w, height:size, objectFit:"cover", borderRadius:2, display:"block", opacity:0.75 }} />
       <span style={{ position:"absolute", bottom:-3, right:-4, fontSize:size*0.55, lineHeight:1 }}>🐌</span>
     </div>
   );
@@ -516,7 +532,7 @@ function DayPicker({ days, selected, onSelect }) {
               padding: "6px 4px 8px", border: "none", cursor: "pointer",
               borderRadius: 8,
               background: isToday ? "rgba(34,197,94,0.18)" : "transparent",
-              borderBottom: `3px solid ${isSelected ? C.gold : "transparent"}`,
+              borderBottom: `3px solid ${isSelected ? C.accent : "transparent"}`,
             }}>
               <span style={{ fontSize: 12, fontWeight: isSelected ? 800 : 500, color: isSelected ? C.text : C.muted }}>
                 {isToday ? "Today" : d.toLocaleDateString(undefined, { weekday: "short" })}
@@ -737,7 +753,7 @@ function PlayerRow({ player, rank, displayRank, onOpen, badges = [], rank24hChan
                     {t.lateB ? (
                       // B-team treatment: normal flag + "B" badge to signal second-draw duplicate.
                       <div style={{ position:"relative", display:"inline-block", height:18, flexShrink:0 }}>
-                        <img src={flag(t.code)} alt={t.name}
+                        <img src={flag(t.code)} alt={t.name} {...flagHandlers(t.code, 18)}
                           style={{ width:27, height:18, objectFit:"cover", borderRadius:2, display:"block",
                             opacity: (t.eliminated || t.stage === "GROUP_ELIM") && !t.won ? 0.25 : 1,
                             outline: t.won ? "2px solid #f59e0b" : "none" }} />
@@ -751,7 +767,7 @@ function PlayerRow({ player, rank, displayRank, onOpen, badges = [], rank24hChan
                         }}>B</span>
                       </div>
                     ) : (
-                      <img src={flag(t.code)} alt={t.name}
+                      <img src={flag(t.code)} alt={t.name} {...flagHandlers(t.code, 18)}
                         title={`${t.name} (Pot ${t.pot})${t.stage ? " — "+STAGE_LABEL[t.stage] : ""}`}
                         style={{ width:27, height:18, objectFit:"cover", borderRadius:2, display:"block",
                           opacity: (t.eliminated || t.stage === "GROUP_ELIM") && !t.won ? 0.25 : 1,
@@ -2022,6 +2038,170 @@ function projectR32(groupStandings) {
 }
 
 
+// Condensed match row for the Today digest — same data as MatchCard's teams
+// row, but without the stage header, broadcast badge, or rivalry/upset
+// banners, matching the plainer layout of the email digest this tab mirrors.
+function DigestMatchRow({ m, ranked, pts, showTime }) {
+  const h = m.homeTeam?.tla?.toUpperCase();
+  const a = m.awayTeam?.tla?.toUpperCase();
+  const hOwner = ownerOf(h, ranked);
+  const aOwner = ownerOf(a, ranked);
+  const settled = m.status === "FINISHED" || m.status === "IN_PLAY" || m.status === "PAUSED";
+  const hs = m.score?.fullTime?.home ?? 0;
+  const as_ = m.score?.fullTime?.away ?? 0;
+  return (
+    <div style={{ padding: "12px 14px", borderBottom: `1px solid ${C.border}` }}>
+      {showTime && <div style={{ textAlign: "center", fontSize: 10, color: C.muted, marginBottom: 8 }}>{fmt(m.utcDate)}</div>}
+      <div style={{ display: "flex", alignItems: "center" }}>
+        <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 6 }}>
+          <Flag code={h} size={18} />
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{hOwner || m.homeTeam?.name}</div>
+            <div style={{ fontSize: 10, color: C.muted }}>{m.homeTeam?.name}{POT[h] ? ` (P${POT[h]})` : ""}</div>
+            {pts && <div style={{ fontSize: 10, fontWeight: 800, color: pts.home > 0 ? C.accent : C.muted }}>+{pts.home}pts</div>}
+          </div>
+        </div>
+        <div style={{ minWidth: 54, textAlign: "center" }}>
+          {settled
+            ? <div style={{ fontSize: 18, fontWeight: 900, color: C.text }}>{hs}–{as_}</div>
+            : <div style={{ fontSize: 11, color: C.muted }}>vs</div>}
+        </div>
+        <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-end", textAlign: "right" }}>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{aOwner || m.awayTeam?.name}</div>
+            <div style={{ fontSize: 10, color: C.muted }}>{m.awayTeam?.name}{POT[a] ? ` (P${POT[a]})` : ""}</div>
+            {pts && <div style={{ fontSize: 10, fontWeight: 800, color: pts.away > 0 ? C.accent : C.muted }}>+{pts.away}pts</div>}
+          </div>
+          <Flag code={a} size={18} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// BBC/email-digest-style homepage — a snapshot of yesterday, now, and what's
+// next, mirroring the daily email's sections so the two feel like the same
+// product. Pure read-only summary view; "Open the full table" hands off to
+// the League tab for anything that needs deeper interaction.
+function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, matchPtsById, upcoming, setTab }) {
+  // Badges assigned in the last 24h (not "since you last looked" — same
+  // rolling window as everything else on this tab). Single-holder badges
+  // (Top Dog, Firepower, etc.) naturally surface for whoever holds them
+  // *now* if the holder changed within the window — see comment in
+  // computeNewBadges24h in scoring.js for why no extra logic is needed.
+  const newAccolades = typeof computeNewBadges24h === "function" ? computeNewBadges24h(badges, matches) : [];
+
+  // "Last 24 hours" everywhere on this tab, not calendar "yesterday" — same
+  // rolling window rank24hChange/rank24hPtsChange already use, so every
+  // section on the page is answering the same question consistently.
+  const cutoffMs = Date.now() - 24 * 60 * 60 * 1000;
+  const recentResults = matches
+    .filter(m => m.status === "FINISHED" && new Date(m.utcDate).getTime() >= cutoffMs)
+    .sort((a, b) => new Date(b.utcDate) - new Date(a.utcDate));
+
+  const real = ranked.filter(p => !p.grimReaper);
+  const risers = real.filter(p => (rank24hChange.get(p.name) || 0) > 0)
+    .sort((a, b) => rank24hChange.get(b.name) - rank24hChange.get(a.name)).slice(0, 5);
+  const fallers = real.filter(p => (rank24hChange.get(p.name) || 0) < 0)
+    .sort((a, b) => rank24hChange.get(a.name) - rank24hChange.get(b.name)).slice(0, 5);
+
+  const topThree = real.slice(0, 3);
+
+  const upNext = [...upcoming]
+    .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate))
+    .slice(0, 6);
+
+  // Same flat section-per-card layout as the email digest (label above a
+  // card), not grouped into per-app-area cards — but each section that maps
+  // onto a real tab still gets a footer link straight into it.
+  const Section = ({ icon, title, onOpen, linkLabel, empty, children }) => (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ ...s.label, display: "flex", alignItems: "center", gap: 6 }}><span>{icon}</span>{title}</div>
+      <div style={s.card}>
+        {empty
+          ? <div style={{ padding: "14px", fontSize: 12, color: C.muted }}>{empty}</div>
+          : children}
+        {onOpen && (
+          <button onClick={onOpen} style={{
+            width: "100%", padding: "10px 14px", background: "transparent", border: "none",
+            borderTop: `1px solid ${C.border}`, color: C.accent, fontSize: 12, fontWeight: 700,
+            cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
+          }}>
+            {linkLabel} <span style={{ fontSize: 14, lineHeight: 1 }}>›</span>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
+  return (
+    <div>
+      <Section icon="🌐" title="Recent Results" onOpen={() => setTab("scores")} linkLabel="View all scores"
+        empty={recentResults.length === 0 ? "No matches in the last 24h" : null}>
+        {recentResults.map(m => <DigestMatchRow key={m.id} m={m} ranked={ranked} pts={matchPtsById[m.id]} />)}
+      </Section>
+
+      <Section icon="🏆" title="Top of the Table" onOpen={() => setTab("table")} linkLabel="View full table"
+        empty={topThree.length === 0 ? "No standings yet" : null}>
+        {topThree.map((p, i) => (
+          <div key={p.name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderBottom: i < topThree.length - 1 ? `1px solid ${C.border}` : "none" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 14 }}>🥇</span>
+              <div style={{ display: "flex", gap: 4 }}>{p.teams.map(t => <Flag key={t.code} code={t.code} size={16} />)}</div>
+              <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{p.name}</span>
+            </div>
+            <span style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{p.total}pts</span>
+          </div>
+        ))}
+      </Section>
+
+      <Section icon="📊" title="Risers & Fallers" onOpen={() => setTab("race")} linkLabel="Watch the race"
+        empty={risers.length === 0 && fallers.length === 0 ? "No position changes in the last 24h" : null}>
+        {risers.length > 0 && <div style={{ fontSize: 10, fontWeight: 700, color: C.accent, letterSpacing: "0.06em", padding: "10px 14px 4px" }}>RISERS</div>}
+        {risers.map((p, i) => (
+          <div key={p.name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 14px", borderBottom: (i < risers.length - 1 || fallers.length > 0) ? `1px solid ${C.border}` : "none" }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{p.name}</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: C.accent }}>
+              ▲ {rank24hChange.get(p.name)} place{rank24hChange.get(p.name) === 1 ? "" : "s"}
+              {rank24hPtsChange.get(p.name) > 0 ? ` (+${rank24hPtsChange.get(p.name)}pts)` : ""}
+            </span>
+          </div>
+        ))}
+        {fallers.length > 0 && <div style={{ fontSize: 10, fontWeight: 700, color: C.red, letterSpacing: "0.06em", padding: "10px 14px 4px" }}>FALLERS</div>}
+        {fallers.map((p, i) => (
+          <div key={p.name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 14px", borderBottom: i < fallers.length - 1 ? `1px solid ${C.border}` : "none" }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{p.name}</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: C.red }}>
+              ▼ {Math.abs(rank24hChange.get(p.name))} place{Math.abs(rank24hChange.get(p.name)) === 1 ? "" : "s"}
+            </span>
+          </div>
+        ))}
+      </Section>
+
+      {newAccolades.length > 0 && (
+        <Section icon="🏅" title="New Accolades">
+          {newAccolades.map((b, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 14px", borderBottom: i < newAccolades.length - 1 ? `1px solid ${C.border}` : "none" }}>
+              <span style={{ fontSize: 18, lineHeight: 1.3 }}>{b.icon}</span>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>
+                  {b.name} — <span style={{ color: b.tone === "bad" ? C.red : C.accent }}>{b.label}</span>
+                </div>
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{b.desc}</div>
+              </div>
+            </div>
+          ))}
+        </Section>
+      )}
+
+      <Section icon="📅" title="Up Next"
+        empty={upNext.length === 0 ? "No upcoming fixtures" : null}>
+        {upNext.map(m => <DigestMatchRow key={m.id} m={m} ranked={ranked} showTime />)}
+      </Section>
+    </div>
+  );
+}
+
 function TeamsTab({ matches, view, setView }) {
   const bracketRef = React.useRef(null);
   // ── Hardcoded group assignments (A-L, 4 teams each) ─────────────────
@@ -2175,7 +2355,7 @@ function TeamsTab({ matches, view, setView }) {
         borderBottom: `1px solid ${C.border}`, opacity: isElim ? 0.45 : 1 }}>
         {rank && <span style={{ fontSize:12, color:C.muted, width:16, textAlign:"right", flexShrink:0 }}>{rank}</span>}
         {flagUrl
-          ? <img src={flagUrl} alt={tla} style={{ width:34, height:23, objectFit:"cover", borderRadius:2, flexShrink:0 }} />
+          ? <img src={flagUrl} alt={tla} {...flagHandlers(tla, 23)} style={{ width:34, height:23, objectFit:"cover", borderRadius:2, flexShrink:0 }} />
           : <span style={{ fontSize:14 }}>{tla}</span>}
         <div style={{ flex:1, minWidth:0 }}>
           <div style={{ fontSize:14, color:C.text, fontWeight:700, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{owner || "—"}</div>
@@ -2212,7 +2392,7 @@ function TeamsTab({ matches, view, setView }) {
         opacity: isElim ? 0.45 : 1,
       }}>
         {tla && flagUrl
-          ? <img src={flagUrl} alt={tla} style={{ width:22, height:15, objectFit:"cover", borderRadius:1, flexShrink:0 }} />
+          ? <img src={flagUrl} alt={tla} {...flagHandlers(tla, 15)} style={{ width:22, height:15, objectFit:"cover", borderRadius:1, flexShrink:0 }} />
           : <div style={{ width:22, height:15, background:C.border, borderRadius:1, flexShrink:0 }} />}
         {tla ? (
           <div style={{ flex:1, minWidth:0, overflow:"hidden" }}>
@@ -2523,7 +2703,7 @@ function App() {
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
-  const [tab,         setTab]         = useState("table");
+  const [tab,         setTab]         = useState("home");
   const [leagueView,  setLeagueView]  = useState("league"); // "league" | "groups" | "knockout"
   const [showRace,    setShowRace]    = useState(false);
   const [showInfo,    setShowInfo]    = useState(false); // Rules & Info dialog (over current tab)
@@ -2689,6 +2869,7 @@ function App() {
 
   const ranked   = scorePlayers(matches);
   const rank24hChange = compute24hRankChange(matches, ranked);
+  const rank24hPtsChange = typeof compute24hPtsChange === "function" ? compute24hPtsChange(matches, ranked) : new Map();
   const prevRankedRef = React.useRef({});
   const cardRefsMap = React.useRef({});
   const pendingAnimRef = React.useRef({}); // { playerName: deltaY }
@@ -2810,6 +2991,13 @@ function App() {
   // Main-nav icons — defined once here so desktop (flat Sweeps/Groups/
   // Knockouts) and mobile (single League item, nested toggle) can share
   // the ones that appear on both without duplicating the SVG markup.
+  const navIconHome = (active) => (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? "white" : C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 11l9-7 9 7" />
+      <path d="M5 10v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9" />
+      <path d="M10 20v-6h4v6" />
+    </svg>
+  );
   const navIconTable = (active) => (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? "white" : C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M7 4h10v5a5 5 0 0 1-10 0z" />
@@ -3094,6 +3282,7 @@ function App() {
         transition: "transform 0.25s ease",
       }}>
         {(isDesktop ? [
+          ["home", "Home", navIconHome],
           // Desktop has room to flatten League's Sweeps/Groups/Knockouts
           // into three direct destinations instead of a tab + inline toggle.
           ["table-sweeps",   "Sweeps",    navIconTable],
@@ -3103,6 +3292,7 @@ function App() {
           ["race", "The Race", navIconRace],
           ["info", "Rules & Info", navIconInfo],
         ] : [
+          ["home", "Home", navIconHome],
           ["table", "League", navIconTable],
           ["scores", "Scores", navIconScores],
           ["race", "The Race", navIconRace],
@@ -3175,6 +3365,12 @@ function App() {
               Check your Cloudflare Worker URL is set in WORKER_URL and the Worker is deployed.
             </div>
           </div>
+        )}
+
+        {/* ── TODAY (email-digest-style homepage) ── */}
+        {tab === "home" && !loading && (
+          <HomeTab matches={matches} ranked={ranked} badges={badges} rank24hChange={rank24hChange}
+            rank24hPtsChange={rank24hPtsChange} matchPtsById={matchPtsById} upcoming={upcoming} setTab={setTab} />
         )}
 
         {/* ── LEAGUE TABLE ── */}

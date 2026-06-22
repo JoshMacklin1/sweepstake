@@ -611,6 +611,30 @@ function compute24hRankChange(matches, currentRanked) {
   return result;
 }
 
+// compute24hPtsChange(matches, currentRanked) — points gained over the same
+// rolling 24h window as compute24hRankChange (a player's total now minus
+// their total 24h ago). Kept as a separate function rather than folded into
+// compute24hRankChange's return value, since that Map's shape (plain number
+// = rank delta) is already relied on by every existing caller (PlayerRow's
+// pos-change pill, the Climber/Sliding badges) — changing it to an object
+// would mean touching all of those for one new homepage feature.
+function compute24hPtsChange(matches, currentRanked) {
+  const cutoffMs = Date.now() - 24 * 60 * 60 * 1000;
+  const matches24hAgo = matches.filter(m => new Date(m.utcDate).getTime() <= cutoffMs);
+  const totalNowByName = {};
+  scorePlayers(matches).forEach(p => { totalNowByName[p.name] = p.total; });
+  const total24hAgoByName = {};
+  scorePlayers(matches24hAgo).forEach(p => { total24hAgoByName[p.name] = p.total; });
+
+  const result = new Map();
+  currentRanked.forEach((p) => {
+    const now = totalNowByName[p.name];
+    const prev = total24hAgoByName[p.name];
+    result.set(p.name, (prev !== undefined && now !== undefined) ? now - prev : 0);
+  });
+  return result;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // MONTE CARLO WIN PROBABILITY SIMULATION
 // ─────────────────────────────────────────────────────────────────────────────
@@ -969,6 +993,37 @@ function computeBadges(ranked, matches, rank24hChange, winPctPlayers) {
   Object.values(badges).forEach(list => list.sort((a, b) => freq[a.label] - freq[b.label]));
 
   return badges;
+}
+
+// computeNewBadges24h(badgesNow, matches) — badges held now that weren't
+// held 24h ago, i.e. "assigned in the last 24h". Reuses the already-computed
+// current badge set (badgesNow) rather than recomputing it, and only builds
+// one extra (cheap) snapshot for the 24h-ago baseline via computeBadges —
+// deliberately called there WITHOUT rank24hChange/winPctPlayers, since those
+// are themselves windowed/simulated values with no clean "value as of 24h
+// ago"; the trend-based badges that depend on them (Climber, Sliding, The
+// Prophecy) simply count as "new" the day they first appear, which is the
+// behaviour we want anyway. For a single-holder badge (Top Dog, Firepower,
+// etc.) computeBadges always assigns it to exactly one current player, so if
+// the holder changed within the window, this diff naturally surfaces it for
+// whoever holds it *now* — no separate "most recent owner" logic needed.
+function computeNewBadges24h(badgesNow, matches) {
+  const cutoffMs = Date.now() - 24 * 60 * 60 * 1000;
+  const matches24hAgo = matches.filter(m => new Date(m.utcDate).getTime() <= cutoffMs);
+  const badges24hAgo = computeBadges(scorePlayers(matches24hAgo), matches24hAgo);
+
+  const hadBefore = new Set();
+  Object.entries(badges24hAgo).forEach(([name, list]) => {
+    (list || []).forEach(b => hadBefore.add(`${name}|${b.label}`));
+  });
+
+  const result = [];
+  Object.entries(badgesNow).forEach(([name, list]) => {
+    (list || []).forEach(b => {
+      if (!hadBefore.has(`${name}|${b.label}`)) result.push({ name, ...b });
+    });
+  });
+  return result;
 }
 
 var BROADCAST = {
