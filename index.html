@@ -53,6 +53,11 @@
     }
     /* Horizontal-scroll arrow buttons — desktop/mouse only (hidden on touch) */
     .hscroll-nav { display: none; }
+    /* Scores day strip — no visible scrollbar (swipe/drag only on mobile,
+       arrow buttons below take over on desktop) */
+    .day-strip { scrollbar-width: none; -ms-overflow-style: none; }
+    .day-strip::-webkit-scrollbar { display: none; }
+    .day-nav-arrow { display: none; align-items: center; justify-content: center; }
     /* Share button removed from the header (it only ever showed on mobile) */
     .share-btn { display: none !important; }
     /* Desktop-only dev toggle, bottom-left of the sidebar */
@@ -111,6 +116,7 @@
         background: transparent;
       }
       .hscroll-nav button { pointer-events: auto; } /* but the buttons stay clickable */
+      .day-nav-arrow { display: flex; }
       /* Desktop: the Rules & Info dialog goes full-screen (the windowed look was
          only wanted on mobile — it didn't suit desktop) */
       .info-backdrop { padding: 0; }
@@ -447,6 +453,91 @@ function TabBtn({ id, label, active, onClick }) {
   );
 }
 
+const dayKey  = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+const sameDay = (a, b) => dayKey(a) === dayKey(b);
+
+// BBC-style day strip — swipe/scroll horizontally through every day of the
+// tournament (not just days with fixtures, so "no matches" days still show
+// an empty state rather than vanishing). On mobile, swipe is the only input —
+// edge fades hint there's more to scroll. Desktop has no swipe gesture, so it
+// additionally gets small arrow buttons overlaid on the fades (same
+// mobile-hidden/desktop-shown convention as the existing HScrollButtons used
+// for the bracket and bump chart).
+function DayPicker({ days, selected, onSelect }) {
+  const scrollRef = React.useRef(null);
+  const selectedKey = dayKey(selected);
+  const today = new Date();
+  const [atStart, setAtStart] = React.useState(true);
+  const [atEnd, setAtEnd] = React.useState(true);
+
+  const checkEdges = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setAtStart(el.scrollLeft <= 1);
+    setAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 1);
+  };
+
+  React.useEffect(() => {
+    const el = scrollRef.current?.querySelector(`[data-daykey="${selectedKey}"]`);
+    if (el) el.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    // scrollIntoView is a smooth/async scroll — re-check once it's settled
+    // so the fades/arrows reflect where the strip actually lands.
+    const t = setTimeout(checkEdges, 350);
+    return () => clearTimeout(t);
+  }, [selectedKey]);
+
+  const scrollBy = (dir) => scrollRef.current?.scrollBy({ left: dir * 160, behavior: "smooth" });
+
+  // display/alignItems/justifyContent deliberately live in the .day-nav-arrow
+  // CSS class, not here — an inline style would override the class's
+  // mobile-hides-this `display:none`, since inline always beats a stylesheet
+  // rule regardless of the desktop media query.
+  const arrowStyle = {
+    position: "absolute", top: "50%", transform: "translateY(-50%)",
+    width: 26, height: 26, borderRadius: "50%", border: `1px solid ${C.border}`,
+    background: C.card, color: C.dim, cursor: "pointer",
+    fontSize: 15, fontWeight: 700, lineHeight: 1, padding: 0,
+  };
+
+  return (
+    <div style={{ position: "relative" }}>
+      <div ref={scrollRef} onScroll={checkEdges} className="day-strip" style={{
+        display: "flex", overflowX: "auto", WebkitOverflowScrolling: "touch",
+        scrollSnapType: "x proximity",
+      }}>
+        {days.map(d => {
+          const key = dayKey(d);
+          const isSelected = key === selectedKey;
+          const isToday = sameDay(d, today);
+          return (
+            <button key={key} data-daykey={key} onClick={() => onSelect(d)} style={{
+              flex: "0 0 auto", minWidth: 56, scrollSnapAlign: "center",
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+              padding: "6px 4px 8px", border: "none", cursor: "pointer",
+              borderRadius: 8,
+              background: isToday ? "rgba(34,197,94,0.18)" : "transparent",
+              borderBottom: `3px solid ${isSelected ? C.gold : "transparent"}`,
+            }}>
+              <span style={{ fontSize: 12, fontWeight: isSelected ? 800 : 500, color: isSelected ? C.text : C.muted }}>
+                {isToday ? "Today" : d.toLocaleDateString(undefined, { weekday: "short" })}
+              </span>
+              <span style={{ fontSize: 17, fontWeight: isSelected ? 800 : 500, color: isSelected ? C.text : C.muted }}>
+                {d.getDate()}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      {!atStart && <div style={{ position:"absolute", top:0, left:0, bottom:0, width:36, pointerEvents:"none",
+        background:`linear-gradient(to right, ${C.bg} 0%, transparent 100%)` }} />}
+      {!atEnd && <div style={{ position:"absolute", top:0, right:0, bottom:0, width:36, pointerEvents:"none",
+        background:`linear-gradient(to left, ${C.bg} 0%, transparent 100%)` }} />}
+      {!atStart && <button className="day-nav-arrow" onClick={() => scrollBy(-1)} aria-label="Earlier days" style={{ ...arrowStyle, left:2 }}>‹</button>}
+      {!atEnd && <button className="day-nav-arrow" onClick={() => scrollBy(1)} aria-label="Later days" style={{ ...arrowStyle, right:2 }}>›</button>}
+    </div>
+  );
+}
+
 function MatchCard({ m, ranked, upcoming = [], pts }) {
   const h = m.homeTeam?.tla?.toUpperCase();
   const a = m.awayTeam?.tla?.toUpperCase();
@@ -480,14 +571,6 @@ function MatchCard({ m, ranked, upcoming = [], pts }) {
     // Title: 1st vs 2nd
     const positions = new Set([hRank, aRank]);
     if (positions.has(0) && positions.has(1)) return { icon:"👑", label:"TITLE SHOWDOWN" };
-    // Grudge: a win could cause a leapfrog in the table
-    const hPts = ranked[hRank]?.total ?? 0;
-    const aPts = ranked[aRank]?.total ?? 0;
-    const hMaxGain = GROUP_WIN_PTS[(POT[h]||1)-1];
-    const aMaxGain = GROUP_WIN_PTS[(POT[a]||1)-1];
-    const hCouldLeap = hRank > aRank && (hPts + hMaxGain) >= aPts;
-    const aCouldLeap = aRank > hRank && (aPts + aMaxGain) >= hPts;
-    if (hCouldLeap || aCouldLeap) return { icon:"🥊", label:"GRUDGE MATCH" };
     return null;
   })();
 
@@ -538,19 +621,11 @@ function MatchCard({ m, ranked, upcoming = [], pts }) {
 
   const resultLabel = shockExitLabel || upsetLabel;
 
-  const rivalryBorder = clashLabel?.label === "TITLE SHOWDOWN"
-    ? `2px solid ${C.gold}`
-    : clashLabel
-    ? `2px solid ${C.accent}`
-    : resultLabel
+  const rivalryBorder = (clashLabel || resultLabel)
     ? `2px solid ${C.gold}`
     : `1px solid ${C.border}`;
 
-  const rivalryGlow = clashLabel?.label === "TITLE SHOWDOWN"
-    ? "0 0 10px #f59e0b44"
-    : clashLabel
-    ? "0 0 10px #22c55e33"
-    : resultLabel
+  const rivalryGlow = (clashLabel || resultLabel)
     ? "0 0 10px #f59e0b44"
     : "none";
 
@@ -2454,6 +2529,7 @@ function App() {
   const [showInfo,    setShowInfo]    = useState(false); // Rules & Info dialog (over current tab)
   const [showPayment, setShowPayment] = useState(false);
   const [countdown, setCountdown] = useState("");
+  const [selectedDay, setSelectedDay] = useState(null); // null = default to "today", clamped to the tournament's match range
   const matchesRef = React.useRef(matches);
   React.useEffect(() => { matchesRef.current = matches; }, [matches]);
   React.useEffect(() => {
@@ -2668,11 +2744,33 @@ function App() {
   const live     = matches.filter(m => m.status === "IN_PLAY" || m.status === "PAUSED" ||
     ((m.status === "SCHEDULED" || m.status === "TIMED") && new Date() > new Date(m.utcDate)));
   const upcoming = matches.filter(m => m.status === "SCHEDULED" || m.status === "TIMED");
-  const recent   = matches.filter(m => m.status === "FINISHED").reverse();
   const matchPtsById = React.useMemo(
     () => (typeof deriveMatchPts === "function" ? deriveMatchPts(matches) : {}),
     [matches]
   );
+
+  // ── Scores day strip ── every calendar day spanned by the tournament's
+  // matches, so browsing reveals "no matches" days rather than skipping them.
+  const scoreDays = React.useMemo(() => {
+    if (matches.length === 0) return [];
+    const dates = matches.map(m => new Date(m.utcDate));
+    const start = new Date(Math.min(...dates));
+    const end = new Date(Math.max(...dates));
+    start.setHours(0,0,0,0);
+    end.setHours(0,0,0,0);
+    const days = [];
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) days.push(new Date(d));
+    return days;
+  }, [matches]);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const defaultScoreDay = scoreDays.length === 0 ? today
+    : today < scoreDays[0] ? scoreDays[0]
+    : today > scoreDays[scoreDays.length - 1] ? scoreDays[scoreDays.length - 1]
+    : today;
+  const effectiveScoreDay = selectedDay || defaultScoreDay;
+  const dayMatches = matches
+    .filter(m => sameDay(new Date(m.utcDate), effectiveScoreDay))
+    .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
 
   // Detect goals — compare current scores to previous refresh, and capture
   // WHICH team scored so the GOAL! overlay can show the flag + owner name.
@@ -2735,17 +2833,6 @@ function App() {
       <path d="M3 4v6a2 2 0 0 0 2 2M3 20v-6a2 2 0 0 1 2-2M5 12h5M14 12h5M19 4v6a2 2 0 0 1-2 2M19 20v-6a2 2 0 0 0-2-2"/>
     </svg>
   );
-  const navIconSchedule = (active) => (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-      <rect x="3" y="4" width="18" height="17" rx="2" stroke={active ? "white" : C.muted} strokeWidth="2" fill="none"/>
-      <line x1="3" y1="10" x2="21" y2="10" stroke={active ? "white" : C.muted} strokeWidth="2"/>
-      <line x1="8" y1="2" x2="8" y2="6" stroke={active ? "white" : C.muted} strokeWidth="2" strokeLinecap="round"/>
-      <line x1="16" y1="2" x2="16" y2="6" stroke={active ? "white" : C.muted} strokeWidth="2" strokeLinecap="round"/>
-      <circle cx="8" cy="15" r="1.5" fill={active ? "white" : C.muted}/>
-      <circle cx="12" cy="15" r="1.5" fill={active ? "white" : C.muted}/>
-      <circle cx="16" cy="15" r="1.5" fill={active ? "white" : C.muted}/>
-    </svg>
-  );
   const navIconScores = (active) => (
     <svg width="27" height="27" viewBox="0 0 24 24">
       <path fill={active ? "white" : C.muted} fillRule="evenodd" d="
@@ -2780,17 +2867,6 @@ function App() {
       <circle cx="12" cy="17.2" r="1" fill={active ? "white" : C.muted}/>
     </svg>
   );
-
-  const groupByDay = (ms) => {
-    const groups = {};
-    ms.forEach(m => {
-      const d = new Date(m.utcDate);
-      const key = d.toLocaleDateString("en-GB", { weekday:"long", day:"numeric", month:"long" });
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(m);
-    });
-    return Object.entries(groups);
-  };
 
   return (
     <div style={{ minHeight:"100vh", paddingBottom:106, animation: goalFlash ? "goalFlash 2.5s ease" : "none" }}>
@@ -2983,6 +3059,11 @@ function App() {
             </div>
           </div>
         )}
+        {tab === "scores" && !loading && scoreDays.length > 0 && (
+          <div className="sweeps-nav">
+            <DayPicker days={scoreDays} selected={effectiveScoreDay} onSelect={setSelectedDay} />
+          </div>
+        )}
         {tab === "race" && !loading && (
           <div className="sweeps-nav">
             <button onClick={() => setShowRace(true)} style={{
@@ -3018,13 +3099,11 @@ function App() {
           ["table-sweeps",   "Sweeps",    navIconTable],
           ["table-groups",   "Groups",    navIconGroups],
           ["table-knockout", "Knockouts", navIconKnockout],
-          ["matches", "Schedule", navIconSchedule],
           ["scores", "Scores", navIconScores],
           ["race", "The Race", navIconRace],
           ["info", "Rules & Info", navIconInfo],
         ] : [
           ["table", "League", navIconTable],
-          ["matches", "Schedule", navIconSchedule],
           ["scores", "Scores", navIconScores],
           ["race", "The Race", navIconRace],
           ["info", "Rules & Info", navIconInfo],
@@ -3049,6 +3128,7 @@ function App() {
               setSelectedPlayer(null);
               setTab(id);
               if (id === "table") setLeagueView("league");    // League always opens on Sweeps
+              if (id === "scores") setSelectedDay(null);       // Scores always opens on Today
             };
           }
           return (
@@ -3129,28 +3209,11 @@ function App() {
             )}
           </>
         )}
-        {/* ── SCHEDULE (upcoming fixtures) ── */}
-        {tab === "matches" && !loading && (
-          upcoming.length === 0
-            ? <div style={{ color:C.muted, textAlign:"center", padding:32, fontSize:14 }}>No upcoming fixtures</div>
-            : groupByDay(upcoming).map(([day, ms]) => (
-              <div key={day}>
-                <div style={{ fontSize:11, color:C.text, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", padding:"12px 2px 6px" }}>{day}</div>
-                <div className="league-grid fixture-grid">{ms.map(m => <MatchCard key={m.id} m={m} ranked={ranked} upcoming={upcoming} />)}</div>
-              </div>
-            ))
-        )}
-
-        {/* ── SCORES (finished matches, with points scored) ── */}
+        {/* ── SCORES (combined day-by-day schedule + results, BBC-style day strip above) ── */}
         {tab === "scores" && !loading && (
-          recent.length === 0
-            ? <div style={{ color:C.muted, textAlign:"center", padding:32, fontSize:14 }}>No scores yet</div>
-            : groupByDay(recent).map(([day, ms]) => (
-              <div key={day}>
-                <div style={{ fontSize:11, color:C.text, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", padding:"12px 2px 6px" }}>{day}</div>
-                <div className="league-grid fixture-grid">{ms.map(m => <MatchCard key={m.id} m={m} ranked={ranked} upcoming={upcoming} pts={matchPtsById[m.id]} />)}</div>
-              </div>
-            ))
+          dayMatches.length === 0
+            ? <div style={{ color:C.muted, textAlign:"center", padding:32, fontSize:14 }}>No matches on this day</div>
+            : <div className="league-grid fixture-grid">{dayMatches.map(m => <MatchCard key={m.id} m={m} ranked={ranked} upcoming={upcoming} pts={matchPtsById[m.id]} />)}</div>
         )}
 
         {/* ── THE RACE ── */}
