@@ -707,8 +707,8 @@ function PlayerRow({ player, rank, displayRank, onOpen, badges = [], rank24hChan
               display:"inline-block",
               fontSize:10, fontWeight:700, padding:"1px 5px",
               borderRadius:3,
-              background: rank24hChange > 0 ? C.posBg : C.negBg,
-              color: rank24hChange > 0 ? C.accent : C.red,
+              background: player.grimReaper ? C.negBg : rank24hChange > 0 ? C.posBg : C.negBg,
+              color: player.grimReaper ? C.red : rank24hChange > 0 ? C.accent : C.red,
             }}>
               {rank24hChange > 0 ? "▲" : "▼"}{" "}
               {Math.abs(rank24hChange)} pos
