@@ -4,7 +4,7 @@ _Last updated: 21 June 2026. Rebuilt from the live source (`index.html` + `scori
 
 ## Overview
 
-A web app tracking a FIFA World Cup 2026 sweepstake ("Silverstream Sweepstakes") between 26 players. Deployed to GitHub Pages. Live match data comes from football-data.org via a Cloudflare Worker CORS proxy. Built with React 18 via Babel CDN — no build step, no `node_modules`.
+A web app tracking a FIFA World Cup 2026 sweepstake ("Sweepstakes") between 26 players. Deployed to GitHub Pages. Live match data comes from football-data.org via a Cloudflare Worker CORS proxy. Built with React 18 via Babel CDN — no build step, no `node_modules`.
 
 The app is **no longer a single file**. Logic is split so the same scoring code drives both the app and a daily email digest:
 
@@ -209,7 +209,7 @@ Each badge has a `tone` (`good`/`bad`); shown as icons next to the name (top 3) 
 - **Sub-toggle** (inside the League tab) — **Sweeps / Groups / Knockouts** (`leagueView` state: `league` \| `groups` \| `knockout`). It lives **inside the sticky header** (after the live banner), rendered when `tab === "table" && !loading`. Styled by the `.sweeps-nav` (padding wrapper) / `.sweeps-seg` (segmented control) class pair; segments fill edge-to-edge (`overflow:hidden`, no inner padding); no divider line below it. _("League" relabelled "Sweeps", "League Table" caption removed — June 2026.)_
   - **Tried and reverted (June 2026): moving this toggle to its own sticky block outside `#appHeader`.** The goal was to make the header's bottom border end right under the live banner (matching every other tab, e.g. Home) instead of under the toggle. Implemented via a separate `position:sticky` div pinned with `top: var(--hdr-h)`, tracking the header's live-measured height via the same `ResizeObserver` that drives the desktop `.hscroll-nav` buttons. **Visible bug**: that measurement lags a frame or two behind the title row's `max-height`/`opacity` collapse transition, briefly exposing a sliver of card content (a player row's sparkline) in the gap between the header and the toggle. Reverted — the toggle is back as a normal child of `#appHeader`, and the border was moved onto the **live/next-match banner's own div** instead (`borderBottom` added directly to both banner branches, header's own `borderBottom` removed). Same visual result, no JS measurement, no lag, no seam — don't repeat the separate-sticky-block approach for this.
 
-**Title lockup (mobile + desktop, consistent):** logo on the **left**, vertically centred (`align-items:center`) against a two-line text column — green "FIFA World Cup 2026" eyebrow over "Silverstream Sweepstakes". Logo placed left via flex `order` (base64 `<img>` stays put in the DOM). Mobile: in the collapsing title row (logo 30px, wordmark 18px), buttons on the right. Desktop: in the static `#sidebar-header` block (logo 50px, wordmark 20px two-line).
+**Title lockup (mobile + desktop, consistent):** logo on the **left**, vertically centred (`align-items:center`) against a text column — green "FIFA World Cup 2026" eyebrow over "Sweepstakes" (was the two-line "Silverstream Sweepstakes" wordmark via `<br>`, now a single word/line since the title went generic — June 2026). Logo placed left via flex `order` (base64 `<img>` stays put in the DOM). Mobile: in the collapsing title row (logo 30px, wordmark 18px), buttons on the right. Desktop: in the static `#sidebar-header` block (logo 50px, wordmark 20px).
 
 **Rules & Info — desktop tab vs mobile pop-over.** The content lives in a shared `InfoContent` component, rendered two ways depending on `isDesktop` (`window.innerWidth >= 768`):
 - **Desktop:** a normal **tab** (`tab === "info"`) rendered in the body like League/Scores/Race. Navigated purely via the sidebar — no pop-up, no ✕. The "Rules & Info" sidebar item highlights when `tab === "info"`.
@@ -224,7 +224,7 @@ The nav button branches: `onNav`/`active` use `isDesktop ? setTab("info") : setS
 **Knockout bracket — Last 32 order is intentional.** The Last 32 column follows the official FIFA bracket seed order (`R32_FIXED_MATCHES`, matches 73–88), NOT group A–L order. This is deliberate: it keeps the bracket a correctly-connected tree (each later-round card sits at the midpoint of its two feeder matches). Sorting Last 32 by group would break that alignment — don't "fix" it.
 
 ### Sticky-header scroll behaviour (the important bit)
-The header is **one** `position:sticky; top:0; z-index:20` block containing, top to bottom: the **title row** (logo + "Silverstream Sweepstakes" + dev/share/info buttons), the **live/next-match banner**, and the **Sweeps toggle**.
+The header is **one** `position:sticky; top:0; z-index:20` block containing, top to bottom: the **title row** (logo + "Sweepstakes" + dev/share/info buttons), the **live/next-match banner**, and the **Sweeps toggle**.
 
 - On **scroll-down** (mobile), only the title row collapses (`max-height` → 0, `opacity` → 0, driven by `barsVisible`). The banner + toggle stay pinned at the very top and slide up into the vacated space.
 - On **scroll-up**, the title row expands back.
@@ -342,7 +342,7 @@ Points matrix, Grim Reaper explainer, then a **Players & Team Selection** list (
 25. **Desktop scroll buttons** — made the `.hscroll-nav` bar transparent + `pointer-events:none` (buttons keep `pointer-events:auto`) so the sticky toolbar no longer covers/blocks the bracket cards underneath.
 26. **Desktop dev toggle** — subtle bottom-left sidebar button (desktop only) to switch dev mode on/off.
 27. **Rules & Info → dialog** — opens over the current tab (stays on Race/etc.) with ✕ to close; nav stays tappable to switch away. No longer a tab.
-28. **Mobile title bar** — left lockup: logo left, vertically centred against the two-line "FIFA World Cup 2026" (green) + "Silverstream Sweepstakes" text block. (Tried a centred version first; reverted to left.)
+28. **Mobile title bar** — left lockup: logo left, vertically centred against the two-line "FIFA World Cup 2026" (green) + "Sweepstakes" text block. (Tried a centred version first; reverted to left.)
 29. **Bump chart fade** — the left history-fade only shows when the chart is actually wide enough to scroll horizontally.
 30. **Uniform flags** — `Flag` now renders at a fixed 3:2 aspect (`objectFit:"cover"`), so flags are consistent across the schedule, league table, info dialog and banner (matching the knockout view).
 31. **Title lockup** — logo left, vertically centred against the two-line eyebrow + wordmark, on **both** mobile and the desktop sidebar header (consistent).

@@ -1,5 +1,5 @@
 // ═════════════════════════════════════════════════════════════════════════════
-// scoring.js — SHARED scoring/data logic for the Silverstream Sweepstakes
+// scoring.js — SHARED scoring/data logic for the Sweepstakes app
 //
 // This file is the single source of truth for:
 //   - player/team assignments (PLAYERS, POT)
