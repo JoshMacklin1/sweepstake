@@ -1042,7 +1042,10 @@ const PLAYER_COLORS = [
   "#22c55e", // Josh - green
 ];
 
-const PLAYER_NAME_ORDER = ["Alex B","Ben","Charlotte","Craig","Ahmet","Dharma","Gary","Henry","Katrina","Luke DF","Marco","Michelle","Natalie","Nick S","Ollie P","Paul H","Peter W","Ramon","Sam","Stephen","Stuart","Wes","Will A","Will B","Peter H","Alex DL","Josh"];
+// Derived from the active group's PLAYERS (not hardcoded) so a different
+// group's roster gets correct, collision-free color assignment too. `var`
+// (not `const`) so the group gate can recompute it after switching groups.
+var PLAYER_NAME_ORDER = PLAYERS.map(p => p.name);
 
 const playerColor = (name) => {
   const idx = PLAYER_NAME_ORDER.indexOf(name);

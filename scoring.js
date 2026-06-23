@@ -203,37 +203,58 @@ var MOCK_MATCHES = [
 
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PLAYER → TEAM ASSIGNMENTS
+// GROUPS — one entry per friend group, each with its own player↔team roster.
+// POT, GROUP_ASSIGNMENTS, PTS_INC and everything else below are shared across
+// all groups (same WC2026 tournament, same scoring rules) — only the roster
+// differs per group. Add a new group by hand here (same way late players used
+// to get added directly to the roster) and give it a memorable `code` that
+// the group gate in index.html matches against (case-insensitive).
+//
+// `PLAYERS` (read by every scoring function below and by index.html) is set
+// to the active group's roster — the group gate reassigns it once a code is
+// entered/restored. It defaults to the first group below until then.
 // ─────────────────────────────────────────────────────────────────────────────
-var PLAYERS = [
-  { name: "Alex B",   teams: ["Belgium","Paraguay A"],           codes: ["BEL","PAR"],  lateB: [false,false] },
-  { name: "Ben",      teams: ["Brazil","Sweden A"],              codes: ["BRA","SWE"],  lateB: [false,false] },
-  { name: "Charlotte",teams: ["Mexico","DR Congo"],              codes: ["MEX","DRC"],  lateB: [false,false] },
-  { name: "Craig",    teams: ["Australia","Scotland"],           codes: ["AUS","SCO"],  lateB: [false,false] },
-  { name: "Ahmet",    teams: ["Croatia","Egypt"],                codes: ["CRO","EGY"],  lateB: [false,false] },
-  { name: "Dharma",   teams: ["England","Uzbekistan"],           codes: ["ENG","UZB"],  lateB: [false,false] },
-  { name: "Gary",     teams: ["Spain","Saudi Arabia"],           codes: ["ESP","KSA"],  lateB: [false,false] },
-  { name: "Henry",    teams: ["Netherlands","Norway"],           codes: ["NED","NOR"],  lateB: [false,false] },
-  { name: "Katrina",  teams: ["Switzerland","Bosnia"],           codes: ["SUI","BIH"],  lateB: [false,false] },
-  { name: "Luke DF",  teams: ["Ecuador","New Zealand"],          codes: ["ECU","NZL"],  lateB: [false,false] },
-  { name: "Marco",    teams: ["Japan","Ghana A"],                codes: ["JPN","GHA"],  lateB: [false,false] },
-  { name: "Michelle", teams: ["Argentina","Ivory Coast"],        codes: ["ARG","CIV"],  lateB: [false,false] },
-  { name: "Natalie",  teams: ["Senegal","Turkey"],               codes: ["SEN","TUR"],  lateB: [false,false] },
-  { name: "Nick S",   teams: ["Morocco","Cape Verde"],           codes: ["MAR","CPV"],  lateB: [false,false] },
-  { name: "Ollie P",  teams: ["Uruguay","Qatar"],                codes: ["URU","QAT"],  lateB: [false,false] },
-  { name: "Paul H",   teams: ["South Korea","Iraq"],             codes: ["KOR","IRQ"],  lateB: [false,false] },
-  { name: "Peter W",  teams: ["Austria","Czech Republic"],       codes: ["AUT","CZE"],  lateB: [false,false] },
-  { name: "Ramon",    teams: ["Portugal","Algeria"],             codes: ["POR","ALG"],  lateB: [false,false] },
-  { name: "Sam",      teams: ["Canada","Curaçao"],               codes: ["CAN","CUW"],  lateB: [false,false] },
-  { name: "Stephen",  teams: ["Colombia","Panama"],              codes: ["COL","PAN"],  lateB: [false,false] },
-  { name: "Stuart",   teams: ["Iran","Jordan"],                  codes: ["IRN","JOR"],  lateB: [false,false] },
-  { name: "Wes",      teams: ["France","Haiti"],                 codes: ["FRA","HAI"],  lateB: [false,false] },
-  { name: "Will A",   teams: ["Germany A","South Africa"],       codes: ["GER","RSA"],  lateB: [false,false] },
-  { name: "Will B",   teams: ["United States","Tunisia"],        codes: ["USA","TUN"],  lateB: [false,false] },
-  { name: "Peter H",  teams: ["Sweden B","Paraguay B"],          codes: ["SWE","PAR"],  lateB: [true,true] },
-  { name: "Alex DL",  teams: ["Germany B","Ghana B"],            codes: ["GER","GHA"],  lateB: [true,true] },
-  { name: "Josh",     teams: [], codes: [], grimReaper: true },
-];
+var GROUPS = {
+  SILVERSTREAM: {
+    code: "SILVERSTREAM",
+    label: "Silverstream",
+    players: [
+      { name: "Alex B",   teams: ["Belgium","Paraguay A"],           codes: ["BEL","PAR"],  lateB: [false,false] },
+      { name: "Ben",      teams: ["Brazil","Sweden A"],              codes: ["BRA","SWE"],  lateB: [false,false] },
+      { name: "Charlotte",teams: ["Mexico","DR Congo"],              codes: ["MEX","DRC"],  lateB: [false,false] },
+      { name: "Craig",    teams: ["Australia","Scotland"],           codes: ["AUS","SCO"],  lateB: [false,false] },
+      { name: "Ahmet",    teams: ["Croatia","Egypt"],                codes: ["CRO","EGY"],  lateB: [false,false] },
+      { name: "Dharma",   teams: ["England","Uzbekistan"],           codes: ["ENG","UZB"],  lateB: [false,false] },
+      { name: "Gary",     teams: ["Spain","Saudi Arabia"],           codes: ["ESP","KSA"],  lateB: [false,false] },
+      { name: "Henry",    teams: ["Netherlands","Norway"],           codes: ["NED","NOR"],  lateB: [false,false] },
+      { name: "Katrina",  teams: ["Switzerland","Bosnia"],           codes: ["SUI","BIH"],  lateB: [false,false] },
+      { name: "Luke DF",  teams: ["Ecuador","New Zealand"],          codes: ["ECU","NZL"],  lateB: [false,false] },
+      { name: "Marco",    teams: ["Japan","Ghana A"],                codes: ["JPN","GHA"],  lateB: [false,false] },
+      { name: "Michelle", teams: ["Argentina","Ivory Coast"],        codes: ["ARG","CIV"],  lateB: [false,false] },
+      { name: "Natalie",  teams: ["Senegal","Turkey"],               codes: ["SEN","TUR"],  lateB: [false,false] },
+      { name: "Nick S",   teams: ["Morocco","Cape Verde"],           codes: ["MAR","CPV"],  lateB: [false,false] },
+      { name: "Ollie P",  teams: ["Uruguay","Qatar"],                codes: ["URU","QAT"],  lateB: [false,false] },
+      { name: "Paul H",   teams: ["South Korea","Iraq"],             codes: ["KOR","IRQ"],  lateB: [false,false] },
+      { name: "Peter W",  teams: ["Austria","Czech Republic"],       codes: ["AUT","CZE"],  lateB: [false,false] },
+      { name: "Ramon",    teams: ["Portugal","Algeria"],             codes: ["POR","ALG"],  lateB: [false,false] },
+      { name: "Sam",      teams: ["Canada","Curaçao"],               codes: ["CAN","CUW"],  lateB: [false,false] },
+      { name: "Stephen",  teams: ["Colombia","Panama"],              codes: ["COL","PAN"],  lateB: [false,false] },
+      { name: "Stuart",   teams: ["Iran","Jordan"],                  codes: ["IRN","JOR"],  lateB: [false,false] },
+      { name: "Wes",      teams: ["France","Haiti"],                 codes: ["FRA","HAI"],  lateB: [false,false] },
+      { name: "Will A",   teams: ["Germany A","South Africa"],       codes: ["GER","RSA"],  lateB: [false,false] },
+      { name: "Will B",   teams: ["United States","Tunisia"],        codes: ["USA","TUN"],  lateB: [false,false] },
+      { name: "Peter H",  teams: ["Sweden B","Paraguay B"],          codes: ["SWE","PAR"],  lateB: [true,true] },
+      { name: "Alex DL",  teams: ["Germany B","Ghana B"],            codes: ["GER","GHA"],  lateB: [true,true] },
+      { name: "Josh",     teams: [], codes: [], grimReaper: true },
+    ],
+  },
+  // future groups added here by hand, each with a unique `code`
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PLAYER → TEAM ASSIGNMENTS — the active group's roster (see GROUPS above)
+// ─────────────────────────────────────────────────────────────────────────────
+var PLAYERS = GROUPS.SILVERSTREAM.players;
 
 // Grim Reaper — earns the absolute value of negative points when Pot1/2 teams go out in groups
 var reaperBountyForCode = (code) => {
