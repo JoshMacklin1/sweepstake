@@ -2713,6 +2713,66 @@ function InfoContent() {
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// TOUR — short first-time walkthrough of the 5 nav tabs. Content is generic
+// (same regardless of which group's roster is active) since only the players
+// change between groups, not the UI. Styled to match the rest of the app's
+// modals (the same bordered header-row + footer treatment as the Rules &
+// Info pop-over) and the rank-badge circular icon treatment from the League
+// table, rather than a generic centred-text dialog. Auto-shown once per
+// device by App (see the sw_tour_seen effect); also replayable any time via
+// "Take the tour" in Rules & Info.
+// ─────────────────────────────────────────────────────────────────────────────
+const TOUR_STEPS = [
+  { icon: "🏠", title: "Home", desc: "Your homepage — who's leading, recent results, risers & fallers, and what's coming up next." },
+  { icon: "🏆", title: "League", desc: "The full sweepstake table. Tap any player to see their teams, points breakdown, and chance of winning." },
+  { icon: "⚽", title: "Scores", desc: "Browse any day of the tournament — past results and upcoming fixtures, with the points each match earned." },
+  { icon: "🏁", title: "The Race", desc: "Watch the standings change over time, or fire up the bar race for an animated replay of the whole tournament." },
+  { icon: "❓", title: "Rules & Info", desc: "How scoring works, the Grim Reaper's rules, and every player's teams — also where you switch groups." },
+];
+
+function TourOverlay({ onClose }) {
+  const [step, setStep] = useState(0);
+  const isLast = step === TOUR_STEPS.length - 1;
+  const current = TOUR_STEPS[step];
+
+  return (
+    <div className="info-backdrop" onClick={onClose} style={{ position:"fixed", inset:0, zIndex:40, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,0.55)" }}>
+      <div className="info-card" onClick={(e) => e.stopPropagation()} style={{ background:C.bg, display:"flex", flexDirection:"column", border:`1px solid ${C.border}`, boxShadow:"0 24px 64px rgba(0,0,0,0.55)" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"14px 16px", borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
+          <div style={{ fontSize:11, color:C.dim, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase" }}>Quick Tour · {step + 1}/{TOUR_STEPS.length}</div>
+          <button onClick={onClose} aria-label="Skip tour" style={{ background:"transparent", border:"none", color:C.muted, fontSize:22, cursor:"pointer", lineHeight:1 }}>✕</button>
+        </div>
+        <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"32px 28px", textAlign:"center" }}>
+          <div style={{
+            width:64, height:64, borderRadius:"50%", flexShrink:0,
+            background:C.posBg, border:`1px solid ${C.accent}`,
+            display:"flex", alignItems:"center", justifyContent:"center",
+            fontSize:28, marginBottom:18,
+          }}>{current.icon}</div>
+          <div style={{ fontSize:18, fontWeight:800, color:C.text, marginBottom:10 }}>{current.title}</div>
+          <div style={{ fontSize:14, color:C.dim, lineHeight:1.6, maxWidth:300 }}>{current.desc}</div>
+        </div>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6, paddingBottom:18, flexShrink:0 }}>
+          {TOUR_STEPS.map((_, i) => (
+            <div key={i} style={{ width:6, height:6, borderRadius:"50%", background: i === step ? C.accent : C.border }} />
+          ))}
+        </div>
+        <div style={{ display:"flex", gap:10, padding:"16px 20px", borderTop:`1px solid ${C.border}`, flexShrink:0 }}>
+          {!isLast && (
+            <button onClick={onClose} style={{ flex:1, padding:"12px", borderRadius:12, border:`1px solid ${C.border}`, background:"transparent", color:C.muted, fontSize:14, fontWeight:600, cursor:"pointer" }}>
+              Skip
+            </button>
+          )}
+          <button onClick={() => (isLast ? onClose() : setStep(step + 1))} style={{ flex:1, padding:"12px", borderRadius:12, border:"none", background:C.accent, color:"white", fontSize:14, fontWeight:800, cursor:"pointer" }}>
+            {isLast ? "Done" : "Next"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [matches,     setMatches]     = useState([]);
   const [loading,     setLoading]     = useState(true);
@@ -2722,6 +2782,7 @@ function App() {
   const [leagueView,  setLeagueView]  = useState("league"); // "league" | "groups" | "knockout"
   const [showRace,    setShowRace]    = useState(false);
   const [showInfo,    setShowInfo]    = useState(false); // Rules & Info dialog (over current tab)
+  const [showTour,    setShowTour]    = useState(false); // first-time app walkthrough, also replayable from Rules & Info
   const [countdown, setCountdown] = useState("");
   const [selectedDay, setSelectedDay] = useState(null); // null = default to "today", clamped to the tournament's match range
   const matchesRef = React.useRef(matches);
@@ -2809,6 +2870,26 @@ function App() {
     }
   }, [showInfo, isDesktop]);
 
+  const closeTour = React.useCallback(() => {
+    localStorage.setItem("sw_tour_seen", "yes");
+    setShowTour(false);
+  }, []);
+
+  // First-ever visit (no group switched in yet either, since GroupGate only
+  // mounts App once a code is matched) — auto-show the walkthrough once per
+  // device. Also reachable any time via "Take the tour" in Rules & Info.
+  useEffect(() => {
+    if (!localStorage.getItem("sw_tour_seen")) setShowTour(true);
+  }, []);
+
+  useEffect(() => {
+    if (showTour) {
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = prevOverflow; };
+    }
+  }, [showTour]);
+
   // Escape closes whichever modal/pop-over is open — keyboard users
   // otherwise have no way to dismiss them at all.
   useEffect(() => {
@@ -2817,10 +2898,11 @@ function App() {
       setSelectedPlayer(null);
       setShowRace(false);
       setShowInfo(false);
+      if (showTour) closeTour();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [showTour, closeTour]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -3442,6 +3524,8 @@ function App() {
           if (!p) return null;
           return <PlayerModal player={p} displayRank={p._displayRank || (idx + 1)} winPct={winPct.players ? winPct.players[selectedPlayer] : 0} winTeams={winPct.teams} badges={badges[selectedPlayer] || []} onClose={() => setSelectedPlayer(null)} />;
         })()}
+
+        {showTour && <TourOverlay onClose={closeTour} />}
       </div>
     </div>
   );
