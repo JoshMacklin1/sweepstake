@@ -2598,9 +2598,20 @@ function TeamsTab({ matches, view, setView }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // RULES & INFO content — shared by the desktop tab and the mobile pop-over
 // ─────────────────────────────────────────────────────────────────────────────
-function InfoContent() {
+function InfoContent({ onTakeTour, onSwitchGroup }) {
   return (
     <>
+            {onTakeTour && (
+              <button onClick={onTakeTour} style={{
+                width:"100%", display:"flex", alignItems:"center", justifyContent:"center", gap:8,
+                padding:"12px", borderRadius:12, border:`1px solid ${C.border}`,
+                background:C.card, color:C.text, fontSize:13, fontWeight:700, cursor:"pointer",
+                marginBottom:20,
+              }}>
+                ↻ Retake the tour
+              </button>
+            )}
+
             <div style={{ fontSize:11, color:C.text, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:8 }}>Points by Stage & Pot</div>
             <div style={{ ...s.card, overflowX:"auto", marginBottom:20 }}>
               <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
@@ -2709,6 +2720,21 @@ function InfoContent() {
                 </div>
               </div>
             ))}
+
+            {onSwitchGroup && (
+              <>
+                <div style={{ fontSize:11, color:C.text, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:8, marginTop:20 }}>This Device</div>
+                <div style={{ ...s.card, padding:"0 12px", marginBottom:6 }}>
+                  <button onClick={onSwitchGroup} style={{
+                    width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between",
+                    padding:"13px 0", background:"transparent", border:"none", cursor:"pointer", textAlign:"left",
+                  }}>
+                    <span style={{ fontSize:13, fontWeight:600, color:C.text }}>Switch group</span>
+                    <span style={{ color:C.muted, fontSize:14 }}>›</span>
+                  </button>
+                </div>
+              </>
+            )}
     </>
   );
 }
@@ -2773,7 +2799,7 @@ function TourOverlay({ onClose }) {
   );
 }
 
-function App() {
+function App({ onSwitchGroup }) {
   const [matches,     setMatches]     = useState([]);
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState(null);
@@ -2873,6 +2899,13 @@ function App() {
   const closeTour = React.useCallback(() => {
     localStorage.setItem("sw_tour_seen", "yes");
     setShowTour(false);
+  }, []);
+
+  // Closes the mobile Rules & Info pop-over first (a no-op on desktop, where
+  // Info is a tab not a pop-over) so the tour doesn't stack on top of it.
+  const handleTakeTour = React.useCallback(() => {
+    setShowInfo(false);
+    setShowTour(true);
   }, []);
 
   // First-ever visit (no group switched in yet either, since GroupGate only
@@ -3501,7 +3534,7 @@ function App() {
         {/* ── RULES & INFO — desktop tab (sidebar-navigated), mobile pop-over ── */}
         {tab === "info" && isDesktop && !loading && (
           <div style={{ padding:"4px 2px 28px" }}>
-            <InfoContent />
+            <InfoContent onTakeTour={handleTakeTour} onSwitchGroup={onSwitchGroup} />
           </div>
         )}
         {showInfo && !isDesktop && (
@@ -3512,7 +3545,7 @@ function App() {
               <button onClick={() => setShowInfo(false)} aria-label="Close" style={{ background:"transparent", border:"none", color:C.muted, fontSize:22, cursor:"pointer", lineHeight:1 }}>✕</button>
             </div>
             <div style={{ flex:1, overflowY:"auto", padding:"16px 12px 96px" }}>
-              <InfoContent />
+              <InfoContent onTakeTour={handleTakeTour} onSwitchGroup={onSwitchGroup} />
             </div>
           </div>
           </div>
@@ -3561,7 +3594,11 @@ function GroupGate() {
     // is all App needs.
     PLAYERS = GROUPS[groupKey].players;
     PLAYER_NAME_ORDER = PLAYERS.map(p => p.name);
-    return <App />;
+    const onSwitchGroup = () => {
+      localStorage.removeItem(GROUP_STORAGE_KEY);
+      setGroupKey(null);
+    };
+    return <App onSwitchGroup={onSwitchGroup} />;
   }
 
   const handleSubmit = (e) => {
