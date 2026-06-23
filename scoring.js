@@ -323,20 +323,28 @@ var GROUPS = {
   CAVERSHAM: {
     code: "CAVERSHAM",
     label: "Caversham",
-    // 8 real players, 6 teams each (covers all 48 World Cup teams between
-    // them) — randomly assigned, balanced the same way as Macklins. Josh
-    // is a real player here too, not the Grim Reaper — the Grim Reaper is
-    // a separate, unnamed/anonymous entry.
+    // 16 real players, 3 teams each (covers all 48 World Cup teams between
+    // them) — randomly assigned, balanced so every player gets exactly 3
+    // of the 4 pots represented once (misses exactly 1 pot). Josh plays
+    // the Grim Reaper here.
     players: [
-      { name: "Josh",   teams: ["Japan","Argentina","Spain","Panama","Algeria","Tunisia"],          codes: ["JPN","ARG","ESP","PAN","ALG","TUN"], lateB: [false,false,false,false,false,false] },
-      { name: "Aaron",  teams: ["Iran","Uruguay","Canada","Qatar","South Africa","DR Congo"],       codes: ["IRN","URU","CAN","QAT","RSA","DRC"], lateB: [false,false,false,false,false,false] },
-      { name: "Candice",teams: ["Ecuador","United States","England","Uzbekistan","Norway","Ghana"], codes: ["ECU","USA","ENG","UZB","NOR","GHA"], lateB: [false,false,false,false,false,false] },
-      { name: "Katie",  teams: ["Colombia","Mexico","Brazil","Egypt","Bosnia","Jordan"],            codes: ["COL","MEX","BRA","EGY","BIH","JOR"], lateB: [false,false,false,false,false,false] },
-      { name: "Jon",    teams: ["South Korea","Germany","Belgium","Scotland","Cape Verde","Haiti"], codes: ["KOR","GER","BEL","SCO","CPV","HAI"], lateB: [false,false,false,false,false,false] },
-      { name: "India",  teams: ["Croatia","Senegal","France","Saudi Arabia","Curaçao","Turkey"],    codes: ["CRO","SEN","FRA","KSA","CUW","TUR"], lateB: [false,false,false,false,false,false] },
-      { name: "Yan",    teams: ["Australia","Switzerland","Portugal","Sweden","Czech Republic","New Zealand"], codes: ["AUS","SUI","POR","SWE","CZE","NZL"], lateB: [false,false,false,false,false,false] },
-      { name: "Freya",  teams: ["Morocco","Austria","Netherlands","Paraguay","Ivory Coast","Iraq"], codes: ["MAR","AUT","NED","PAR","CIV","IRQ"], lateB: [false,false,false,false,false,false] },
-      { name: "Grim Reaper", teams: [], codes: [], grimReaper: true },
+      { name: "Aaron",   teams: ["Mexico","Australia","DR Congo"],        codes: ["MEX","AUS","DRC"], lateB: [false,false,false] },
+      { name: "Candice", teams: ["Brazil","Norway","Turkey"],             codes: ["BRA","NOR","TUR"], lateB: [false,false,false] },
+      { name: "Katie",   teams: ["Belgium","Ivory Coast","Iraq"],         codes: ["BEL","CIV","IRQ"], lateB: [false,false,false] },
+      { name: "Jon",     teams: ["Netherlands","Ecuador","Algeria"],      codes: ["NED","ECU","ALG"], lateB: [false,false,false] },
+      { name: "India",   teams: ["Colombia","Paraguay","Czech Republic"], codes: ["COL","PAR","CZE"], lateB: [false,false,false] },
+      { name: "Yan",     teams: ["England","Switzerland","Ghana"],        codes: ["ENG","SUI","GHA"], lateB: [false,false,false] },
+      { name: "Freya R", teams: ["Canada","South Africa","New Zealand"],  codes: ["CAN","RSA","NZL"], lateB: [false,false,false] },
+      { name: "Jake",    teams: ["Portugal","Japan","Cape Verde"],        codes: ["POR","JPN","CPV"], lateB: [false,false,false] },
+      { name: "Helen",   teams: ["Argentina","Morocco","Tunisia"],        codes: ["ARG","MAR","TUN"], lateB: [false,false,false] },
+      { name: "Frank",   teams: ["Austria","Panama","Bosnia"],            codes: ["AUT","PAN","BIH"], lateB: [false,false,false] },
+      { name: "Ivo",     teams: ["Croatia","Saudi Arabia","Haiti"],       codes: ["CRO","KSA","HAI"], lateB: [false,false,false] },
+      { name: "Jasper",  teams: ["France","Iran","Scotland"],             codes: ["FRA","IRN","SCO"], lateB: [false,false,false] },
+      { name: "Delilah", teams: ["Germany","South Korea","Uzbekistan"],   codes: ["GER","KOR","UZB"], lateB: [false,false,false] },
+      { name: "Nora",    teams: ["Spain","Senegal","Sweden"],             codes: ["ESP","SEN","SWE"], lateB: [false,false,false] },
+      { name: "Freya C", teams: ["United States","Qatar","Jordan"],       codes: ["USA","QAT","JOR"], lateB: [false,false,false] },
+      { name: "Lilly",   teams: ["Uruguay","Egypt","Curaçao"],            codes: ["URU","EGY","CUW"], lateB: [false,false,false] },
+      { name: "Josh",    teams: [], codes: [], grimReaper: true },
     ],
   },
   // future groups added here by hand, each with a unique `code`
