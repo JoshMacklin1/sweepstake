@@ -343,7 +343,7 @@ var GROUPS = {
       { name: "Delilah", teams: ["Germany","South Korea","Uzbekistan"],   codes: ["GER","KOR","UZB"], lateB: [false,false,false] },
       { name: "Nora",    teams: ["Spain","Senegal","Sweden"],             codes: ["ESP","SEN","SWE"], lateB: [false,false,false] },
       { name: "Freya C", teams: ["United States","Qatar","Jordan"],       codes: ["USA","QAT","JOR"], lateB: [false,false,false] },
-      { name: "Lilly",   teams: ["Uruguay","Egypt","Curaçao"],            codes: ["URU","EGY","CUW"], lateB: [false,false,false] },
+      { name: "Lily",    teams: ["Uruguay","Egypt","Curaçao"],            codes: ["URU","EGY","CUW"], lateB: [false,false,false] },
       { name: "Josh",    teams: [], codes: [], grimReaper: true },
     ],
   },
