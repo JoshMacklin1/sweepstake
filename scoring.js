@@ -1212,6 +1212,23 @@ var fmt = (str) => {
     + " " + d.toLocaleTimeString("en-GB", { hour:"2-digit", minute:"2-digit" });
 };
 
+// Resolves which player owns a team code within a plain PLAYERS-shaped
+// roster (name/teams/codes/lateB — no computed score fields needed). Used
+// by the service worker against a raw GROUPS[key].players roster, e.g. to
+// label a push notification with the right player name.
+var ownerOfTeamCode = (tla, players) => {
+  const code = tla?.toUpperCase();
+  if (!players) return undefined;
+  // Prefer non-lateB player when duplicate codes exist
+  const matches = players.filter(p => p.codes && p.codes.includes(code));
+  if (!matches.length) return undefined;
+  const primary = matches.find(p => {
+    const idx = p.codes.indexOf(code);
+    return !(p.lateB && p.lateB[idx]);
+  });
+  return (primary || matches[0]).name;
+};
+
 var ownerOf = (tla, ranked) => {
   const code = tla?.toUpperCase();
   // Prefer non-lateB player when duplicate codes exist
