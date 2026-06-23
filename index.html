@@ -3179,7 +3179,17 @@ function NotificationsDrawer({ matches, ranked, upcoming, matchPtsById, onClose 
 // device by App (see the sw_tour_seen effect); also replayable any time via
 // "Take the tour" in Rules & Info.
 // ─────────────────────────────────────────────────────────────────────────────
+// First N steps explain the sweepstake itself; the rest walk through the app.
+const SWEEPSTAKE_STEPS_COUNT = 5;
+
 const TOUR_STEPS = [
+  // ── How the sweepstake works ───────────────────────────────────────────────
+  { icon: "🎰", title: "The Draw", desc: "48 World Cup teams ranked into 4 pots — Pot 1 (favourites) down to Pot 4 (underdogs). Everyone was randomly assigned a balanced mix, so no one gets only giants and no one gets only minnows." },
+  { icon: "⚽", title: "Group Stage", desc: "Your teams earn points for wins and draws — but underdogs earn more. A Pot 4 win is worth 12 pts; a Pot 1 win just 2. Dark-horse upsets can flip the whole table." },
+  { icon: "🏆", title: "Knockouts", desc: "Each round a team survives earns bigger points. A Pot 1 team winning the World Cup is worth 100 pts. A Pot 4 team doing the same? 2,000. Going deep with an underdog is where fortunes are made." },
+  { icon: "💸", title: "The Risk", desc: "If a Pot 1 team goes out in the groups, you lose 50 pts. Pot 2 costs 15. Pot 3 and 4 carry no penalty — those teams are pure upside. Own a big side? Hope they show up." },
+  { icon: "💀", title: "The Grim Reaper", desc: "One player holds no teams. Instead they earn when big sides crash out in the groups and from 0-0 draws. They can haunt the table — but can never actually win the sweepstake." },
+  // ── App walkthrough ────────────────────────────────────────────────────────
   { icon: "🏠", title: "Home", desc: "Your homepage — who's leading, recent results, risers & fallers, and what's coming up next." },
   { icon: "🏆", title: "League", desc: "The full sweepstake table. Tap any player to see their teams, points breakdown, and chance of winning." },
   { icon: "⚽", title: "Scores", desc: "Browse any day of the tournament — past results and upcoming fixtures, with the points each match earned." },
@@ -3191,12 +3201,14 @@ function TourOverlay({ onClose }) {
   const [step, setStep] = useState(0);
   const isLast = step === TOUR_STEPS.length - 1;
   const current = TOUR_STEPS[step];
+  const inAppSection = step >= SWEEPSTAKE_STEPS_COUNT;
+  const sectionLabel = inAppSection ? "The App" : "The Sweepstake";
 
   return (
     <div className="info-backdrop" onClick={onClose} style={{ position:"fixed", inset:0, zIndex:40, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,0.55)" }}>
       <div className="info-card" onClick={(e) => e.stopPropagation()} style={{ background:C.bg, display:"flex", flexDirection:"column", border:`1px solid ${C.border}`, boxShadow:"0 24px 64px rgba(0,0,0,0.55)" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"14px 16px", borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
-          <div style={{ fontSize:11, color:C.dim, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase" }}>Quick Tour · {step + 1}/{TOUR_STEPS.length}</div>
+          <div style={{ fontSize:11, color:C.dim, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase" }}>{sectionLabel} · {step + 1}/{TOUR_STEPS.length}</div>
           <button onClick={onClose} aria-label="Skip tour" style={{ background:"transparent", border:"none", color:C.muted, fontSize:22, cursor:"pointer", lineHeight:1 }}>✕</button>
         </div>
         <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"32px 28px", textAlign:"center" }}>
@@ -3211,7 +3223,11 @@ function TourOverlay({ onClose }) {
         </div>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6, paddingBottom:18, flexShrink:0 }}>
           {TOUR_STEPS.map((_, i) => (
-            <div key={i} style={{ width:6, height:6, borderRadius:"50%", background: i === step ? C.accent : C.border }} />
+            <div key={i} style={{
+              width:6, height:6, borderRadius:"50%",
+              background: i === step ? C.accent : C.border,
+              marginLeft: i === SWEEPSTAKE_STEPS_COUNT ? 10 : 0,
+            }} />
           ))}
         </div>
         <div style={{ display:"flex", gap:10, padding:"16px 20px", borderTop:`1px solid ${C.border}`, flexShrink:0 }}>
