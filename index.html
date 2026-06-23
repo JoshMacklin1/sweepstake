@@ -791,9 +791,9 @@ function PlayerRow({ player, rank, displayRank, onOpen, badges = [], rank24hChan
           )}
         </div>
 
-        {/* Middle: sparkline */}
+        {/* Middle: sparkline — narrower for 6-team players so all flags fit */}
         <div style={{ flexShrink:0 }}>
-          <Sparkline data={player.hist} width={100} height={56} color={player.grimReaper ? C.red : player.total < 0 ? C.red : player.total === 0 ? C.neutral : C.accent} />
+          <Sparkline data={player.hist} width={player.teams && player.teams.length >= 6 ? 72 : 100} height={56} color={player.grimReaper ? C.red : player.total < 0 ? C.red : player.total === 0 ? C.neutral : C.accent} />
         </div>
 
         {/* Right: points + change */}
