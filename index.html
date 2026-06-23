@@ -60,8 +60,6 @@
     .day-nav-arrow { display: none; align-items: center; justify-content: center; }
     /* Share button removed from the header (it only ever showed on mobile) */
     .share-btn { display: none !important; }
-    /* Desktop-only dev toggle, bottom-left of the sidebar */
-    .desktop-dev { display: none; }
     /* Rules & Info pop-over — windowed card with space around it (mobile) */
     .info-backdrop { padding: 24px 18px 88px; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
     .info-card { width: 100%; max-width: 460px; max-height: 68vh; border-radius: 16px; overflow: hidden; animation: modalIn 0.18s ease-out; }
@@ -93,20 +91,6 @@
     /* ── Desktop ── */
     @media (min-width: 768px) {
       body { background: #000000; }
-      .desktop-dev {
-        display: block;
-        position: fixed;
-        left: 12px;
-        bottom: 12px;
-        z-index: 6;
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 0.05em;
-        border-radius: 4px;
-        padding: 4px 8px;
-        cursor: pointer;
-        user-select: none;
-      }
       .hscroll-nav {
         display: flex;
         position: sticky;
@@ -2770,20 +2754,9 @@ function PushNotificationsSection() {
   );
 }
 
-function InfoContent({ onTakeTour, onSwitchGroup }) {
+function InfoContent() {
   return (
     <>
-            {onTakeTour && (
-              <button onClick={onTakeTour} style={{
-                width:"100%", display:"flex", alignItems:"center", justifyContent:"center", gap:8,
-                padding:"12px", borderRadius:12, border:`1px solid ${C.border}`,
-                background:C.card, color:C.text, fontSize:13, fontWeight:700, cursor:"pointer",
-                marginBottom:20,
-              }}>
-                ↻ Retake the tour
-              </button>
-            )}
-
             <div style={{ fontSize:11, color:C.text, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:8 }}>Points by Stage & Pot</div>
             <div style={{ ...s.card, overflowX:"auto", marginBottom:20 }}>
               <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
@@ -2892,24 +2865,108 @@ function InfoContent({ onTakeTour, onSwitchGroup }) {
                 </div>
               </div>
             ))}
-
-            <PushNotificationsSection />
-
-            {onSwitchGroup && (
-              <>
-                <div style={{ fontSize:11, color:C.text, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:8, marginTop:20 }}>This Device</div>
-                <div style={{ ...s.card, padding:"0 12px", marginBottom:6 }}>
-                  <button onClick={onSwitchGroup} style={{
-                    width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between",
-                    padding:"13px 0", background:"transparent", border:"none", cursor:"pointer", textAlign:"left",
-                  }}>
-                    <span style={{ fontSize:13, fontWeight:600, color:C.text }}>Switch group</span>
-                    <span style={{ color:C.muted, fontSize:14 }}>›</span>
-                  </button>
-                </div>
-              </>
-            )}
     </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MORE MENU — bottom sheet replacing the old "Rules & Info" nav slot
+// directly. Reuses the existing .detail-backdrop/.detail-sheet/.sheet-handle
+// bottom-sheet treatment (already built for PlayerModal) rather than
+// inventing new CSS — no anchored-dropdown pattern exists anywhere in this
+// codebase, and a bottom sheet already reads consistently on both mobile and
+// desktop (.detail-backdrop centres itself on desktop via its own CSS).
+// Each row performs its action then closes the sheet.
+// ─────────────────────────────────────────────────────────────────────────────
+function MoreMenu({ devMode, onToggleDevMode, onTakeTour, onViewRules, onSubscribeNotifications, onSwitchGroup, onClose }) {
+  const items = [
+    { label: "↻ Retake the tour", onClick: onTakeTour },
+    { label: "❓ Rules & Info", onClick: onViewRules },
+    { label: "🔔 Push notifications", onClick: onSubscribeNotifications },
+    { label: "Switch group", onClick: onSwitchGroup },
+    { label: "Developer mode", value: devMode ? "On" : "Off", onClick: onToggleDevMode },
+  ];
+  return (
+    <div className="detail-backdrop" onClick={onClose}>
+      <div className="detail-sheet" onClick={(e) => e.stopPropagation()} style={{
+        background:C.bg, display:"flex", flexDirection:"column", border:`1px solid ${C.border}`, boxShadow:"0 24px 64px rgba(0,0,0,0.55)",
+      }}>
+        <div className="sheet-handle"><span></span></div>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"14px 16px", borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
+          <div style={{ fontSize:15, fontWeight:800, color:C.text }}>More</div>
+          <button onClick={onClose} aria-label="Close" style={{ background:"transparent", border:"none", color:C.muted, fontSize:22, cursor:"pointer", lineHeight:1 }}>✕</button>
+        </div>
+        <div style={{ flex:1, overflowY:"auto", padding:"4px 4px 28px" }}>
+          {items.map((item, i) => (
+            <button key={item.label} onClick={() => { item.onClick(); onClose(); }} style={{
+              width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between",
+              padding:"14px 12px", background:"transparent", border:"none",
+              borderBottom: i < items.length - 1 ? `1px solid ${C.border}` : "none",
+              cursor:"pointer", textAlign:"left",
+            }}>
+              <span style={{ fontSize:14, fontWeight:600, color:C.text }}>{item.label}</span>
+              <span style={{ display:"flex", alignItems:"center", gap:6, color:C.muted, fontSize:13 }}>
+                {item.value}<span style={{ fontSize:14 }}>›</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Push-notification settings, opened from the More menu. Reuses the same
+// .info-backdrop/.info-card shell as the Rules & Info pop-over — just wraps
+// the unmodified PushNotificationsSection (see its own definition above for
+// the subscribe/unsubscribe logic) with a header/close button, since it now
+// mounts on its own rather than embedded inside InfoContent.
+function PushSettingsModal({ onClose }) {
+  return (
+    <div className="info-backdrop" onClick={onClose} style={{ position:"fixed", inset:0, zIndex:25, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,0.55)" }}>
+      <div className="info-card" onClick={(e) => e.stopPropagation()} style={{ background:C.bg, display:"flex", flexDirection:"column", border:`1px solid ${C.border}`, boxShadow:"0 24px 64px rgba(0,0,0,0.55)" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"14px 16px", borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
+          <div style={{ fontSize:15, fontWeight:800, color:C.text }}>Push Notifications</div>
+          <button onClick={onClose} aria-label="Close" style={{ background:"transparent", border:"none", color:C.muted, fontSize:22, cursor:"pointer", lineHeight:1 }}>✕</button>
+        </div>
+        <div style={{ flex:1, overflowY:"auto", padding:"16px 12px 28px" }}>
+          <PushNotificationsSection />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Notifications drawer (bell icon) — a feed of recent match activity, not a
+// literal push-notification history (the browser has no API for that, and
+// football-data.org doesn't give per-goal timestamps for a true minute-by-
+// minute feed anyway). Reuses the exact same 24h-window + MatchCard
+// rendering HomeTab's "Recent Results" section already established, just
+// broadened from FINISHED-only to isSettled (so live/paused matches show
+// too) since this is meant to read as "what's happening", not just results.
+function NotificationsDrawer({ matches, ranked, upcoming, matchPtsById, onClose }) {
+  const cutoffMs = Date.now() - 24 * 60 * 60 * 1000;
+  const recent = matches
+    .filter(m => isSettled(m.status) && new Date(m.utcDate).getTime() >= cutoffMs)
+    .sort((a, b) => new Date(b.utcDate) - new Date(a.utcDate));
+
+  return (
+    <div className="detail-backdrop" onClick={onClose}>
+      <div className="detail-sheet" onClick={(e) => e.stopPropagation()} style={{
+        background:C.bg, display:"flex", flexDirection:"column", border:`1px solid ${C.border}`, boxShadow:"0 24px 64px rgba(0,0,0,0.55)",
+      }}>
+        <div className="sheet-handle"><span></span></div>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"14px 16px", borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
+          <div style={{ fontSize:15, fontWeight:800, color:C.text }}>Notifications</div>
+          <button onClick={onClose} aria-label="Close" style={{ background:"transparent", border:"none", color:C.muted, fontSize:22, cursor:"pointer", lineHeight:1 }}>✕</button>
+        </div>
+        <div style={{ flex:1, overflowY:"auto", padding:"16px 14px 28px" }}>
+          {recent.length === 0
+            ? <div style={{ ...s.card, padding:"14px", fontSize:12, color:C.muted, textAlign:"center" }}>No recent match activity in the last 24h</div>
+            : <div className="league-grid fixture-grid">{recent.map(m => <MatchCard key={m.id} m={m} ranked={ranked} upcoming={upcoming} pts={matchPtsById[m.id]} />)}</div>}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -2928,7 +2985,7 @@ const TOUR_STEPS = [
   { icon: "🏆", title: "League", desc: "The full sweepstake table. Tap any player to see their teams, points breakdown, and chance of winning." },
   { icon: "⚽", title: "Scores", desc: "Browse any day of the tournament — past results and upcoming fixtures, with the points each match earned." },
   { icon: "🏁", title: "The Race", desc: "Watch the standings change over time, or fire up the bar race for an animated replay of the whole tournament." },
-  { icon: "❓", title: "Rules & Info", desc: "How scoring works, the Grim Reaper's rules, and every player's teams — also where you switch groups." },
+  { icon: "•••", title: "More", desc: "Rules & Info (how scoring works, the Grim Reaper, every player's teams), push notifications, switching groups, and developer mode all live here." },
 ];
 
 function TourOverlay({ onClose }) {
@@ -2982,7 +3039,10 @@ function App({ onSwitchGroup }) {
   const [leagueView,  setLeagueView]  = useState("league"); // "league" | "groups" | "knockout"
   const [showRace,    setShowRace]    = useState(false);
   const [showInfo,    setShowInfo]    = useState(false); // Rules & Info dialog (over current tab)
-  const [showTour,    setShowTour]    = useState(false); // first-time app walkthrough, also replayable from Rules & Info
+  const [showTour,    setShowTour]    = useState(false); // first-time app walkthrough, also replayable from the More menu
+  const [showMore,         setShowMore]         = useState(false); // bottom-nav/sidebar "More" menu (was "Rules & Info")
+  const [showNotifications, setShowNotifications] = useState(false); // bell — recent match events drawer
+  const [showPushSettings, setShowPushSettings] = useState(false); // "Subscribe notifications" from the More menu
   const [countdown, setCountdown] = useState("");
   const [selectedDay, setSelectedDay] = useState(null); // null = default to "today", clamped to the tournament's match range
   const matchesRef = React.useRef(matches);
@@ -3329,11 +3389,20 @@ function App({ onSwitchGroup }) {
       </g>
     </svg>
   );
-  const navIconInfo = (active) => (
+  const navIconMore = (active) => (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-      <circle cx="12" cy="12" r="9" stroke={active ? "white" : C.muted} strokeWidth="2" fill="none"/>
-      <path d="M9.2 9.3a2.9 2.9 0 1 1 4.3 2.8c-.9.5-1.5 1.05-1.5 2.1" stroke={active ? "white" : C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-      <circle cx="12" cy="17.2" r="1" fill={active ? "white" : C.muted}/>
+      <circle cx="5" cy="12" r="2" fill={active ? "white" : C.muted}/>
+      <circle cx="12" cy="12" r="2" fill={active ? "white" : C.muted}/>
+      <circle cx="19" cy="12" r="2" fill={active ? "white" : C.muted}/>
+    </svg>
+  );
+  // Flat line-art bell — matches the bottom-nav icons' style (stroke only,
+  // single colour), not the 🔔 emoji's coloured/3D look used elsewhere
+  // (the More menu row, the push-settings button) where it's just inline text.
+  const bellIcon = (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <path d="M6 10.5a6 6 0 1 1 12 0c0 3.2 1 5.1 1.8 6.1.3.35.05.9-.4.9H4.6c-.45 0-.7-.55-.4-.9.8-1 1.8-2.9 1.8-6.1Z" stroke={C.dim} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M9.5 19.5a2.5 2.5 0 0 0 5 0" stroke={C.dim} strokeWidth="1.7" strokeLinecap="round"/>
     </svg>
   );
 
@@ -3392,11 +3461,6 @@ function App({ onSwitchGroup }) {
               <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjYuNDEgMy42NiAyMDIuMTcgMjAwLjY1Ij48Y2lyY2xlIGN4PSIxMzMuNjgiIGN5PSIxOTQuODUiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTA3LjUwIiBjeT0iMTk0Ljg1IiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjgxLjMyIiBjeT0iMTk0Ljg1IiByPSI5LjQ1IiBmaWxsPSIjMEI2RTJDIi8+PGNpcmNsZSBjeD0iMTcyLjk1IiBjeT0iMTcyLjE0IiByPSI5LjQ1IiBmaWxsPSIjRDUyQjFFIi8+PGNpcmNsZSBjeD0iMTQ2Ljc3IiBjeT0iMTcyLjE0IiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjEyMC41OSIgY3k9IjE3Mi4xNCIgcj0iOS40NSIgZmlsbD0iIzBCNkUyQyIvPjxjaXJjbGUgY3g9Ijk0LjQxIiBjeT0iMTcyLjE0IiByPSI5LjQ1IiBmaWxsPSIjMEI2RTJDIi8+PGNpcmNsZSBjeD0iNjguMjMiIGN5PSIxNzIuMTQiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iNDIuMDUiIGN5PSIxNzIuMTQiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTg2LjA0IiBjeT0iMTQ5LjQyIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjE1OS44NiIgY3k9IjE0OS40MiIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxMzMuNjgiIGN5PSIxNDkuNDIiIHI9IjkuNDUiIGZpbGw9IiMwQjZFMkMiLz48Y2lyY2xlIGN4PSIxMDcuNTAiIGN5PSIxNDkuNDIiIHI9IjkuNDUiIGZpbGw9IiMwQjZFMkMiLz48Y2lyY2xlIGN4PSI4MS4zMiIgY3k9IjE0OS40MiIgcj0iOS40NSIgZmlsbD0iIzBCNkUyQyIvPjxjaXJjbGUgY3g9IjU1LjE0IiBjeT0iMTQ5LjQyIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjI4Ljk2IiBjeT0iMTQ5LjQyIiByPSI5LjQ1IiBmaWxsPSIjMUEzRkEwIi8+PGNpcmNsZSBjeD0iMTk5LjEzIiBjeT0iMTI2LjcwIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjE3Mi45NSIgY3k9IjEyNi43MCIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxNDYuNzciIGN5PSIxMjYuNzAiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTIwLjU5IiBjeT0iMTI2LjcwIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9Ijk0LjQxIiBjeT0iMTI2LjcwIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjY4LjIzIiBjeT0iMTI2LjcwIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjQyLjA1IiBjeT0iMTI2LjcwIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjE1Ljg3IiBjeT0iMTI2LjcwIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjE4Ni4wNCIgY3k9IjEwMy45OCIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxNTkuODYiIGN5PSIxMDMuOTgiIHI9IjkuNDUiIGZpbGw9IiMxQTNGQTAiLz48Y2lyY2xlIGN4PSIxMzMuNjgiIGN5PSIxMDMuOTgiIHI9IjkuNDUiIGZpbGw9IiMxQTNGQTAiLz48Y2lyY2xlIGN4PSIxMDcuNTAiIGN5PSIxMDMuOTgiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iODEuMzIiIGN5PSIxMDMuOTgiIHI9IjkuNDUiIGZpbGw9IiNENTJCMUUiLz48Y2lyY2xlIGN4PSI1NS4xNCIgY3k9IjEwMy45OCIgcj0iOS40NSIgZmlsbD0iI0Q1MkIxRSIvPjxjaXJjbGUgY3g9IjI4Ljk2IiBjeT0iMTAzLjk4IiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjE5OS4xMyIgY3k9IjgxLjI3IiByPSI5LjQ1IiBmaWxsPSIjMUEzRkEwIi8+PGNpcmNsZSBjeD0iMTcyLjk1IiBjeT0iODEuMjciIHI9IjkuNDUiIGZpbGw9IiMxQTNGQTAiLz48Y2lyY2xlIGN4PSIxNDYuNzciIGN5PSI4MS4yNyIgcj0iOS40NSIgZmlsbD0iIzFBM0ZBMCIvPjxjaXJjbGUgY3g9IjEyMC41OSIgY3k9IjgxLjI3IiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9Ijk0LjQxIiBjeT0iODEuMjciIHI9IjkuNDUiIGZpbGw9IiNENTJCMUUiLz48Y2lyY2xlIGN4PSI2OC4yMyIgY3k9IjgxLjI3IiByPSI5LjQ1IiBmaWxsPSIjRDUyQjFFIi8+PGNpcmNsZSBjeD0iNDIuMDUiIGN5PSI4MS4yNyIgcj0iOS40NSIgZmlsbD0iI0Q1MkIxRSIvPjxjaXJjbGUgY3g9IjE1Ljg3IiBjeT0iODEuMjciIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTg2LjA0IiBjeT0iNTguNTUiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTU5Ljg2IiBjeT0iNTguNTUiIHI9IjkuNDUiIGZpbGw9IiMxQTNGQTAiLz48Y2lyY2xlIGN4PSIxMzMuNjgiIGN5PSI1OC41NSIgcj0iOS40NSIgZmlsbD0iIzFBM0ZBMCIvPjxjaXJjbGUgY3g9IjEwNy41MCIgY3k9IjU4LjU1IiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjgxLjMyIiBjeT0iNTguNTUiIHI9IjkuNDUiIGZpbGw9IiNENTJCMUUiLz48Y2lyY2xlIGN4PSI1NS4xNCIgY3k9IjU4LjU1IiByPSI5LjQ1IiBmaWxsPSIjRDUyQjFFIi8+PGNpcmNsZSBjeD0iMjguOTYiIGN5PSI1OC41NSIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxNzIuOTUiIGN5PSIzNS44MyIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxNDYuNzciIGN5PSIzNS44MyIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxMjAuNTkiIGN5PSIzNS44MyIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSI5NC40MSIgY3k9IjM1LjgzIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjY4LjIzIiBjeT0iMzUuODMiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iNDIuMDUiIGN5PSIzNS44MyIgcj0iOS40NSIgZmlsbD0iI0Q1MkIxRSIvPjxjaXJjbGUgY3g9IjEzMy42OCIgY3k9IjEzLjEyIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjEwNy41MCIgY3k9IjEzLjEyIiByPSI5LjQ1IiBmaWxsPSIjMEI2RTJDIi8+PGNpcmNsZSBjeD0iODEuMzIiIGN5PSIxMy4xMiIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48L3N2Zz4=" style={{ width:30, height:30, flexShrink:0, order:1 }} alt="logo"/>
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-            <button onClick={() => { const next = !devMode; devModeRef.current = next; setDevMode(next); setLoading(true); setTab("table"); setLeagueView("league"); fetchMatches(false, next); }}
-              aria-label="Toggle developer mode"
-              style={{ background:"transparent", margin:0, fontSize:9, color:devMode?C.gold:C.border, cursor:"pointer", userSelect:"none", border:`1px solid ${devMode?C.gold:C.border}`, borderRadius:3, padding:"1px 5px" }}>
-              {devMode ? "DEV" : "···"}
-            </button>
             {devMode && (
               <span onClick={() => {
                 const demo = ranked.find(p => !p.grimReaper && p.teams && p.teams.length);
@@ -3417,6 +3481,7 @@ function App({ onSwitchGroup }) {
             }} className="share-btn" aria-label={copied ? "Copied" : "Copy share link"} style={{ background:C.card, border:`1px solid ${C.border}`, color:C.dim, fontSize:13, width:30, height:30, borderRadius:"50%", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
               {copied ? "✓" : "⎘"}
             </button>
+            <button onClick={() => setShowNotifications(true)} aria-label="Notifications" style={{ background:C.card, border:`1px solid ${C.border}`, color:C.dim, fontSize:14, width:30, height:30, borderRadius:"50%", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>{bellIcon}</button>
             <button onClick={() => setShowInfo(true)} aria-label="Rules & Info" style={{ background:C.card, border:`1px solid ${C.border}`, color:C.dim, fontSize:13, width:30, height:30, borderRadius:"50%", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:700 }}>?</button>
           </div>
           </div>
@@ -3576,31 +3641,34 @@ function App({ onSwitchGroup }) {
           ["table-knockout", "Knockouts", navIconKnockout],
           ["scores", "Scores", navIconScores],
           ["race", "The Race", navIconRace],
-          ["info", "Rules & Info", navIconInfo],
+          ["more", "More", navIconMore],
         ] : [
           ["home", "Home", navIconHome],
           ["table", "League", navIconTable],
           ["scores", "Scores", navIconScores],
           ["race", "The Race", navIconRace],
-          ["info", "Rules & Info", navIconInfo],
+          ["more", "More", navIconMore],
         ]).map(([id, label, renderIcon]) => {
-          // Rules & Info: a real tab on DESKTOP (sidebar nav, no pop-over);
-          // a pop-over dialog on MOBILE (highlighted while open).
+          // More: opens the MoreMenu bottom sheet on both mobile and desktop
+          // (was a desktop sidebar tab / mobile pop-over split when this slot
+          // was "Rules & Info" directly — collapsed to one consistent flow
+          // now that it's a menu, not content).
           // table-sweeps/groups/knockout (desktop only) need both tab AND
           // leagueView to match, since they all share tab === "table".
           // Other items just switch tab and dismiss any open mobile dialog.
           let active, onNav;
-          if (id === "info") {
-            active = isDesktop ? tab === "info" : showInfo;
-            onNav = isDesktop ? () => { setShowInfo(false); setTab("info"); } : () => setShowInfo(true);
+          if (id === "more") {
+            active = showMore;
+            onNav = () => setShowMore(true);
           } else if (id === "table-sweeps" || id === "table-groups" || id === "table-knockout") {
             const view = id === "table-sweeps" ? "league" : id === "table-groups" ? "groups" : "knockout";
             active = tab === "table" && leagueView === view;
             onNav = () => { setShowInfo(false); setSelectedPlayer(null); setTab("table"); setLeagueView(view); };
           } else {
-            active = tab === id && !(showInfo && !isDesktop);
+            active = tab === id && !showInfo && !showMore;
             onNav = () => {
               setShowInfo(false);
+              setShowMore(false);
               setSelectedPlayer(null);
               setTab(id);
               if (id === "table") setLeagueView("league");    // League always opens on Sweeps
@@ -3622,13 +3690,17 @@ function App({ onSwitchGroup }) {
         })}
       </div>
 
-      {/* ── Desktop-only dev toggle (bottom-left of sidebar) ── */}
-      <button className="desktop-dev"
-        onClick={() => { const next = !devMode; devModeRef.current = next; setDevMode(next); setLoading(true); setTab("table"); setLeagueView("league"); setShowInfo(false); fetchMatches(false, next); }}
-        aria-label="Toggle developer mode"
-        style={{ background:"transparent", margin:0, color: devMode ? C.gold : "#2a4a33", border:`1px solid ${devMode ? C.gold : C.border}` }}>
-        {devMode ? "DEV" : "···"}
-      </button>
+      {/* ── Desktop-only bell (mobile has its own in the title row, hidden on
+           desktop along with the rest of that row — see data-title-row CSS).
+           Dev mode toggling now lives only in the More menu, both viewports. ── */}
+      {isDesktop && (
+        <button onClick={() => setShowNotifications(true)} aria-label="Notifications" style={{
+          position:"fixed", top:16, right:16, zIndex:21,
+          background:C.card, border:`1px solid ${C.border}`, color:C.dim, fontSize:15,
+          width:34, height:34, borderRadius:"50%", cursor:"pointer",
+          display:"flex", alignItems:"center", justifyContent:"center",
+        }}>{bellIcon}</button>
+      )}
 
       {/* ── Body ── */}
       <div style={{ padding:"14px 14px 0" }}>
@@ -3705,13 +3777,9 @@ function App({ onSwitchGroup }) {
 
         {showRace && <BarRaceModal history={ranked.map(p => ({ name: p.name, hist: p.hist, total: p.total }))} allRanked={ranked} bucketLabels={bucketLabels} elimByFrame={raceElim} onClose={() => setShowRace(false)} />}
 
-        {/* ── RULES & INFO — desktop tab (sidebar-navigated), mobile pop-over ── */}
-        {tab === "info" && isDesktop && !loading && (
-          <div style={{ padding:"4px 2px 28px" }}>
-            <InfoContent onTakeTour={handleTakeTour} onSwitchGroup={onSwitchGroup} />
-          </div>
-        )}
-        {showInfo && !isDesktop && (
+        {/* ── RULES & INFO — same pop-over on mobile and desktop now that the
+             bottom-nav/sidebar slot is the "More" menu, not a content tab ── */}
+        {showInfo && (
           <div className="info-backdrop" onClick={() => setShowInfo(false)} style={{ position:"fixed", inset:0, zIndex:25, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,0.55)" }}>
           <div className="info-card" onClick={(e) => e.stopPropagation()} style={{ background:C.bg, display:"flex", flexDirection:"column", border:`1px solid ${C.border}`, boxShadow:"0 24px 64px rgba(0,0,0,0.55)" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"14px 16px", borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
@@ -3719,10 +3787,28 @@ function App({ onSwitchGroup }) {
               <button onClick={() => setShowInfo(false)} aria-label="Close" style={{ background:"transparent", border:"none", color:C.muted, fontSize:22, cursor:"pointer", lineHeight:1 }}>✕</button>
             </div>
             <div style={{ flex:1, overflowY:"auto", padding:"16px 12px 96px" }}>
-              <InfoContent onTakeTour={handleTakeTour} onSwitchGroup={onSwitchGroup} />
+              <InfoContent />
             </div>
           </div>
           </div>
+        )}
+
+        {showMore && (
+          <MoreMenu
+            devMode={devMode}
+            onToggleDevMode={() => { const next = !devMode; devModeRef.current = next; setDevMode(next); setLoading(true); setTab("table"); setLeagueView("league"); fetchMatches(false, next); }}
+            onTakeTour={handleTakeTour}
+            onViewRules={() => setShowInfo(true)}
+            onSubscribeNotifications={() => setShowPushSettings(true)}
+            onSwitchGroup={onSwitchGroup}
+            onClose={() => setShowMore(false)}
+          />
+        )}
+
+        {showPushSettings && <PushSettingsModal onClose={() => setShowPushSettings(false)} />}
+
+        {showNotifications && (
+          <NotificationsDrawer matches={matches} ranked={ranked} upcoming={upcoming} matchPtsById={matchPtsById} onClose={() => setShowNotifications(false)} />
         )}
 
         {selectedPlayer && (() => {
