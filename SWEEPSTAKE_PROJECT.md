@@ -1,17 +1,19 @@
 # WC2026 Sweepstake Tracker — Project Documentation
 
-_Last updated: 21 June 2026. Rebuilt from the live source (`index.html` + `scoring.js`), not the previous doc — the player roster and architecture had both moved on._
+_Last updated: 23 June 2026 — added multi-group support (code-gated splash, first-time tour, switch-group) and removed the £5 payment paywall. Previously rebuilt 21 June 2026 from the live source (`index.html` + `scoring.js`), not the prior doc — the player roster and architecture had both moved on._
 
 ## Overview
 
-A web app tracking a FIFA World Cup 2026 sweepstake ("Sweepstakes") between 26 players. Deployed to GitHub Pages. Live match data comes from football-data.org via a Cloudflare Worker CORS proxy. Built with React 18 via Babel CDN — no build step, no `node_modules`.
+A web app tracking a FIFA World Cup 2026 sweepstake ("Sweepstakes"). Deployed to GitHub Pages. Live match data comes from football-data.org via a Cloudflare Worker CORS proxy. Built with React 18 via Babel CDN — no build step, no `node_modules`.
+
+The app supports **multiple friend groups** sharing the same WC2026 tournament data, each with their own player roster, gated behind a code entered on a splash screen (see "Multi-Group Support" below). The original 26-player roster is the first group, code-named `SILVERSTREAM`.
 
 The app is **no longer a single file**. Logic is split so the same scoring code drives both the app and a daily email digest:
 
 | File | Purpose |
 |------|---------|
-| `index.html` | The entire UI — React app (Babel-compiled inline), all components, styling, PWA wiring. ~2,700 lines. |
-| `scoring.js` | Single source of truth for scoring/data logic — players, pots, points matrices, all `derive*`/`score*` functions. Loaded as a plain `<script>` (classic-script globals) **before** the Babel app. ~1,140 lines. |
+| `index.html` | The entire UI — React app (Babel-compiled inline), all components, styling, PWA wiring. ~3,665 lines. |
+| `scoring.js` | Single source of truth for scoring/data logic — group rosters (`GROUPS`), pots, points matrices, all `derive*`/`score*` functions. Loaded as a plain `<script>` (classic-script globals) **before** the Babel app. ~1,547 lines. |
 | `manifest.json` | PWA manifest (installable web app). |
 | `icon-192*.png`, `icon-512*.png` | PWA icons (standard + maskable). |
 | `README.md` | Effectively empty. |
@@ -35,9 +37,36 @@ The app is **no longer a single file**. Logic is split so the same scoring code 
 
 ---
 
+## Multi-Group Support
+
+Added June 2026 so the same app/codebase can run a sweepstake for more than one friend group, without a backend — everything is still a static site.
+
+### `GROUPS` config (`scoring.js`)
+Each group is an entry in `GROUPS`, keyed by a short id (e.g. `SILVERSTREAM`): `{ code, label, players }`. `players` is exactly what `PLAYERS` used to be — the full roster array (`name`/`teams`/`codes`/`lateB`/`grimReaper`). `POT`, `GROUP_ASSIGNMENTS`, `PTS_INC`, `WORKER_URL`/`WC_CODE`/`SEASON`, `MOCK_MATCHES` are **not** per-group — every group shares the same tournament data and scoring rules; only the roster differs. `PLAYERS` itself is now just a mutable pointer, initialised to `GROUPS.SILVERSTREAM.players` and **reassigned at runtime** by the group gate once a code is matched. Every `scoring.js` function and every `index.html` component reads `PLAYERS` live (no caching at module-load time), so reassigning the global before `App` mounts is all that's needed — no per-component plumbing.
+
+**Adding a new group** is a manual edit (same workflow as adding a late player used to be): add an entry to `GROUPS` in `scoring.js` with a roster and a unique `code`, then deploy. There's no in-app group-creation flow, and the codes are a **convenience, not real access control** — this is a public static site, so anyone reading the page source can see every group's roster and code. The point is to keep each group's view tidy, not to keep anything secret.
+
+**Variable team counts (not yet needed, but planned for)**: a player's `teams`/`codes` are already arrays, not fixed `team1`/`team2` fields, so a future group with e.g. 8 players/6 teams each works today at the data-model level with zero changes. What **isn't** ready: the flag-row layouts (`PlayerRow` collapsed/expanded, `PlayerModal`, the Rules & Info team-selection cards, the bar race) use a tight `flex, gap:4` with no wrap, sized for "2 flags fits on one line" — with 6 they'd overflow or squash. The fix (`flexWrap:"wrap"`, likely 2 rows of 3, possibly smaller flag size) was deliberately deferred until a real small group exists to test the layout against, rather than guessing now.
+
+### Group gate (`GroupGate`, `index.html`)
+Wraps `App` — it's what actually gets passed to `ReactDOM.createRoot(...).render(...)`, not `App` directly. On load it checks `localStorage.sw_group` for a previously-matched group key; if valid, it reassigns `PLAYERS`/`PLAYER_NAME_ORDER` (see below) and renders `App`. Otherwise it renders a **splash screen**: the app logo, a "Group code" text input, and a Continue button. Matching (`matchGroupCode`) is case-insensitive and trimmed against each group's `code`. A bad code shows an inline error ("Code not recognised — check with whoever shared it with you.") rather than anything alarming. On a valid code it writes `localStorage.sw_group` and renders `App`.
+
+`PLAYER_NAME_ORDER` (`index.html`, drives `playerColor()`'s fixed colour-per-player assignment) used to be a hardcoded array of the 26 Silverstream names — now it's derived from the active `PLAYERS` (`PLAYERS.map(p => p.name)`), recomputed by the group gate whenever the group changes, so a different roster still gets correct, collision-free colours.
+
+**Switching groups**: `App` receives an `onSwitchGroup` callback from `GroupGate` (defined inline where `GroupGate` renders `<App />`) that clears `localStorage.sw_group` and resets `GroupGate`'s own state, dropping back to the splash. Surfaced as a **"Switch group"** button in the "This Device" section at the bottom of Rules & Info (`InfoContent`) — deliberately out of the way, since it's a low-traffic admin action. No confirmation dialog: it's non-destructive, nothing client-side is lost by switching.
+
+### First-time tour (`TourOverlay`, `index.html`)
+A 5-step static modal (one step per nav tab: Home, League, Scores, The Race, Rules & Info) shown automatically once per device, the first time `App` mounts with no `localStorage.sw_tour_seen` set. Styled to match the rest of the app's modals — same bordered header/footer treatment as the Rules & Info pop-over, and a circular icon badge matching the League table's rank-badge styling — rather than a generic centred dialog. Skippable at any step (✕, Skip, Escape); "Done" on the last step. Dismissing in any way sets `sw_tour_seen` so it doesn't reappear.
+
+**Tried and reverted**: a "spotlight" version that actually drove `setTab`/`setLeagueView` to switch the live screen behind a dimmed backdrop with a cutout highlighting the real nav button for each step (CSS `box-shadow: 0 0 0 9999px` trick for the cutout, `getBoundingClientRect()` for positioning). It worked, but the user felt it looked disjointed from the rest of the app's visual language and asked to go back to the static modal — reverted same session. Don't re-attempt without checking in first; if revisited, the styling (not the navigation mechanic) was the actual problem.
+
+Replayable any time via a **"↻ Retake the tour"** button at the very top of Rules & Info (above the points matrix) — closes the mobile pop-over first if open, so the tour doesn't stack on top of it.
+
+---
+
 ## Players & Team Assignments
 
-26 players, **2 teams each**, plus Josh (the Grim Reaper, no teams). Defined in `PLAYERS` in `scoring.js`. Each entry carries `name`, `teams` (display names), `codes` (TLA codes), and `lateB` (per-team late-entry flag).
+The roster for the **Silverstream** group (`GROUPS.SILVERSTREAM.players` in `scoring.js`, the original/default group — see "Multi-Group Support" above for how other groups' rosters work). 26 players, **2 teams each**, plus Josh (the Grim Reaper, no teams). Each entry carries `name`, `teams` (display names), `codes` (TLA codes), and `lateB` (per-team late-entry flag).
 
 | Player | Team 1 | Team 2 |
 |--------|--------|--------|
@@ -185,7 +214,9 @@ Each badge has a `tone` (`good`/`bad`); shown as icons next to the name (top 3) 
 
 | Component | Notes |
 |-----------|-------|
-| `App` | Root. Owns all state, data fetch loop, scroll behaviour, modals. |
+| `GroupGate` | Actual render root (mounted via `ReactDOM.createRoot(...).render(<GroupGate />)`, not `App` directly). Renders the code-entry splash, or reassigns `PLAYERS`/`PLAYER_NAME_ORDER` and renders `App` once a group is matched/restored. See "Multi-Group Support". |
+| `App` | Mounted by `GroupGate` once a group is active. Owns all state, data fetch loop, scroll behaviour, modals. |
+| `TourOverlay` | First-time/replayable app walkthrough — static 5-step modal, one step per nav tab. See "Multi-Group Support" → "First-time tour". |
 | `Flag` | flagcdn.com image at a **uniform 3:2 aspect** (`width = size×1.5`, `objectFit:"cover"`) so flags are consistent app-wide (schedule, league, info dialog, banner). Self-healing load via the shared `flagHandlers(code, size)` helper (see Known Issues — "Intermittent blank flags"); optional 🐌 snail overlay. (The group/knockout views use their own fixed 34×23 imgs — also wired to `flagHandlers`; the bar race uses 22×15 `background-image` boxes, which **aren't** — CSS background images have no `onError`/`onLoad` hook, so they'd need a different, JS-preload-based fix if this ever shows up there too.) |
 | `Sparkline` | SVG, green positive / red negative / grey zero. |
 | `PlayerRow` | Collapsed: rank badge, name + badges, flags (sorted winner→alive→eliminated), sparkline, pts, 24h rank-change pill, chevron. Expanded: per-team flag/name/W-D-L/pot/stage/pts; Josh gets a Bounty Board (upset count + drought count). |
@@ -270,7 +301,10 @@ goalFlash + prevScoresRef   // goal-detection animation
 barsVisible + lastScrollY   // header/nav hide on scroll down
 countdown    // next-match countdown string
 selectedDay  // Scores tab day strip — null means "today" (clamped into matches' date range)
+showTour     // first-time app walkthrough modal; also replayable from Rules & Info
 ```
+
+`PLAYERS`/`PLAYER_NAME_ORDER` are **not** React state — they're mutable globals (`var`) in `scoring.js`/`index.html`, reassigned by `GroupGate` (see "Multi-Group Support").
 
 ---
 
@@ -306,7 +340,7 @@ football-data.org API
 `computeNewBadges24h` (in `scoring.js`) diffs the current badge set against a snapshot of badges as of 24h ago, so "new" means **assigned in the last 24h** — a real, time-based window, the same one `rank24hChange`/`rank24hPtsChange` use. Not "since the last 7am email" (the app still has no visibility into the email Worker's own send-history KV); not "since you last opened the tab" either — an earlier `localStorage.sw_seen_badges`/per-device "seen" approach was tried first and replaced with this actual time window at the user's request.
 
 ### Info modal (Rules & Info tab)
-Points matrix, Grim Reaper explainer, then a **Players & Team Selection** list (one card per player with their teams + pots). No top "How Points Work" heading. Josh (Grim Reaper) is excluded from the team list (`PLAYERS.filter(p => !p.grimReaper)`).
+A **"↻ Retake the tour"** button at the very top, then the points matrix, Grim Reaper explainer, a **Players & Team Selection** list (one card per player with their teams + pots — Josh excluded via `PLAYERS.filter(p => !p.grimReaper)`), and finally a **"This Device"** section at the bottom with a **"Switch group"** button. No top "How Points Work" heading. See "Multi-Group Support" above for what the tour/switch-group buttons actually do.
 
 ### PWA
 `manifest.json` + maskable icons make it installable. An inline service worker (registered from a Blob URL at the bottom of `index.html`) does a network-first fetch with a silent empty-response fallback — lightweight, no real offline caching.
@@ -377,6 +411,15 @@ Points matrix, Grim Reaper explainer, then a **Players & Team Selection** list (
 
 54. **Home tab polish + made it the default landing tab** — section order tightened to **Recent Results → Top of the Table → Risers & Fallers → New Accolades → Up Next** (Top of the Table moved up under Recent Results); dropped the "(Last 24h)" suffix from the Recent Results title as redundant; removed the "View all scores" footer link from Up Next (Recent Results keeps the only Scores-tab link). **New Accolades** changed from the `localStorage.sw_seen_badges` "seen since you last opened this tab" approach to a real time window — new `computeNewBadges24h(badgesNow, matches)` in `scoring.js` diffs the current badge set against a snapshot from 24h ago, so "new" now means **assigned in the last 24h**, consistent with every other section on the page (see "Home tab — New Accolades timing" under Features & Behaviours for why single-holder badges don't need special-casing here). The Scores tab's day-strip selected-day underline was recoloured from gold to `C.accent` green to match the mobile bottom nav's active-item colour. Finally, **Home is now the default landing tab** (`tab` state `useState("home")`, was `useState("table")`) — supersedes #53's "added alongside, not a replacement for the default" note.
 
+## Recent Changes — June 2026 (multi-group support)
+
+55. **£5 payment paywall removed entirely** — was already disabled by default (`PAYMENT_PROMPT_ENABLED = false`) after player complaints; removed outright (state, callback, effects, dev re-trigger button, modal JSX, all `sw_paid`/`sw_paid_snooze_until` localStorage reads/writes) rather than left as dead code, ahead of the multi-group work below (which would otherwise have needed it namespaced per group).
+56. **Generic title** — "Silverstream Sweepstakes" → "Sweepstakes" everywhere (`<title>`, mobile/desktop wordmarks, `manifest.json`, `scoring.js` header comment), ahead of supporting other friend groups. The old two-line "Silverstream / Sweepstakes" wordmark (via `<br>`) naturally collapsed to one line/word.
+57. **`GROUPS` config** — the hardcoded `PLAYERS` roster moved into `GROUPS.SILVERSTREAM.players` in `scoring.js`; `PLAYERS` is now a mutable pointer reassigned at runtime per active group. `index.html`'s hardcoded `PLAYER_NAME_ORDER` array replaced with one derived from the active `PLAYERS`. See "Multi-Group Support" above for the full design.
+58. **Group-code splash screen (`GroupGate`)** — gates the whole app behind a code matched against `GROUPS`; persists the choice in `localStorage.sw_group`. Not real access control, just a convenience so each group only sees its own roster (public static site — see "Multi-Group Support").
+59. **First-time tour (`TourOverlay`)** — 5-step static walkthrough auto-shown once per device (`localStorage.sw_tour_seen`), replayable via "↻ Retake the tour" in Rules & Info. A "spotlight" version that drove real tab navigation behind a dimmed cutout was built, tested, and reverted in the same session — the user preferred the static modal but asked for it to be restyled to match the app's existing modal/badge visual language rather than read as a generic dialog. See "Multi-Group Support" for what was tried.
+60. **Switch group** — "Switch group" button added to a new "This Device" section at the bottom of Rules & Info (deliberately low-key — an admin action, not a player-facing feature); clears `localStorage.sw_group` and drops back to the splash. No confirmation dialog (non-destructive).
+
 ---
 
 ## Deployment
@@ -396,6 +439,7 @@ Points matrix, Grim Reaper explainer, then a **Players & Team Selection** list (
 ## Known Issues / Notes
 
 - football-data.org free tier has rate limits; the key lives in the Worker.
+- **Group codes are not real access control** — this is a public static site, so anyone who views page source can see every group's code and roster in `GROUPS`. The splash screen is a convenience (keeps each group's view tidy) not a security boundary. Don't use this for anything where that distinction matters.
 - Group-stage elimination = team has 3 group games played AND appears in no knockout fixture.
 - Knockout points are **flat, not cumulative** — `ptsTotal`/`pts` looks up the single highest stage reached in `PTS_INC`; `stageReached` tracks which stage that is. (This line previously said "cumulative" in two places in this doc — that was wrong; see "Scoring System" above for the full correction and why it mattered.)
 - Tiebreak `W×3 + D − L`; Josh always loses ties to regular players.
