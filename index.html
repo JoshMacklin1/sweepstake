@@ -460,12 +460,12 @@ function FlagRow({ teams, baseHeight = 18 }) {
   const dead  = teams.filter(t => (t.eliminated || t.stage === "GROUP_ELIM") && !t.won);
   const ordered = [...won, ...alive, ...dead];
   const n = ordered.length;
-  const scale = n <= 3 ? 1 : n === 4 ? 0.83 : n === 5 ? 0.72 : 0.61;
+  const scale = n <= 3 ? 1 : n === 4 ? 0.94 : n === 5 ? 0.83 : 0.72;
   const h = Math.round(baseHeight * scale);
   const w = Math.round(h * 1.5);
-  const gap = n <= 3 ? 4 : n <= 4 ? 3 : 2;
+  const gap = n <= 3 ? 4 : n === 4 ? 3 : n === 5 ? 2 : 1;
   return (
-    <div style={{ display: "flex", gap, alignItems: "center", flexWrap: "nowrap" }}>
+    <div style={{ display: "flex", gap, alignItems: "center", flexWrap: "nowrap", overflow: "hidden" }}>
       {ordered.map(t => {
         const url = flag(t.code);
         if (!url) return null;
