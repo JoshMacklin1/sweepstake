@@ -828,7 +828,7 @@ function PlayerRow({ player, rank, displayRank, onOpen, badges = [], rank24hChan
 function PlayerModal({ player, displayRank, winPct, winTeams, badges = [], onClose }) {
   // Freeze background scroll for as long as the sheet is mounted — it's
   // mounted/unmounted with selectedPlayer, so a plain mount/unmount effect
-  // is enough (no need to watch a prop, unlike the payment modal's effect).
+  // is enough.
   React.useEffect(() => {
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -2710,13 +2710,6 @@ function InfoContent() {
   );
 }
 
-const PAYMENT_SNOOZE_MS = 3 * 24 * 60 * 60 * 1000; // "Remind me next time" snooze
-// Suppressed on request after player complaints — sweepstake's been running
-// long enough that most people have already paid. Flip back on if the
-// organiser says it's needed again; the dev 💳 button still force-triggers
-// it for testing regardless of this flag.
-const PAYMENT_PROMPT_ENABLED = false;
-
 function App() {
   const [matches,     setMatches]     = useState([]);
   const [loading,     setLoading]     = useState(true);
@@ -2726,7 +2719,6 @@ function App() {
   const [leagueView,  setLeagueView]  = useState("league"); // "league" | "groups" | "knockout"
   const [showRace,    setShowRace]    = useState(false);
   const [showInfo,    setShowInfo]    = useState(false); // Rules & Info dialog (over current tab)
-  const [showPayment, setShowPayment] = useState(false);
   const [countdown, setCountdown] = useState("");
   const [selectedDay, setSelectedDay] = useState(null); // null = default to "today", clamped to the tournament's match range
   const matchesRef = React.useRef(matches);
@@ -2746,14 +2738,6 @@ function App() {
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, []);
-  const triggerPayment = React.useCallback(() => {
-    if (!PAYMENT_PROMPT_ENABLED) return;
-    if (localStorage.getItem("sw_paid") === "yes") return;
-    const snoozeUntil = Number(localStorage.getItem("sw_paid_snooze_until") || 0);
-    if (Date.now() < snoozeUntil) return;
-    setShowPayment(true);
-  }, []);
-
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [refreshing,  setRefreshing]  = useState(false);
   const [devMode,     setDevMode]     = useState(DEV_MODE_DEFAULT);
@@ -2815,19 +2799,6 @@ function App() {
   }, [fetchMatches]);
 
   useEffect(() => {
-    const id = setTimeout(() => { triggerPayment(); }, 5000);
-    return () => clearTimeout(id);
-  }, [triggerPayment]);
-
-  useEffect(() => {
-    if (showPayment) {
-      const prevOverflow = document.body.style.overflow;
-      document.body.style.overflow = "hidden";
-      return () => { document.body.style.overflow = prevOverflow; };
-    }
-  }, [showPayment]);
-
-  useEffect(() => {
     if (showInfo && !isDesktop) {
       const prevOverflow = document.body.style.overflow;
       document.body.style.overflow = "hidden";
@@ -2843,7 +2814,6 @@ function App() {
       setSelectedPlayer(null);
       setShowRace(false);
       setShowInfo(false);
-      setShowPayment(false);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -3135,12 +3105,6 @@ function App() {
               style={{ background:"transparent", margin:0, fontSize:9, color:devMode?C.gold:C.border, cursor:"pointer", userSelect:"none", border:`1px solid ${devMode?C.gold:C.border}`, borderRadius:3, padding:"1px 5px" }}>
               {devMode ? "DEV" : "···"}
             </button>
-            {devMode && (
-              <span onClick={() => { localStorage.removeItem("sw_paid"); localStorage.removeItem("sw_paid_snooze_until"); setShowPayment(true); }}
-                style={{ fontSize:9, color:C.gold, cursor:"pointer", userSelect:"none", border:"1px solid #f59e0b", borderRadius:3, padding:"1px 5px" }}>
-                💳
-              </span>
-            )}
             {devMode && (
               <span onClick={() => {
                 const demo = ranked.find(p => !p.grimReaper && p.teams && p.teams.length);
@@ -3448,51 +3412,6 @@ function App() {
         )}
 
         {showRace && <BarRaceModal history={ranked.map(p => ({ name: p.name, hist: p.hist, total: p.total }))} allRanked={ranked} bucketLabels={bucketLabels} elimByFrame={raceElim} onClose={() => setShowRace(false)} />}
-
-        {/* ── PAYMENT PROMPT ── */}
-        {showPayment && (
-          <div style={{ position:"fixed", inset:0, zIndex:50, display:"flex", alignItems:"flex-end", justifyContent:"center",
-            background:"rgba(0,0,0,0.6)", backdropFilter:"blur(4px)" }}>
-            <div style={{
-              position:"relative",
-              background:C.surface, border:`1px solid ${C.border}`, borderRadius:"20px 20px 0 0",
-              padding:"28px 20px 36px", width:"100%", maxWidth:480,
-            }}>
-              <button onClick={() => { localStorage.setItem("sw_paid_snooze_until", String(Date.now() + PAYMENT_SNOOZE_MS)); setShowPayment(false); }}
-                aria-label="Dismiss"
-                style={{ position:"absolute", top:12, right:14, background:"transparent", border:"none", color:C.muted, fontSize:20, cursor:"pointer", lineHeight:1, padding:4 }}>✕</button>
-              <div style={{ fontSize:24, marginBottom:12, textAlign:"center" }}>💳</div>
-              <div style={{ fontSize:18, fontWeight:900, color:C.text, marginBottom:8, textAlign:"center" }}>
-                Have you paid your £5?
-              </div>
-              <div style={{ fontSize:13, color:C.muted, marginBottom:20, textAlign:"center", lineHeight:1.6 }}>
-                All money goes to charity — the winner picks which one!
-              </div>
-              <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:s.card.borderRadius, padding:"14px 16px", marginBottom:20 }}>
-                <div style={{ fontSize:11, color:C.muted, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:10 }}>Payment details</div>
-                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}>
-                  <span style={{ fontSize:13, color:C.dim }}>Amount</span>
-                  <span style={{ fontSize:13, color:C.accent, fontWeight:800 }}>£5</span>
-                </div>
-                <div style={{ fontSize:12, color:C.dim, lineHeight:1.5, marginTop:8 }}>
-                  Ask Ben for bank details if you don't have them.
-                </div>
-              </div>
-              <button onClick={() => { localStorage.setItem("sw_paid","yes"); setShowPayment(false); }} style={{
-                width:"100%", padding:"14px", borderRadius:12, border:"none", cursor:"pointer",
-                background:C.accent, color:"white", fontSize:15, fontWeight:800, marginBottom:10,
-              }}>
-                ✓ I've paid
-              </button>
-              <button onClick={() => { localStorage.setItem("sw_paid_snooze_until", String(Date.now() + PAYMENT_SNOOZE_MS)); setShowPayment(false); }} style={{
-                width:"100%", padding:"12px", borderRadius:12, border:`1px solid ${C.border}`,
-                background:"transparent", color:C.muted, fontSize:14, fontWeight:600, cursor:"pointer",
-              }}>
-                Remind me in 3 days
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* ── RULES & INFO — desktop tab (sidebar-navigated), mobile pop-over ── */}
         {tab === "info" && isDesktop && !loading && (

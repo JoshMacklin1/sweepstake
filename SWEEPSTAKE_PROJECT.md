@@ -269,7 +269,6 @@ devMode + devModeRef   // MOCK_MATCHES toggle; ref prevents interval override
 goalFlash + prevScoresRef   // goal-detection animation
 barsVisible + lastScrollY   // header/nav hide on scroll down
 countdown    // next-match countdown string
-showPayment  // £5 charity paywall modal
 selectedDay  // Scores tab day strip — null means "today" (clamped into matches' date range)
 ```
 
@@ -302,9 +301,6 @@ football-data.org API
 
 ### Share
 `⎘` button copies WhatsApp-ready text (top 3 + biggest mover + link) to clipboard; shows ✓ for 2s.
-
-### £5 charity paywall
-`showPayment` bottom-sheet asks "Have you paid your £5?" (all proceeds to charity, winner picks). Buttons set `localStorage.sw_paid` to `yes` or `remind`. Bank details: "Ask Ben." `triggerPayment()` only fires if not already paid. In dev mode a 💳 button re-opens it.
 
 ### Home tab — "New Accolades" timing
 `computeNewBadges24h` (in `scoring.js`) diffs the current badge set against a snapshot of badges as of 24h ago, so "new" means **assigned in the last 24h** — a real, time-based window, the same one `rank24hChange`/`rank24hPtsChange` use. Not "since the last 7am email" (the app still has no visibility into the email Worker's own send-history KV); not "since you last opened the tab" either — an earlier `localStorage.sw_seen_badges`/per-device "seen" approach was tried first and replaced with this actual time window at the user's request.
