@@ -1,6 +1,6 @@
 # WC2026 Sweepstake Tracker — Project Documentation
 
-_Last updated: 23 June 2026 — added multi-group support (code-gated splash, first-time tour, switch-group) and removed the £5 payment paywall. Previously rebuilt 21 June 2026 from the live source (`index.html` + `scoring.js`), not the prior doc — the player roster and architecture had both moved on._
+_Last updated: 23 June 2026 — added push notifications (goal/kickoff/full-time) via a real service worker + extended the `football-proxy` Worker. Previously: added multi-group support (code-gated splash, first-time tour, switch-group) and removed the £5 payment paywall. Originally rebuilt 21 June 2026 from the live source (`index.html` + `scoring.js`), not the prior doc — the player roster and architecture had both moved on._
 
 ## Overview
 
@@ -13,7 +13,8 @@ The app is **no longer a single file**. Logic is split so the same scoring code 
 | File | Purpose |
 |------|---------|
 | `index.html` | The entire UI — React app (Babel-compiled inline), all components, styling, PWA wiring. ~3,665 lines. |
-| `scoring.js` | Single source of truth for scoring/data logic — group rosters (`GROUPS`), pots, points matrices, all `derive*`/`score*` functions. Loaded as a plain `<script>` (classic-script globals) **before** the Babel app. ~1,547 lines. |
+| `scoring.js` | Single source of truth for scoring/data logic — group rosters (`GROUPS`), pots, points matrices, all `derive*`/`score*` functions. Loaded as a plain `<script>` (classic-script globals) **before** the Babel app. ~1,670 lines. |
+| `sw.js` | Service worker — network passthrough + push/notificationclick handlers. `importScripts('./scoring.js')` so push notification text can resolve player ownership. See "Push Notifications" below. |
 | `manifest.json` | PWA manifest (installable web app). |
 | `icon-192*.png`, `icon-512*.png` | PWA icons (standard + maskable). |
 | `README.md` | Effectively empty. |
@@ -28,12 +29,41 @@ The app is **no longer a single file**. Logic is split so the same scoring code 
 |------|-------|
 | **Live app** | https://joshmacklin1.github.io/sweepstake/ |
 | **GitHub repo** | joshmacklin1/sweepstake |
-| **CORS proxy Worker** | https://football-proxy.joshmacklin7.workers.dev (`WORKER_URL` in `scoring.js`) |
+| **CORS proxy Worker** | https://football-proxy.joshmacklin7.workers.dev (`WORKER_URL` in `scoring.js`). **Also hosts push notifications** (subscribe/unsubscribe/test endpoints + a 1-minute Cron Trigger that diffs match state and sends Web Push) — see "Push Notifications" below. Edited via Cloudflare dashboard Quick Edit, same as the email Worker — **not in this repo**. |
 | **Daily email Worker** | `sweepstake-email` (Cloudflare Workers & Pages, edited via dashboard Quick Edit). **Not in this repo, and does NOT live-import `scoring.js`** — it has its own manually-pasted bundled copy (`src/scoring.source.js` + `src/index.js`, concatenated by esbuild into one file in the dashboard editor) that **drifts unless manually re-synced**. See "Email Worker drift" under Known Issues. |
 | **API** | football-data.org free tier (`WC_CODE = "WC"`, `SEASON = 2026`) |
 | **API key** | Lives in the Worker, not the repo. Previous doc recorded `d06d96f284d244ad9f4f190b6273300a` — verify it's still the live key before relying on it. |
+| **Push subscriptions** | Cloudflare KV namespace `SWEEPSTAKE` (bound to `football-proxy`), keys prefixed `sub:` (subscriptions) and `state:` (last-seen per-match status/score, used to diff for kickoff/goal/full-time). |
+| **VAPID keys** | `VAPID_PUBLIC_KEY` is in `scoring.js` (safe to ship client-side); `VAPID_PRIVATE_KEY`/`VAPID_SUBJECT` are `football-proxy` Worker secrets, not in this repo. |
 | **Stack** | React 18 via Babel CDN |
-| **Deploy** | Replace `index.html` (and `scoring.js` if changed) via the GitHub UI → Pages rebuilds automatically |
+| **Deploy** | Replace `index.html`, `scoring.js`, and `sw.js` together via the GitHub UI → Pages rebuilds automatically |
+
+---
+
+## Push Notifications
+
+Added June 2026 — real Web Push (works even if the app/tab is fully closed), not just an in-tab `Notification`. Requires a server watching matches independently of any open browser tab, so this feature spans two places: this repo (service worker + subscribe UI) and the `football-proxy` Worker (push backend), which is **not in this repo** — see Infrastructure above.
+
+### Why `football-proxy`, not `sweepstake-email`
+The email Worker already has Cron + KV, but it's the one place already known to drift (see "Email Worker drift" under Known Issues) — adding more hand-maintained logic there felt like asking for a repeat. `football-proxy` already fetches the same match data and had a spare KV binding (`SWEEPSTAKE`), so the push backend was added there instead, as a second `scheduled` Cron Trigger alongside its existing `fetch` handler.
+
+### `sw.js` (this repo)
+Replaced the old inline Blob-URL-registered service worker — Blob-registered workers don't reliably support the Push API across browsers. `sw.js` is now a real static file, registered via `navigator.serviceWorker.register('./sw.js')`. It keeps the original network-first/empty-fallback `fetch` behaviour and adds `push`/`notificationclick` listeners.
+
+**Owner-aware goal text without duplicating roster data**: the Worker can't know who owns which team without copying `GROUPS` (roster data) into it — exactly the kind of drift the email Worker already suffered. Instead, `sw.js` does `importScripts('./scoring.js')` (wrapped in try/catch — a failure degrades to generic text, doesn't break the SW) and resolves the player itself, client-side, using the new `ownerOfTeamCode(tla, players)` helper in `scoring.js` (a standalone version of `ownerOf`'s lateB tie-break logic, working against a raw `GROUPS[key].players` roster instead of the computed `ranked` array). For a goal, the Worker sends each subscriber `{type:"goal", code, scoringTeam, home, away, hs, as, groupKey, tag}` — `groupKey` is that specific subscriber's own group, captured at subscribe time — and the SW builds **"⚽ Henry's Netherlands scores! 1-0"**, falling back to **"⚽ GOAL — Netherlands"** if the group/owner can't be resolved. Kickoff and full-time don't need an owner, so those stay server-built generic text (`{type:"kickoff"|"fulltime", title, body, tag}`).
+
+### Subscribe/unsubscribe UI (`PushNotificationsSection`, `index.html`)
+Lives in Rules & Info (`InfoContent`), just above the "This Device" section. Feature-detects (`'serviceWorker' in navigator && 'PushManager' in window`) and renders nothing if unsupported — notably **iOS Safari only supports push from an installed PWA** (Add to Home Screen, iOS 16.4+), not a regular tab; the section shows an inline note about this. Subscribing requests Notification permission, calls `pushManager.subscribe()` with `VAPID_PUBLIC_KEY` (from `scoring.js`), then POSTs `{subscription, prefs, groupKey}` to `${WORKER_URL}/push/subscribe` — `groupKey` comes from `localStorage.getItem(GROUP_STORAGE_KEY)` (`"sw_group"`), read directly rather than threaded through as a prop. Three per-event-type toggles (⚽ Goals / 🟢 Kickoff / 🏁 Full time, default all on) re-POST the same endpoint with updated `prefs` whenever changed, so the Worker's stored prefs always match what's shown. Subscribed-state and prefs are mirrored into `localStorage` (`sw_push_subscribed`, `sw_notification_prefs`) purely so the UI shows the right state on next load — the Worker's KV record is the actual source of truth for what gets sent.
+
+### `football-proxy` Worker push backend (not in this repo)
+- `POST /push/subscribe` / `POST /push/unsubscribe` — store/delete a subscription record in KV (`sub:<sha256(endpoint)>`).
+- `POST /push/test` — debug-only: sends one push to a given `{endpoint}` or `{subscription}`, used to manually verify the crypto path against a real device before ever enabling the Cron Trigger.
+- `scheduled` handler (Cron Trigger, every 1 minute — Cloudflare's minimum granularity) — fetches matches, diffs each match's status/score against `state:<matchId>` in KV (same logic `index.html`'s `prevScoresRef` goal-flash detection already does client-side: status → `IN_PLAY` from `SCHEDULED`/`TIMED` = kickoff, score increase = goal, status → `FINISHED` = full time), and sends a push to every subscription whose `prefs` opts into that event type. Applies the same COD→DRC TLA normalization `index.html` does, since the scoring team's code gets matched against `GROUPS` data client-side in the SW.
+- **Hand-written VAPID (RFC 8292) + `aes128gcm` payload encryption (RFC 8291/8188)** using only Web Crypto (`crypto.subtle` — ECDH, HKDF via HMAC-SHA256, AES-128-GCM, ECDSA P-256 sign). No npm packages (e.g. the `web-push` library), since this Worker is deployed via dashboard Quick Edit, not bundled — same constraint as the email Worker. This is the fiddliest part of the whole feature; verified end-to-end against a real subscribed device via `/push/test` before the Cron Trigger was ever turned on.
+- On a 404/410 from the push service (expired/invalid subscription), the dead KV entry is deleted automatically.
+
+### Known limitation
+No tooling catches drift between this repo's CORS-proxy/match-shape assumptions (e.g. the COD→DRC normalization, or the `m.score.fullTime.home/away` shape) and what the Worker's diff logic expects — same caveat as the email Worker, just smaller surface area since no roster data is duplicated. If `index.html`'s match-data handling ever changes shape, check whether the Worker's `checkForMatchUpdates` needs the same update.
 
 ---
 
@@ -343,7 +373,7 @@ football-data.org API
 A **"↻ Retake the tour"** button at the very top, then the points matrix, Grim Reaper explainer, a **Players & Team Selection** list (one card per player with their teams + pots — Josh excluded via `PLAYERS.filter(p => !p.grimReaper)`), and finally a **"This Device"** section at the bottom with a **"Switch group"** button. No top "How Points Work" heading. See "Multi-Group Support" above for what the tour/switch-group buttons actually do.
 
 ### PWA
-`manifest.json` + maskable icons make it installable. An inline service worker (registered from a Blob URL at the bottom of `index.html`) does a network-first fetch with a silent empty-response fallback — lightweight, no real offline caching.
+`manifest.json` + maskable icons make it installable. `sw.js` (a real static file, not the old inline Blob-URL worker) does a network-first fetch with a silent empty-response fallback — lightweight, no real offline caching — plus push/notificationclick handlers. See "Push Notifications" above.
 
 ---
 
@@ -420,14 +450,21 @@ A **"↻ Retake the tour"** button at the very top, then the points matrix, Grim
 59. **First-time tour (`TourOverlay`)** — 5-step static walkthrough auto-shown once per device (`localStorage.sw_tour_seen`), replayable via "↻ Retake the tour" in Rules & Info. A "spotlight" version that drove real tab navigation behind a dimmed cutout was built, tested, and reverted in the same session — the user preferred the static modal but asked for it to be restyled to match the app's existing modal/badge visual language rather than read as a generic dialog. See "Multi-Group Support" for what was tried.
 60. **Switch group** — "Switch group" button added to a new "This Device" section at the bottom of Rules & Info (deliberately low-key — an admin action, not a player-facing feature); clears `localStorage.sw_group` and drops back to the splash. No confirmation dialog (non-destructive).
 
+## Recent Changes — June 2026 (push notifications)
+
+61. **Real service worker** — `sw.js` replaced the inline Blob-URL-registered one (Blob workers don't reliably support the Push API); same fetch behaviour, plus `push`/`notificationclick` handlers.
+62. **`football-proxy` Worker extended with a push backend** — `/push/subscribe`, `/push/unsubscribe`, `/push/test`, and a new 1-minute Cron Trigger that diffs match state (KV) and sends Web Push for kickoff/goal/full-time. Hand-written VAPID + `aes128gcm` encryption via Web Crypto only (no npm packages — Quick Edit deploy, same constraint as the email Worker).
+63. **Owner-aware goal notifications without duplicating roster data** — `sw.js` imports `scoring.js` directly (`importScripts`) and resolves the scoring player client-side via a new `ownerOfTeamCode` helper, so the Worker never needs its own copy of `GROUPS`. New `VAPID_PUBLIC_KEY` constant added to `scoring.js`.
+64. **Subscribe/unsubscribe UI** — new `PushNotificationsSection` in Rules & Info, with per-event-type prefs (goals/kickoff/fulltime) and an iOS Add-to-Home-Screen note. See "Push Notifications" above for the full design.
+
 ---
 
 ## Deployment
 
 1. Go to https://github.com/joshmacklin1/sweepstake
-2. Replace `index.html` **and `scoring.js` together** — they're coupled. `index.html` calls functions defined in `scoring.js` (e.g. `deriveRaceEliminations`), so deploying a new `index.html` against an old `scoring.js` will **blank the whole app** (undefined function on render). When in doubt, re-upload both. (As a safety net, `index.html` now guards calls to newer `scoring.js` functions with a `typeof … === "function"` check, but keeping the two in sync is the real fix.)
+2. Replace `index.html`, `scoring.js`, **and `sw.js` together** — all three are coupled now. `index.html` calls functions defined in `scoring.js` (e.g. `deriveRaceEliminations`), so deploying a new `index.html` against an old `scoring.js` will **blank the whole app** (undefined function on render). `sw.js` separately `importScripts('./scoring.js')` for push notification text — a mismatch there degrades to generic notification text rather than breaking anything, but keep them in sync regardless. When in doubt, re-upload all three. (As a safety net, `index.html` guards calls to newer `scoring.js` functions with a `typeof … === "function"` check, but keeping files in sync is the real fix.)
 3. GitHub Pages rebuilds automatically (~30s).
-4. The CORS proxy Worker doesn't need redeploying unless the API key or endpoint changes.
+4. The CORS proxy Worker (`football-proxy`) doesn't need redeploying unless the API key/endpoint changes, **or** the push notification logic changes (it now also hosts the push backend — see "Push Notifications" above). If you change `normalizeTla`/the COD→DRC handling, the match-data shape assumptions, or anything in `checkForMatchUpdates`'s diff logic, the equivalent needs porting into the Worker's pasted code (dashboard Quick Edit, no auto-sync — same caveat as the email Worker below).
 5. The **email digest Worker is different — treat any `scoring.js` change as requiring a manual email-Worker update.** It does not auto-pick-up changes from this repo (see "Email Worker drift" in Known Issues for why). Checklist whenever `POT`, `PTS_INC`, `GROUP_WIN_PTS`/`GROUP_DRAW_PTS`, `PLAYERS`, or any `derive*`/`score*`/`computeBadges` function changes in this repo's `scoring.js`:
    - Open the `sweepstake-email` Worker in the Cloudflare dashboard → Quick Edit.
    - Manually port the equivalent change into its bundled scoring code.
@@ -438,7 +475,9 @@ A **"↻ Retake the tour"** button at the very top, then the points matrix, Grim
 
 ## Known Issues / Notes
 
-- football-data.org free tier has rate limits; the key lives in the Worker.
+- football-data.org free tier has rate limits; the key lives in the Worker. The push notification Cron Trigger adds one more request per minute against the same key — well within free-tier limits, but worth knowing if rate-limit errors ever show up.
+- **Push notifications require an installed PWA on iOS** (Add to Home Screen, iOS 16.4+) — Safari doesn't support the Push API from a regular tab. The subscribe UI doesn't currently detect "installed vs. not" and just shows a static note about this.
+- There's no way to test the push Cron Trigger's diff logic against `devMode`/`MOCK_MATCHES` — that's client-side only. The Worker always fetches the real football-data.org API, so the only real end-to-end test is a live match event (the crypto/subscribe/owner-name-resolution parts were each verified independently instead — see "Push Notifications" above).
 - **Group codes are not real access control** — this is a public static site, so anyone who views page source can see every group's code and roster in `GROUPS`. The splash screen is a convenience (keeps each group's view tidy) not a security boundary. Don't use this for anything where that distinction matters.
 - Group-stage elimination = team has 3 group games played AND appears in no knockout fixture.
 - Knockout points are **flat, not cumulative** — `ptsTotal`/`pts` looks up the single highest stage reached in `PTS_INC`; `stageReached` tracks which stage that is. (This line previously said "cumulative" in two places in this doc — that was wrong; see "Scoring System" above for the full correction and why it mattered.)
@@ -469,7 +508,10 @@ Root cause: the email Worker is edited via the Cloudflare dashboard's Quick Edit
 |------|---------|
 | `index.html` | The app UI — deploy to GitHub Pages |
 | `scoring.js` | Shared scoring/data logic — deploy alongside `index.html`; also imported by the email worker |
+| `sw.js` | Service worker — deploy alongside `index.html`/`scoring.js`; handles push/notificationclick, `importScripts`s `scoring.js` |
 | `manifest.json` | PWA manifest |
 | `icon-192.png`, `icon-192-maskable.png`, `icon-512.png`, `icon-512-maskable.png` | PWA icons |
 | `worker-email.js` | Daily email digest Worker (imports `scoring.js`) — deployed separately, not in this repo |
 | `SWEEPSTAKE_PROJECT.md` | This document |
+
+`football-proxy`'s push-notification source (subscribe/unsubscribe/test endpoints, the Cron-triggered diff logic, hand-written VAPID/encryption) is **also not in this repo** — deployed via Cloudflare dashboard Quick Edit, same as `worker-email.js`. See "Push Notifications" above.

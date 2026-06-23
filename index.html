@@ -2645,8 +2645,6 @@ function PushNotificationsSection() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  if (!supported) return null;
-
   const urlBase64ToUint8Array = (base64) => {
     const padded = base64.replace(/-/g, "+").replace(/_/g, "/").padEnd(base64.length + (4 - base64.length % 4) % 4, "=");
     return Uint8Array.from(atob(padded), c => c.charCodeAt(0));
@@ -2660,6 +2658,31 @@ function PushNotificationsSection() {
     });
     if (!res.ok) throw new Error("Couldn't reach the notification server.");
   };
+
+  // Re-sync on every mount (App fully remounts after a group switch) so the
+  // Worker's stored groupKey can't go stale — switching groups otherwise left
+  // an existing subscription pointed at whichever group was active when the
+  // device first subscribed, since "already subscribed" skips the normal
+  // subscribe flow entirely. Runs unconditionally (before the `supported`
+  // early return below) to satisfy the Rules of Hooks.
+  useEffect(() => {
+    if (!supported || !subscribed) return;
+    (async () => {
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+          localStorage.removeItem("sw_push_subscribed");
+          setSubscribed(false);
+          return;
+        }
+        await sendSubscription(sub, prefs);
+      } catch (e) {}
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (!supported) return null;
 
   const subscribe = async () => {
     setBusy(true); setError("");
