@@ -548,7 +548,7 @@ function DayPicker({ days, selected, onSelect }) {
   );
 }
 
-function MatchCard({ m, ranked, upcoming = [], pts }) {
+function MatchCard({ m, ranked, upcoming = [], pts, onPlayerClick }) {
   const h = m.homeTeam?.tla?.toUpperCase();
   const a = m.awayTeam?.tla?.toUpperCase();
   const fin = m.status === "FINISHED";
@@ -662,7 +662,10 @@ function MatchCard({ m, ranked, upcoming = [], pts }) {
         </div>
         {/* Teams row */}
         <div style={{ display:"flex", alignItems:"center" }}>
-          <div style={{ flex:1, display:"flex", alignItems:"center", gap:8 }}>
+          <div
+            className={onPlayerClick && hOwner ? "player-card" : undefined}
+            onClick={onPlayerClick && hOwner ? () => onPlayerClick(hOwner) : undefined}
+            style={{ flex:1, display:"flex", alignItems:"center", gap:8, cursor: onPlayerClick && hOwner ? "pointer" : "default" }}>
             <Flag code={h} size={22} />
             <div>
               <div style={{ fontSize:13, fontWeight:700, color: C.text }}>{ownerOf(h, ranked) || ""}</div>
@@ -685,7 +688,10 @@ function MatchCard({ m, ranked, upcoming = [], pts }) {
                 </div>
             }
           </div>
-          <div style={{ flex:1, display:"flex", alignItems:"center", gap:8, justifyContent:"flex-end" }}>
+          <div
+            className={onPlayerClick && aOwner ? "player-card" : undefined}
+            onClick={onPlayerClick && aOwner ? () => onPlayerClick(aOwner) : undefined}
+            style={{ flex:1, display:"flex", alignItems:"center", gap:8, justifyContent:"flex-end", cursor: onPlayerClick && aOwner ? "pointer" : "default" }}>
             <div style={{ textAlign:"right" }}>
               <div style={{ fontSize:13, fontWeight:700, color: C.text }}>{ownerOf(a, ranked) || ""}</div>
               <div style={{ fontSize:11, color: C.muted }}>{m.awayTeam?.name || "TBD"}{POT[a] ? <span style={{ color:C.muted, fontSize:9 }}> (P{POT[a]})</span> : ""}</div>
@@ -2172,7 +2178,7 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
         <div style={{ ...s.label, display: "flex", alignItems: "center", gap: 6 }}><span>🌐</span>Recent Results</div>
         {recentResults.length === 0
           ? <div style={{ ...s.card, padding: "14px", fontSize: 12, color: C.muted }}>No matches in the last 24h</div>
-          : <div className="league-grid fixture-grid">{recentResults.map(m => <MatchCard key={m.id} m={m} ranked={ranked} upcoming={upcoming} pts={matchPtsById[m.id]} />)}</div>}
+          : <div className="league-grid fixture-grid">{recentResults.map(m => <MatchCard key={m.id} m={m} ranked={ranked} upcoming={upcoming} pts={matchPtsById[m.id]} onPlayerClick={openPlayer} />)}</div>}
         <button onClick={() => { window.scrollTo(0, 0); setTab("scores"); }} style={{
           width: "100%", padding: "10px 14px", marginTop: 4, background: "transparent",
           border: `1px solid ${C.border}`, borderRadius: 10, color: C.accent, fontSize: 12, fontWeight: 700,
@@ -2226,7 +2232,7 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
         <div style={{ ...s.label, display: "flex", alignItems: "center", gap: 6 }}><span>📅</span>Up Next</div>
         {upNext.length === 0
           ? <div style={{ ...s.card, padding: "14px", fontSize: 12, color: C.muted }}>No upcoming fixtures</div>
-          : <div className="league-grid fixture-grid">{upNext.map(m => <MatchCard key={m.id} m={m} ranked={ranked} upcoming={upcoming} />)}</div>}
+          : <div className="league-grid fixture-grid">{upNext.map(m => <MatchCard key={m.id} m={m} ranked={ranked} upcoming={upcoming} onPlayerClick={openPlayer} />)}</div>}
       </div>
     </div>
   );
