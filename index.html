@@ -2056,7 +2056,7 @@ function projectR32(groupStandings) {
 // product. Pure read-only summary view; "Open the full table" hands off to
 // the League tab for anything that needs deeper interaction.
 function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, matchPtsById, upcoming, setTab, openPlayerModal }) {
-  const openPlayer = (name, scrollToBottom = false) => { window.scrollTo(0, 0); setTab("table"); openPlayerModal(name, scrollToBottom); };
+  const openPlayer = (name, scrollToBottom = false) => openPlayerModal(name, scrollToBottom);
   // Badges assigned in the last 24h (not "since you last looked" — same
   // rolling window as everything else on this tab). Single-holder badges
   // (Top Dog, Firepower, etc.) naturally surface for whoever holds them
