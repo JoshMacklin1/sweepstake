@@ -2626,6 +2626,127 @@ function TeamsTab({ matches, view, setView }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // RULES & INFO content — shared by the desktop tab and the mobile pop-over
 // ─────────────────────────────────────────────────────────────────────────────
+// PUSH NOTIFICATIONS — settings block inside Rules & Info. Feature-detects
+// and renders nothing if the browser/OS doesn't support the Push API (e.g.
+// Safari on iOS unless installed to the home screen). Subscribe sends the
+// device's push subscription + this device's active group + event-type
+// prefs to the football-proxy Worker, which stores them in KV and sends a
+// Web Push message whenever the cron job detects a kickoff/goal/full-time.
+function PushNotificationsSection() {
+  const supported = typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window;
+  const [subscribed, setSubscribed] = useState(() => localStorage.getItem("sw_push_subscribed") === "yes");
+  const [prefs, setPrefs] = useState(() => {
+    try {
+      return { goals: true, kickoff: true, fulltime: true, ...JSON.parse(localStorage.getItem("sw_notification_prefs")) };
+    } catch {
+      return { goals: true, kickoff: true, fulltime: true };
+    }
+  });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  if (!supported) return null;
+
+  const urlBase64ToUint8Array = (base64) => {
+    const padded = base64.replace(/-/g, "+").replace(/_/g, "/").padEnd(base64.length + (4 - base64.length % 4) % 4, "=");
+    return Uint8Array.from(atob(padded), c => c.charCodeAt(0));
+  };
+
+  const sendSubscription = async (sub, nextPrefs) => {
+    const res = await fetch(`${WORKER_URL}/push/subscribe`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ subscription: sub.toJSON(), prefs: nextPrefs, groupKey: localStorage.getItem(GROUP_STORAGE_KEY) }),
+    });
+    if (!res.ok) throw new Error("Couldn't reach the notification server.");
+  };
+
+  const subscribe = async () => {
+    setBusy(true); setError("");
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") throw new Error("Notification permission was denied.");
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+      await sendSubscription(sub, prefs);
+      localStorage.setItem("sw_push_subscribed", "yes");
+      localStorage.setItem("sw_notification_prefs", JSON.stringify(prefs));
+      setSubscribed(true);
+    } catch (e) {
+      setError(e.message || "Couldn't enable notifications.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const unsubscribe = async () => {
+    setBusy(true); setError("");
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        await fetch(`${WORKER_URL}/push/unsubscribe`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ endpoint: sub.endpoint }),
+        }).catch(() => {});
+        await sub.unsubscribe();
+      }
+      localStorage.removeItem("sw_push_subscribed");
+      setSubscribed(false);
+    } catch (e) {
+      setError(e.message || "Couldn't disable notifications.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const togglePref = async (key) => {
+    const next = { ...prefs, [key]: !prefs[key] };
+    setPrefs(next);
+    localStorage.setItem("sw_notification_prefs", JSON.stringify(next));
+    if (!subscribed) return;
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) await sendSubscription(sub, next);
+    } catch (e) {}
+  };
+
+  return (
+    <>
+      <div style={{ fontSize:11, color:C.text, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:8, marginTop:20 }}>Push Notifications</div>
+      <div style={{ ...s.card, padding:"12px", marginBottom:6 }}>
+        <button onClick={subscribed ? unsubscribe : subscribe} disabled={busy} style={{
+          width:"100%", display:"flex", alignItems:"center", justifyContent:"center", gap:8,
+          padding:"12px", borderRadius:12, border:`1px solid ${subscribed ? C.accent : C.border}`,
+          background: subscribed ? C.posBg : "transparent", color:C.text, fontSize:13, fontWeight:700,
+          cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1, marginBottom: subscribed ? 12 : 0,
+        }}>
+          {busy ? "Working…" : subscribed ? "🔔 Notifications enabled" : "🔕 Enable push notifications"}
+        </button>
+        {subscribed && (
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {[["goals","⚽ Goals"],["kickoff","🟢 Kickoff"],["fulltime","🏁 Full time"]].map(([key, label]) => (
+              <label key={key} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", fontSize:13, color:C.dim, cursor:"pointer" }}>
+                {label}
+                <input type="checkbox" checked={!!prefs[key]} onChange={() => togglePref(key)} />
+              </label>
+            ))}
+          </div>
+        )}
+        {error && <div style={{ fontSize:11, color:C.dangerText, marginTop:8 }}>{error}</div>}
+        <div style={{ fontSize:11, color:C.muted, marginTop:10, lineHeight:1.5 }}>
+          On iPhone, push notifications only work from an installed app — tap Share → Add to Home Screen first, then enable from there.
+        </div>
+      </div>
+    </>
+  );
+}
+
 function InfoContent({ onTakeTour, onSwitchGroup }) {
   return (
     <>
@@ -2748,6 +2869,8 @@ function InfoContent({ onTakeTour, onSwitchGroup }) {
                 </div>
               </div>
             ))}
+
+            <PushNotificationsSection />
 
             {onSwitchGroup && (
               <>

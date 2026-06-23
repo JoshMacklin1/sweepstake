@@ -28,6 +28,9 @@
 var WORKER_URL = "https://football-proxy.joshmacklin7.workers.dev";
 var WC_CODE = "WC";
 var SEASON = 2026;
+// Public VAPID key for push notifications — safe to ship client-side, pairs
+// with the private key held server-side as a football-proxy Worker secret.
+var VAPID_PUBLIC_KEY = "BBuhMJuFwH_TG-NwDHP8JE5iEi5rPfWnv3Qa6gcFNxW7fID5B_N5IYa3KAwZSfr94qrEk0KryC7QcjSxcLtH_vU";
 
 // DEV_MODE is now controlled via UI toggle — default off
 var DEV_MODE_DEFAULT = false;
