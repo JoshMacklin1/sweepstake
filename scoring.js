@@ -299,11 +299,12 @@ var GROUPS = {
     label: "Macklins",
     // 8 real players, 6 teams each (covers all 48 World Cup teams between
     // them) — randomly assigned, balanced so every player gets a roughly
-    // even (1 or 2 per pot) spread across the 4 pots. "Mackbot" is a joke
+    // even (1 or 2 per pot) spread across the 4 pots. "MACK-BOT" is a joke
     // 8th slot added to even out the player count — plays exactly like a
-    // normal player; "can't win" is flavour only, not an enforced rule.
-    // Josh is a real player here, not the Grim Reaper — the Grim Reaper is
-    // a separate, unnamed/anonymous entry.
+    // normal player (scores normally, could technically win); `isBot: true`
+    // only drives the flavour badge in computeBadges, not any scoring
+    // difference. Josh is a real player here, not the Grim Reaper — the
+    // Grim Reaper is a separate, unnamed/anonymous entry.
     players: [
       { name: "Maggie",  teams: ["Canada","Panama","Qatar","Japan","Uruguay","Iraq"],                  codes: ["CAN","PAN","QAT","JPN","URU","IRQ"], lateB: [false,false,false,false,false,false] },
       { name: "Julian",  teams: ["Brazil","Norway","Paraguay","Ecuador","Jordan","Czech Republic"],    codes: ["BRA","NOR","PAR","ECU","JOR","CZE"], lateB: [false,false,false,false,false,false] },
@@ -312,7 +313,7 @@ var GROUPS = {
       { name: "Candice", teams: ["Netherlands","Spain","Sweden","South Korea","Morocco","Cape Verde"], codes: ["NED","ESP","SWE","KOR","MAR","CPV"], lateB: [false,false,false,false,false,false] },
       { name: "Jasper",  teams: ["England","Scotland","Saudi Arabia","Australia","Turkey","Ghana"],    codes: ["ENG","SCO","KSA","AUS","TUR","GHA"], lateB: [false,false,false,false,false,false] },
       { name: "Taco",    teams: ["Argentina","Belgium","Egypt","Switzerland","Senegal","Bosnia"],      codes: ["ARG","BEL","EGY","SUI","SEN","BIH"], lateB: [false,false,false,false,false,false] },
-      { name: "Mackbot", teams: ["Portugal","Ivory Coast","South Africa","Croatia","Colombia","Tunisia"], codes: ["POR","CIV","RSA","CRO","COL","TUN"], lateB: [false,false,false,false,false,false] },
+      { name: "MACK-BOT", teams: ["Portugal","Ivory Coast","South Africa","Croatia","Colombia","Tunisia"], codes: ["POR","CIV","RSA","CRO","COL","TUN"], lateB: [false,false,false,false,false,false], isBot: true },
       { name: "Grim Reaper", teams: [], codes: [], grimReaper: true },
     ],
   },
@@ -773,8 +774,10 @@ function simulateWinProbability(ranked, matches, N = 5000) {
   const basePoints = {};
   ranked.forEach(p => { basePoints[p.name] = p.total; });
 
-  // Grim reaper current total
+  // Grim reaper current total — name isn't always "Josh" (Macklins/Caversham
+  // use an unnamed "Grim Reaper" player).
   const reaperBase = ranked.find(p => p.grimReaper)?.total || 0;
+  const reaperName = (ranked.find(p => p.grimReaper) || {}).name;
 
   // Player code lookup — a code can be owned by MORE THAN ONE player (A/B shared
   // teams), so map each code to an array of owners and credit all of them.
@@ -858,7 +861,7 @@ function simulateWinProbability(ranked, matches, N = 5000) {
 
     // Find winner of this simulation
     const scores = Object.entries(simPts).map(([name, pts]) => ({ name, pts }));
-    scores.push({ name: "Josh", pts: reaperPts }); // Reaper stays fixed (group stage over)
+    scores.push({ name: reaperName, pts: reaperPts }); // Reaper stays fixed (group stage over)
     scores.sort((a, b) => b.pts - a.pts);
     if (scores[0]) wins[scores[0].name] = (wins[scores[0].name] || 0) + 1;
   }
@@ -897,9 +900,15 @@ function computeBadges(ranked, matches, rank24hChange, winPctPlayers) {
   const KO = ["LAST_32","LAST_16","QUARTER_FINALS","SEMI_FINALS","FINALIST","WINNER"];
   const add = (name, b) => { if (badges[name]) badges[name].push(b); };
 
-  // 💀 Grim Reaper — Josh's one and only accolade
+  // 💀 Grim Reaper — the active group's grimReaper:true player's one and only accolade
   const reaper = ranked.find(p => p.grimReaper);
   if (reaper) add(reaper.name, { icon:"💀", label:"Grim Reaper", desc:"Feasts on group-stage upsets and 0-0s — can haunt the table, but can't win it", tone:"bad" });
+
+  // 🤖 Definitely Not Human — MACK-BOT's one and only accolade (Macklins'
+  // joke 8th player). Always-on flavour badge, same "always applies"
+  // pattern as Grim Reaper above — not performance-based.
+  const bot = ranked.find(p => p.isBot);
+  if (bot) add(bot.name, { icon:"🤖", label:"Definitely Not Human", desc:"Drafted to fill the 8th seat. Runs on batteries, spreadsheets, and zero capacity for disappointment.", tone:"bad" });
 
   // 🏆 Top Dog — current leader (once anyone has scored)
   if (real.length && real[0].total > 0) add(real[0].name, { icon:"🏆", label:"Top Dog", desc:"Top of the table", tone:"good" });
@@ -1233,6 +1242,9 @@ function deriveHistory(matches) {
   const history = {};
   const teamPts = {};
   PLAYERS.forEach(p => { running[p.name] = 0; history[p.name] = [0]; });
+  // Whoever has grimReaper:true in the active group — not always named
+  // "Josh" (Macklins/Caversham use an unnamed "Grim Reaper" player).
+  const reaperName = (PLAYERS.find(p => p.grimReaper) || {}).name;
 
   const eliminated = {}, winners = {}, groupGames = {};
   const knockoutTeams = new Set();
@@ -1257,7 +1269,7 @@ function deriveHistory(matches) {
   const reaperBounty = (code, stageKey) => {
     if (stageKey !== "GROUP_ELIM") return;
     const bounty = reaperBountyForCode(code);
-    if (bounty > 0) running["Josh"] += bounty;
+    if (bounty > 0) running[reaperName] += bounty;
   };
 
   // Determine matchday bucket for each match
@@ -1328,7 +1340,7 @@ function deriveHistory(matches) {
 
       // Grim Reaper goal drought curse
       const drought = goalDroughtPts(m);
-      if (drought > 0) running["Josh"] = (running["Josh"] || 0) + drought;
+      if (drought > 0) running[reaperName] = (running[reaperName] || 0) + drought;
 
       [h, a].forEach(code => {
         if (code) groupGames[code] = (groupGames[code]||0) + 1;
@@ -1367,6 +1379,9 @@ function deriveSparklineHistory(matches) {
   const history = {};
   const teamPts = {};
   PLAYERS.forEach(p => { running[p.name] = 0; history[p.name] = [0]; });
+  // Whoever has grimReaper:true in the active group — not always named
+  // "Josh" (Macklins/Caversham use an unnamed "Grim Reaper" player).
+  const reaperName = (PLAYERS.find(p => p.grimReaper) || {}).name;
 
   const eliminated = {}, winners = {}, groupGames = {};
   const knockoutTeams = new Set();
@@ -1433,13 +1448,13 @@ function deriveSparklineHistory(matches) {
       });
       // Grim Reaper goal drought curse
       const drought = goalDroughtPts(m);
-      if (drought > 0) { running["Josh"] = (running["Josh"] || 0) + drought; changedPlayers.add("Josh"); }
+      if (drought > 0) { running[reaperName] = (running[reaperName] || 0) + drought; changedPlayers.add(reaperName); }
       [h, a].forEach(code => {
         if (code) groupGames[code] = (groupGames[code]||0) + 1;
         if (code && groupGames[code] >= 3 && !knockoutTeams.has(code) && !eliminated[code]) {
           eliminated[code] = "GROUP_ELIM"; award(code, "GROUP_ELIM");
           const bounty = reaperBountyForCode(code);
-          if (bounty > 0) { running["Josh"] += bounty; changedPlayers.add("Josh"); }
+          if (bounty > 0) { running[reaperName] += bounty; changedPlayers.add(reaperName); }
         }
       });
     }
@@ -1472,7 +1487,7 @@ function deriveSparklineHistory(matches) {
       });
       // Grim Reaper drought curse on live 0-0
       const drought = goalDroughtPts(m);
-      if (drought > 0) { running["Josh"] = (running["Josh"] || 0) + drought; liveChanged.add("Josh"); }
+      if (drought > 0) { running[reaperName] = (running[reaperName] || 0) + drought; liveChanged.add(reaperName); }
     });
     if (liveChanged.size > 0) PLAYERS.forEach(p => history[p.name].push(running[p.name]));
   }
