@@ -3680,13 +3680,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<GroupGate />);
 </script>
 <script>
 if ('serviceWorker' in navigator) {
-  const sw = `
-self.addEventListener('install', e => self.skipWaiting());
-self.addEventListener('fetch', e => e.respondWith(fetch(e.request).catch(() => new Response(''))));
-  `;
-  const blob = new Blob([sw], {type: 'application/javascript'});
-  const url = URL.createObjectURL(blob);
-  navigator.serviceWorker.register(url).catch(() => {});
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
 }
 </script>
 </body>
