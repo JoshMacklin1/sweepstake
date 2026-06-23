@@ -2883,8 +2883,8 @@ function MoreMenu({ devMode, onToggleDevMode, onTakeTour, onViewRules, onSubscri
     { label: "↻ Retake the tour", onClick: onTakeTour },
     { label: "❓ Rules & Info", onClick: onViewRules },
     { label: "🔔 Push notifications", onClick: onSubscribeNotifications },
-    { label: "Switch group", onClick: onSwitchGroup },
-    { label: "Developer mode", value: devMode ? "On" : "Off", onClick: onToggleDevMode },
+    { label: "🔄 Switch group", onClick: onSwitchGroup },
+    { label: "🛠️ Developer mode", value: devMode ? "On" : "Off", onClick: onToggleDevMode },
   ];
   return (
     <div className="detail-backdrop" onClick={onClose}>
