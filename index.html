@@ -457,6 +457,16 @@ function Flag({ code, size = 18, snail = false }) {
   );
 }
 
+// Splits a list of teams into rows of at most `size` flags — used everywhere
+// multiple team flags are shown together, so a player with more than 3 teams
+// (smaller groups bundle more teams per player, e.g. 6) wraps onto a second
+// row instead of overflowing/squashing into one.
+function chunkFlags(items, size = 3) {
+  const rows = [];
+  for (let i = 0; i < items.length; i += size) rows.push(items.slice(i, i + size));
+  return rows;
+}
+
 function TabBtn({ id, label, active, onClick }) {
   return (
     <button onClick={() => onClick(id)} style={{
@@ -746,7 +756,7 @@ function PlayerRow({ player, rank, displayRank, onOpen, badges = [], rank24hChan
               const won = player.teams.filter(t => t.won);
               const dead = player.teams.filter(t => (t.eliminated || t.stage === "GROUP_ELIM") && !t.won);
               const ordered = [...won, ...alive, ...dead];
-              return [ordered.slice(0,3), ordered.slice(3)].map((row, ri) => (
+              return chunkFlags(ordered, 3).map((row, ri) => (
               <div key={ri} style={{ display:"flex", gap:6 }}>
                 {row.map(t => (
                   <div key={t.code} style={{ position:"relative", display:"inline-flex", flexShrink:0 }}>
@@ -1354,26 +1364,30 @@ function BarRaceModal({ history, allRanked, bucketLabels = [], elimByFrame = [],
                 <div style={{ width:66, textAlign:"right", fontSize:12, fontWeight:700, color:C.text, flexShrink:0, overflow:"hidden", whiteSpace:"nowrap" }}>
                   {s.name}
                 </div>
-                <div style={{ display:"flex", gap:3, flexShrink:0, width:50, alignItems:"center" }}>
+                <div style={{ display:"flex", flexDirection:"column", justifyContent:"center", gap:2, flexShrink:0, width:75 }}>
                   {(teamsByName[s.name] || []).length === 0 ? (
                     <span style={{ fontSize:16, lineHeight:1, marginLeft:2 }}>💀</span>
-                  ) : (teamsByName[s.name] || []).map(t => {
-                    const out = elimNow.has(t.code);
-                    const url = flag(t.code);
-                    return (
-                      <div key={t.code} style={{ position:"relative", width:22, height:15, flexShrink:0 }}>
-                        <div style={{
-                          position:"absolute", inset:0, borderRadius:2,
-                          backgroundImage: url ? `url(${url})` : "none", backgroundColor:C.border,
-                          backgroundSize:"cover", backgroundPosition:"center",
-                          filter: out ? "grayscale(1)" : "none", opacity: out ? 0.4 : 1,
-                        }}/>
-                        {out && (
-                          <span style={{ position:"absolute", top:-2, right:-1, fontSize:9, fontWeight:900, color:C.red, textShadow:"0 0 2px rgba(0,0,0,0.9)", lineHeight:1, zIndex:1 }}>✕</span>
-                        )}
-                      </div>
-                    );
-                  })}
+                  ) : chunkFlags(teamsByName[s.name] || [], 3).map((row, ri) => (
+                    <div key={ri} style={{ display:"flex", gap:3 }}>
+                      {row.map(t => {
+                        const out = elimNow.has(t.code);
+                        const url = flag(t.code);
+                        return (
+                          <div key={t.code} style={{ position:"relative", width:22, height:15, flexShrink:0 }}>
+                            <div style={{
+                              position:"absolute", inset:0, borderRadius:2,
+                              backgroundImage: url ? `url(${url})` : "none", backgroundColor:C.border,
+                              backgroundSize:"cover", backgroundPosition:"center",
+                              filter: out ? "grayscale(1)" : "none", opacity: out ? 0.4 : 1,
+                            }}/>
+                            {out && (
+                              <span style={{ position:"absolute", top:-2, right:-1, fontSize:9, fontWeight:900, color:C.red, textShadow:"0 0 2px rgba(0,0,0,0.9)", lineHeight:1, zIndex:1 }}>✕</span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
                 </div>
                 <div style={{ flex:1, position:"relative", height:"55%", minHeight:18 }}>
                   <div style={{ position:"absolute", inset:0, background:C.border, borderRadius:"0 3px 3px 0" }}/>
@@ -2112,7 +2126,13 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
         }}>
           <div style={{ fontSize: 11, color: C.dim, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Currently Leading</div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 6 }}>
-            <div style={{ display: "flex", gap: 4 }}>{topThree[0].teams.map(t => <Flag key={t.code} code={t.code} size={20} />)}</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+              {chunkFlags(topThree[0].teams, 3).map((row, ri) => (
+                <div key={ri} style={{ display: "flex", gap: 4 }}>
+                  {row.map(t => <Flag key={t.code} code={t.code} size={20} />)}
+                </div>
+              ))}
+            </div>
             <span style={{ fontSize: 20, fontWeight: 900, color: C.text }}>{topThree[0].name}</span>
           </div>
           <div style={{ fontSize: 30, fontWeight: 900, color: C.accent, lineHeight: 1 }}>
@@ -2136,7 +2156,13 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
                 background: rankColors[i], display: "flex", alignItems: "center", justifyContent: "center",
                 fontSize: 12, fontWeight: 800, color: "#080c18",
               }}>{i + 1}</div>
-              <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>{p.teams.map(t => <Flag key={t.code} code={t.code} size={16} />)}</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 2, flexShrink: 0 }}>
+                {chunkFlags(p.teams, 3).map((row, ri) => (
+                  <div key={ri} style={{ display: "flex", gap: 4 }}>
+                    {row.map(t => <Flag key={t.code} code={t.code} size={16} />)}
+                  </div>
+                ))}
+              </div>
               <span style={{ fontSize: 13, fontWeight: 700, color: C.text, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
               <Sparkline data={p.hist} width={64} height={28} color={p.total < 0 ? C.red : p.total === 0 ? C.neutral : C.accent} />
               <div style={{ textAlign: "right", flexShrink: 0, minWidth: 50 }}>

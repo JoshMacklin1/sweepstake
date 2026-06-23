@@ -248,6 +248,93 @@ var GROUPS = {
       { name: "Josh",     teams: [], codes: [], grimReaper: true },
     ],
   },
+  RODENTS: {
+    code: "RODENTS",
+    label: "Rodents",
+    // 8 real players, 6 teams each — covers all 48 World Cup teams between
+    // them. Josh plays the Grim Reaper here, not a real player. Team
+    // assignments were predetermined by the group's own draw (not
+    // randomised by us, unlike the other new groups below).
+    players: [
+      { name: "George",    teams: ["Mexico","Canada","Germany","Japan","Panama","Iraq"],                       codes: ["MEX","CAN","GER","JPN","PAN","IRQ"], lateB: [false,false,false,false,false,false] },
+      { name: "Christoph", teams: ["France","Switzerland","Norway","Uzbekistan","South Africa","New Zealand"], codes: ["FRA","SUI","NOR","UZB","RSA","NZL"], lateB: [false,false,false,false,false,false] },
+      { name: "Sam",       teams: ["Netherlands","United States","Senegal","Austria","Paraguay","Bosnia"],     codes: ["NED","USA","SEN","AUT","PAR","BIH"], lateB: [false,false,false,false,false,false] },
+      { name: "Toby",      teams: ["Argentina","Uruguay","Egypt","Tunisia","Curaçao","Sweden"],                codes: ["ARG","URU","EGY","TUN","CUW","SWE"], lateB: [false,false,false,false,false,false] },
+      { name: "Dollie",    teams: ["Brazil","Colombia","Australia","Ivory Coast","Saudi Arabia","DR Congo"],   codes: ["BRA","COL","AUS","CIV","KSA","DRC"], lateB: [false,false,false,false,false,false] },
+      { name: "Elliott",   teams: ["England","Iran","South Korea","Ecuador","Qatar","Ghana"],                  codes: ["ENG","IRN","KOR","ECU","QAT","GHA"], lateB: [false,false,false,false,false,false] },
+      { name: "Paul",      teams: ["Spain","Belgium","Croatia","Algeria","Haiti","Czech Republic"],            codes: ["ESP","BEL","CRO","ALG","HAI","CZE"], lateB: [false,false,false,false,false,false] },
+      { name: "Auz",       teams: ["Portugal","Morocco","Scotland","Jordan","Cape Verde","Turkey"],            codes: ["POR","MAR","SCO","JOR","CPV","TUR"], lateB: [false,false,false,false,false,false] },
+      { name: "Josh",      teams: [], codes: [], grimReaper: true },
+    ],
+  },
+  CORNWALL: {
+    code: "CORNWALL",
+    label: "Cornwall",
+    // 16 real players, 3 teams each (covers all 48 World Cup teams between
+    // them) — randomly assigned, balanced so every player gets exactly 3
+    // of the 4 pots represented once (misses exactly 1 pot). Josh plays
+    // the Grim Reaper here, like Rodents.
+    players: [
+      { name: "Paul",      teams: ["Iran","South Africa","Belgium"],            codes: ["IRN","RSA","BEL"], lateB: [false,false,false] },
+      { name: "Auz",       teams: ["Ghana","Austria","Algeria"],                codes: ["GHA","AUT","ALG"], lateB: [false,false,false] },
+      { name: "Candice",   teams: ["Iraq","Qatar","Argentina"],                 codes: ["IRQ","QAT","ARG"], lateB: [false,false,false] },
+      { name: "Charlotte", teams: ["New Zealand","Saudi Arabia","England"],     codes: ["NZL","KSA","ENG"], lateB: [false,false,false] },
+      { name: "Elliott",   teams: ["Haiti","Australia","Canada"],               codes: ["HAI","AUS","CAN"], lateB: [false,false,false] },
+      { name: "Emily",     teams: ["Turkey","Scotland","Brazil"],               codes: ["TUR","SCO","BRA"], lateB: [false,false,false] },
+      { name: "Iain",      teams: ["Tunisia","Norway","France"],                codes: ["TUN","NOR","FRA"], lateB: [false,false,false] },
+      { name: "Izzy",      teams: ["Curaçao","Morocco","Uzbekistan"],           codes: ["CUW","MAR","UZB"], lateB: [false,false,false] },
+      { name: "Kate",      teams: ["Jordan","Ecuador","Netherlands"],           codes: ["JOR","ECU","NED"], lateB: [false,false,false] },
+      { name: "Katie",     teams: ["Czech Republic","South Korea","Ivory Coast"], codes: ["CZE","KOR","CIV"], lateB: [false,false,false] },
+      { name: "Lucy",      teams: ["DR Congo","Colombia","United States"],      codes: ["DRC","COL","USA"], lateB: [false,false,false] },
+      { name: "Naomi",     teams: ["Senegal","Egypt","Mexico"],                 codes: ["SEN","EGY","MEX"], lateB: [false,false,false] },
+      { name: "Rory",      teams: ["Croatia","Sweden","Spain"],                 codes: ["CRO","SWE","ESP"], lateB: [false,false,false] },
+      { name: "Sam",       teams: ["Bosnia","Japan","Paraguay"],                codes: ["BIH","JPN","PAR"], lateB: [false,false,false] },
+      { name: "Tom",       teams: ["Uruguay","Panama","Portugal"],              codes: ["URU","PAN","POR"], lateB: [false,false,false] },
+      { name: "Tori",      teams: ["Cape Verde","Switzerland","Germany"],       codes: ["CPV","SUI","GER"], lateB: [false,false,false] },
+      { name: "Josh",      teams: [], codes: [], grimReaper: true },
+    ],
+  },
+  MACKLINS: {
+    code: "MACKLINS",
+    label: "Macklins",
+    // 8 real players, 6 teams each (covers all 48 World Cup teams between
+    // them) — randomly assigned, balanced so every player gets a roughly
+    // even (1 or 2 per pot) spread across the 4 pots. "Mackbot" is a joke
+    // 8th slot added to even out the player count — plays exactly like a
+    // normal player; "can't win" is flavour only, not an enforced rule.
+    // Josh is a real player here, not the Grim Reaper — the Grim Reaper is
+    // a separate, unnamed/anonymous entry.
+    players: [
+      { name: "Maggie",  teams: ["Canada","Panama","Qatar","Japan","Uruguay","Iraq"],                  codes: ["CAN","PAN","QAT","JPN","URU","IRQ"], lateB: [false,false,false,false,false,false] },
+      { name: "Julian",  teams: ["Brazil","Norway","Paraguay","Ecuador","Jordan","Czech Republic"],    codes: ["BRA","NOR","PAR","ECU","JOR","CZE"], lateB: [false,false,false,false,false,false] },
+      { name: "Molly",   teams: ["France","Germany","Algeria","Iran","New Zealand","DR Congo"],        codes: ["FRA","GER","ALG","IRN","NZL","DRC"], lateB: [false,false,false,false,false,false] },
+      { name: "Josh",    teams: ["Mexico","United States","Uzbekistan","Austria","Haiti","Curaçao"],   codes: ["MEX","USA","UZB","AUT","HAI","CUW"], lateB: [false,false,false,false,false,false] },
+      { name: "Candice", teams: ["Netherlands","Spain","Sweden","South Korea","Morocco","Cape Verde"], codes: ["NED","ESP","SWE","KOR","MAR","CPV"], lateB: [false,false,false,false,false,false] },
+      { name: "Jasper",  teams: ["England","Scotland","Saudi Arabia","Australia","Turkey","Ghana"],    codes: ["ENG","SCO","KSA","AUS","TUR","GHA"], lateB: [false,false,false,false,false,false] },
+      { name: "Taco",    teams: ["Argentina","Belgium","Egypt","Switzerland","Senegal","Bosnia"],      codes: ["ARG","BEL","EGY","SUI","SEN","BIH"], lateB: [false,false,false,false,false,false] },
+      { name: "Mackbot", teams: ["Portugal","Ivory Coast","South Africa","Croatia","Colombia","Tunisia"], codes: ["POR","CIV","RSA","CRO","COL","TUN"], lateB: [false,false,false,false,false,false] },
+      { name: "Grim Reaper", teams: [], codes: [], grimReaper: true },
+    ],
+  },
+  CAVERSHAM: {
+    code: "CAVERSHAM",
+    label: "Caversham",
+    // 8 real players, 6 teams each (covers all 48 World Cup teams between
+    // them) — randomly assigned, balanced the same way as Macklins. Josh
+    // is a real player here too, not the Grim Reaper — the Grim Reaper is
+    // a separate, unnamed/anonymous entry.
+    players: [
+      { name: "Josh",   teams: ["Japan","Argentina","Spain","Panama","Algeria","Tunisia"],          codes: ["JPN","ARG","ESP","PAN","ALG","TUN"], lateB: [false,false,false,false,false,false] },
+      { name: "Aaron",  teams: ["Iran","Uruguay","Canada","Qatar","South Africa","DR Congo"],       codes: ["IRN","URU","CAN","QAT","RSA","DRC"], lateB: [false,false,false,false,false,false] },
+      { name: "Candice",teams: ["Ecuador","United States","England","Uzbekistan","Norway","Ghana"], codes: ["ECU","USA","ENG","UZB","NOR","GHA"], lateB: [false,false,false,false,false,false] },
+      { name: "Katie",  teams: ["Colombia","Mexico","Brazil","Egypt","Bosnia","Jordan"],            codes: ["COL","MEX","BRA","EGY","BIH","JOR"], lateB: [false,false,false,false,false,false] },
+      { name: "Jon",    teams: ["South Korea","Germany","Belgium","Scotland","Cape Verde","Haiti"], codes: ["KOR","GER","BEL","SCO","CPV","HAI"], lateB: [false,false,false,false,false,false] },
+      { name: "India",  teams: ["Croatia","Senegal","France","Saudi Arabia","Curaçao","Turkey"],    codes: ["CRO","SEN","FRA","KSA","CUW","TUR"], lateB: [false,false,false,false,false,false] },
+      { name: "Yan",    teams: ["Australia","Switzerland","Portugal","Sweden","Czech Republic","New Zealand"], codes: ["AUS","SUI","POR","SWE","CZE","NZL"], lateB: [false,false,false,false,false,false] },
+      { name: "Freya",  teams: ["Morocco","Austria","Netherlands","Paraguay","Ivory Coast","Iraq"], codes: ["MAR","AUT","NED","PAR","CIV","IRQ"], lateB: [false,false,false,false,false,false] },
+      { name: "Grim Reaper", teams: [], codes: [], grimReaper: true },
+    ],
+  },
   // future groups added here by hand, each with a unique `code`
 };
 
