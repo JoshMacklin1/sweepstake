@@ -593,7 +593,7 @@ function DayPicker({ days, selected, onSelect }) {
   );
 }
 
-function MatchCard({ m, ranked, upcoming = [], pts, onPlayerClick }) {
+function MatchCard({ m, ranked, upcoming = [], pts, onPlayerClick, onTeamClick }) {
   const h = m.homeTeam?.tla?.toUpperCase();
   const a = m.awayTeam?.tla?.toUpperCase();
   const fin = m.status === "FINISHED";
@@ -708,9 +708,9 @@ function MatchCard({ m, ranked, upcoming = [], pts, onPlayerClick }) {
         {/* Teams row */}
         <div style={{ display:"flex", alignItems:"center" }}>
           <div
-            className={onPlayerClick && hOwner ? "player-card" : undefined}
-            onClick={onPlayerClick && hOwner ? () => onPlayerClick(hOwner) : undefined}
-            style={{ flex:1, display:"flex", alignItems:"center", gap:8, cursor: onPlayerClick && hOwner ? "pointer" : "default" }}>
+            className={(onTeamClick && h) || (onPlayerClick && hOwner) ? "player-card" : undefined}
+            onClick={onTeamClick && h ? () => onTeamClick(h) : onPlayerClick && hOwner ? () => onPlayerClick(hOwner) : undefined}
+            style={{ flex:1, display:"flex", alignItems:"center", gap:8, cursor: (onTeamClick && h) || (onPlayerClick && hOwner) ? "pointer" : "default" }}>
             <Flag code={h} size={22} />
             <div>
               <div style={{ fontSize:13, fontWeight:700, color: C.text }}>{ownerOf(h, ranked) || ""}</div>
@@ -734,9 +734,9 @@ function MatchCard({ m, ranked, upcoming = [], pts, onPlayerClick }) {
             }
           </div>
           <div
-            className={onPlayerClick && aOwner ? "player-card" : undefined}
-            onClick={onPlayerClick && aOwner ? () => onPlayerClick(aOwner) : undefined}
-            style={{ flex:1, display:"flex", alignItems:"center", gap:8, justifyContent:"flex-end", cursor: onPlayerClick && aOwner ? "pointer" : "default" }}>
+            className={(onTeamClick && a) || (onPlayerClick && aOwner) ? "player-card" : undefined}
+            onClick={onTeamClick && a ? () => onTeamClick(a) : onPlayerClick && aOwner ? () => onPlayerClick(aOwner) : undefined}
+            style={{ flex:1, display:"flex", alignItems:"center", gap:8, justifyContent:"flex-end", cursor: (onTeamClick && a) || (onPlayerClick && aOwner) ? "pointer" : "default" }}>
             <div style={{ textAlign:"right" }}>
               <div style={{ fontSize:13, fontWeight:700, color: C.text }}>{ownerOf(a, ranked) || ""}</div>
               <div style={{ fontSize:11, color: C.muted }}>{m.awayTeam?.name || "TBD"}{POT[a] ? <span style={{ color:C.muted, fontSize:9 }}> (P{POT[a]})</span> : ""}</div>
@@ -1021,6 +1021,177 @@ function PlayerModal({ player, displayRank, winPct, winTeams, badges = [], scrol
               ))}
             </>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TEAM MODAL — bottom sheet with a single team's full match history
+// ─────────────────────────────────────────────────────────────────────────────
+function TeamModal({ tla, matches, ranked, matchPtsById, onClose }) {
+  React.useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prevOverflow; };
+  }, []);
+
+  const sheetRef = React.useRef(null);
+  const bodyRef = React.useRef(null);
+  const dragInfo = React.useRef({ startY: 0, startTime: 0, active: false, dragY: 0 });
+  const [dragY, setDragY] = React.useState(0);
+  const [dragging, setDragging] = React.useState(false);
+
+  React.useEffect(() => {
+    const el = sheetRef.current;
+    if (!el) return;
+    const onStart = (e) => {
+      dragInfo.current = { startY: e.touches[0].clientY, startTime: Date.now(), active: true, dragY: 0 };
+    };
+    const onMove = (e) => {
+      if (!dragInfo.current.active) return;
+      const delta = e.touches[0].clientY - dragInfo.current.startY;
+      const atTop = !bodyRef.current || bodyRef.current.scrollTop <= 0;
+      if (delta > 0 && atTop) {
+        e.preventDefault();
+        dragInfo.current.dragY = delta;
+        setDragging(true);
+        setDragY(delta);
+      } else if (dragInfo.current.dragY > 0) {
+        dragInfo.current.dragY = 0;
+        setDragY(0);
+      }
+    };
+    const onEnd = () => {
+      if (!dragInfo.current.active) return;
+      dragInfo.current.active = false;
+      setDragging(false);
+      const { dragY: finalDragY, startTime } = dragInfo.current;
+      if (finalDragY === 0) return;
+      const elapsed = Date.now() - startTime;
+      const velocity = finalDragY / Math.max(elapsed, 1);
+      const sheetHeight = el.offsetHeight;
+      if (finalDragY > sheetHeight * 0.25 || velocity > 0.5) {
+        onClose();
+      } else {
+        setDragY(0);
+      }
+    };
+    el.addEventListener("touchstart", onStart, { passive: true });
+    el.addEventListener("touchmove", onMove, { passive: false });
+    el.addEventListener("touchend", onEnd, { passive: true });
+    return () => {
+      el.removeEventListener("touchstart", onStart);
+      el.removeEventListener("touchmove", onMove);
+      el.removeEventListener("touchend", onEnd);
+    };
+  }, []);
+
+  const owner = ownerOf(tla, ranked);
+  const pot = POT[tla] || 4;
+
+  let teamEntry = null;
+  for (const p of ranked) {
+    const t = (p.teams || []).find(t => t.code === tla);
+    if (t) { teamEntry = t; break; }
+  }
+
+  const teamMatches = matches
+    .filter(m => {
+      const h = m.homeTeam?.tla?.toUpperCase();
+      const a = m.awayTeam?.tla?.toUpperCase();
+      return (h === tla || a === tla) && isSettled(m.status);
+    })
+    .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
+
+  const teamName = teamEntry?.name || tla;
+  const stage = teamEntry?.stage;
+  const eliminated = teamEntry?.eliminated;
+  const won = teamEntry?.won;
+  const totalPts = teamEntry?.pts ?? 0;
+
+  return (
+    <div className="detail-backdrop" onClick={onClose}>
+      <div className="detail-sheet" ref={sheetRef} onClick={(e) => e.stopPropagation()} style={{
+        background: C.bg, display: "flex", flexDirection: "column",
+        border: `1px solid ${C.border}`, boxShadow: "0 24px 64px rgba(0,0,0,0.55)",
+        transform: `translateY(${dragY}px)`, transition: dragging ? "none" : "transform 0.25s ease",
+      }}>
+        <div className="sheet-handle"><span></span></div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "14px 16px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <Flag code={tla} size={28} />
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 900, color: C.text }}>{teamName}</div>
+              <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
+                {owner ? `${owner}'s team` : "Unassigned"} · Pot {pot}
+              </div>
+            </div>
+          </div>
+          <button onClick={onClose} aria-label="Close" style={{ background: "transparent", border: "none", color: C.muted, fontSize: 22, cursor: "pointer", lineHeight: 1 }}>✕</button>
+        </div>
+        <div ref={bodyRef} style={{ flex: 1, overflowY: "auto", padding: "16px 14px 28px" }}>
+          <div style={{ display: "flex", gap: 10, marginBottom: 18 }}>
+            <div style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: s.card.borderRadius, padding: "12px 8px", textAlign: "center" }}>
+              <div style={{ fontSize: 24, fontWeight: 900, color: totalPts < 0 ? C.red : C.text }}>{totalPts > 0 ? `+${totalPts}` : totalPts}</div>
+              <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>Points</div>
+            </div>
+            <div style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: s.card.borderRadius, padding: "12px 8px", textAlign: "center" }}>
+              <div style={{ fontSize: 14, fontWeight: 900, lineHeight: 1.4, color: won ? C.gold : eliminated ? C.red : C.accent }}>
+                {won ? "Winner 🏆" : eliminated ? "Eliminated" : stage ? (STAGE_LABEL[stage] || stage.replace(/_/g, " ")) : "Active"}
+              </div>
+              <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>Stage</div>
+            </div>
+          </div>
+
+          <div style={{ fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Results</div>
+          {teamMatches.length === 0 ? (
+            <div style={{ fontSize: 12, color: C.muted, padding: "8px 0" }}>No results yet</div>
+          ) : teamMatches.map(m => {
+            const isHome = m.homeTeam?.tla?.toUpperCase() === tla;
+            const oppCode = isHome ? m.awayTeam?.tla?.toUpperCase() : m.homeTeam?.tla?.toUpperCase();
+            const oppName = isHome ? (m.awayTeam?.name || "TBD") : (m.homeTeam?.name || "TBD");
+            const hs = m.score?.fullTime?.home ?? 0;
+            const as_ = m.score?.fullTime?.away ?? 0;
+            const myGoals = isHome ? hs : as_;
+            const oppGoals = isHome ? as_ : hs;
+            const pen = m.score?.penalties;
+            let result = "D";
+            if (myGoals > oppGoals) result = "W";
+            else if (myGoals < oppGoals) result = "L";
+            else if (pen) {
+              const myPen = isHome ? pen.home : pen.away;
+              const oppPen = isHome ? pen.away : pen.home;
+              result = myPen > oppPen ? "W" : "L";
+            }
+            const mPts = matchPtsById[m.id];
+            const earnedPts = mPts ? (isHome ? mPts.home : mPts.away) : null;
+            const resultColor = result === "W" ? C.accent : result === "L" ? C.red : C.muted;
+            return (
+              <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 0", borderBottom: `1px solid ${C.border}` }}>
+                <div style={{
+                  width: 22, height: 22, borderRadius: 4, flexShrink: 0,
+                  background: result === "W" ? C.posBg : result === "L" ? C.negBg : "rgba(148,163,184,0.12)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 10, fontWeight: 800, color: resultColor,
+                }}>{result}</div>
+                <Flag code={oppCode} size={18} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{oppName}</div>
+                  <div style={{ fontSize: 10, color: C.muted }}>{fmt(m.utcDate)} · {(m.stage || "").replace(/_/g, " ")}</div>
+                </div>
+                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{myGoals}–{oppGoals}</div>
+                  {earnedPts != null && (
+                    <div style={{ fontSize: 10, fontWeight: 700, color: earnedPts > 0 ? C.accent : C.muted }}>
+                      {earnedPts > 0 ? `+${earnedPts}` : earnedPts} pts
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -2281,7 +2452,7 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
   );
 }
 
-function TeamsTab({ matches, view, setView }) {
+function TeamsTab({ matches, view, setView, onTeamClick }) {
   const bracketRef = React.useRef(null);
   // ── Hardcoded group assignments (A-L, 4 teams each) ─────────────────
   const GROUP_ASSIGNMENTS = {
@@ -2430,8 +2601,11 @@ function TeamsTab({ matches, view, setView }) {
     // Sweepstake pts: group stage wins + draws scored by this team
     const swPts = (grpPts[tla] || 0) + (stageReached[tla] && stageReached[tla] !== "GROUP_ELIM" ? ptsTotal(tla, stageReached[tla]) : 0) + (eliminated[tla] === "GROUP_ELIM" ? ptsTotal(tla, "GROUP_ELIM") : 0);
     return (
-      <div style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 12px",
-        borderBottom: `1px solid ${C.border}`, opacity: isElim ? 0.45 : 1 }}>
+      <div className={onTeamClick ? "player-card" : undefined}
+        onClick={onTeamClick ? () => onTeamClick(tla) : undefined}
+        style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 12px",
+          borderBottom: `1px solid ${C.border}`, opacity: isElim ? 0.45 : 1,
+          cursor: onTeamClick ? "pointer" : "default" }}>
         {rank && <span style={{ fontSize:12, color:C.muted, width:16, textAlign:"right", flexShrink:0 }}>{rank}</span>}
         {flagUrl
           ? <img src={flagUrl} alt={tla} {...flagHandlers(tla, 23)} style={{ width:34, height:23, objectFit:"cover", borderRadius:2, flexShrink:0 }} />
@@ -2462,14 +2636,18 @@ function TeamsTab({ matches, view, setView }) {
     const label = tla ? null : (matchNum ? `W Match ${matchNum}` : "TBD");
     // Grey out a team once it's been knocked out of this round (loser of a completed match)
     const isElim = tla && eliminated[tla] && score != null && !isWinner;
+    const clickable = onTeamClick && tla;
     return (
-      <div style={{
-        display:"flex", alignItems:"center", gap:7,
-        padding:"4px 8px", height:38, boxSizing:"border-box", minWidth:0, overflow:"hidden",
-        borderBottom: side === "home" ? `1px solid ${C.border}` : "none",
-        background: isWinner ? "rgba(34,197,94,0.08)" : "transparent",
-        opacity: isElim ? 0.45 : 1,
-      }}>
+      <div className={clickable ? "player-card" : undefined}
+        onClick={clickable ? () => onTeamClick(tla) : undefined}
+        style={{
+          display:"flex", alignItems:"center", gap:7,
+          padding:"4px 8px", height:38, boxSizing:"border-box", minWidth:0, overflow:"hidden",
+          borderBottom: side === "home" ? `1px solid ${C.border}` : "none",
+          background: isWinner ? "rgba(34,197,94,0.08)" : "transparent",
+          opacity: isElim ? 0.45 : 1,
+          cursor: clickable ? "pointer" : "default",
+        }}>
         {tla && flagUrl
           ? <img src={flagUrl} alt={tla} {...flagHandlers(tla, 15)} style={{ width:22, height:15, objectFit:"cover", borderRadius:1, flexShrink:0 }} />
           : <div style={{ width:22, height:15, background:C.border, borderRadius:1, flexShrink:0 }} />}
@@ -3116,6 +3294,8 @@ function App({ onSwitchGroup }) {
     setSelectedPlayer(name);
     setScrollPlayerToBadges(scrollToBottom);
   };
+  const [selectedTeam, setSelectedTeam] = useState(null);
+  const openTeamModal = (tla) => setSelectedTeam(tla);
   const [refreshing,  setRefreshing]  = useState(false);
   const [devMode,     setDevMode]     = useState(DEV_MODE_DEFAULT);
   const devModeRef = React.useRef(DEV_MODE_DEFAULT);
@@ -3812,7 +3992,7 @@ function App({ onSwitchGroup }) {
             )}
 
             {(leagueView === "groups" || leagueView === "knockout") && (
-              <TeamsTab matches={matches} view={leagueView} setView={setLeagueView} />
+              <TeamsTab matches={matches} view={leagueView} setView={setLeagueView} onTeamClick={openTeamModal} />
             )}
           </>
         )}
@@ -3820,7 +4000,7 @@ function App({ onSwitchGroup }) {
         {tab === "scores" && !loading && (
           dayMatches.length === 0
             ? <div style={{ color:C.muted, textAlign:"center", padding:32, fontSize:14 }}>No matches on this day</div>
-            : <div className="league-grid fixture-grid">{dayMatches.map(m => <MatchCard key={m.id} m={m} ranked={ranked} upcoming={upcoming} pts={matchPtsById[m.id]} />)}</div>
+            : <div className="league-grid fixture-grid">{dayMatches.map(m => <MatchCard key={m.id} m={m} ranked={ranked} upcoming={upcoming} pts={matchPtsById[m.id]} onTeamClick={openTeamModal} />)}</div>
         )}
 
         {/* ── THE RACE ── */}
@@ -3870,6 +4050,10 @@ function App({ onSwitchGroup }) {
           if (!p) return null;
           return <PlayerModal player={p} displayRank={p._displayRank || (idx + 1)} winPct={winPct.players ? winPct.players[selectedPlayer] : 0} winTeams={winPct.teams} badges={badges[selectedPlayer] || []} scrollToBottom={scrollPlayerToBadges} onClose={() => setSelectedPlayer(null)} />;
         })()}
+
+        {selectedTeam && (
+          <TeamModal tla={selectedTeam} matches={matches} ranked={ranked} matchPtsById={matchPtsById} onClose={() => setSelectedTeam(null)} />
+        )}
 
         {showTour && <TourOverlay onClose={closeTour} />}
       </div>
