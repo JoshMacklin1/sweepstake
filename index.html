@@ -3314,15 +3314,40 @@ function App({ onSwitchGroup }) {
   }, []);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [scrollPlayerToBadges, setScrollPlayerToBadges] = useState(false);
+  const [selectedTeam, setSelectedTeam] = useState(null);
+
+  // Wire app navigation into the browser History API so that the OS back
+  // gesture (swipe-left on iOS/Android) navigates within the app rather
+  // than exiting it. We push a state entry whenever the user changes tab
+  // or opens a modal; popstate restores whatever the entry recorded.
+  const tabRef = React.useRef("home");
+  React.useEffect(() => { tabRef.current = tab; }, [tab]);
+
+  React.useEffect(() => {
+    window.history.replaceState({ appTab: "home", appModal: null }, "");
+    const handler = (e) => {
+      const s = e.state || { appTab: "home", appModal: null };
+      setTab(s.appTab || "home");
+      setSelectedPlayer(s.appPlayer || null);
+      setScrollPlayerToBadges(false);
+      setSelectedTeam(s.appTeam || null);
+    };
+    window.addEventListener("popstate", handler);
+    return () => window.removeEventListener("popstate", handler);
+  }, []);
+
   // Opens the player modal — scrollToBottom is for the New Accolades list
   // (Home tab), where the badge that brought them here is at the bottom of
   // the modal's Accolades section, not visible without scrolling down.
   const openPlayerModal = (name, scrollToBottom = false) => {
+    window.history.pushState({ appTab: tabRef.current, appModal: "player", appPlayer: name }, "");
     setSelectedPlayer(name);
     setScrollPlayerToBadges(scrollToBottom);
   };
-  const [selectedTeam, setSelectedTeam] = useState(null);
-  const openTeamModal = (tla) => setSelectedTeam(tla);
+  const openTeamModal = (tla) => {
+    window.history.pushState({ appTab: tabRef.current, appModal: "team", appTeam: tla }, "");
+    setSelectedTeam(tla);
+  };
   const [refreshing,  setRefreshing]  = useState(false);
   const [devMode,     setDevMode]     = useState(DEV_MODE_DEFAULT);
   const devModeRef = React.useRef(DEV_MODE_DEFAULT);
@@ -3422,7 +3447,8 @@ function App({ onSwitchGroup }) {
   useEffect(() => {
     const onKeyDown = (e) => {
       if (e.key !== "Escape") return;
-      setSelectedPlayer(null);
+      if (window.history.state?.appModal) window.history.back();
+      else setSelectedPlayer(null);
       setShowRace(false);
       setShowInfo(false);
       if (showTour) closeTour();
@@ -3928,13 +3954,18 @@ function App({ onSwitchGroup }) {
           } else if (id === "table-sweeps" || id === "table-groups" || id === "table-knockout") {
             const view = id === "table-sweeps" ? "league" : id === "table-groups" ? "groups" : "knockout";
             active = tab === "table" && leagueView === view;
-            onNav = () => { setShowInfo(false); setSelectedPlayer(null); setTab("table"); setLeagueView(view); };
+            onNav = () => {
+              window.history.pushState({ appTab: "table", appModal: null }, "");
+              setShowInfo(false); setSelectedPlayer(null); setSelectedTeam(null); setTab("table"); setLeagueView(view);
+            };
           } else {
             active = tab === id && !showInfo && !showMore;
             onNav = () => {
+              window.history.pushState({ appTab: id, appModal: null }, "");
               setShowInfo(false);
               setShowMore(false);
               setSelectedPlayer(null);
+              setSelectedTeam(null);
               setTab(id);
               if (id === "table") setLeagueView("league");    // League always opens on Sweeps
               if (id === "scores") setSelectedDay(null);       // Scores always opens on Today
@@ -4068,11 +4099,11 @@ function App({ onSwitchGroup }) {
           const idx = ranked.findIndex(x => x.name === selectedPlayer);
           const p = ranked[idx];
           if (!p) return null;
-          return <PlayerModal player={p} displayRank={p._displayRank || (idx + 1)} winPct={winPct.players ? winPct.players[selectedPlayer] : 0} winTeams={winPct.teams} badges={badges[selectedPlayer] || []} scrollToBottom={scrollPlayerToBadges} onClose={() => setSelectedPlayer(null)} />;
+          return <PlayerModal player={p} displayRank={p._displayRank || (idx + 1)} winPct={winPct.players ? winPct.players[selectedPlayer] : 0} winTeams={winPct.teams} badges={badges[selectedPlayer] || []} scrollToBottom={scrollPlayerToBadges} onClose={() => { if (window.history.state?.appModal === "player") window.history.back(); else setSelectedPlayer(null); }} />;
         })()}
 
         {selectedTeam && (
-          <TeamModal tla={selectedTeam} matches={matches} ranked={ranked} matchPtsById={matchPtsById} onClose={() => setSelectedTeam(null)} />
+          <TeamModal tla={selectedTeam} matches={matches} ranked={ranked} matchPtsById={matchPtsById} onClose={() => { if (window.history.state?.appModal === "team") window.history.back(); else setSelectedTeam(null); }} />
         )}
 
         {showTour && <TourOverlay onClose={closeTour} />}
