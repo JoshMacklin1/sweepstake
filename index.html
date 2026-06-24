@@ -3181,12 +3181,12 @@ function NotificationsDrawer({ matches, ranked, upcoming, matchPtsById, onClose 
 // ─────────────────────────────────────────────────────────────────────────────
 const TOUR_STEPS = [
   { icon: "🎰", title: "The Draw", desc: "48 World Cup teams ranked into 4 pots — Pot 1 (favourites) down to Pot 4 (underdogs). Everyone was randomly assigned a balanced mix, so no one gets only giants and no one gets only minnows." },
-  { icon: "📊", title: "Group Stage", desc: "Your teams earn points for wins and draws — but underdogs earn more. A Pot 4 win is worth 12 pts; a Pot 1 win just 2. Rooting for the little guys was the right call all along." },
+  { icon: "⚽", title: "Group Stage", desc: "Your teams earn points for wins and draws — but underdogs earn more. A Pot 4 win is worth 12 pts; a Pot 1 win just 2. Rooting for the little guys was the right call all along." },
   { icon: "🥊", title: "Knockouts", desc: "Each round a team survives earns bigger points. A Pot 1 team winning the World Cup is worth 100 pts. A Pot 4 team doing the same? 2,000. Giant slayers are where the real money is." },
   { icon: "💸", title: "The Risk", desc: "If a Pot 1 team goes out in the groups, you lose 50 pts. Pot 2 costs 15. Pot 3 and 4 carry no penalty — those teams are pure upside. Own Spain or Germany? Touch wood." },
   { icon: "💀", title: "The Grim Reaper", desc: "The Grim Reaper holds no teams. Instead they earn when big sides crash out in the groups and from 0-0 draws. They can haunt the table — but can never actually win it. Small mercies." },
-  { icon: "🤖", title: "The Bot", desc: "If the player count doesn't divide into 48 teams evenly, a robot joins the sweep to fill the gap. It plays by the same rules as everyone else and can technically win. Try not to lose to a spreadsheet." },
-  { icon: "🔍", title: "Need this again?", desc: "No shame in it. Hit ••• at the bottom, then 'Take the tour'. We'll act like this never happened." },
+  { icon: "🤖", title: "The Bot", desc: "If the squad size leaves teams without an owner, a robot joins to mop them up. Can it win? Nobody said it couldn't. The app is saying nothing. The app is watching. The app is daring you." },
+  { icon: "🔍", title: "Need this again?", desc: "No shame in it. Find ••• in the navigation, then tap 'Take the tour'. We'll act like this never happened." },
 ];
 
 function TourOverlay({ onClose }) {
@@ -3591,7 +3591,7 @@ function App({ onSwitchGroup }) {
     </svg>
   );
   const navIconScores = (active) => (
-    <svg width="27" height="27" viewBox="0 0 24 24">
+    <svg width="22" height="22" viewBox="0 0 24 24">
       <path fill={active ? "white" : C.muted} fillRule="evenodd" d="
         M21,12 A9,9 0 1,0 3,12 A9,9 0 1,0 21,12 Z
         M12,7.228 L16.539,10.525 L14.805,15.861 L9.195,15.861 L7.461,10.525 Z
