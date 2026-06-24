@@ -3624,6 +3624,12 @@ function App({ onSwitchGroup }) {
       <circle cx="19" cy="12" r="2" fill={active ? "white" : C.muted}/>
     </svg>
   );
+  const navIconBell = (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <path d="M6 10.5a6 6 0 1 1 12 0c0 3.2 1 5.1 1.8 6.1.3.35.05.9-.4.9H4.6c-.45 0-.7-.55-.4-.9.8-1 1.8-2.9 1.8-6.1Z" stroke={C.muted} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M9.5 19.5a2.5 2.5 0 0 0 5 0" stroke={C.muted} strokeWidth="1.7" strokeLinecap="round"/>
+    </svg>
+  );
   // Flat line-art bell — matches the bottom-nav icons' style (stroke only,
   // single colour), not the 🔔 emoji's coloured/3D look used elsewhere
   // (the More menu row, the push-settings button) where it's just inline text.
@@ -3709,7 +3715,6 @@ function App({ onSwitchGroup }) {
             }} className="share-btn" aria-label={copied ? "Copied" : "Copy share link"} style={{ background:C.card, border:`1px solid ${C.border}`, color:C.dim, fontSize:13, width:30, height:30, borderRadius:"50%", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
               {copied ? "✓" : "⎘"}
             </button>
-            <button onClick={() => setShowNotifications(true)} aria-label="Notifications" style={{ background:C.card, border:`1px solid ${C.border}`, color:C.dim, fontSize:14, width:30, height:30, borderRadius:"50%", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>{bellIcon}</button>
             <button onClick={() => setShowInfo(true)} aria-label="Rules & Info" style={{ background:C.card, border:`1px solid ${C.border}`, color:C.dim, fontSize:13, width:30, height:30, borderRadius:"50%", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:700 }}>?</button>
           </div>
           </div>
@@ -3917,18 +3922,6 @@ function App({ onSwitchGroup }) {
           );
         })}
       </div>
-
-      {/* ── Desktop-only bell (mobile has its own in the title row, hidden on
-           desktop along with the rest of that row — see data-title-row CSS).
-           Dev mode toggling now lives only in the More menu, both viewports. ── */}
-      {isDesktop && (
-        <button onClick={() => setShowNotifications(true)} aria-label="Notifications" style={{
-          position:"fixed", top:16, right:16, zIndex:21,
-          background:C.card, border:`1px solid ${C.border}`, color:C.dim, fontSize:15,
-          width:34, height:34, borderRadius:"50%", cursor:"pointer",
-          display:"flex", alignItems:"center", justifyContent:"center",
-        }}>{bellIcon}</button>
-      )}
 
       {/* ── Body ── */}
       <div style={{ padding:"14px 14px 0" }}>
