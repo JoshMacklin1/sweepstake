@@ -497,6 +497,24 @@ function goalDroughtPts(m) {
   return 0;
 }
 // ─────────────────────────────────────────────────────────────────────────────
+// Returns true only when a team is unambiguously in 4th place in their group —
+// i.e. the sort comparison between 3rd and 4th is non-zero on pts/GD/GF.
+// Any tie between 3rd and 4th returns false (safe: don't eliminate either).
+// 1st/2nd always return false. Teams not in GROUP_ASSIGNMENTS return false.
+function isDefinitelyFourth(code, ptsMap, gfMap, gaMap) {
+  const letter = Object.keys(GROUP_ASSIGNMENTS).find(g => GROUP_ASSIGNMENTS[g].includes(code));
+  if (!letter) return false;
+  const cmp = (a, b) => {
+    const pd = (ptsMap[b]||0) - (ptsMap[a]||0);
+    if (pd !== 0) return pd;
+    const gdd = ((gfMap[b]||0)-(gaMap[b]||0)) - ((gfMap[a]||0)-(gaMap[a]||0));
+    if (gdd !== 0) return gdd;
+    return (gfMap[b]||0) - (gfMap[a]||0);
+  };
+  const sorted = [...GROUP_ASSIGNMENTS[letter]].sort(cmp);
+  if (sorted.indexOf(code) < 3) return false; // not last by our sort
+  return cmp(sorted[2], sorted[3]) < 0; // 3rd unambiguously better than 4th
+}
 function deriveStages(matches) {
   const eliminated = {};
   const winners    = {};
@@ -546,17 +564,32 @@ function deriveStages(matches) {
     }
   });
 
-  // Group stage eliminations
+  // Group stage eliminations — only mark teams NOT in the top 2 of their group.
+  // Without the rank check, all 4 teams get flagged when a group finishes before
+  // the knockout round starts (e.g. Group B completing all 6 games first).
   const knockoutTeams = new Set(Object.keys(stageReached));
   const groupGames = {};
-  done.filter(m => (m.stage||"").toUpperCase().includes("GROUP")).forEach(m => {
+  const grpPts = {}, grpGF = {}, grpGA = {};
+  done.filter(m => (m.stage||"").toUpperCase().includes("GROUP") && m.status === "FINISHED").forEach(m => {
     const h = m.homeTeam?.tla?.toUpperCase();
     const a = m.awayTeam?.tla?.toUpperCase();
+    const hs = m.score?.fullTime?.home ?? 0;
+    const as_ = m.score?.fullTime?.away ?? 0;
     if (h) groupGames[h] = (groupGames[h]||0) + 1;
     if (a) groupGames[a] = (groupGames[a]||0) + 1;
+    if (h && a) {
+      if (!grpPts[h]) { grpPts[h]=0; grpGF[h]=0; grpGA[h]=0; }
+      if (!grpPts[a]) { grpPts[a]=0; grpGF[a]=0; grpGA[a]=0; }
+      grpGF[h] += hs; grpGA[h] += as_;
+      grpGF[a] += as_; grpGA[a] += hs;
+      if (hs > as_) grpPts[h] += 3;
+      else if (as_ > hs) grpPts[a] += 3;
+      else { grpPts[h]++; grpPts[a]++; }
+    }
   });
   Object.entries(groupGames).forEach(([code, n]) => {
     if (n >= 3 && !knockoutTeams.has(code) && !eliminated[code]) {
+      if (!isDefinitelyFourth(code, grpPts, grpGF, grpGA)) return;
       eliminated[code] = "GROUP_ELIM";
       stageReached[code] = "GROUP_ELIM";
     }
@@ -1275,6 +1308,7 @@ function deriveHistory(matches) {
   const reaperName = (PLAYERS.find(p => p.grimReaper) || {}).name;
 
   const eliminated = {}, winners = {}, groupGames = {};
+  const grpPts = {}, grpGF = {}, grpGA = {};
   const knockoutTeams = new Set();
   const bucketLabels = ["Start"];
 
@@ -1370,12 +1404,26 @@ function deriveHistory(matches) {
       const drought = goalDroughtPts(m);
       if (drought > 0) running[reaperName] = (running[reaperName] || 0) + drought;
 
-      [h, a].forEach(code => {
-        if (code) groupGames[code] = (groupGames[code]||0) + 1;
-        if (code && groupGames[code] >= 3 && !knockoutTeams.has(code) && !eliminated[code]) {
-          eliminated[code] = "GROUP_ELIM"; award(code, "GROUP_ELIM"); reaperBounty(code, "GROUP_ELIM");
+      // Only count games toward elimination once fully finished — not during live matches
+      if (m.status === "FINISHED") {
+        if (h && a) {
+          if (!grpPts[h]) { grpPts[h]=0; grpGF[h]=0; grpGA[h]=0; }
+          if (!grpPts[a]) { grpPts[a]=0; grpGF[a]=0; grpGA[a]=0; }
+          grpGF[h] += hs; grpGA[h] += as_;
+          grpGF[a] += as_; grpGA[a] += hs;
+          if (hs > as_) grpPts[h] += 3;
+          else if (as_ > hs) grpPts[a] += 3;
+          else { grpPts[h]++; grpPts[a]++; }
         }
-      });
+        [h, a].forEach(code => {
+          if (code) groupGames[code] = (groupGames[code]||0) + 1;
+          if (code && groupGames[code] >= 3 && !knockoutTeams.has(code) && !eliminated[code]) {
+            if (isDefinitelyFourth(code, grpPts, grpGF, grpGA)) {
+              eliminated[code] = "GROUP_ELIM"; award(code, "GROUP_ELIM"); reaperBounty(code, "GROUP_ELIM");
+            }
+          }
+        });
+      }
     }
   });
 
@@ -1412,6 +1460,7 @@ function deriveSparklineHistory(matches) {
   const reaperName = (PLAYERS.find(p => p.grimReaper) || {}).name;
 
   const eliminated = {}, winners = {}, groupGames = {};
+  const grpPts = {}, grpGF = {}, grpGA = {};
   const knockoutTeams = new Set();
 
   matches.filter(m => !(m.stage||"").toUpperCase().includes("GROUP") && isSettled(m.status)).forEach(m => {
@@ -1477,12 +1526,23 @@ function deriveSparklineHistory(matches) {
       // Grim Reaper goal drought curse
       const drought = goalDroughtPts(m);
       if (drought > 0) { running[reaperName] = (running[reaperName] || 0) + drought; changedPlayers.add(reaperName); }
+      if (h && a) {
+        if (!grpPts[h]) { grpPts[h]=0; grpGF[h]=0; grpGA[h]=0; }
+        if (!grpPts[a]) { grpPts[a]=0; grpGF[a]=0; grpGA[a]=0; }
+        grpGF[h] += hs; grpGA[h] += as_;
+        grpGF[a] += as_; grpGA[a] += hs;
+        if (hs > as_) grpPts[h] += 3;
+        else if (as_ > hs) grpPts[a] += 3;
+        else { grpPts[h]++; grpPts[a]++; }
+      }
       [h, a].forEach(code => {
         if (code) groupGames[code] = (groupGames[code]||0) + 1;
         if (code && groupGames[code] >= 3 && !knockoutTeams.has(code) && !eliminated[code]) {
-          eliminated[code] = "GROUP_ELIM"; award(code, "GROUP_ELIM");
-          const bounty = reaperBountyForCode(code);
-          if (bounty > 0) { running[reaperName] += bounty; changedPlayers.add(reaperName); }
+          if (isDefinitelyFourth(code, grpPts, grpGF, grpGA)) {
+            eliminated[code] = "GROUP_ELIM"; award(code, "GROUP_ELIM");
+            const bounty = reaperBountyForCode(code);
+            if (bounty > 0) { running[reaperName] += bounty; changedPlayers.add(reaperName); }
+          }
         }
       });
     }
@@ -1613,6 +1673,7 @@ function deriveRaceEliminations(matches) {
     if (m.awayTeam?.tla) knockoutTeams.add(m.awayTeam.tla.toUpperCase());
   });
   const eliminated = {}, winners = {}, groupGames = {};
+  const grpPts = {}, grpGF = {}, grpGA = {};
   const frames = [[]]; // frame 0 = start, nothing eliminated
   done.forEach(m => {
     const stage = (m.stage || "").toUpperCase();
@@ -1644,11 +1705,22 @@ function deriveRaceEliminations(matches) {
       else               { hResult = "D"; aResult = "D"; }
       [[h, hResult], [a, aResult]].forEach(([code, result]) => { if (result !== "L" && owned(code)) changed = true; });
       if (goalDroughtPts(m) > 0) changed = true;
+      if (h && a) {
+        if (!grpPts[h]) { grpPts[h]=0; grpGF[h]=0; grpGA[h]=0; }
+        if (!grpPts[a]) { grpPts[a]=0; grpGF[a]=0; grpGA[a]=0; }
+        grpGF[h] += hs; grpGA[h] += as_;
+        grpGF[a] += as_; grpGA[a] += hs;
+        if (hs > as_) grpPts[h] += 3;
+        else if (as_ > hs) grpPts[a] += 3;
+        else { grpPts[h]++; grpPts[a]++; }
+      }
       [h, a].forEach(code => {
         if (code) groupGames[code] = (groupGames[code]||0) + 1;
         if (code && groupGames[code] >= 3 && !knockoutTeams.has(code) && !eliminated[code]) {
-          eliminated[code] = "GROUP_ELIM";
-          if (owned(code) || reaperBountyForCode(code) > 0) changed = true;
+          if (isDefinitelyFourth(code, grpPts, grpGF, grpGA)) {
+            eliminated[code] = "GROUP_ELIM";
+            if (owned(code) || reaperBountyForCode(code) > 0) changed = true;
+          }
         }
       });
     }
