@@ -3396,7 +3396,17 @@ function App({ onSwitchGroup }) {
         homeTeam: normalizeTla(m.homeTeam),
         awayTeam: normalizeTla(m.awayTeam),
       }));
-      setMatches(normalizedMatches);
+      // Merge with existing state rather than replacing outright. The
+      // football-data.org API intermittently omits already-finished matches
+      // from its response (e.g. Uruguay's group results disappearing and
+      // reappearing), which caused points to drop and rankings to flicker.
+      // Build a map seeded from the current state, then overwrite with the
+      // fresh API data — this way a FINISHED match we've already seen is
+      // never silently dropped by a partial response.
+      const merged = {};
+      (matchesRef.current || []).forEach(m => { merged[m.id] = m; });
+      normalizedMatches.forEach(m => { merged[m.id] = m; });
+      setMatches(Object.values(merged));
       setLastUpdated(new Date());
       setError(null);
     } catch (e) {
