@@ -1085,6 +1085,14 @@ function TeamModal({ tla, matches, ranked, matchPtsById, onClose }) {
     })
     .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
 
+  const upcomingMatches = matches
+    .filter(m => {
+      const h = m.homeTeam?.tla?.toUpperCase();
+      const a = m.awayTeam?.tla?.toUpperCase();
+      return (h === tla || a === tla) && !isSettled(m.status);
+    })
+    .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
+
   const teamName = teamEntry?.name || tla;
   const stage = teamEntry?.stage;
   const eliminated = teamEntry?.eliminated;
@@ -1168,6 +1176,30 @@ function TeamModal({ tla, matches, ranked, matchPtsById, onClose }) {
               </div>
             );
           })}
+
+          {upcomingMatches.length > 0 && (<>
+            <div style={{ fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 20, marginBottom: 8 }}>Upcoming</div>
+            {upcomingMatches.map(m => {
+              const isHome = m.homeTeam?.tla?.toUpperCase() === tla;
+              const oppCode = isHome ? m.awayTeam?.tla?.toUpperCase() : m.homeTeam?.tla?.toUpperCase();
+              const oppName = isHome ? (m.awayTeam?.name || "TBD") : (m.homeTeam?.name || "TBD");
+              return (
+                <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 0", borderBottom: `1px solid ${C.border}` }}>
+                  <div style={{
+                    width: 22, height: 22, borderRadius: 4, flexShrink: 0,
+                    background: "rgba(148,163,184,0.12)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 10, fontWeight: 800, color: C.muted,
+                  }}>vs</div>
+                  <Flag code={oppCode} size={18} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{oppName}</div>
+                    <div style={{ fontSize: 10, color: C.muted }}>{fmt(m.utcDate)} · {(m.stage || "").replace(/_/g, " ")}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </>)}
         </div>
       </>)}
     </SnapSheet>
