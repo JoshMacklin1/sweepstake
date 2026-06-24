@@ -944,8 +944,14 @@ function SnapSheet({ onClose, scrollBodyToBottom = false, children }) {
         style={{
           background: C.bg, display: "flex", flexDirection: "column",
           border: `1px solid ${C.border}`, boxShadow: "0 24px 64px rgba(0,0,0,0.55)",
-          height: isMobile ? (snapState === "full" ? "92vh" : "50vh") : undefined,
-          transform: `translateY(${dragY}px)`,
+          height: isMobile
+            ? snapState === "full"
+              ? "92vh"
+              : dragging && dragY < 0
+                ? `calc(50vh - ${dragY}px)` // dragY is negative, so -dragY grows the sheet upward
+                : "50vh"
+            : undefined,
+          transform: dragging && dragY < 0 && snapState === "half" ? "none" : `translateY(${dragY}px)`,
           transition: dragging ? "none" : "transform 0.25s ease, height 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
         }}
       >
