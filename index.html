@@ -3406,12 +3406,12 @@ function LiveBanner({ live, ranked, matchPtsById }) {
       </div>
 
       {multi && (
-        <div style={{ display:"flex", justifyContent:"center", gap:6, marginTop:10, height:6 }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:7, marginTop:10, height:8 }}>
           {games.map((m, i) => (
             <button key={m.id} onClick={() => settle(i)} aria-label={`Go to live game ${i + 1}`}
               style={{
-                width: i === safeIndex ? 16 : 6, height:6, padding:0, border:"none", cursor:"pointer",
-                borderRadius: i === safeIndex ? 3 : "50%",
+                width: i === safeIndex ? 8 : 6, height: i === safeIndex ? 8 : 6,
+                padding:0, border:"none", cursor:"pointer", borderRadius:"50%",
                 background: i === safeIndex ? C.red : C.border, transition:"all 0.2s",
               }}/>
           ))}
