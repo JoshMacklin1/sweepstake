@@ -972,7 +972,7 @@ function SnapSheet({ onClose, scrollBodyToBottom = false, children }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // PLAYER MODAL — pop-over with points, results, win chances
 // ─────────────────────────────────────────────────────────────────────────────
-function PlayerModal({ player, displayRank, winPct, winTeams, badges = [], matches = [], matchPtsById = {}, scrollToBottom = false, onClose }) {
+function PlayerModal({ player, displayRank, winPct, winTeams, badges = [], matches = [], matchPtsById = {}, onTeamClick, scrollToBottom = false, onClose }) {
   if (!player) return null;
   const isReaper = player.grimReaper;
   return (
@@ -1040,7 +1040,10 @@ function PlayerModal({ player, displayRank, winPct, winTeams, badges = [], match
                 const out = t.eliminated && !t.won;
                 const wc = t.won ? 100 : (winTeams && winTeams[t.code] != null ? winTeams[t.code] : 0);
                 return (
-                  <div key={t.code} style={{ display:"flex", alignItems:"center", padding:"9px 0", borderBottom:`1px solid ${C.border}`, opacity: out ? 0.5 : 1 }}>
+                  <div key={t.code} onClick={onTeamClick ? () => onTeamClick(t.code) : undefined}
+                    role={onTeamClick ? "button" : undefined} tabIndex={onTeamClick ? 0 : undefined}
+                    onKeyDown={onTeamClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onTeamClick(t.code); } } : undefined}
+                    style={{ display:"flex", alignItems:"center", padding:"9px 0", borderBottom:`1px solid ${C.border}`, opacity: out ? 0.5 : 1, cursor: onTeamClick ? "pointer" : "default", WebkitTapHighlightColor:"transparent" }}>
                     <div style={{ marginRight:10, flexShrink:0 }}><Flag code={t.code} size={20} /></div>
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ fontSize:13, fontWeight:600, color:C.text }}>{t.name} <span style={{ fontSize:10, color:C.muted, fontWeight:400 }}>(P{t.pot})</span></div>
@@ -1050,6 +1053,7 @@ function PlayerModal({ player, displayRank, winPct, winTeams, badges = [], match
                       <div style={{ fontSize:13, fontWeight:700, color: t.pts < 0 ? C.red : t.pts > 0 ? C.text : C.muted }}>{t.pts > 0 ? "+" : ""}{t.pts}pts</div>
                       <div style={{ fontSize:10, color: out ? C.muted : C.accent }}>{out ? "out" : `${wc}% to win WC`}</div>
                     </div>
+                    {onTeamClick && <span aria-hidden="true" style={{ marginLeft:8, color:C.muted, fontSize:18, lineHeight:1, flexShrink:0 }}>›</span>}
                   </div>
                 );
               })}
@@ -4274,7 +4278,7 @@ function App({ onSwitchGroup }) {
           const idx = ranked.findIndex(x => x.name === selectedPlayer);
           const p = ranked[idx];
           if (!p) return null;
-          return <PlayerModal player={p} displayRank={p._displayRank || (idx + 1)} winPct={winPct.players ? winPct.players[selectedPlayer] : 0} winTeams={winPct.teams} badges={badges[selectedPlayer] || []} matches={matches} matchPtsById={matchPtsById} scrollToBottom={scrollPlayerToBadges} onClose={() => { if (window.history.state?.appModal === "player") window.history.back(); else setSelectedPlayer(null); }} />;
+          return <PlayerModal player={p} displayRank={p._displayRank || (idx + 1)} winPct={winPct.players ? winPct.players[selectedPlayer] : 0} winTeams={winPct.teams} badges={badges[selectedPlayer] || []} matches={matches} matchPtsById={matchPtsById} onTeamClick={openTeamModal} scrollToBottom={scrollPlayerToBadges} onClose={() => { if (window.history.state?.appModal === "player") window.history.back(); else setSelectedPlayer(null); }} />;
         })()}
 
         {selectedTeam && (
