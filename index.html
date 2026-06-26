@@ -2688,18 +2688,21 @@ function TeamsTab({ matches, view, setView, onTeamClick }) {
       <div className={onTeamClick ? "player-card" : undefined}
         onClick={onTeamClick ? () => onTeamClick(tla) : undefined}
         style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 12px",
-          borderBottom: `1px solid ${C.border}`, opacity: isElim ? 0.45 : 1,
+          borderBottom: `1px solid ${C.border}`,
           cursor: onTeamClick ? "pointer" : "default" }}>
-        {rank && <span style={{ fontSize:12, color:C.muted, width:16, textAlign:"right", flexShrink:0 }}>{rank}</span>}
+        {rank && <span style={{ fontSize:12, color:C.muted, width:16, textAlign:"right", flexShrink:0, opacity: isElim ? 0.45 : 1 }}>{rank}</span>}
         {flagUrl
-          ? <img src={flagUrl} alt={tla} {...flagHandlers(tla, 23)} style={{ width:34, height:23, objectFit:"cover", borderRadius:2, flexShrink:0 }} />
-          : <span style={{ fontSize:14 }}>{tla}</span>}
-        <div style={{ flex:1, minWidth:0 }}>
+          ? <div style={{ position:"relative", flexShrink:0, lineHeight:0 }}>
+              <img src={flagUrl} alt={tla} {...flagHandlers(tla, 23)} style={{ width:34, height:23, objectFit:"cover", borderRadius:2, display:"block", opacity: isElim ? 0.45 : 1 }} />
+              {isElim && <span style={{ position:"absolute", top:-1, right:-1, fontSize:11, fontWeight:900, color:C.red, textShadow:"0 0 2px rgba(0,0,0,0.9)", lineHeight:1, zIndex:1, pointerEvents:"none" }}>✕</span>}
+            </div>
+          : <span style={{ fontSize:14, opacity: isElim ? 0.45 : 1 }}>{tla}</span>}
+        <div style={{ flex:1, minWidth:0, opacity: isElim ? 0.45 : 1 }}>
           <div style={{ fontSize:14, color:C.text, fontWeight:700, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{owner || "—"}</div>
           <div style={{ fontSize:11, color:C.muted, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{name}{pot ? ` (${pot})` : ""}</div>
         </div>
         {played > 0 ? (
-          <div style={{ display:"flex", alignItems:"center", gap:0, flexShrink:0 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:0, flexShrink:0, opacity: isElim ? 0.45 : 1 }}>
             <span style={{ fontSize:11, color:C.muted, width:80, textAlign:"center" }}>{s.w}W {s.d}D {s.l}L</span>
             <span style={{ fontSize:12, fontWeight:600, color:C.text, width:28, textAlign:"center" }}>{leaguePts}</span>
             <span style={{ fontSize:12, fontWeight:700, color:C.accent, width:36, textAlign:"right" }}>+{swPts}</span>
@@ -2729,14 +2732,16 @@ function TeamsTab({ matches, view, setView, onTeamClick }) {
           padding:"4px 8px", height:38, boxSizing:"border-box", minWidth:0, overflow:"hidden",
           borderBottom: side === "home" ? `1px solid ${C.border}` : "none",
           background: isWinner ? "rgba(34,197,94,0.08)" : "transparent",
-          opacity: isElim ? 0.45 : 1,
           cursor: clickable ? "pointer" : "default",
         }}>
         {tla && flagUrl
-          ? <img src={flagUrl} alt={tla} {...flagHandlers(tla, 15)} style={{ width:22, height:15, objectFit:"cover", borderRadius:1, flexShrink:0 }} />
+          ? <div style={{ position:"relative", flexShrink:0, lineHeight:0 }}>
+              <img src={flagUrl} alt={tla} {...flagHandlers(tla, 15)} style={{ width:22, height:15, objectFit:"cover", borderRadius:1, display:"block", opacity: isElim ? 0.45 : 1 }} />
+              {isElim && <span style={{ position:"absolute", top:-2, right:-2, fontSize:9, fontWeight:900, color:C.red, textShadow:"0 0 2px rgba(0,0,0,0.9)", lineHeight:1, zIndex:1, pointerEvents:"none" }}>✕</span>}
+            </div>
           : <div style={{ width:22, height:15, background:C.border, borderRadius:1, flexShrink:0 }} />}
         {tla ? (
-          <div style={{ flex:1, minWidth:0, overflow:"hidden" }}>
+          <div style={{ flex:1, minWidth:0, overflow:"hidden", opacity: isElim ? 0.45 : 1 }}>
             <div style={{ fontSize:12, fontWeight:700, color: isWinner ? C.accent : C.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
               {owner || "—"}
             </div>
@@ -2748,7 +2753,7 @@ function TeamsTab({ matches, view, setView, onTeamClick }) {
           <span style={{ fontSize:11, color:C.muted, flex:1 }}>{label}</span>
         )}
         {score != null && (
-          <span style={{ fontSize:13, fontWeight:700, color: isWinner ? C.accent : C.dim, flexShrink:0, marginLeft:2 }}>
+          <span style={{ fontSize:13, fontWeight:700, color: isWinner ? C.accent : C.dim, flexShrink:0, marginLeft:2, opacity: isElim ? 0.45 : 1 }}>
             {score}{isLive ? <span style={{color:C.red,fontSize:9}}> ●</span> : ""}
           </span>
         )}
