@@ -1620,6 +1620,12 @@ function BarRaceModal({ history, allRanked, bucketLabels = [], elimByFrame = [],
   // Work out tournament stage label for current frame
   const frameLabel = frame === 0 ? "Start" : `Game ${frame} of ${maxLen - 1}`;
   const stageNow = stageByFrame.length ? (stageByFrame[Math.min(frame, stageByFrame.length - 1)] || "") : "";
+  // End-of-race celebration: who's top at the final frame, and whether the
+  // tournament is actually decided (the final has been played → "Champion",
+  // otherwise they're just "Leading the Race").
+  const tournamentDone = stageByFrame.length > 0 && stageByFrame[stageByFrame.length - 1] === "Finals";
+  const champ = (allRanked && allRanked.length) ? allRanked[0] : null;
+  const raceFinished = frame >= maxLen - 1 && maxLen > 1 && champ && champ.total > 0;
 
   React.useEffect(() => {
     if (playing && frame < maxLen - 1) {
@@ -1754,6 +1760,21 @@ function BarRaceModal({ history, allRanked, bucketLabels = [], elimByFrame = [],
             </div>
           );
         })()}
+        {raceFinished && (
+          <div style={{ position:"absolute", inset:0, zIndex: n + 10, display:"flex", alignItems:"center", justifyContent:"center",
+                        background:"rgba(13,31,18,0.55)", pointerEvents:"none", animation:"modalIn 0.4s ease-out" }}>
+            <div style={{ textAlign:"center", padding:"24px 30px", borderRadius:16, background:C.card, border:`1px solid ${C.border}`,
+                          boxShadow:"0 12px 44px rgba(0,0,0,0.55)", maxWidth:"82%", animation:"goalPop 0.5s ease-out" }}>
+              <div style={{ fontSize:46, lineHeight:1, marginBottom:8 }}>🏆</div>
+              <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.14em", textTransform:"uppercase", color:C.muted, marginBottom:6 }}>
+                {tournamentDone ? "Sweepstake Champion" : "Leading the Race"}
+              </div>
+              <div style={{ fontSize:26, fontWeight:900, color:playerColor(champ.name), lineHeight:1.1, marginBottom:4 }}>{champ.name}</div>
+              <div style={{ fontSize:14, fontWeight:700, color:C.text }}>{champ.total}pts</div>
+              <div style={{ fontSize:18, marginTop:12 }}>🎉🥳🎉</div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Controls */}
