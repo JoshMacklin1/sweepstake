@@ -1747,3 +1747,110 @@ function deriveRaceEliminations(matches) {
   }
   return frames;
 }
+
+// Per-frame tournament-stage label for the bar race — aligned 1:1 with
+// deriveSparklineHistory / deriveRaceEliminations frames (same "did this match
+// change an owned total" trigger), so stages[frame] names the stage the race
+// is currently at. Group games are numbered 1–3 by how many group games the
+// teams have played; knockouts use their round name.
+function deriveRaceStages(matches) {
+  const done = matches.filter(m => m.status === "FINISHED")
+    .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
+  const teamPlayer = {};
+  PLAYERS.forEach(p => p.codes.forEach((c) => {
+    if (!teamPlayer[c]) teamPlayer[c] = [];
+    if (!teamPlayer[c].includes(p.name)) teamPlayer[c].push(p.name);
+  }));
+  const owned = (code) => (teamPlayer[code] || []).length > 0;
+  const knockoutTeams = new Set();
+  matches.filter(m => !(m.stage||"").toUpperCase().includes("GROUP") && isSettled(m.status)).forEach(m => {
+    if (m.homeTeam?.tla) knockoutTeams.add(m.homeTeam.tla.toUpperCase());
+    if (m.awayTeam?.tla) knockoutTeams.add(m.awayTeam.tla.toUpperCase());
+  });
+  const stageLabel = (stage, gameNo) => {
+    if (stage === "FINAL") return "Finals";
+    if (stage.includes("SEMI")) return "Semi Finals";
+    if (stage.includes("QUARTER")) return "Quarter Finals";
+    if (stage.includes("LAST_16") || stage.includes("16")) return "Last 16";
+    if (stage.includes("LAST_32") || stage.includes("32")) return "Last 32";
+    if (stage.includes("GROUP")) return "Group Stage Game " + (gameNo || 1);
+    return "";
+  };
+  const eliminated = {}, winners = {}, groupGames = {};
+  const grpPts = {}, grpGF = {}, grpGA = {};
+  const stages = [null]; // frame 0 = start (back-filled below)
+  let lastLabel = "";
+  done.forEach(m => {
+    const stage = (m.stage || "").toUpperCase();
+    const h = m.homeTeam?.tla?.toUpperCase();
+    const a = m.awayTeam?.tla?.toUpperCase();
+    const hs = m.score?.fullTime?.home ?? 0;
+    const as_ = m.score?.fullTime?.away ?? 0;
+    const pen = m.score?.penalties;
+    let loser = null, winner = null;
+    if (hs > as_)      { loser = a; winner = h; }
+    else if (as_ > hs) { loser = h; winner = a; }
+    else if (pen) { if (pen.home > pen.away) { loser = a; winner = h; } else { loser = h; winner = a; } }
+    let changed = false, gameNo = 0;
+    if (stage === "FINAL") {
+      if (winner && !winners[winner]) { winners[winner] = true; if (owned(winner)) changed = true; }
+      if (loser && !eliminated[loser]) { eliminated[loser] = "FINALIST"; if (owned(loser)) changed = true; }
+    } else if (stage.includes("SEMI") && loser && !eliminated[loser]) {
+      eliminated[loser] = "SEMI_FINALS"; if (owned(loser) || owned(winner)) changed = true;
+    } else if (stage.includes("QUARTER") && loser && !eliminated[loser]) {
+      eliminated[loser] = "QUARTER_FINALS"; if (owned(loser) || owned(winner)) changed = true;
+    } else if ((stage.includes("LAST_16")||stage.includes("16")) && loser && !eliminated[loser]) {
+      eliminated[loser] = "LAST_16"; if (owned(loser) || owned(winner)) changed = true;
+    } else if ((stage.includes("LAST_32")||stage.includes("32")) && loser && !eliminated[loser]) {
+      eliminated[loser] = "LAST_32"; if (owned(loser) || owned(winner)) changed = true;
+    } else if (stage.includes("GROUP")) {
+      let hResult, aResult;
+      if (hs > as_)      { hResult = "W"; aResult = "L"; }
+      else if (as_ > hs) { hResult = "L"; aResult = "W"; }
+      else               { hResult = "D"; aResult = "D"; }
+      [[h, hResult], [a, aResult]].forEach(([code, result]) => { if (result !== "L" && owned(code)) changed = true; });
+      if (goalDroughtPts(m) > 0) changed = true;
+      if (h && a) {
+        if (!grpPts[h]) { grpPts[h]=0; grpGF[h]=0; grpGA[h]=0; }
+        if (!grpPts[a]) { grpPts[a]=0; grpGF[a]=0; grpGA[a]=0; }
+        grpGF[h] += hs; grpGA[h] += as_;
+        grpGF[a] += as_; grpGA[a] += hs;
+        if (hs > as_) grpPts[h] += 3;
+        else if (as_ > hs) grpPts[a] += 3;
+        else { grpPts[h]++; grpPts[a]++; }
+      }
+      [h, a].forEach(code => {
+        if (code) groupGames[code] = (groupGames[code]||0) + 1;
+        if (code && groupGames[code] >= 3 && !knockoutTeams.has(code) && !eliminated[code]) {
+          if (isDefinitelyFourth(code, grpPts, grpGF, grpGA)) {
+            eliminated[code] = "GROUP_ELIM";
+            if (owned(code) || reaperBountyForCode(code) > 0) changed = true;
+          }
+        }
+      });
+      gameNo = Math.max(groupGames[h] || 0, groupGames[a] || 0);
+    }
+    if (changed) { lastLabel = stageLabel(stage, gameNo); stages.push(lastLabel); }
+  });
+  const liveMatches = matches.filter(m => m.status === "IN_PLAY" || m.status === "PAUSED");
+  if (liveMatches.length > 0) {
+    let liveChanged = false;
+    liveMatches.forEach(m => {
+      const stage = (m.stage || "").toUpperCase();
+      if (!stage.includes("GROUP")) return;
+      const h = m.homeTeam?.tla?.toUpperCase();
+      const a = m.awayTeam?.tla?.toUpperCase();
+      const hs = m.score?.fullTime?.home ?? 0;
+      const as_ = m.score?.fullTime?.away ?? 0;
+      let hResult, aResult;
+      if (hs > as_)      { hResult = "W"; aResult = "L"; }
+      else if (as_ > hs) { hResult = "L"; aResult = "W"; }
+      else               { hResult = "D"; aResult = "D"; }
+      [[h, hResult], [a, aResult]].forEach(([code, result]) => { if (result !== "L" && owned(code)) liveChanged = true; });
+      if (goalDroughtPts(m) > 0) liveChanged = true;
+    });
+    if (liveChanged) stages.push(lastLabel || "Group Stage");
+  }
+  stages[0] = stages[1] || "Group Stage Game 1";
+  return stages;
+}
