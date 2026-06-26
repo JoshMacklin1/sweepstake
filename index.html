@@ -2577,28 +2577,20 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
         ))}
       </Section>
 
-      <Section icon="📊" title="Risers & Fallers" onOpen={() => { window.scrollTo(0, 0); setTab("race"); }} linkLabel="Watch the race"
-        empty={risers.length === 0 && fallers.length === 0 ? "No position changes in the last 24h" : null}>
-        {risers.length > 0 && <div style={{ fontSize: 10, fontWeight: 700, color: C.accent, letterSpacing: "0.06em", padding: "10px 14px 4px" }}>RISERS</div>}
-        {risers.map((p, i) => (
-          <div key={p.name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "6px 14px", borderBottom: (i < risers.length - 1 || fallers.length > 0) ? `1px solid ${C.border}` : "none" }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: C.text, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
-            <span style={{ fontSize: 12, fontWeight: 700, color: C.accent, flexShrink: 0, whiteSpace: "nowrap" }}>
-              ▲ {rank24hChange.get(p.name)} place{rank24hChange.get(p.name) === 1 ? "" : "s"}
-              {rank24hPtsChange.get(p.name) > 0 ? ` (+${rank24hPtsChange.get(p.name)}pts)` : ""}
-            </span>
+      <div style={{ marginBottom: 16 }}>
+        <button onClick={() => { window.scrollTo(0, 0); setTab("race"); }}
+          style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: 14, textAlign: "left",
+            border: `1px solid ${C.border}`, borderRadius: 14,
+            background: "linear-gradient(135deg, #16261b, #13201a)",
+            cursor: "pointer", WebkitTapHighlightColor: "transparent", color: C.text }}>
+          <span style={{ fontSize: 24, lineHeight: 1, flexShrink: 0 }}>🏁</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: C.text }}>The Race</div>
+            <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>Watch the standings battle it out, gameweek by gameweek</div>
           </div>
-        ))}
-        {fallers.length > 0 && <div style={{ fontSize: 10, fontWeight: 700, color: C.red, letterSpacing: "0.06em", padding: "10px 14px 4px" }}>FALLERS</div>}
-        {fallers.map((p, i) => (
-          <div key={p.name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "6px 14px", borderBottom: i < fallers.length - 1 ? `1px solid ${C.border}` : "none" }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: C.text, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
-            <span style={{ fontSize: 12, fontWeight: 700, color: C.red, flexShrink: 0, whiteSpace: "nowrap" }}>
-              ▼ {Math.abs(rank24hChange.get(p.name))} place{Math.abs(rank24hChange.get(p.name)) === 1 ? "" : "s"}
-            </span>
-          </div>
-        ))}
-      </Section>
+          <span aria-hidden="true" style={{ color: C.muted, fontSize: 20, lineHeight: 1, flexShrink: 0 }}>›</span>
+        </button>
+      </div>
 
       <Section icon="🏅" title="New Accolades"
         empty={newAccolades.length === 0 ? "No new accolades in the last 24h" : null}>
