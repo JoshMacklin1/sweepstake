@@ -957,6 +957,11 @@ function computeBadges(ranked, matches, rank24hChange, winPctPlayers) {
   // 🏆 Top Dog — current leader (once anyone has scored)
   if (real.length && real[0].total > 0) add(real[0].name, { icon:"🏆", label:"Top Dog", desc:"Top of the table", tone:"good" });
 
+  // 🥄 Wooden Spoon — current last place (mirror of Top Dog; excludes the reaper
+  // and bot via `real`, same as Top Dog). Only once the tournament is underway
+  // and there's more than one player to be last of.
+  if (started && real.length > 1) add(real[real.length - 1].name, { icon:"🥄", label:"Wooden Spoon", desc:"Bottom of the table", tone:"bad" });
+
   // 🔮 The Prophecy — current favourite (highest sweepstake win %)
   if (winPctPlayers) {
     let fav = null;
@@ -981,22 +986,28 @@ function computeBadges(ranked, matches, rank24hChange, winPctPlayers) {
   const onFire = real.filter(p => p.lastChange > 0).sort((a,b) => b.lastChange - a.lastChange)[0];
   if (onFire) add(onFire.name, { icon:"⚡", label:"On Fire", desc:`+${onFire.lastChange}pts last round`, tone:"good" });
 
-  // 🔪 Giant Killer — a team beat a higher-pot team in the groups
+  // 🔪 Giant Killer — the single biggest giant-killing in the groups: the win
+  // with the largest pot gap (winner's pot number minus loser's), ties broken by
+  // earliest kickoff. Only counts wins by an OWNED team; if the biggest upset is
+  // an unowned side, the next-biggest owned one takes it.
+  let giantKiller = null;
   done.filter(m => (m.stage||"").toUpperCase().includes("GROUP")).forEach(m => {
     const h = m.homeTeam?.tla?.toUpperCase();
     const a = m.awayTeam?.tla?.toUpperCase();
     const hs = m.score?.fullTime?.home ?? 0;
     const as_ = m.score?.fullTime?.away ?? 0;
-    if (!h || !a) return;
-    if (hs > as_ && (POT[h]||4) > (POT[a]||4)) {
-      const o = real.find(p => p.codes?.includes(h));
-      if (o && !badges[o.name].some(b => b.icon === "🔪")) add(o.name, { icon:"🔪", label:"Giant Killer", desc:`${h} beat a higher-pot team`, tone:"good" });
-    }
-    if (as_ > hs && (POT[a]||4) > (POT[h]||4)) {
-      const o = real.find(p => p.codes?.includes(a));
-      if (o && !badges[o.name].some(b => b.icon === "🔪")) add(o.name, { icon:"🔪", label:"Giant Killer", desc:`${a} beat a higher-pot team`, tone:"good" });
+    if (!h || !a || hs === as_) return;
+    const winner = hs > as_ ? h : a;
+    const loser  = hs > as_ ? a : h;
+    const gap = (POT[winner]||4) - (POT[loser]||4);
+    if (gap <= 0) return; // winner must be the lower-seeded (higher pot number) side
+    const t = new Date(m.utcDate).getTime();
+    if (!giantKiller || gap > giantKiller.gap || (gap === giantKiller.gap && t < giantKiller.t)) {
+      const o = real.find(p => p.codes?.includes(winner));
+      if (o) giantKiller = { name: o.name, gap, t, code: winner, loser };
     }
   });
+  if (giantKiller) add(giantKiller.name, { icon:"🔪", label:"Giant Killer", desc:`${giantKiller.code} beat a Pot ${POT[giantKiller.loser]||4} side`, tone:"good" });
 
   // 🐶 Underdog — the FIRST Pot 4 team to reach the knockouts (single award).
   // "Made the knockouts" = appears in a knockout fixture; "first" = earliest
@@ -1026,16 +1037,17 @@ function computeBadges(ranked, matches, rank24hChange, winPctPlayers) {
   })[0];
   if (firstScorer) add(firstScorer.name, { icon:"🥚", label:"Early Bird", desc:"First to get on the board", tone:"good" });
 
-  // 🤡 Big Flop — a Pot 1 favourite crashed out in the groups
-  real.forEach(p => {
-    if (p.teams?.some(t => t.pot === 1 && t.stage === "GROUP_ELIM"))
-      add(p.name, { icon:"🤡", label:"Big Flop", desc:"A Pot 1 favourite went out in the groups", tone:"bad" });
-  });
+  // 🤡 Big Flop is awarded further down as a single winner (it needs the
+  // per-team elimination dates computed later for the "first" tiebreak).
 
-  // 🦆 Still Quacking — yet to score (once underway)
-  if (started) real.forEach(p => {
-    if (p.total === 0) add(p.name, { icon:"🦆", label:"Still Quacking", desc:"Yet to score a point", tone:"bad" });
-  });
+  // 🦆 Still Quacking — the last player yet to score, but only once the field is
+  // moving: fires only when exactly one player is still on 0 and someone else
+  // has scored (otherwise it'd be shared by everyone early on).
+  if (started) {
+    const quacking = real.filter(p => p.total === 0);
+    if (quacking.length === 1 && real.some(p => p.total > 0))
+      add(quacking[0].name, { icon:"🦆", label:"Still Quacking", desc:"Last one yet to get on the board", tone:"bad" });
+  }
 
   // 🎸 One Man Band — biggest gap between a player's TOP and SECOND-highest
   // scoring team (works for groups with >2 teams each: one team clearly ahead
@@ -1161,6 +1173,19 @@ function computeBadges(ranked, matches, rank24hChange, winPctPlayers) {
   };
   if (firstOne) add(firstOne.name, { icon:"🩸", label:"First Casualty", desc:`First to have a team eliminated (${teamNameOf(firstOne.code)})`, tone:"bad" });
   if (firstAll) add(firstAll.name, { icon:"⚰️", label:"Wiped Out", desc:`First to have all their teams eliminated (last: ${teamNameOf(firstAll.code)})`, tone:"bad" });
+
+  // 🤡 Big Flop — the FIRST Pot 1 favourite to crash out in the groups (single
+  // winner; earliest group elimination by date).
+  let bigFlop = null;
+  real.forEach(p => {
+    (p.teams || []).forEach(t => {
+      if (t.pot === 1 && t.stage === "GROUP_ELIM") {
+        const d = elimDate[t.code] ? new Date(elimDate[t.code]).getTime() : Infinity;
+        if (!bigFlop || d < bigFlop.d) bigFlop = { name: p.name, d, code: t.code };
+      }
+    });
+  });
+  if (bigFlop) add(bigFlop.name, { icon:"🤡", label:"Big Flop", desc:`First Pot 1 favourite out in the groups (${teamNameOf(bigFlop.code)})`, tone:"bad" });
 
   // Order each player's badges rarest-first so the row preview (which shows only
   // the first couple) highlights what's UNIQUE to them rather than common
