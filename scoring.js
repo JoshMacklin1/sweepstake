@@ -998,7 +998,7 @@ function computeBadges(ranked, matches, rank24hChange, winPctPlayers) {
     }
   });
 
-  // 💎 Underdog — the FIRST Pot 4 team to reach the knockouts (single award).
+  // 🐶 Underdog — the FIRST Pot 4 team to reach the knockouts (single award).
   // "Made the knockouts" = appears in a knockout fixture; "first" = earliest
   // such fixture by kickoff, scanning for the first Pot 4 team to show up.
   const koByDate = matches
@@ -1013,7 +1013,7 @@ function computeBadges(ranked, matches, rank24hChange, winPctPlayers) {
   }
   if (underdogCode) {
     const o = real.find(p => p.codes?.includes(underdogCode));
-    if (o) add(o.name, { icon:"💎", label:"Underdog", desc:`First Pot 4 team to reach the knockouts (${underdogCode})`, tone:"good" });
+    if (o) add(o.name, { icon:"🐶", label:"Underdog", desc:`First Pot 4 team to reach the knockouts (${underdogCode})`, tone:"good" });
   }
 
   // (Clean Sheet replaced by 🧱 Brick Wall — the single best-defence player, below.)
