@@ -3288,7 +3288,7 @@ function InfoContent() {
                 { icon:"🧱", label:"Brick Wall", desc:"Teams have conceded the fewest goals", tone:"good" },
                 { icon:"💨", label:"Firing Blanks", desc:"Teams have scored the fewest goals", tone:"bad" },
                 { icon:"🩸", label:"First Casualty", desc:"First to have a team eliminated", tone:"bad" },
-                { icon:"⚰️", label:"Wiped Out", desc:"First to lose both teams", tone:"bad" },
+                { icon:"⚰️", label:"Wiped Out", desc:"First to lose all their teams", tone:"bad" },
               ].map((b, i) => (
                 <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0", borderBottom: i < 17 ? `1px solid ${C.border}` : "none" }}>
                   <span style={{ fontSize:20, flexShrink:0, width:24, textAlign:"center" }}>{b.icon}</span>
