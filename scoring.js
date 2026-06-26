@@ -998,11 +998,23 @@ function computeBadges(ranked, matches, rank24hChange, winPctPlayers) {
     }
   });
 
-  // 💎 Underdog — owns a Pot 3/4 team that reached the knockouts
-  real.forEach(p => {
-    if (p.teams?.some(t => t.pot >= 3 && t.stage && KO.includes(t.stage)))
-      add(p.name, { icon:"💎", label:"Underdog", desc:"A Pot 3/4 team made the knockouts", tone:"good" });
-  });
+  // 💎 Underdog — the FIRST Pot 4 team to reach the knockouts (single award).
+  // "Made the knockouts" = appears in a knockout fixture; "first" = earliest
+  // such fixture by kickoff, scanning for the first Pot 4 team to show up.
+  const koByDate = matches
+    .filter(m => !(m.stage || "").toUpperCase().includes("GROUP"))
+    .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
+  let underdogCode = null;
+  for (const m of koByDate) {
+    for (const tla of [m.homeTeam?.tla?.toUpperCase(), m.awayTeam?.tla?.toUpperCase()]) {
+      if (tla && (POT[tla] || 4) === 4) { underdogCode = tla; break; }
+    }
+    if (underdogCode) break;
+  }
+  if (underdogCode) {
+    const o = real.find(p => p.codes?.includes(underdogCode));
+    if (o) add(o.name, { icon:"💎", label:"Underdog", desc:`First Pot 4 team to reach the knockouts (${underdogCode})`, tone:"good" });
+  }
 
   // (Clean Sheet replaced by 🧱 Brick Wall — the single best-defence player, below.)
 
@@ -1025,16 +1037,18 @@ function computeBadges(ranked, matches, rank24hChange, winPctPlayers) {
     if (p.total === 0) add(p.name, { icon:"🦆", label:"Still Quacking", desc:"Yet to score a point", tone:"bad" });
   });
 
-  // 🎸 One Man Band — biggest points gap between a player's two teams (one carrying)
+  // 🎸 One Man Band — biggest gap between a player's TOP and SECOND-highest
+  // scoring team (works for groups with >2 teams each: one team clearly ahead
+  // of their next best, not just ahead of their worst).
   let oneMan = null;
   real.forEach(p => {
-    const tp = (p.teams || []).map(t => t.pts);
+    const tp = (p.teams || []).map(t => t.pts).sort((a, b) => b - a);
     if (tp.length >= 2) {
-      const gap = Math.max(...tp) - Math.min(...tp);
+      const gap = tp[0] - tp[1];
       if (gap > 0 && (!oneMan || gap > oneMan.g)) oneMan = { name: p.name, g: gap };
     }
   });
-  if (oneMan) add(oneMan.name, { icon:"🎸", label:"One Man Band", desc:`One team carrying — ${oneMan.g}pt gap between their teams`, tone:"good" });
+  if (oneMan) add(oneMan.name, { icon:"🎸", label:"One Man Band", desc:`One team carrying — ${oneMan.g}pts clear of their next best`, tone:"good" });
 
   // 💥 Firepower (most goals scored) / 🚰 Leaky (most goals conceded) by a player's teams
   const goalsFor = {}, goalsAgainst = {};
@@ -1120,8 +1134,8 @@ function computeBadges(ranked, matches, rank24hChange, winPctPlayers) {
       if (loser && !elimDate[loser]) elimDate[loser] = m.utcDate;
     }
   });
-  // 🩸 First Casualty — first player to lose a team / ⚰️ Wiped Out — first to lose both
-  let firstOne = null, firstBoth = null;
+  // 🩸 First Casualty — first player to lose a team / ⚰️ Wiped Out — first to lose ALL teams
+  let firstOne = null, firstAll = null;
   real.forEach(p => {
     const codes = p.codes || [];
     const dated = codes.map(c => ({ code: c, t: elimDate[c] ? new Date(elimDate[c]).getTime() : null })).filter(x => x.t !== null);
@@ -1129,9 +1143,12 @@ function computeBadges(ranked, matches, rank24hChange, winPctPlayers) {
       const f = dated.reduce((m, x) => x.t < m.t ? x : m);
       if (!firstOne || f.t < firstOne.d) firstOne = { name: p.name, d: f.t, code: f.code };
     }
-    if (dated.length >= 2 && codes.every(c => elimDate[c])) {
-      const b = dated.reduce((m, x) => x.t > m.t ? x : m);
-      if (!firstBoth || b.t < firstBoth.d) firstBoth = { name: p.name, d: b.t, code: b.code };
+    // Wiped Out needs the player's ENTIRE roster gone (every team has an elim
+    // date — a team still alive or one that won the tournament has none), so it
+    // scales to groups with >2 teams each. Timestamp = when their LAST team went.
+    if (codes.length >= 2 && codes.every(c => elimDate[c])) {
+      const last = dated.reduce((m, x) => x.t > m.t ? x : m);
+      if (!firstAll || last.t < firstAll.d) firstAll = { name: p.name, d: last.t, code: last.code };
     }
   });
   // Readable team name from the live match data (matches the displayed-name
@@ -1143,7 +1160,7 @@ function computeBadges(ranked, matches, rank24hChange, winPctPlayers) {
     return (m.homeTeam?.tla?.toUpperCase() === code ? m.homeTeam?.name : m.awayTeam?.name) || code;
   };
   if (firstOne) add(firstOne.name, { icon:"🩸", label:"First Casualty", desc:`First to have a team eliminated (${teamNameOf(firstOne.code)})`, tone:"bad" });
-  if (firstBoth) add(firstBoth.name, { icon:"⚰️", label:"Wiped Out", desc:"First to lose both teams", tone:"bad" });
+  if (firstAll) add(firstAll.name, { icon:"⚰️", label:"Wiped Out", desc:`First to have all their teams eliminated (last: ${teamNameOf(firstAll.code)})`, tone:"bad" });
 
   // Order each player's badges rarest-first so the row preview (which shows only
   // the first couple) highlights what's UNIQUE to them rather than common
