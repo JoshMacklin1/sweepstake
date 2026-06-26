@@ -2368,7 +2368,37 @@ function projectR32(groupStandings) {
 // Compact match row for use inside a Section card on the Home tab.
 // No outer card border — the Section provides that. Shows flags, owner names,
 // score (finished/live) or vs + time (upcoming), and pts earned.
-function HomeMatchRow({ m, ranked, pts, onTeamClick, isLast }) {
+// Result banner for a finished match — mirrors the Scores-page MatchCard logic
+// (shock exit, then the upset ladder) so Home and Scores never disagree.
+function resultBanner(m) {
+  if (m.status !== "FINISHED") return null;
+  const h = m.homeTeam?.tla?.toUpperCase();
+  const a = m.awayTeam?.tla?.toUpperCase();
+  const hs = m.score?.fullTime?.home ?? 0;
+  const as_ = m.score?.fullTime?.away ?? 0;
+  const pen = m.score?.penalties;
+  let winnerCode = null, loserCode = null;
+  if (hs > as_)      { winnerCode = h; loserCode = a; }
+  else if (as_ > hs) { winnerCode = a; loserCode = h; }
+  else if (pen)      { winnerCode = pen.home > pen.away ? h : a; loserCode = winnerCode === h ? a : h; }
+  const isKnockout = !(m.stage || "").toUpperCase().includes("GROUP");
+  if (isKnockout && loserCode && (POT[loserCode] || 4) <= 2) return { icon: "😱", label: "SHOCK EXIT" };
+  if (winnerCode && loserCode) {
+    const gap = (POT[winnerCode] || 4) - (POT[loserCode] || 4);
+    if (gap === 3) return { icon: "🦄", label: "FAIRYTALE" };
+    if (gap === 2) return { icon: "🔪", label: "GIANT KILLER" };
+    if (gap === 1) return { icon: "⚠️", label: "UPSET ALERT" };
+    return null;
+  }
+  if (hs === as_) {
+    const gap = Math.abs((POT[h] || 4) - (POT[a] || 4));
+    if (gap === 3) return { icon: "🛡️", label: "HEROIC STAND" };
+    if (gap === 2) return { icon: "🤝", label: "PUNCHED ABOVE" };
+  }
+  return null;
+}
+
+function HomeMatchRow({ m, ranked, pts, onTeamClick, isLast, banners = false }) {
   const h = m.homeTeam?.tla?.toUpperCase();
   const a = m.awayTeam?.tla?.toUpperCase();
   const fin = m.status === "FINISHED";
@@ -2377,8 +2407,21 @@ function HomeMatchRow({ m, ranked, pts, onTeamClick, isLast }) {
   const aOwner = ownerOf(a, ranked);
   const hs = m.score?.fullTime?.home ?? 0;
   const as_ = m.score?.fullTime?.away ?? 0;
+  const banner = banners ? resultBanner(m) : null;
   return (
-    <div style={{ padding: "10px 14px", borderBottom: isLast ? "none" : `1px solid ${C.border}` }}>
+    <div style={{ padding: "10px 14px", borderBottom: isLast ? "none" : `1px solid ${C.border}`, boxShadow: banner ? `inset 3px 0 0 ${C.gold}` : "none" }}>
+      {banners && (
+        <div style={{ display: "flex", alignItems: "center", marginBottom: 7 }}>
+          <span style={{ fontSize: 9, color: live ? C.red : C.dim, fontWeight: 700, letterSpacing: "0.08em", flex: 1, textTransform: "uppercase", animation: live ? "pulse-red 1.5s infinite" : "none" }}>{live ? "⚡ LIVE" : (m.stage || "").replace(/_/g, " ")}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 4, justifyContent: "center", flex: 1 }}>
+            {banner && <>
+              <span style={{ fontSize: 12, lineHeight: 1 }}>{banner.icon}</span>
+              <span style={{ fontSize: 9, fontWeight: 900, color: C.gold, letterSpacing: "0.06em" }}>{banner.label}</span>
+            </>}
+          </div>
+          <span style={{ fontSize: 9, color: C.muted, flex: 1, textAlign: "right" }}>{fmt(m.utcDate)}</span>
+        </div>
+      )}
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <div
           className={onTeamClick && h ? "player-card" : undefined}
@@ -2530,7 +2573,7 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
       <Section icon="🌐" title="Recent Results" onOpen={() => { window.scrollTo(0, 0); setTab("scores"); }} linkLabel="View all scores"
         empty={recentResults.length === 0 ? "No matches in the last 24h" : null}>
         {recentResults.map((m, i) => (
-          <HomeMatchRow key={m.id} m={m} ranked={ranked} pts={matchPtsById[m.id]} onTeamClick={openTeamModal} isLast={i === recentResults.length - 1} />
+          <HomeMatchRow key={m.id} m={m} ranked={ranked} pts={matchPtsById[m.id]} onTeamClick={openTeamModal} isLast={i === recentResults.length - 1} banners />
         ))}
       </Section>
 
