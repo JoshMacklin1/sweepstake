@@ -972,12 +972,10 @@ function SnapSheet({ onClose, scrollBodyToBottom = false, children }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // PLAYER MODAL — pop-over with points, results, win chances
 // ─────────────────────────────────────────────────────────────────────────────
-function PlayerModal({ player, displayRank, winPct, winTeams, badges = [], matches = [], matchPtsById = {}, onTeamClick, scrollToBottom = false, onClose }) {
+function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, badges = [], matches = [], matchPtsById = {}, onTeamClick, onClose }) {
   if (!player) return null;
   const isReaper = player.grimReaper;
-  return (
-    <SnapSheet onClose={onClose} scrollBodyToBottom={scrollToBottom}>
-      {(bodyRef) => (<>
+  return (<>
         <div className="sheet-handle"><span></span></div>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", padding:"14px 16px", borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
           <div>
@@ -1141,15 +1139,14 @@ function PlayerModal({ player, displayRank, winPct, winTeams, badges = [], match
             );
           })()}
         </div>
-      </>)}
-    </SnapSheet>
+      </>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TEAM MODAL — bottom sheet with a single team's full match history
 // ─────────────────────────────────────────────────────────────────────────────
-function TeamModal({ tla, matches, ranked, matchPtsById, onClose }) {
+function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onClose }) {
   const owner = ownerOf(tla, ranked);
   const pot = POT[tla] || 4;
 
@@ -1181,9 +1178,7 @@ function TeamModal({ tla, matches, ranked, matchPtsById, onClose }) {
   const won = teamEntry?.won;
   const totalPts = teamEntry?.pts ?? 0;
 
-  return (
-    <SnapSheet onClose={onClose}>
-      {(bodyRef) => (<>
+  return (<>
         <div className="sheet-handle"><span></span></div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "14px 16px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -1283,8 +1278,7 @@ function TeamModal({ tla, matches, ranked, matchPtsById, onClose }) {
             })}
           </>)}
         </div>
-      </>)}
-    </SnapSheet>
+      </>
   );
 }
 
@@ -3565,6 +3559,21 @@ function App({ onSwitchGroup }) {
     window.history.pushState({ appTab: tabRef.current, appModal: "team", appTeam: tla }, "");
     setSelectedTeam(tla);
   };
+  // Switching from the player card to a team card: REPLACE the player history
+  // entry (don't push), so the player & team share one SnapSheet — the sheet
+  // height is preserved, and closing the team card closes the whole thing
+  // rather than returning to the player card.
+  const switchToTeam = (tla) => {
+    window.history.replaceState({ appTab: tabRef.current, appModal: "team", appTeam: tla }, "");
+    setSelectedPlayer(null);
+    setSelectedTeam(tla);
+  };
+  // Closes whichever card is open (player or team) back to the base state.
+  const closeCard = () => {
+    const m = window.history.state?.appModal;
+    if (m === "player" || m === "team") window.history.back();
+    else { setSelectedPlayer(null); setSelectedTeam(null); }
+  };
   const [refreshing,  setRefreshing]  = useState(false);
   const [devMode,     setDevMode]     = useState(DEV_MODE_DEFAULT);
   const devModeRef = React.useRef(DEV_MODE_DEFAULT);
@@ -4274,15 +4283,21 @@ function App({ onSwitchGroup }) {
           <NotificationsDrawer matches={matches} ranked={ranked} upcoming={upcoming} matchPtsById={matchPtsById} onClose={() => setShowNotifications(false)} />
         )}
 
-        {selectedPlayer && (() => {
-          const idx = ranked.findIndex(x => x.name === selectedPlayer);
-          const p = ranked[idx];
-          if (!p) return null;
-          return <PlayerModal player={p} displayRank={p._displayRank || (idx + 1)} winPct={winPct.players ? winPct.players[selectedPlayer] : 0} winTeams={winPct.teams} badges={badges[selectedPlayer] || []} matches={matches} matchPtsById={matchPtsById} onTeamClick={openTeamModal} scrollToBottom={scrollPlayerToBadges} onClose={() => { if (window.history.state?.appModal === "player") window.history.back(); else setSelectedPlayer(null); }} />;
-        })()}
-
-        {selectedTeam && (
-          <TeamModal tla={selectedTeam} matches={matches} ranked={ranked} matchPtsById={matchPtsById} onClose={() => { if (window.history.state?.appModal === "team") window.history.back(); else setSelectedTeam(null); }} />
+        {(selectedPlayer || selectedTeam) && (
+          <SnapSheet onClose={closeCard} scrollBodyToBottom={!selectedTeam && scrollPlayerToBadges}>
+            {(bodyRef) => {
+              // Team takes precedence: switching player -> team sets selectedTeam
+              // and clears selectedPlayer, swapping the content of this same sheet
+              // (so the height/snap state is preserved across the switch).
+              if (selectedTeam) {
+                return <TeamCardContent bodyRef={bodyRef} tla={selectedTeam} matches={matches} ranked={ranked} matchPtsById={matchPtsById} onClose={closeCard} />;
+              }
+              const idx = ranked.findIndex(x => x.name === selectedPlayer);
+              const p = ranked[idx];
+              if (!p) return null;
+              return <PlayerCardContent bodyRef={bodyRef} player={p} displayRank={p._displayRank || (idx + 1)} winPct={winPct.players ? winPct.players[selectedPlayer] : 0} winTeams={winPct.teams} badges={badges[selectedPlayer] || []} matches={matches} matchPtsById={matchPtsById} onTeamClick={switchToTeam} onClose={closeCard} />;
+            }}
+          </SnapSheet>
         )}
 
         {showTour && <TourOverlay onClose={closeTour} />}
