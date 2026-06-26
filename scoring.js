@@ -515,6 +515,71 @@ function isDefinitelyFourth(code, ptsMap, gfMap, gaMap) {
   if (sorted.indexOf(code) < 3) return false; // not last by our sort
   return cmp(sorted[2], sorted[3]) < 0; // 3rd unambiguously better than 4th
 }
+// Teams that have MATHEMATICALLY clinched a top-2 group finish — guaranteed into
+// the Last 32 no matter how the remaining group games go. Brute-forces every
+// combination of remaining results in each group (≤ 3^6) and only clinches a
+// team if it lands top-2 in EVERY scenario, breaking ties pessimistically (a
+// team that could be levelled on points for 2nd is NOT counted). Best-3rd
+// qualification is deliberately not inferred here — it depends on all 12 groups
+// at once, so it can't be called "definite" early; those teams get credited once
+// the real Last 32 fixtures publish (handled by deriveStages' fixture loop).
+function clinchedR32(matches) {
+  const clinched = new Set();
+  const letterOf = (code) => Object.keys(GROUP_ASSIGNMENTS).find(g => GROUP_ASSIGNMENTS[g].includes(code));
+  const basePts = {};
+  const remainingByGroup = {};
+  Object.keys(GROUP_ASSIGNMENTS).forEach(L => {
+    remainingByGroup[L] = [];
+    GROUP_ASSIGNMENTS[L].forEach(c => { basePts[c] = 0; });
+  });
+  matches.forEach(m => {
+    if (!(m.stage || "").toUpperCase().includes("GROUP")) return;
+    const h = m.homeTeam?.tla?.toUpperCase();
+    const a = m.awayTeam?.tla?.toUpperCase();
+    if (!h || !a) return;
+    const L = letterOf(h);
+    if (!L || !GROUP_ASSIGNMENTS[L].includes(a)) return;
+    if (m.status === "FINISHED") {
+      const hs = m.score?.fullTime?.home ?? 0;
+      const as_ = m.score?.fullTime?.away ?? 0;
+      if (hs > as_) basePts[h] += 3;
+      else if (as_ > hs) basePts[a] += 3;
+      else { basePts[h]++; basePts[a]++; }
+    } else {
+      remainingByGroup[L].push({ h, a });
+    }
+  });
+  Object.keys(GROUP_ASSIGNMENTS).forEach(L => {
+    const teams = GROUP_ASSIGNMENTS[L];
+    if (!teams || teams.length < 2) return;
+    const rem = remainingByGroup[L];
+    if (rem.length > 8) return; // safety; a 4-team group has at most 6 games
+    const combos = Math.pow(3, rem.length);
+    const alwaysTop2 = {};
+    teams.forEach(t => { alwaysTop2[t] = true; });
+    for (let c = 0; c < combos; c++) {
+      const pts = {};
+      teams.forEach(t => { pts[t] = basePts[t] || 0; });
+      let cc = c;
+      for (let i = 0; i < rem.length; i++) {
+        const o = cc % 3; cc = Math.floor(cc / 3);
+        const { h, a } = rem[i];
+        if (o === 0) pts[h] += 3;       // home win
+        else if (o === 1) pts[a] += 3;  // away win
+        else { pts[h]++; pts[a]++; }    // draw
+      }
+      teams.forEach(t => {
+        if (!alwaysTop2[t]) return;
+        const tp = pts[t];
+        let aboveOrEqual = 0; // others that could finish above t (ties broken against t)
+        teams.forEach(o => { if (o !== t && (pts[o] || 0) >= tp) aboveOrEqual++; });
+        if (aboveOrEqual > 1) alwaysTop2[t] = false;
+      });
+    }
+    teams.forEach(t => { if (alwaysTop2[t]) clinched.add(t); });
+  });
+  return clinched;
+}
 function deriveStages(matches) {
   const eliminated = {};
   const winners    = {};
@@ -562,6 +627,13 @@ function deriveStages(matches) {
       markStage(winner, "LAST_32"); markStage(loser, "LAST_32");
       if (loser) eliminated[loser] = "LAST_32";
     }
+  });
+
+  // Definite Last 32 qualifiers: teams that have mathematically clinched a top-2
+  // group finish are in the Last 32 regardless of the real fixtures existing yet.
+  // markStage only upgrades, so this never downgrades a team already further on.
+  clinchedR32(matches).forEach(code => {
+    if (!eliminated[code]) markStage(code, "LAST_32");
   });
 
   // Group stage eliminations — only mark teams NOT in the top 2 of their group.
