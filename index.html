@@ -476,6 +476,9 @@ function FlagRow({ teams, baseHeight = 18 }) {
               <img src={url} alt={t.name || t.code} {...flagHandlers(t.code, h)}
                 style={{ width: w, height: h, objectFit: "cover", borderRadius: 2, display: "block",
                   opacity: dimmed ? 0.25 : 1, outline: t.won ? "2px solid #f59e0b" : "none" }} />
+              {dimmed && (
+                <span style={{ position: "absolute", top: 0, right: 0, fontSize: Math.max(7, Math.round(9 * scale)), fontWeight: 900, color: C.red, textShadow: "0 0 2px rgba(0,0,0,0.9)", lineHeight: 1, zIndex: 1, pointerEvents: "none" }}>✕</span>
+              )}
               <span style={{
                 position: "absolute", bottom: -2, right: -3,
                 fontSize: Math.max(5, Math.round(7 * scale)), fontWeight: 900, lineHeight: 1,
@@ -486,10 +489,15 @@ function FlagRow({ teams, baseHeight = 18 }) {
           );
         }
         return (
-          <img key={t.code} src={url} alt={t.name || t.code} {...flagHandlers(t.code, h)}
-            title={`${t.name} (Pot ${t.pot})${t.stage ? " — " + STAGE_LABEL[t.stage] : ""}`}
-            style={{ width: w, height: h, objectFit: "cover", borderRadius: 2, display: "block",
-              opacity: dimmed ? 0.25 : 1, outline: t.won ? "2px solid #f59e0b" : "none", flexShrink: 0 }} />
+          <div key={t.code} style={{ position: "relative", display: "inline-block", height: h, flexShrink: 0 }}>
+            <img src={url} alt={t.name || t.code} {...flagHandlers(t.code, h)}
+              title={`${t.name} (Pot ${t.pot})${t.stage ? " — " + STAGE_LABEL[t.stage] : ""}`}
+              style={{ width: w, height: h, objectFit: "cover", borderRadius: 2, display: "block",
+                opacity: dimmed ? 0.25 : 1, outline: t.won ? "2px solid #f59e0b" : "none" }} />
+            {dimmed && (
+              <span style={{ position: "absolute", top: 0, right: 0, fontSize: Math.max(7, Math.round(9 * scale)), fontWeight: 900, color: C.red, textShadow: "0 0 2px rgba(0,0,0,0.9)", lineHeight: 1, zIndex: 1, pointerEvents: "none" }}>✕</span>
+            )}
+          </div>
         );
       })}
     </div>
