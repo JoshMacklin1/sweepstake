@@ -972,7 +972,7 @@ function SnapSheet({ onClose, scrollBodyToBottom = false, children }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // PLAYER MODAL — pop-over with points, results, win chances
 // ─────────────────────────────────────────────────────────────────────────────
-function PlayerModal({ player, displayRank, winPct, winTeams, badges = [], scrollToBottom = false, onClose }) {
+function PlayerModal({ player, displayRank, winPct, winTeams, badges = [], matches = [], matchPtsById = {}, scrollToBottom = false, onClose }) {
   if (!player) return null;
   const isReaper = player.grimReaper;
   return (
@@ -1072,6 +1072,70 @@ function PlayerModal({ player, displayRank, winPct, winTeams, badges = [], scrol
               ))}
             </>
           )}
+          {!isReaper && (() => {
+            // All settled results across every team the player owns, newest first.
+            // Same row style as the team card, but led by the player's own team
+            // (since results span multiple teams) and excluding upcoming fixtures.
+            const settled = [];
+            (player.teams || []).forEach(t => {
+              matches.forEach(m => {
+                const h = m.homeTeam?.tla?.toUpperCase();
+                const a = m.awayTeam?.tla?.toUpperCase();
+                if ((h === t.code || a === t.code) && isSettled(m.status)) {
+                  settled.push({ m, t, isHome: h === t.code });
+                }
+              });
+            });
+            settled.sort((x, y) => new Date(y.m.utcDate) - new Date(x.m.utcDate));
+            if (settled.length === 0) return null;
+            return (
+              <>
+                <div style={{ fontSize:11, color:C.text, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", margin:"22px 0 8px" }}>Results</div>
+                {settled.map(({ m, t, isHome }) => {
+                  const oppName = isHome ? (m.awayTeam?.name || "TBD") : (m.homeTeam?.name || "TBD");
+                  const hs = m.score?.fullTime?.home ?? 0;
+                  const as_ = m.score?.fullTime?.away ?? 0;
+                  const myGoals = isHome ? hs : as_;
+                  const oppGoals = isHome ? as_ : hs;
+                  const pen = m.score?.penalties;
+                  let result = "D";
+                  if (myGoals > oppGoals) result = "W";
+                  else if (myGoals < oppGoals) result = "L";
+                  else if (pen) {
+                    const myPen = isHome ? pen.home : pen.away;
+                    const oppPen = isHome ? pen.away : pen.home;
+                    result = myPen > oppPen ? "W" : "L";
+                  }
+                  const mPts = matchPtsById[m.id];
+                  const earnedPts = mPts ? (isHome ? mPts.home : mPts.away) : null;
+                  const resultColor = result === "W" ? C.accent : result === "L" ? C.red : C.muted;
+                  return (
+                    <div key={t.code + m.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"9px 0", borderBottom:`1px solid ${C.border}` }}>
+                      <div style={{
+                        width:22, height:22, borderRadius:4, flexShrink:0,
+                        background: result === "W" ? C.posBg : result === "L" ? C.negBg : "rgba(148,163,184,0.12)",
+                        display:"flex", alignItems:"center", justifyContent:"center",
+                        fontSize:10, fontWeight:800, color:resultColor,
+                      }}>{result}</div>
+                      <Flag code={t.code} size={18} />
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:12, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}</div>
+                        <div style={{ fontSize:10, color:C.muted }}>vs {oppName} · {fmt(m.utcDate)}</div>
+                      </div>
+                      <div style={{ textAlign:"right", flexShrink:0 }}>
+                        <div style={{ fontSize:14, fontWeight:800, color:C.text }}>{myGoals}–{oppGoals}</div>
+                        {earnedPts != null && (
+                          <div style={{ fontSize:10, fontWeight:700, color: earnedPts > 0 ? C.accent : C.muted }}>
+                            {earnedPts > 0 ? `+${earnedPts}` : earnedPts} pts
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+            );
+          })()}
         </div>
       </>)}
     </SnapSheet>
@@ -4210,7 +4274,7 @@ function App({ onSwitchGroup }) {
           const idx = ranked.findIndex(x => x.name === selectedPlayer);
           const p = ranked[idx];
           if (!p) return null;
-          return <PlayerModal player={p} displayRank={p._displayRank || (idx + 1)} winPct={winPct.players ? winPct.players[selectedPlayer] : 0} winTeams={winPct.teams} badges={badges[selectedPlayer] || []} scrollToBottom={scrollPlayerToBadges} onClose={() => { if (window.history.state?.appModal === "player") window.history.back(); else setSelectedPlayer(null); }} />;
+          return <PlayerModal player={p} displayRank={p._displayRank || (idx + 1)} winPct={winPct.players ? winPct.players[selectedPlayer] : 0} winTeams={winPct.teams} badges={badges[selectedPlayer] || []} matches={matches} matchPtsById={matchPtsById} scrollToBottom={scrollPlayerToBadges} onClose={() => { if (window.history.state?.appModal === "player") window.history.back(); else setSelectedPlayer(null); }} />;
         })()}
 
         {selectedTeam && (
