@@ -1793,6 +1793,23 @@ function deriveSparklineHistory(matches) {
     if (changedPlayers.size > 0) PLAYERS.forEach(p => history[p.name].push(running[p.name]));
   });
 
+  // Award 3rd-place qualification bonuses at end of group-stage replay.
+  // qualifiedThirdPlacers isn't tied to a single match event, so it can only
+  // be computed once all FINISHED group games are replayed. teamPts delta logic
+  // prevents double-counting for teams already covered by clinchedR32.
+  const thirdPlaceChanged = new Set();
+  qualifiedThirdPlacers(matches).forEach(code => {
+    if (eliminated[code]) return;
+    const pls = teamPlayer[code] || [];
+    const newPts = ptsTotal(code, "LAST_32");
+    pls.forEach(pl => {
+      const key = pl + ":" + code;
+      const delta = newPts - (teamPts[key] || 0);
+      if (delta > 0) { running[pl] += delta; teamPts[key] = newPts; thirdPlaceChanged.add(pl); }
+    });
+  });
+  if (thirdPlaceChanged.size > 0) PLAYERS.forEach(p => history[p.name].push(running[p.name]));
+
   // Append live match contribution as the final sparkline point
   const liveMatches = matches.filter(m => m.status === "IN_PLAY" || m.status === "PAUSED");
   if (liveMatches.length > 0) {
