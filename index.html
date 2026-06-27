@@ -3787,7 +3787,7 @@ function NotificationsDrawer({ matches, ranked, matchPtsById, onClose, onSeenUpd
   const renderQualCard = ({ team, owner, bonus, date }, dimmed) => (
     <div key={`q-${team.code}`} style={{ padding:"10px 6px", borderBottom:`1px solid ${C.border}`, background: dimmed ? "transparent" : "rgba(34,197,94,0.07)" }}>
       <div style={{ fontSize:10, color:C.muted, marginBottom:3 }}>WC Sweeps · {relTime(date)}</div>
-      <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:2 }}>⭐ {owner}'s {team.name} qualify!</div>
+      <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:2 }}>⭐ {owner}'s {team.name} (P{POT[team.code]}) qualify!</div>
       <div style={{ fontSize:12, color:C.dim, display:"flex", alignItems:"center", gap:8 }}>
         <span>Advanced from group stage</span>
         {bonus > 0 && <span style={{ color:C.accent, fontWeight:700 }}>+{bonus} pts</span>}
@@ -3803,7 +3803,7 @@ function NotificationsDrawer({ matches, ranked, matchPtsById, onClose, onSeenUpd
     return (
       <div key={`e-${team.code}`} style={{ padding:"10px 6px", borderBottom:`1px solid ${C.border}`, background: dimmed ? "transparent" : "rgba(34,197,94,0.07)" }}>
         <div style={{ fontSize:10, color:C.muted, marginBottom:3 }}>WC Sweeps · {relTime(date)}</div>
-        <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:2 }}>💀 {owner}'s {team.name} {stage === "GROUP_ELIM" ? "eliminated!" : "knocked out"}</div>
+        <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:2 }}>💀 {owner}'s {team.name} (P{POT[team.code]}) {stage === "GROUP_ELIM" ? "eliminated!" : "knocked out"}</div>
         <div style={{ fontSize:12, color:C.dim, display:"flex", alignItems:"center", gap:8 }}>
           <span>{subtitle}</span>
           {penalty !== null && penalty < 0 && <span style={{ color:C.red, fontWeight:700 }}>{penalty} pts</span>}
