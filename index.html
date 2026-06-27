@@ -3635,7 +3635,9 @@ function NotificationsDrawer({ matches, ranked, matchPtsById, onClose, onSeenUpd
   }
 
   // New-leader notifications — simulate running totals to detect each leadership
-  // change, timestamped at the match that triggered it.
+  // change. Includes match pts (matchPtsById), qual bonuses for teams not yet in
+  // knockout draws, and GROUP_ELIM penalties — all batched per timestamp so
+  // simultaneous matches don't create spurious intermediate notifications.
   const leaderItems = [];
   {
     const teamToPlayer = {};
@@ -3647,21 +3649,54 @@ function NotificationsDrawer({ matches, ranked, matchPtsById, onClose, onSeenUpd
     for (const player of ranked) {
       if (!player.grimReaper) totals[player.name] = 0;
     }
-    let currentLeader = null;
-    const sorted = matches
-      .filter(m => isSettled(m.status) && matchPtsById?.[m.id])
-      .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
-    for (const m of sorted) {
+
+    // Teams that have appeared in knockout matchPtsById already have their
+    // stage bonuses baked in via deriveMatchPts's award() delta — don't add twice.
+    const hasKnockoutPts = new Set();
+    for (const m of matches) {
+      if (!isSettled(m.status) || !matchPtsById?.[m.id]) continue;
+      if (!(m.stage || "").toUpperCase().includes("GROUP")) {
+        const h = m.homeTeam?.tla?.toUpperCase();
+        const a = m.awayTeam?.tla?.toUpperCase();
+        if (h) hasKnockoutPts.add(h);
+        if (a) hasKnockoutPts.add(a);
+      }
+    }
+
+    // Build a flat event list: match pts + missing bonuses/penalties
+    const events = [];
+    for (const m of matches) {
+      if (!isSettled(m.status) || !matchPtsById?.[m.id]) continue;
       const h = m.homeTeam?.tla?.toUpperCase();
       const a = m.awayTeam?.tla?.toUpperCase();
       const pts = matchPtsById[m.id];
-      if (h && teamToPlayer[h] && pts?.home != null) totals[teamToPlayer[h]] = (totals[teamToPlayer[h]] || 0) + pts.home;
-      if (a && teamToPlayer[a] && pts?.away != null) totals[teamToPlayer[a]] = (totals[teamToPlayer[a]] || 0) + pts.away;
+      const date = new Date(m.utcDate).getTime();
+      if (h && teamToPlayer[h] && pts?.home != null) events.push({ date, player: teamToPlayer[h], delta: pts.home });
+      if (a && teamToPlayer[a] && pts?.away != null) events.push({ date, player: teamToPlayer[a], delta: pts.away });
+    }
+    // Qual bonuses for teams not yet reflected in knockout matchPtsById
+    for (const q of qualItems) {
+      if (!hasKnockoutPts.has(q.team.code) && q.bonus > 0)
+        events.push({ date: q.date, player: q.owner, delta: q.bonus });
+    }
+    // Group elimination penalties
+    for (const e of elimItems) {
+      if (e.stage === "GROUP_ELIM" && e.penalty != null && e.penalty < 0)
+        events.push({ date: e.date, player: e.owner, delta: e.penalty });
+    }
+
+    // Process events grouped by timestamp so we detect leader changes once per
+    // batch, not after every individual event within the same moment.
+    const byTs = {};
+    for (const ev of events) { (byTs[ev.date] = byTs[ev.date] || []).push(ev); }
+    let currentLeader = null;
+    for (const ts of Object.keys(byTs).map(Number).sort((a, b) => a - b)) {
+      for (const ev of byTs[ts]) totals[ev.player] = (totals[ev.player] || 0) + ev.delta;
       const entries = Object.entries(totals).sort((x, y) => y[1] - x[1]);
       const [topName, topPts] = entries[0];
       const secondPts = entries.length > 1 ? entries[1][1] : 0;
       if (topPts > 0 && topPts > secondPts && topName !== currentLeader) {
-        leaderItems.push({ type:"leader", date: new Date(m.utcDate).getTime(), leader: topName, pts: topPts, ahead: topPts - secondPts });
+        leaderItems.push({ type:"leader", date: ts, leader: topName, pts: topPts, ahead: topPts - secondPts });
         currentLeader = topName;
       }
     }
