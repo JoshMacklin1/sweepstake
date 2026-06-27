@@ -3821,6 +3821,7 @@ function App({ onSwitchGroup }) {
   const [goalInfo,    setGoalInfo]    = useState(null);
   const prevScoresRef = React.useRef({});
   const [barsVisible, setBarsVisible] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
   const lastScrollY = React.useRef(0);
   const barLockRef = React.useRef(0);
 
@@ -4216,44 +4217,49 @@ function App({ onSwitchGroup }) {
         position:"sticky", top:0, zIndex:20,
         background:C.bg,
       }}>
-        {/* Title row — collapses away on scroll-down (mobile); hidden on desktop (it's in the sidebar) */}
+        {/* Search bar row — collapses away on scroll-down (mobile); hidden on desktop (it's in the sidebar) */}
         <div data-title-row="1" style={{
           overflow:"hidden",
-          maxHeight: barsVisible ? 140 : 0,
-          opacity: barsVisible ? 1 : 0,
+          maxHeight: (barsVisible || searchQuery) ? 60 : 0,
+          opacity: (barsVisible || searchQuery) ? 1 : 0,
           transition: "max-height 0.28s ease, opacity 0.2s ease",
         }}>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"12px 16px" }}>
-          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-              <div style={{ order:2 }}>
-                <div style={{ fontSize:10, color:C.accent, fontWeight:700, letterSpacing:"0.18em", textTransform:"uppercase", marginBottom:2 }}>FIFA World Cup 2026</div>
-                <div style={{ fontSize:18, fontWeight:900, color:C.text, letterSpacing:"-0.01em", lineHeight:1.1 }}>Sweepstakes</div>
-              </div>
-              <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjYuNDEgMy42NiAyMDIuMTcgMjAwLjY1Ij48Y2lyY2xlIGN4PSIxMzMuNjgiIGN5PSIxOTQuODUiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTA3LjUwIiBjeT0iMTk0Ljg1IiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjgxLjMyIiBjeT0iMTk0Ljg1IiByPSI5LjQ1IiBmaWxsPSIjMEI2RTJDIi8+PGNpcmNsZSBjeD0iMTcyLjk1IiBjeT0iMTcyLjE0IiByPSI5LjQ1IiBmaWxsPSIjRDUyQjFFIi8+PGNpcmNsZSBjeD0iMTQ2Ljc3IiBjeT0iMTcyLjE0IiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjEyMC41OSIgY3k9IjE3Mi4xNCIgcj0iOS40NSIgZmlsbD0iIzBCNkUyQyIvPjxjaXJjbGUgY3g9Ijk0LjQxIiBjeT0iMTcyLjE0IiByPSI5LjQ1IiBmaWxsPSIjMEI2RTJDIi8+PGNpcmNsZSBjeD0iNjguMjMiIGN5PSIxNzIuMTQiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iNDIuMDUiIGN5PSIxNzIuMTQiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTg2LjA0IiBjeT0iMTQ5LjQyIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjE1OS44NiIgY3k9IjE0OS40MiIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxMzMuNjgiIGN5PSIxNDkuNDIiIHI9IjkuNDUiIGZpbGw9IiMwQjZFMkMiLz48Y2lyY2xlIGN4PSIxMDcuNTAiIGN5PSIxNDkuNDIiIHI9IjkuNDUiIGZpbGw9IiMwQjZFMkMiLz48Y2lyY2xlIGN4PSI4MS4zMiIgY3k9IjE0OS40MiIgcj0iOS40NSIgZmlsbD0iIzBCNkUyQyIvPjxjaXJjbGUgY3g9IjU1LjE0IiBjeT0iMTQ5LjQyIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjI4Ljk2IiBjeT0iMTQ5LjQyIiByPSI5LjQ1IiBmaWxsPSIjMUEzRkEwIi8+PGNpcmNsZSBjeD0iMTk5LjEzIiBjeT0iMTI2LjcwIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjE3Mi45NSIgY3k9IjEyNi43MCIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxNDYuNzciIGN5PSIxMjYuNzAiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTIwLjU5IiBjeT0iMTI2LjcwIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9Ijk0LjQxIiBjeT0iMTI2LjcwIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjY4LjIzIiBjeT0iMTI2LjcwIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjQyLjA1IiBjeT0iMTI2LjcwIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjE1Ljg3IiBjeT0iMTI2LjcwIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjE4Ni4wNCIgY3k9IjEwMy45OCIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxNTkuODYiIGN5PSIxMDMuOTgiIHI9IjkuNDUiIGZpbGw9IiMxQTNGQTAiLz48Y2lyY2xlIGN4PSIxMzMuNjgiIGN5PSIxMDMuOTgiIHI9IjkuNDUiIGZpbGw9IiMxQTNGQTAiLz48Y2lyY2xlIGN4PSIxMDcuNTAiIGN5PSIxMDMuOTgiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iODEuMzIiIGN5PSIxMDMuOTgiIHI9IjkuNDUiIGZpbGw9IiNENTJCMUUiLz48Y2lyY2xlIGN4PSI1NS4xNCIgY3k9IjEwMy45OCIgcj0iOS40NSIgZmlsbD0iI0Q1MkIxRSIvPjxjaXJjbGUgY3g9IjI4Ljk2IiBjeT0iMTAzLjk4IiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjE5OS4xMyIgY3k9IjgxLjI3IiByPSI5LjQ1IiBmaWxsPSIjMUEzRkEwIi8+PGNpcmNsZSBjeD0iMTcyLjk1IiBjeT0iODEuMjciIHI9IjkuNDUiIGZpbGw9IiMxQTNGQTAiLz48Y2lyY2xlIGN4PSIxNDYuNzciIGN5PSI4MS4yNyIgcj0iOS40NSIgZmlsbD0iIzFBM0ZBMCIvPjxjaXJjbGUgY3g9IjEyMC41OSIgY3k9IjgxLjI3IiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9Ijk0LjQxIiBjeT0iODEuMjciIHI9IjkuNDUiIGZpbGw9IiNENTJCMUUiLz48Y2lyY2xlIGN4PSI2OC4yMyIgY3k9IjgxLjI3IiByPSI5LjQ1IiBmaWxsPSIjRDUyQjFFIi8+PGNpcmNsZSBjeD0iNDIuMDUiIGN5PSI4MS4yNyIgcj0iOS40NSIgZmlsbD0iI0Q1MkIxRSIvPjxjaXJjbGUgY3g9IjE1Ljg3IiBjeT0iODEuMjciIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTg2LjA0IiBjeT0iNTguNTUiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTU5Ljg2IiBjeT0iNTguNTUiIHI9IjkuNDUiIGZpbGw9IiMxQTNGQTAiLz48Y2lyY2xlIGN4PSIxMzMuNjgiIGN5PSI1OC41NSIgcj0iOS40NSIgZmlsbD0iIzFBM0ZBMCIvPjxjaXJjbGUgY3g9IjEwNy41MCIgY3k9IjU4LjU1IiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjgxLjMyIiBjeT0iNTguNTUiIHI9IjkuNDUiIGZpbGw9IiNENTJCMUUiLz48Y2lyY2xlIGN4PSI1NS4xNCIgY3k9IjU4LjU1IiByPSI5LjQ1IiBmaWxsPSIjRDUyQjFFIi8+PGNpcmNsZSBjeD0iMjguOTYiIGN5PSI1OC41NSIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxNzIuOTUiIGN5PSIzNS44MyIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxNDYuNzciIGN5PSIzNS44MyIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxMjAuNTkiIGN5PSIzNS44MyIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSI5NC40MSIgY3k9IjM1LjgzIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjY4LjIzIiBjeT0iMzUuODMiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iNDIuMDUiIGN5PSIzNS44MyIgcj0iOS40NSIgZmlsbD0iI0Q1MkIxRSIvPjxjaXJjbGUgY3g9IjEzMy42OCIgY3k9IjEzLjEyIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjEwNy41MCIgY3k9IjEzLjEyIiByPSI5LjQ1IiBmaWxsPSIjMEI2RTJDIi8+PGNpcmNsZSBjeD0iODEuMzIiIGN5PSIxMy4xMiIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48L3N2Zz4=" style={{ width:30, height:30, flexShrink:0, order:1 }} alt="logo"/>
-          </div>
-          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-            {devMode && (
-              <span onClick={() => {
-                const demo = ranked.find(p => !p.grimReaper && p.teams && p.teams.length);
-                if (demo) setGoalInfo({ code: demo.teams[0].code, team: demo.teams[0].name, owner: demo.name });
-                setGoalFlash(true);
-                setTimeout(() => setGoalFlash(false), 2500);
-              }}
-                style={{ fontSize:9, color:C.gold, cursor:"pointer", userSelect:"none", border:"1px solid #f59e0b", borderRadius:3, padding:"1px 5px" }}>
-                ⚽
-              </span>
-            )}
-            <button onClick={() => {
-              const top3 = ranked.slice(0,3).map((p,i) => `${["🥇","🥈","🥉"][i]} ${p.name} — ${p.total}pts`).join("\n");
-              const mover = [...ranked].filter(p => p.lastChange > 0).sort((a,b) => b.lastChange - a.lastChange)[0];
-              const text = `🏆 WC2026 Sweepstake Update\n\n${top3}\n\n${mover ? `⚡ Biggest mover: ${mover.name} (+${mover.lastChange}pts)` : ""}\n\nFull table: https://joshmacklin1.github.io/sweepstake/`;
-              navigator.clipboard.writeText(text).then(() => setCopied(true));
-              setTimeout(() => setCopied(false), 2000);
-            }} className="share-btn" aria-label={copied ? "Copied" : "Copy share link"} style={{ background:C.card, border:`1px solid ${C.border}`, color:C.dim, fontSize:13, width:30, height:30, borderRadius:"50%", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
-              {copied ? "✓" : "⎘"}
-            </button>
-            <button onClick={() => setShowInfo(true)} aria-label="Rules & Info" style={{ background:C.card, border:`1px solid ${C.border}`, color:C.dim, fontSize:13, width:30, height:30, borderRadius:"50%", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:700 }}>?</button>
-          </div>
+          <div style={{ display:"flex", alignItems:"center", padding:"10px 14px", gap:8 }}>
+            <div style={{ flex:1, position:"relative" }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style={{ position:"absolute", left:11, top:"50%", transform:"translateY(-50%)", pointerEvents:"none" }}>
+                <circle cx="11" cy="11" r="8" stroke={C.muted} strokeWidth="2.5"/>
+                <path d="M21 21l-4.35-4.35" stroke={C.muted} strokeWidth="2.5" strokeLinecap="round"/>
+              </svg>
+              <input
+                type="text"
+                inputMode="search"
+                placeholder="Search players or teams…"
+                value={searchQuery}
+                onChange={e => {
+                  setSearchQuery(e.target.value);
+                  if (e.target.value && tab !== "table") { setTab("table"); setLeagueView("league"); }
+                }}
+                onFocus={() => setBarsVisible(true)}
+                style={{
+                  width:"100%", boxSizing:"border-box",
+                  background:C.surface,
+                  border:`1px solid ${C.border}`,
+                  borderRadius:24,
+                  color:C.text,
+                  fontSize:15,
+                  padding:"7px 32px 7px 34px",
+                  outline:"none",
+                  WebkitAppearance:"none",
+                  caretColor:C.accent,
+                }}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:C.muted, fontSize:14, cursor:"pointer", padding:"2px 4px", lineHeight:1 }}>✕</button>
+              )}
+            </div>
+            <button onClick={() => setShowInfo(true)} aria-label="Rules & Info" style={{ background:C.card, border:`1px solid ${C.border}`, color:C.dim, fontSize:13, width:32, height:32, borderRadius:"50%", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:700, flexShrink:0 }}>?</button>
           </div>
         </div>
                 {/* Live banner — expands into header */}
@@ -4451,25 +4457,34 @@ function App({ onSwitchGroup }) {
           <>
             {leagueView === "league" && (
               <>
-                {ranked.map((player, i) => {
-                  const prev = ranked[i - 1];
-                  const displayRank = i === 0 ? 1
-                    : (player.total === prev.total && player.tiebreak === prev.tiebreak)
-                      ? ranked[i-1]._displayRank
-                      : i + 1;
-                  player._displayRank = displayRank;
-                  return (
+                {(() => {
+                  ranked.forEach((player, i) => {
+                    const prev = ranked[i - 1];
+                    player._displayRank = i === 0 ? 1
+                      : (player.total === prev.total && player.tiebreak === prev.tiebreak)
+                        ? ranked[i-1]._displayRank
+                        : i + 1;
+                  });
+                  const q = searchQuery.trim().toLowerCase();
+                  const visible = q
+                    ? ranked.filter(p => p.name.toLowerCase().includes(q)
+                        || p.teams?.some(t => (t.name||"").toLowerCase().includes(q) || (t.code||"").toLowerCase().includes(q)))
+                    : ranked;
+                  if (visible.length === 0) return (
+                    <div style={{ color:C.muted, textAlign:"center", padding:32, fontSize:14 }}>No results for "{searchQuery}"</div>
+                  );
+                  return visible.map(player => (
                     <PlayerRow
                       key={player.name}
                       player={player}
-                      rank={i}
-                      displayRank={displayRank}
+                      rank={ranked.indexOf(player)}
+                      displayRank={player._displayRank}
                       onOpen={() => openPlayerModal(player.name)}
                       badges={badges[player.name] || []}
                       rank24hChange={rank24hChange.get(player.name)}
                     />
-                  );
-                })}
+                  ));
+                })()}
               </>
             )}
 
