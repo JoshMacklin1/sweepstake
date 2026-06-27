@@ -261,6 +261,10 @@
       60%  { transform: translateX(-10px); }
       100% { transform: translateX(0); }
     }
+    @keyframes dropdownIn {
+      from { opacity: 0; transform: scale(0.95) translateY(-6px); transform-origin: top right; }
+      to   { opacity: 1; transform: scale(1)    translateY(0);    transform-origin: top right; }
+    }
       from { max-height: 0; opacity: 0; }
       to   { max-height: 120px; opacity: 1; }
     }
@@ -3417,50 +3421,42 @@ function InfoContent() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MORE MENU — bottom sheet replacing the old "Rules & Info" nav slot
-// directly. Reuses the existing .detail-backdrop/.detail-sheet/.sheet-handle
-// bottom-sheet treatment (already built for PlayerModal) rather than
-// inventing new CSS — no anchored-dropdown pattern exists anywhere in this
-// codebase, and a bottom sheet already reads consistently on both mobile and
-// desktop (.detail-backdrop centres itself on desktop via its own CSS).
-// Each row performs its action then closes the sheet.
+// MORE MENU — Chrome-style dropdown anchored to the top-right ⋮ button.
+// A transparent full-screen backdrop catches outside taps; the card itself
+// animates in from the top-right corner.
 // ─────────────────────────────────────────────────────────────────────────────
 function MoreMenu({ devMode, onToggleDevMode, onTakeTour, onViewRules, onSubscribeNotifications, onSwitchGroup, onClose }) {
   const items = [
-    { label: "↻ Retake the tour", onClick: onTakeTour },
-    { label: "❓ Rules & Info", onClick: onViewRules },
+    { label: "↻ Retake the tour",     onClick: onTakeTour },
+    { label: "❓ Rules & Info",        onClick: onViewRules },
     { label: "🔔 Push notifications", onClick: onSubscribeNotifications },
-    { label: "🔄 Switch group", onClick: onSwitchGroup },
-    { label: "🛠️ Developer mode", value: devMode ? "On" : "Off", onClick: onToggleDevMode },
+    { label: "🔄 Switch group",        onClick: onSwitchGroup },
+    { label: "🛠️ Developer mode",     value: devMode ? "On" : "Off", onClick: onToggleDevMode },
   ];
-  return (
-    <div className="detail-backdrop" onClick={onClose}>
-      <div className="detail-sheet" onClick={(e) => e.stopPropagation()} style={{
-        background:C.bg, display:"flex", flexDirection:"column", border:`1px solid ${C.border}`, boxShadow:"0 24px 64px rgba(0,0,0,0.55)",
-      }}>
-        <div className="sheet-handle"><span></span></div>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"14px 16px", borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
-          <div style={{ fontSize:15, fontWeight:800, color:C.text }}>More</div>
-          <button onClick={onClose} aria-label="Close" style={{ background:"transparent", border:"none", color:C.muted, fontSize:22, cursor:"pointer", lineHeight:1 }}>✕</button>
-        </div>
-        <div style={{ flex:1, overflowY:"auto", padding:"4px 4px 28px" }}>
-          {items.map((item, i) => (
-            <button key={item.label} onClick={() => { item.onClick(); onClose(); }} style={{
-              width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between",
-              padding:"14px 12px", background:"transparent", border:"none",
-              borderBottom: i < items.length - 1 ? `1px solid ${C.border}` : "none",
-              cursor:"pointer", textAlign:"left",
-            }}>
-              <span style={{ fontSize:14, fontWeight:600, color:C.text }}>{item.label}</span>
-              <span style={{ display:"flex", alignItems:"center", gap:6, color:C.muted, fontSize:13 }}>
-                {item.value}<span style={{ fontSize:14 }}>›</span>
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
+  return (<>
+    {/* Transparent backdrop — dismiss on outside tap */}
+    <div onClick={onClose} style={{ position:"fixed", inset:0, zIndex:40 }} />
+    {/* Dropdown card */}
+    <div style={{
+      position:"fixed", top:62, right:10, zIndex:41,
+      background:C.card, border:`1px solid ${C.border}`,
+      borderRadius:14, boxShadow:"0 8px 32px rgba(0,0,0,0.45)",
+      minWidth:220, overflow:"hidden",
+      animation:"dropdownIn 0.15s ease both",
+    }}>
+      {items.map((item, i) => (
+        <button key={item.label} onClick={() => { item.onClick(); onClose(); }} style={{
+          width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between",
+          padding:"13px 16px", background:"transparent", border:"none",
+          borderBottom: i < items.length - 1 ? `1px solid ${C.border}` : "none",
+          cursor:"pointer", textAlign:"left", WebkitTapHighlightColor:"transparent",
+        }}>
+          <span style={{ fontSize:14, fontWeight:500, color:C.text }}>{item.label}</span>
+          {item.value && <span style={{ fontSize:12, color:C.muted }}>{item.value}</span>}
+        </button>
+      ))}
     </div>
-  );
+  </>);
 }
 
 // Push-notification settings, opened from the More menu. Reuses the same
