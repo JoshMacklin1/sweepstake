@@ -3668,8 +3668,19 @@ function NotificationsDrawer({ matches, ranked, matchPtsById, onClose, onSeenUpd
   }
 
   const allItems = [...matchItems, ...qualItems, ...elimItems, ...leaderItems].sort((a, b) => b.date - a.date);
-  const unread = allItems.filter(item => item.date > lastSeen);
-  const read   = allItems.filter(item => item.date <= lastSeen);
+
+  const FILTERS = [
+    { key:"all",     label:"All" },
+    { key:"match",   label:"Results" },
+    { key:"qualify", label:"Qualifications" },
+    { key:"elim",    label:"Eliminations" },
+    { key:"leader",  label:"Leaders" },
+  ];
+  const [activeFilter, setActiveFilter] = useState("all");
+  const visibleItems = activeFilter === "all" ? allItems : allItems.filter(item => item.type === activeFilter);
+
+  const unread = visibleItems.filter(item => item.date > lastSeen);
+  const read   = visibleItems.filter(item => item.date <= lastSeen);
 
   const handleClose = () => {
     const ts = Date.now();
@@ -3791,9 +3802,19 @@ function NotificationsDrawer({ matches, ranked, matchPtsById, onClose, onSeenUpd
           </div>
           <button onClick={handleClose} aria-label="Close" style={{ background:"transparent", border:"none", color:C.muted, fontSize:22, cursor:"pointer", lineHeight:1, padding:"2px 6px" }}>✕</button>
         </div>
-        <div style={{ overflowY:"auto", maxHeight:"calc(72vh - 80px)", padding:"0 10px 24px" }}>
-          {allItems.length === 0
-            ? <div style={{ fontSize:13, color:C.muted, textAlign:"center", padding:"24px 0" }}>No notifications yet</div>
+        <div style={{ display:"flex", gap:6, padding:"8px 10px", overflowX:"auto", flexShrink:0, borderBottom:`1px solid ${C.border}` }}>
+          {FILTERS.map(f => (
+            <button key={f.key} onClick={() => setActiveFilter(f.key)} style={{
+              flexShrink:0, padding:"4px 12px", borderRadius:20, fontSize:12, fontWeight:600, cursor:"pointer",
+              background: activeFilter === f.key ? C.accent : "transparent",
+              color: activeFilter === f.key ? "white" : C.muted,
+              border: activeFilter === f.key ? `1px solid ${C.accent}` : `1px solid rgba(255,255,255,0.2)`,
+            }}>{f.label}</button>
+          ))}
+        </div>
+        <div style={{ overflowY:"auto", maxHeight:"calc(72vh - 120px)", padding:"0 10px 24px" }}>
+          {visibleItems.length === 0
+            ? <div style={{ fontSize:13, color:C.muted, textAlign:"center", padding:"24px 0" }}>No {activeFilter === "all" ? "" : FILTERS.find(f=>f.key===activeFilter)?.label.toLowerCase() + " "}notifications yet</div>
             : <>
                 {unread.length > 0 && (
                   <>
