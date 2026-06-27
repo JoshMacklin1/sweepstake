@@ -4816,7 +4816,7 @@ function App({ onSwitchGroup, groupKey }) {
         }}>
           <div style={{ display:"flex", alignItems:"center", padding:"10px 14px", gap:10 }}>
             <button aria-label="Logo" style={{ background:"none", border:"none", padding:0, cursor:"pointer", flexShrink:0, lineHeight:0, WebkitTapHighlightColor:"transparent", touchAction:"manipulation" }}
-              onPointerDown={() => {
+              onClick={() => {
                 const t = logoTapRef.current;
                 t.count++;
                 clearTimeout(t.timer);
