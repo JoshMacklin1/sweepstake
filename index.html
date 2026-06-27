@@ -4815,7 +4815,7 @@ function App({ onSwitchGroup, groupKey }) {
           transition: "max-height 0.28s ease, opacity 0.2s ease",
         }}>
           <div style={{ display:"flex", alignItems:"center", padding:"10px 14px", gap:10 }}>
-            <button aria-label="Logo" style={{ background:"none", border:"none", padding:0, cursor:"pointer", flexShrink:0, lineHeight:0, WebkitTapHighlightColor:"transparent" }}
+            <button aria-label="Logo" style={{ background:"none", border:"none", padding:0, cursor:"pointer", flexShrink:0, lineHeight:0, WebkitTapHighlightColor:"transparent", touchAction:"manipulation" }}
               onPointerDown={() => {
                 const t = logoTapRef.current;
                 t.count++;
