@@ -4086,11 +4086,11 @@ function App({ onSwitchGroup, groupKey }) {
 
   useEffect(() => {
     // Cumulative-accumulator approach: require a sustained directional movement
-    // before toggling, so slow/wobbly scroll never produces a partial-animation
-    // state.  HIDE_PX > bar height (60px) so the bar collapsing can't fake a
-    // downward trigger; SHOW_PX is asymmetrically smaller so reveal feels snappy.
+    // before toggling. The 320ms lock prevents the bar's own height change
+    // from re-triggering, so HIDE_PX can be small for an immediate response.
+    // SHOW_PX is larger so bars only reappear on a clear intentional scroll up.
     const SHOW_PX = 40;
-    const HIDE_PX = 80;
+    const HIDE_PX = 20;
     let accrued = 0;
 
     const handleScroll = () => {
