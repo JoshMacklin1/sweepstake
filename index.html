@@ -3614,19 +3614,20 @@ function NotificationsDrawer({ matches, ranked, onClose, onSeenUpdate, groupKey 
     const scoreStr = `${homeName} ${hs}–${as_} ${awayName}`;
     let icon, title;
     if (hs > as_) {
-      icon = "⚽"; title = hOwner ? `${hOwner}'s ${homeName} wins!` : `${homeName} wins!`;
+      icon = "🏆";
+      title = `${hOwner || homeName} beats ${aOwner || awayName}`;
     } else if (as_ > hs) {
-      icon = "⚽"; title = aOwner ? `${aOwner}'s ${awayName} wins!` : `${awayName} wins!`;
-    } else if (hs === 0) {
-      icon = "🔒"; title = `0–0 Draw · ${homeName} vs ${awayName}`;
+      icon = "🏆";
+      title = `${aOwner || awayName} beats ${hOwner || homeName}`;
     } else {
-      icon = "🤝"; title = `Draw! ${homeName} ${hs}–${as_} ${awayName}`;
+      icon = "🤝";
+      title = `${hOwner || homeName} and ${aOwner || awayName} draw`;
     }
     return (
       <div key={m.id} style={{ padding:"10px 6px", borderBottom:`1px solid ${C.border}`, opacity: dimmed ? 0.5 : 1 }}>
         <div style={{ fontSize:10, color:C.muted, marginBottom:3 }}>WC Sweeps · {relTime(m.utcDate)}</div>
         <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:2 }}>{icon} {title}</div>
-        {(hs !== as_) && <div style={{ fontSize:12, color:C.dim }}>{scoreStr}</div>}
+        <div style={{ fontSize:12, color:C.dim }}>{scoreStr}</div>
       </div>
     );
   };
