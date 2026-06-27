@@ -298,7 +298,7 @@
   });
 </script>
 
-<script src="scoring.js?v=3"></script>
+<script src="scoring.js?v=4"></script>
 <!-- scoring.js defines PLAYERS, POT, PTS_INC, scorePlayers, deriveStages, etc.
      as classic-script globals (see scoring.js header comment for why it's a
      classic script and not type="module"). The Babel script below depends on
@@ -1296,9 +1296,6 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
               <div style={{ fontSize: 14, fontWeight: 900, lineHeight: 1.4, color: won ? C.gold : eliminated ? C.red : C.accent }}>
                 {won ? "Winner 🏆" : eliminated ? "Eliminated" : stage ? (STAGE_LABEL[stage] || stage.replace(/_/g, " ")) : "Active"}
               </div>
-              {stageBonus > 0 && (
-                <div style={{ fontSize: 11, fontWeight: 800, color: C.accent, marginTop: 3 }}>+{stageBonus} pts</div>
-              )}
               <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>Stage</div>
             </div>
           </div>

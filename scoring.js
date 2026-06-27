@@ -1582,6 +1582,24 @@ function deriveSparklineHistory(matches) {
     if (m.awayTeam?.tla) knockoutTeams.add(m.awayTeam.tla.toUpperCase());
   });
 
+  // Clinch bonus (Last 32 qualification) isn't a match event, so credit it the
+  // instant a team is mathematically guaranteed top-2 — same as the live total.
+  // awardSilent updates running totals WITHOUT touching changedPlayers, so it
+  // never spawns an extra frame (keeps bar-race overlays frame-aligned); the
+  // bonus simply rides on the next pushed frame. teamPts bookkeeping means the
+  // real Last 32 fixture later awards a delta of 0 — no double count.
+  const processedIds = new Set();
+  const clinchAwarded = new Set();
+  const awardSilent = (code, stageKey) => {
+    const pls = teamPlayer[code] || [];
+    const newPts = ptsTotal(code, stageKey);
+    pls.forEach(pl => {
+      const key = pl + ":" + code;
+      running[pl] += (newPts - (teamPts[key] || 0));
+      teamPts[key] = newPts;
+    });
+  };
+
   done.forEach(m => {
     const stage = (m.stage || "").toUpperCase();
     const h = m.homeTeam?.tla?.toUpperCase();
@@ -1658,6 +1676,15 @@ function deriveSparklineHistory(matches) {
             if (bounty > 0) { running[reaperName] += bounty; changedPlayers.add(reaperName); }
           }
         }
+      });
+      // As-of-this-frame clinch: force not-yet-replayed games back to scheduled
+      // so clinchedR32 only "knows" results up to here, then award newly-clinched
+      // teams their Last 32 bonus once (silently — no extra frame).
+      processedIds.add(m.id);
+      const clinchView = matches.map(x => processedIds.has(x.id) ? x
+        : (x.status === "FINISHED" ? Object.assign({}, x, { status: "SCHEDULED" }) : x));
+      clinchedR32(clinchView).forEach(code => {
+        if (!clinchAwarded.has(code) && !eliminated[code]) { clinchAwarded.add(code); awardSilent(code, "LAST_32"); }
       });
     }
 
