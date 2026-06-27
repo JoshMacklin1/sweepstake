@@ -525,9 +525,7 @@ function isDefinitelyFourth(code, ptsMap, gfMap, gaMap) {
 // combination of remaining results in each group (≤ 3^6) and only clinches a
 // team if it lands top-2 in EVERY scenario, breaking ties pessimistically (a
 // team that could be levelled on points for 2nd is NOT counted). Best-3rd
-// qualification is deliberately not inferred here — it depends on all 12 groups
-// at once, so it can't be called "definite" early; those teams get credited once
-// the real Last 32 fixtures publish (handled by deriveStages' fixture loop).
+// qualification is handled separately by qualifiedThirdPlacers() below.
 function clinchedR32(matches) {
   const clinched = new Set();
   // Normalise API codes that differ from our GROUP_ASSIGNMENTS keys
@@ -588,6 +586,53 @@ function clinchedR32(matches) {
   });
   return clinched;
 }
+
+// The top-8 best 3rd-placed teams (ranked by Pts → GD → GF, same as the Groups
+// tab table) who qualify for the Last 32. Uses "as it stands" — provisional for
+// groups that haven't finished all 6 games yet, consistent with the UI table.
+function qualifiedThirdPlacers(matches) {
+  const normCode = c => (c === "COD" ? "DRC" : c);
+  const allCodes = new Set(Object.values(GROUP_ASSIGNMENTS).flat());
+  const gPts = {}, gGf = {}, gGa = {}, gPlayed = {};
+  allCodes.forEach(c => { gPts[c] = 0; gGf[c] = 0; gGa[c] = 0; gPlayed[c] = 0; });
+
+  matches.forEach(m => {
+    if (!(m.stage || "").toUpperCase().includes("GROUP")) return;
+    if (m.status !== "FINISHED") return;
+    const h = normCode(m.homeTeam?.tla?.toUpperCase());
+    const a = normCode(m.awayTeam?.tla?.toUpperCase());
+    if (!h || !a || !allCodes.has(h) || !allCodes.has(a)) return;
+    const hs = m.score?.fullTime?.home ?? 0;
+    const as_ = m.score?.fullTime?.away ?? 0;
+    gGf[h] += hs; gGa[h] += as_; gPlayed[h]++;
+    gGf[a] += as_; gGa[a] += hs; gPlayed[a]++;
+    if (hs > as_)      gPts[h] += 3;
+    else if (as_ > hs) gPts[a] += 3;
+    else             { gPts[h]++; gPts[a]++; }
+  });
+
+  const thirds = [];
+  Object.values(GROUP_ASSIGNMENTS).forEach(teams => {
+    const active = teams.filter(c => gPlayed[c] > 0);
+    if (active.length < 3) return;
+    const sorted = [...active].sort((a, b) => {
+      const pd = gPts[b] - gPts[a]; if (pd !== 0) return pd;
+      const gda = (gGf[a] - gGa[a]), gdb = (gGf[b] - gGa[b]);
+      if (gdb !== gda) return gdb - gda;
+      return gGf[b] - gGf[a];
+    });
+    const t = sorted[2];
+    thirds.push({ code: t, pts: gPts[t], gd: gGf[t] - gGa[t], gf: gGf[t] });
+  });
+
+  thirds.sort((a, b) => {
+    if (b.pts !== a.pts) return b.pts - a.pts;
+    if (b.gd  !== a.gd)  return b.gd  - a.gd;
+    return b.gf - a.gf;
+  });
+  return thirds.slice(0, 8).map(t => t.code);
+}
+
 function deriveStages(matches) {
   const eliminated = {};
   const winners    = {};
@@ -662,6 +707,15 @@ function deriveStages(matches) {
       if (h && !eliminated[h]) markStage(h, sk);
       if (a && !eliminated[a]) markStage(a, sk);
     }
+  });
+
+  // Best-3rd-place qualifiers: top 8 of the 12 third-placed teams also reach
+  // the Last 32. These teams won't have published knockout fixtures until the
+  // draw is made, so clinchedR32 and the scheduled-fixture loop above can't
+  // detect them. qualifiedThirdPlacers() ranks them "as it stands" (same
+  // criteria as the Groups tab 3rd-place table) and marks the top 8.
+  qualifiedThirdPlacers(matches).forEach(code => {
+    if (!eliminated[code]) markStage(code, "LAST_32");
   });
 
   // Group stage eliminations — only mark teams NOT in the top 2 of their group.
