@@ -3730,7 +3730,7 @@ function LiveBanner({ live, ranked, matchPtsById }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // SEARCH OVERLAY — full-screen search with recent history + live results
 // ─────────────────────────────────────────────────────────────────────────────
-const SEARCH_RECENT_KEY = "sw_search_recent";
+const SEARCH_RECENT_BASE_KEY = "sw_search_recent";
 
 function SearchResultRow({ item, ranked, onClick }) {
   const playerEntry = item.type === "player" ? ranked.find(p => p.name === item.id) : null;
@@ -3762,11 +3762,12 @@ function SearchResultRow({ item, ranked, onClick }) {
   );
 }
 
-function SearchOverlay({ ranked, onClose, onSelectPlayer, onSelectTeam }) {
+function SearchOverlay({ ranked, onClose, onSelectPlayer, onSelectTeam, groupKey }) {
+  const recentKey = groupKey ? `${SEARCH_RECENT_BASE_KEY}_${groupKey}` : SEARCH_RECENT_BASE_KEY;
   const [query, setQuery] = React.useState("");
   const inputRef = React.useRef(null);
   const [recent, setRecent] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem(SEARCH_RECENT_KEY) || "[]"); }
+    try { return JSON.parse(localStorage.getItem(recentKey) || "[]"); }
     catch { return []; }
   });
 
@@ -3780,7 +3781,7 @@ function SearchOverlay({ ranked, onClose, onSelectPlayer, onSelectTeam }) {
   const saveRecent = (item) => {
     const updated = [item, ...recent.filter(r => !(r.type === item.type && r.id === item.id))].slice(0, 10);
     setRecent(updated);
-    localStorage.setItem(SEARCH_RECENT_KEY, JSON.stringify(updated));
+    localStorage.setItem(recentKey, JSON.stringify(updated));
   };
 
   const handleSelect = (item) => {
@@ -3792,7 +3793,7 @@ function SearchOverlay({ ranked, onClose, onSelectPlayer, onSelectTeam }) {
 
   const clearRecent = () => {
     setRecent([]);
-    localStorage.removeItem(SEARCH_RECENT_KEY);
+    localStorage.removeItem(recentKey);
   };
 
   const q = query.trim().toLowerCase();
@@ -4645,7 +4646,7 @@ function App({ onSwitchGroup }) {
         {showRace && <BarRaceModal history={ranked.map(p => ({ name: p.name, hist: p.hist, total: p.total }))} allRanked={ranked} bucketLabels={bucketLabels} elimByFrame={raceElim} stageByFrame={raceStages} onClose={() => setShowRace(false)} />}
 
         {showSearch && (
-          <SearchOverlay ranked={ranked} onClose={() => setShowSearch(false)}
+          <SearchOverlay ranked={ranked} groupKey={groupKey} onClose={() => setShowSearch(false)}
             onSelectPlayer={(name) => { setSnapFull(true); openPlayerModal(name); }}
             onSelectTeam={(tla)  => { setSnapFull(true); openTeamModal(tla); }} />
         )}
