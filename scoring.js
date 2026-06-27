@@ -530,6 +530,9 @@ function isDefinitelyFourth(code, ptsMap, gfMap, gaMap) {
 // the real Last 32 fixtures publish (handled by deriveStages' fixture loop).
 function clinchedR32(matches) {
   const clinched = new Set();
+  // Normalise API codes that differ from our GROUP_ASSIGNMENTS keys
+  // (e.g. football-data.org uses "COD" for DR Congo; our data uses "DRC").
+  const norm = c => (c === "COD" ? "DRC" : c);
   const letterOf = (code) => Object.keys(GROUP_ASSIGNMENTS).find(g => GROUP_ASSIGNMENTS[g].includes(code));
   const basePts = {};
   const remainingByGroup = {};
@@ -539,8 +542,8 @@ function clinchedR32(matches) {
   });
   matches.forEach(m => {
     if (!(m.stage || "").toUpperCase().includes("GROUP")) return;
-    const h = m.homeTeam?.tla?.toUpperCase();
-    const a = m.awayTeam?.tla?.toUpperCase();
+    const h = norm(m.homeTeam?.tla?.toUpperCase());
+    const a = norm(m.awayTeam?.tla?.toUpperCase());
     if (!h || !a) return;
     const L = letterOf(h);
     if (!L || !GROUP_ASSIGNMENTS[L].includes(a)) return;
@@ -639,6 +642,26 @@ function deriveStages(matches) {
   // markStage only upgrades, so this never downgrades a team already further on.
   clinchedR32(matches).forEach(code => {
     if (!eliminated[code]) markStage(code, "LAST_32");
+  });
+
+  // Credit teams appearing in any published-but-unplayed knockout fixture.
+  // When the Round of 32 draw is announced, qualified teams get SCHEDULED fixtures
+  // before playing them — those teams have definitely qualified even if clinchedR32
+  // hasn't detected it (e.g. due to team-code mismatches in GROUP_ASSIGNMENTS).
+  matches.filter(m => !isSettled(m.status) && !(m.stage || "").toUpperCase().includes("GROUP")).forEach(m => {
+    const s = (m.stage || "").toUpperCase();
+    const h = m.homeTeam?.tla?.toUpperCase();
+    const a = m.awayTeam?.tla?.toUpperCase();
+    let sk = null;
+    if (s === "FINAL")                                          sk = "FINALIST";
+    else if (s.includes("SEMI"))                               sk = "SEMI_FINALS";
+    else if (s.includes("QUARTER"))                            sk = "QUARTER_FINALS";
+    else if (s.includes("LAST_16") || s.includes("16"))        sk = "LAST_16";
+    else if (s.includes("LAST_32") || s.includes("32"))        sk = "LAST_32";
+    if (sk) {
+      if (h && !eliminated[h]) markStage(h, sk);
+      if (a && !eliminated[a]) markStage(a, sk);
+    }
   });
 
   // Group stage eliminations — only mark teams NOT in the top 2 of their group.
