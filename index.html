@@ -3615,9 +3615,9 @@ function NotificationsDrawer({ matches, ranked, matchPtsById, onClose, onSeenUpd
   const seenKey = groupKey ? `${NOTIF_SEEN_BASE_KEY}_${groupKey}` : NOTIF_SEEN_BASE_KEY;
   const lastSeen = parseInt(localStorage.getItem(seenKey) || "0", 10);
 
-  // Match-result items
+  // Match-result items — only FINISHED matches, not live/paused
   const matchItems = matches
-    .filter(m => isSettled(m.status))
+    .filter(m => m.status === "FINISHED")
     .map(m => ({ type:"match", date: new Date(m.utcDate).getTime(), m }));
 
   // Group-qualification and elimination items — one per team, timestamped at
@@ -3638,7 +3638,7 @@ function NotificationsDrawer({ matches, ranked, matchPtsById, onClose, onSeenUpd
           const a = m.awayTeam?.tla?.toUpperCase();
           return (h === team.code || a === team.code)
             && (m.stage || "").toUpperCase().includes("GROUP")
-            && isSettled(m.status);
+            && m.status === "FINISHED";
         })
         .map(m => new Date(m.utcDate).getTime());
       const lastGroupTs = groupMatchTs.length ? Math.max(...groupMatchTs) : 0;
@@ -3659,7 +3659,7 @@ function NotificationsDrawer({ matches, ranked, matchPtsById, onClose, onSeenUpd
               const a = m.awayTeam?.tla?.toUpperCase();
               return (h === team.code || a === team.code)
                 && (m.stage || "").toUpperCase() === team.stage
-                && isSettled(m.status);
+                && m.status === "FINISHED";
             })
             .map(m => new Date(m.utcDate).getTime());
           const elimTs = elimMatchTs.length ? Math.max(...elimMatchTs) : 0;
@@ -3691,7 +3691,7 @@ function NotificationsDrawer({ matches, ranked, matchPtsById, onClose, onSeenUpd
     // stage bonuses baked in via deriveMatchPts's award() delta — don't add twice.
     const hasKnockoutPts = new Set();
     for (const m of matches) {
-      if (!isSettled(m.status) || !matchPtsById?.[m.id]) continue;
+      if (m.status !== "FINISHED" || !matchPtsById?.[m.id]) continue;
       if (!(m.stage || "").toUpperCase().includes("GROUP")) {
         const h = m.homeTeam?.tla?.toUpperCase();
         const a = m.awayTeam?.tla?.toUpperCase();
@@ -3703,7 +3703,7 @@ function NotificationsDrawer({ matches, ranked, matchPtsById, onClose, onSeenUpd
     // Build a flat event list: match pts + missing bonuses/penalties
     const events = [];
     for (const m of matches) {
-      if (!isSettled(m.status) || !matchPtsById?.[m.id]) continue;
+      if (m.status !== "FINISHED" || !matchPtsById?.[m.id]) continue;
       const h = m.homeTeam?.tla?.toUpperCase();
       const a = m.awayTeam?.tla?.toUpperCase();
       const pts = matchPtsById[m.id];
@@ -4307,7 +4307,7 @@ function App({ onSwitchGroup, groupKey }) {
       } catch (e) {}
     })();
   }, [groupKey]);
-  const unreadNotifCount = matches.filter(m => isSettled(m.status) && new Date(m.utcDate).getTime() > notifSeenTs).length; // "Subscribe notifications" from the More menu
+  const unreadNotifCount = matches.filter(m => m.status === "FINISHED" && new Date(m.utcDate).getTime() > notifSeenTs).length; // "Subscribe notifications" from the More menu
   const [countdown, setCountdown] = useState("");
   const [selectedDay, setSelectedDay] = useState(null); // null = default to "today", clamped to the tournament's match range
   const matchesRef = React.useRef(matches);
