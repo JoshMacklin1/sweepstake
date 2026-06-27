@@ -3623,13 +3623,10 @@ function NotificationsDrawer({ matches, ranked, onClose, onSeenUpdate, groupKey 
       icon = "🤝"; title = `Draw! ${homeName} ${hs}–${as_} ${awayName}`;
     }
     return (
-      <div key={m.id} style={{ display:"flex", gap:10, padding:"10px 6px", borderBottom:`1px solid ${C.border}`, opacity: dimmed ? 0.5 : 1 }}>
-        <div style={{ width:38, height:38, borderRadius:10, background:C.card, border:`1px solid ${C.border}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, flexShrink:0 }}>{icon}</div>
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ fontSize:10, color:C.muted, marginBottom:3 }}>WC Sweeps · {relTime(m.utcDate)}</div>
-          <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:2 }}>{icon} {title}</div>
-          {(hs !== as_) && <div style={{ fontSize:12, color:C.dim }}>{scoreStr}</div>}
-        </div>
+      <div key={m.id} style={{ padding:"10px 6px", borderBottom:`1px solid ${C.border}`, opacity: dimmed ? 0.5 : 1 }}>
+        <div style={{ fontSize:10, color:C.muted, marginBottom:3 }}>WC Sweeps · {relTime(m.utcDate)}</div>
+        <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:2 }}>{icon} {title}</div>
+        {(hs !== as_) && <div style={{ fontSize:12, color:C.dim }}>{scoreStr}</div>}
       </div>
     );
   };
