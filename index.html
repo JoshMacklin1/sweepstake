@@ -674,7 +674,7 @@ function MatchCard({ m, ranked, upcoming = [], pts, onPlayerClick, onTeamClick }
   // (mathematically-locked-into-4th timing), which is already handled
   // precisely for player badges in computeBadges — not duplicated here to
   // avoid the two disagreeing.
-  const shockExitLabel = fin && isKnockout && loserCode && (POT[loserCode]||4) <= 2
+  const shockExitLabel = fin && isKnockout && loserCode && potOf(loserCode) <= 2
     ? { icon:"😱", label:"SHOCK EXIT" }
     : null;
 
@@ -686,7 +686,7 @@ function MatchCard({ m, ranked, upcoming = [], pts, onPlayerClick, onTeamClick }
   const upsetLabel = (() => {
     if (!fin || shockExitLabel) return null;
     if (winnerCode && loserCode) {
-      const gap = (POT[winnerCode]||4) - (POT[loserCode]||4); // >0 if the weaker pot won
+      const gap = potOf(winnerCode) - potOf(loserCode); // >0 if the weaker pot won
       if (gap === 3) return { icon:"🦄", label:"FAIRYTALE" };
       if (gap === 2) return { icon:"🔪", label:"GIANT KILLER" };
       if (gap === 1) return { icon:"⚠️", label:"UPSET ALERT" };
@@ -695,7 +695,7 @@ function MatchCard({ m, ranked, upcoming = [], pts, onPlayerClick, onTeamClick }
     // Draws (group stage only — knockouts always resolve via penalties, so
     // winnerCode/loserCode would already be set above).
     if (hs === as_) {
-      const gap = Math.abs((POT[h]||4) - (POT[a]||4));
+      const gap = Math.abs(potOf(h) - potOf(a));
       if (gap === 3) return { icon:"🛡️", label:"HEROIC STAND" };
       if (gap === 2) return { icon:"🤝", label:"PUNCHED ABOVE" };
     }
@@ -742,7 +742,7 @@ function MatchCard({ m, ranked, upcoming = [], pts, onPlayerClick, onTeamClick }
             <Flag code={h} size={22} />
             <div>
               <div style={{ fontSize:13, fontWeight:700, color: C.text }}>{ownerOf(h, ranked) || ""}</div>
-              <div style={{ fontSize:11, color: C.muted }}>{m.homeTeam?.name || "TBD"}{POT[h] ? <span style={{ color:C.muted, fontSize:9 }}> (P{POT[h]})</span> : ""}</div>
+              <div style={{ fontSize:11, color: C.muted }}>{m.homeTeam?.name || "TBD"}{POT[h] ? <span style={{ color:C.muted, fontSize:9 }}> (P{potOf(h)})</span> : ""}</div>
               {pts && <div style={{ fontSize:10, fontWeight:800, color: pts.home > 0 ? C.accent : C.muted, marginTop:2 }}>+{pts.home} pts</div>}
             </div>
           </div>
@@ -767,7 +767,7 @@ function MatchCard({ m, ranked, upcoming = [], pts, onPlayerClick, onTeamClick }
             style={{ flex:1, display:"flex", alignItems:"center", gap:8, justifyContent:"flex-end", cursor: (onTeamClick && a) || (onPlayerClick && aOwner) ? "pointer" : "default" }}>
             <div style={{ textAlign:"right" }}>
               <div style={{ fontSize:13, fontWeight:700, color: C.text }}>{ownerOf(a, ranked) || ""}</div>
-              <div style={{ fontSize:11, color: C.muted }}>{m.awayTeam?.name || "TBD"}{POT[a] ? <span style={{ color:C.muted, fontSize:9 }}> (P{POT[a]})</span> : ""}</div>
+              <div style={{ fontSize:11, color: C.muted }}>{m.awayTeam?.name || "TBD"}{POT[a] ? <span style={{ color:C.muted, fontSize:9 }}> (P{potOf(a)})</span> : ""}</div>
               {pts && <div style={{ fontSize:10, fontWeight:800, color: pts.away > 0 ? C.accent : C.muted, marginTop:2 }}>+{pts.away} pts</div>}
             </div>
             <Flag code={a} size={22} />
@@ -1046,7 +1046,7 @@ function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, bad
             <>
               <div style={{ fontSize:11, color:C.dangerText, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:8 }}>Bounty Board</div>
               {[["Pot 1 upset", 1, 50], ["Pot 2 upset", 2, 15]].map(([label, pot, bounty]) => {
-                const count = Object.entries(player._eliminated || {}).filter(([code, stage]) => stage === "GROUP_ELIM" && (POT[code] || 4) === pot).length;
+                const count = Object.entries(player._eliminated || {}).filter(([code, stage]) => stage === "GROUP_ELIM" && potOf(code) === pot).length;
                 return (
                   <div key={label} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", borderBottom:`1px solid #3f1212` }}>
                     <div>
@@ -1235,7 +1235,7 @@ function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, bad
 // ─────────────────────────────────────────────────────────────────────────────
 function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamClick, onOwnerClick, onClose }) {
   const owner = ownerOf(tla, ranked);
-  const pot = POT[tla] || 4;
+  const pot = potOf(tla);
 
   let teamEntry = null;
   for (const p of ranked) {
@@ -2499,16 +2499,16 @@ function resultBanner(m) {
   else if (as_ > hs) { winnerCode = a; loserCode = h; }
   else if (pen)      { winnerCode = pen.home > pen.away ? h : a; loserCode = winnerCode === h ? a : h; }
   const isKnockout = !(m.stage || "").toUpperCase().includes("GROUP");
-  if (isKnockout && loserCode && (POT[loserCode] || 4) <= 2) return { icon: "😱", label: "SHOCK EXIT" };
+  if (isKnockout && loserCode && potOf(loserCode) <= 2) return { icon: "😱", label: "SHOCK EXIT" };
   if (winnerCode && loserCode) {
-    const gap = (POT[winnerCode] || 4) - (POT[loserCode] || 4);
+    const gap = potOf(winnerCode) - potOf(loserCode);
     if (gap === 3) return { icon: "🦄", label: "FAIRYTALE" };
     if (gap === 2) return { icon: "🔪", label: "GIANT KILLER" };
     if (gap === 1) return { icon: "⚠️", label: "UPSET ALERT" };
     return null;
   }
   if (hs === as_) {
-    const gap = Math.abs((POT[h] || 4) - (POT[a] || 4));
+    const gap = Math.abs(potOf(h) - potOf(a));
     if (gap === 3) return { icon: "🛡️", label: "HEROIC STAND" };
     if (gap === 2) return { icon: "🤝", label: "PUNCHED ABOVE" };
   }
@@ -2882,7 +2882,7 @@ function TeamsTab({ matches, view, setView, onTeamClick }) {
     if (!tla) return null;
     const name = teamName(tla) || tla;
     const owner = ownerOf[tla];
-    const pot = POT[tla] ? `P${POT[tla]}` : null;
+    const pot = POT[tla] ? `P${potOf(tla)}` : null;
     const flagUrl = flag(tla);
     const isElim = !!eliminated[tla];
     const s = groupStats[tla] || { w:0, d:0, l:0, gf:0, ga:0 };
@@ -2923,7 +2923,7 @@ function TeamsTab({ matches, view, setView, onTeamClick }) {
   const BracketSlot = ({ tla, matchNum, side, score, isWinner, status }) => {
     const name = tla ? (teamName(tla) || tla) : null;
     const owner = tla ? ownerOf[tla] : null;
-    const pot = tla && POT[tla] ? `P${POT[tla]}` : null;
+    const pot = tla && POT[tla] ? `P${potOf(tla)}` : null;
     const flagUrl = tla ? flag(tla) : null;
     const isLive = status === "IN_PLAY" || status === "PAUSED";
     const label = tla ? null : (matchNum ? `W Match ${matchNum}` : "TBD");
@@ -3420,7 +3420,7 @@ function InfoContent() {
                     <div key={code} style={{ display:"flex", alignItems:"center", gap:5, background:"#0d1a11", borderRadius:4, padding:"3px 7px" }}>
                       <Flag code={code} size={14} />
                       <span style={{ fontSize:11, color:"#94a3b8" }}>{p.teams[i]}</span>
-                      <span style={{ fontSize:9, color:C.muted }}>P{POT[code]}</span>
+                      <span style={{ fontSize:9, color:C.muted }}>P{potOf(code)}</span>
                     </div>
                   ))}
                 </div>
@@ -3787,7 +3787,7 @@ function NotificationsDrawer({ matches, ranked, matchPtsById, onClose, onSeenUpd
   const renderQualCard = ({ team, owner, bonus, date }, dimmed) => (
     <div key={`q-${team.code}`} style={{ padding:"10px 6px", borderBottom:`1px solid ${C.border}`, background: dimmed ? "transparent" : "rgba(34,197,94,0.07)" }}>
       <div style={{ fontSize:10, color:C.muted, marginBottom:3 }}>WC Sweeps · {relTime(date)}</div>
-      <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:2 }}>⭐ {owner}'s {team.name} (P{POT[team.code]}) qualify!</div>
+      <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:2 }}>⭐ {owner}'s {team.name} (P{potOf(team.code)}) qualify!</div>
       <div style={{ fontSize:12, color:C.dim, display:"flex", alignItems:"center", gap:8 }}>
         <span>Advanced from group stage</span>
         {bonus > 0 && <span style={{ color:C.accent, fontWeight:700 }}>+{bonus} pts</span>}
@@ -3803,7 +3803,7 @@ function NotificationsDrawer({ matches, ranked, matchPtsById, onClose, onSeenUpd
     return (
       <div key={`e-${team.code}`} style={{ padding:"10px 6px", borderBottom:`1px solid ${C.border}`, background: dimmed ? "transparent" : "rgba(34,197,94,0.07)" }}>
         <div style={{ fontSize:10, color:C.muted, marginBottom:3 }}>WC Sweeps · {relTime(date)}</div>
-        <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:2 }}>💀 {owner}'s {team.name} (P{POT[team.code]}) {stage === "GROUP_ELIM" ? "eliminated!" : "knocked out"}</div>
+        <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:2 }}>💀 {owner}'s {team.name} (P{potOf(team.code)}) {stage === "GROUP_ELIM" ? "eliminated!" : "knocked out"}</div>
         <div style={{ fontSize:12, color:C.dim, display:"flex", alignItems:"center", gap:8 }}>
           <span>{subtitle}</span>
           {penalty !== null && penalty < 0 && <span style={{ color:C.red, fontWeight:700 }}>{penalty} pts</span>}
@@ -4019,7 +4019,7 @@ function LiveBanner({ live, ranked, matchPtsById }) {
           <Flag code={h} size={18} />
           <div>
             <div style={{ fontSize:12, fontWeight:700, color:C.text }}>{hOwner || m.homeTeam?.name}</div>
-            <div style={{ fontSize:10, color:C.muted }}>{m.homeTeam?.name}{POT[h] ? <span style={{ color:C.muted, fontSize:9 }}> (P{POT[h]})</span> : ""}</div>
+            <div style={{ fontSize:10, color:C.muted }}>{m.homeTeam?.name}{POT[h] ? <span style={{ color:C.muted, fontSize:9 }}> (P{potOf(h)})</span> : ""}</div>
             {livePts && <div style={{ fontSize:10, fontWeight:800, color: livePts.home > 0 ? C.accent : C.muted, marginTop:2 }}>+{livePts.home} pts</div>}
           </div>
         </div>
@@ -4035,7 +4035,7 @@ function LiveBanner({ live, ranked, matchPtsById }) {
         <div style={{ flex:1, display:"flex", alignItems:"center", gap:6, justifyContent:"flex-end" }}>
           <div style={{ textAlign:"right" }}>
             <div style={{ fontSize:12, fontWeight:700, color:C.text }}>{aOwner || m.awayTeam?.name}</div>
-            <div style={{ fontSize:10, color:C.muted }}>{m.awayTeam?.name}{POT[a] ? <span style={{ color:C.muted, fontSize:9 }}> (P{POT[a]})</span> : ""}</div>
+            <div style={{ fontSize:10, color:C.muted }}>{m.awayTeam?.name}{POT[a] ? <span style={{ color:C.muted, fontSize:9 }}> (P{potOf(a)})</span> : ""}</div>
             {livePts && <div style={{ fontSize:10, fontWeight:800, color: livePts.away > 0 ? C.accent : C.muted, marginTop:2 }}>+{livePts.away} pts</div>}
           </div>
           <Flag code={a} size={18} />
@@ -4168,7 +4168,7 @@ function SearchOverlay({ ranked, onClose, onSelectPlayer, onSelectTeam, groupKey
       (p.teams||[]).forEach(t => {
         if (!seen.has(t.code) && ((t.name||"").toLowerCase().includes(q)||(t.code||"").toLowerCase().includes(q))) {
           seen.add(t.code);
-          out.push({ type:"team", id:t.code, label:t.name||t.code, sub:`Team · Pot ${POT[t.code]||"?"}` });
+          out.push({ type:"team", id:t.code, label:t.name||t.code, sub:`Team · Pot ${POT[t.code] ? potOf(t.code) : "?"}` });
         }
       });
     });
@@ -4825,7 +4825,7 @@ function App({ onSwitchGroup, groupKey }) {
                   <Flag code={h} size={18} />
                   <div>
                     <div style={{ fontSize:12, fontWeight:700, color:C.text }}>{hOwner || next.homeTeam?.name}</div>
-                    <div style={{ fontSize:10, color:C.muted }}>{next.homeTeam?.name}{POT[h] ? <span style={{ color:C.muted, fontSize:9 }}> (P{POT[h]})</span> : ""}</div>
+                    <div style={{ fontSize:10, color:C.muted }}>{next.homeTeam?.name}{POT[h] ? <span style={{ color:C.muted, fontSize:9 }}> (P{potOf(h)})</span> : ""}</div>
                   </div>
                 </div>
                 <div style={{ textAlign:"center", padding:"0 8px" }}>
@@ -4835,7 +4835,7 @@ function App({ onSwitchGroup, groupKey }) {
                 <div style={{ flex:1, display:"flex", alignItems:"center", gap:6, justifyContent:"flex-end" }}>
                   <div style={{ textAlign:"right" }}>
                     <div style={{ fontSize:12, fontWeight:700, color:C.text }}>{aOwner || next.awayTeam?.name}</div>
-                    <div style={{ fontSize:10, color:C.muted }}>{next.awayTeam?.name}{POT[a] ? <span style={{ color:C.muted, fontSize:9 }}> (P{POT[a]})</span> : ""}</div>
+                    <div style={{ fontSize:10, color:C.muted }}>{next.awayTeam?.name}{POT[a] ? <span style={{ color:C.muted, fontSize:9 }}> (P{potOf(a)})</span> : ""}</div>
                   </div>
                   <Flag code={a} size={18} />
                 </div>
@@ -5132,6 +5132,7 @@ function GroupGate() {
     PLAYERS = GROUPS[groupKey].players;
     PLAYER_NAME_ORDER = PLAYERS.map(p => p.name);
     KNOCKOUT_ONLY = !!(GROUPS[groupKey].knockoutOnly);
+    POT_OVERRIDES = GROUPS[groupKey].potOverrides || {};
     const onSwitchGroup = () => {
       localStorage.removeItem(GROUP_STORAGE_KEY);
       setGroupKey(null);

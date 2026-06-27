@@ -258,6 +258,9 @@ var GROUPS = {
     code: "RODENTS",
     label: "Rodents",
     knockoutOnly: true,
+    // Rodents ran their own independent draw with Sweden as P4 and Tunisia as
+    // P3 — opposite to the standard seedings used by every other group.
+    potOverrides: { SWE: 4, TUN: 3 },
     // 8 real players, 6 teams each — covers all 48 World Cup teams between
     // them. Josh plays the Grim Reaper here, not a real player. Team
     // assignments were predetermined by the group's own draw (not
@@ -362,7 +365,7 @@ var PLAYERS = GROUPS.SILVERSTREAM.players;
 // Grim Reaper — earns the absolute value of negative points when Pot1/2 teams go out in groups
 var reaperBountyForCode = (code) => {
   const stage = "GROUP_ELIM";
-  const penalty = (PTS_INC.GROUP_ELIM || [0,0,0,0])[(POT[code]||4)-1];
+  const penalty = (PTS_INC.GROUP_ELIM || [0,0,0,0])[potOf(code)-1];
   return penalty < 0 ? Math.abs(penalty) : 0; // only feasts on misfortune
 };
 
@@ -372,14 +375,23 @@ var reaperBountyForCode = (code) => {
 var POT = {
   POR:1,MEX:1,ARG:1,NED:1,ESP:1,ENG:1,FRA:1,BRA:1,CAN:1,GER:1,USA:1,BEL:1,
   MAR:2,JPN:2,URU:2,SEN:2,CRO:2,IRN:2,SUI:2,COL:2,AUT:2,ECU:2,KOR:2,AUS:2,
-  SCO:3,EGY:3,PAR:3,ALG:3,QAT:3,NOR:3,CIV:3,KSA:3,PAN:3,TUN:3,UZB:3,RSA:3,
-  JOR:4,CUW:4,BIH:4,HAI:4,GHA:4,NZL:4,CPV:4,IRQ:4,SWE:4,CZE:4,TUR:4,DRC:4,COD:4,
+  SCO:3,EGY:3,PAR:3,ALG:3,QAT:3,NOR:3,CIV:3,KSA:3,PAN:3,SWE:3,UZB:3,RSA:3,
+  JOR:4,CUW:4,BIH:4,HAI:4,GHA:4,NZL:4,CPV:4,IRQ:4,TUN:4,CZE:4,TUR:4,DRC:4,COD:4,
   // ^ COD is an alias for DRC (DR Congo) — confirmed the real football-data.org
   // API uses FIFA's official "COD" code (ISO 3166-1 alpha-3, "Congo-Kinshasa")
   // for the 2026 World Cup, not "DRC" as our own data originally assumed.
   // Both keys point to the same pot/flag so lookups work regardless of
   // which code a given match object happens to use.
 };
+
+// Per-group pot overrides — set from GROUPS[activeKey].potOverrides by GroupGate
+// in index.html before the app renders. Default empty = use global POT table.
+var POT_OVERRIDES = {};
+
+// Pot lookup: check active group's overrides first, fall back to global POT.
+function potOf(code) {
+  return (code && POT_OVERRIDES[code]) || POT[code] || 4;
+}
 
 // Group assignments (A–L) — shared World Cup data. Used for mathematical
 // group-stage elimination timing in computeBadges.
@@ -419,7 +431,7 @@ var GROUP_DRAW_PTS = [1,  2,  3,   5];
 
 function groupGamePts(code, result) {
   if (KNOCKOUT_ONLY) return 0;
-  const pot = (POT[code] || 4) - 1;
+  const pot = potOf(code) - 1;
   if (result === "W") return GROUP_WIN_PTS[pot];
   if (result === "D") return GROUP_DRAW_PTS[pot];
   return 0;
@@ -452,8 +464,8 @@ var isSettled = s => s === "FINISHED" || s === "IN_PLAY" || s === "PAUSED";
 // reached only (flat, not cumulative). E.g. a Pot 1 Winner scores 100,
 // not the sum of every stage on the way there.
 var ptsTotal = (code, stageKey) => {
-  if (stageKey === "GROUP_ELIM") return (PTS_INC.GROUP_ELIM || [0,0,0,0])[(POT[code]||4)-1];
-  const pot = (POT[code]||4) - 1;
+  if (stageKey === "GROUP_ELIM") return (PTS_INC.GROUP_ELIM || [0,0,0,0])[potOf(code)-1];
+  const pot = potOf(code) - 1;
   return (PTS_INC[stageKey]||[0,0,0,0])[pot];
 };
 
@@ -822,7 +834,7 @@ function scorePlayers(matches) {
         total += p_pts + gp;
         const teamRecord = wdlByTeam[code] || { w:0, d:0, l:0 };
         w += teamRecord.w; d += teamRecord.d; l += teamRecord.l;
-        return { name: p.teams[i], code, pot: POT[code]||4, stage, pts: p_pts + gp,
+        return { name: p.teams[i], code, pot: potOf(code), stage, pts: p_pts + gp,
                  w: teamRecord.w, d: teamRecord.d, l: teamRecord.l,
                  eliminated: !!eliminated[code], won: !!winners[code],
                  lateB: !!(p.lateB?.[i]) };
@@ -984,7 +996,7 @@ function simulateWinProbability(ranked, matches, N = 5000) {
 
   // Pot-based win probability weights for knockout matchups
   const potWeight = (code) => {
-    const pot = POT[code] || 4;
+    const pot = potOf(code);
     return [4, 3, 2, 1][pot - 1]; // Pot1 strongest
   };
 
@@ -1173,7 +1185,7 @@ function computeBadges(ranked, matches, rank24hChange, winPctPlayers) {
     if (!h || !a || hs === as_) return;
     const winner = hs > as_ ? h : a;
     const loser  = hs > as_ ? a : h;
-    const gap = (POT[winner]||4) - (POT[loser]||4);
+    const gap = potOf(winner) - potOf(loser);
     if (gap <= 0) return; // winner must be the lower-seeded (higher pot number) side
     const t = new Date(m.utcDate).getTime();
     if (!giantKiller || gap > giantKiller.gap || (gap === giantKiller.gap && t < giantKiller.t)) {
@@ -1181,7 +1193,7 @@ function computeBadges(ranked, matches, rank24hChange, winPctPlayers) {
       if (o) giantKiller = { name: o.name, gap, t, code: winner, loser };
     }
   });
-  if (giantKiller) add(giantKiller.name, { icon:"🔪", label:"Giant Killer", desc:`${giantKiller.code} beat a Pot ${POT[giantKiller.loser]||4} side`, tone:"good" });
+  if (giantKiller) add(giantKiller.name, { icon:"🔪", label:"Giant Killer", desc:`${giantKiller.code} beat a Pot ${potOf(giantKiller.loser)} side`, tone:"good" });
 
   // 🐶 Underdog — the FIRST Pot 4 team to reach the knockouts (single award).
   // "Made the knockouts" = appears in a knockout fixture; "first" = earliest
@@ -1192,7 +1204,7 @@ function computeBadges(ranked, matches, rank24hChange, winPctPlayers) {
   let underdogCode = null;
   for (const m of koByDate) {
     for (const tla of [m.homeTeam?.tla?.toUpperCase(), m.awayTeam?.tla?.toUpperCase()]) {
-      if (tla && (POT[tla] || 4) === 4) { underdogCode = tla; break; }
+      if (tla && potOf(tla) === 4) { underdogCode = tla; break; }
     }
     if (underdogCode) break;
   }
