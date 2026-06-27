@@ -3604,7 +3604,7 @@ function NotificationsDrawer({ matches, ranked, matchPtsById, onClose, onSeenUpd
         .map(m => new Date(m.utcDate).getTime());
       const lastGroupTs = groupMatchTs.length ? Math.max(...groupMatchTs) : 0;
       if (!lastGroupTs) continue;
-      const bonus = typeof window.stageBonus === "function" ? window.stageBonus(team.pot, "LAST_32") : null;
+      const bonus = typeof ptsTotal === "function" ? ptsTotal(team.code, "LAST_32") : null;
       qualItems.push({ type:"qualify", date: lastGroupTs, team, owner: player.name, bonus });
     }
   }
@@ -3625,9 +3625,11 @@ function NotificationsDrawer({ matches, ranked, matchPtsById, onClose, onSeenUpd
     const mins = Math.floor(diff / 60000);
     if (mins < 1) return "just now";
     if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    return `${Math.floor(hrs / 24)}d ago`;
+    const d = new Date(ts);
+    const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const date = `${d.getDate()} ${MONTHS[d.getMonth()]}`;
+    const time = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+    return `${date}, ${time}`;
   };
 
   const ptsStr = (n) => {
