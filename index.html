@@ -3433,14 +3433,80 @@ function InfoContent() {
 // ─────────────────────────────────────────────────────────────────────────────
 // MORE MENU — bottom sheet triggered from the bottom nav "More" tab.
 // ─────────────────────────────────────────────────────────────────────────────
-function MoreMenu({ devMode, onToggleDevMode, onTakeTour, onViewRules, onSubscribeNotifications, onSwitchGroup, onClose }) {
-  const items = [
-    { label: "↻ Retake the tour",     onClick: onTakeTour },
-    { label: "❓ Rules & Info",        onClick: onViewRules },
-    { label: "🔔 Push notifications", onClick: onSubscribeNotifications },
-    { label: "🔄 Switch group",        onClick: onSwitchGroup },
-    { label: "🛠️ Developer mode",     value: devMode ? "On" : "Off", onClick: onToggleDevMode },
+
+function Toggle({ on, onChange, busy }) {
+  return (
+    <div
+      role="switch" aria-checked={on}
+      onClick={(e) => { e.stopPropagation(); if (!busy) onChange(); }}
+      style={{
+        width:44, height:26, borderRadius:13, flexShrink:0,
+        background: on ? C.accent : C.surface,
+        border:`1px solid ${on ? C.accent : C.border}`,
+        position:"relative", cursor: busy ? "default" : "pointer",
+        transition:"background 0.18s, border-color 0.18s",
+        opacity: busy ? 0.6 : 1,
+      }}
+    >
+      <div style={{
+        position:"absolute", top:3, left: on ? 20 : 3,
+        width:18, height:18, borderRadius:"50%",
+        background:"white", transition:"left 0.18s",
+        boxShadow:"0 1px 3px rgba(0,0,0,0.35)",
+      }} />
+    </div>
+  );
+}
+
+function MoreMenu({ devMode, onToggleDevMode, onTakeTour, onViewRules, onSwitchGroup, onClose }) {
+  const supported = typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window;
+  const [pushOn,   setPushOn]   = useState(() => localStorage.getItem("sw_push_subscribed") === "yes");
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushErr,  setPushErr]  = useState("");
+
+  const urlBase64ToUint8Array = (b64) => {
+    const padded = b64.replace(/-/g,"+").replace(/_/g,"/").padEnd(b64.length+(4-b64.length%4)%4,"=");
+    return Uint8Array.from(atob(padded), c => c.charCodeAt(0));
+  };
+
+  const togglePush = async () => {
+    if (pushBusy) return;
+    setPushBusy(true); setPushErr("");
+    try {
+      if (!pushOn) {
+        const perm = await Notification.requestPermission();
+        if (perm !== "granted") throw new Error("Permission denied.");
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:urlBase64ToUint8Array(VAPID_PUBLIC_KEY) });
+        const prefs = JSON.parse(localStorage.getItem("sw_notification_prefs") || '{"goals":true,"kickoff":true,"fulltime":true}');
+        await fetch(`${WORKER_URL}/push/subscribe`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ subscription:sub.toJSON(), prefs, groupKey:localStorage.getItem(GROUP_STORAGE_KEY) }) });
+        localStorage.setItem("sw_push_subscribed","yes");
+        setPushOn(true);
+      } else {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) {
+          await fetch(`${WORKER_URL}/push/unsubscribe`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ endpoint:sub.endpoint }) }).catch(()=>{});
+          await sub.unsubscribe();
+        }
+        localStorage.removeItem("sw_push_subscribed");
+        setPushOn(false);
+      }
+    } catch(e) {
+      setPushErr(e.message || "Couldn't change notification setting.");
+    } finally {
+      setPushBusy(false);
+    }
+  };
+
+  const navItems = [
+    { label:"↻ Retake the tour", onClick:() => { onTakeTour(); onClose(); } },
+    { label:"❓ Rules & Info",    onClick:() => { onViewRules(); onClose(); } },
+    { label:"🔄 Switch group",    onClick:() => { onSwitchGroup(); onClose(); } },
   ];
+
+  const rowBase = { display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 12px", borderBottom:`1px solid ${C.border}` };
+
   return (
     <div className="detail-backdrop" onClick={onClose}>
       <div className="detail-sheet" onClick={(e) => e.stopPropagation()} style={{
@@ -3452,19 +3518,25 @@ function MoreMenu({ devMode, onToggleDevMode, onTakeTour, onViewRules, onSubscri
           <button onClick={onClose} aria-label="Close" style={{ background:"transparent", border:"none", color:C.muted, fontSize:22, cursor:"pointer", lineHeight:1 }}>✕</button>
         </div>
         <div style={{ flex:1, overflowY:"auto", padding:"4px 4px 28px" }}>
-          {items.map((item, i) => (
-            <button key={item.label} onClick={() => { item.onClick(); onClose(); }} style={{
-              width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between",
-              padding:"14px 12px", background:"transparent", border:"none",
-              borderBottom: i < items.length - 1 ? `1px solid ${C.border}` : "none",
-              cursor:"pointer", textAlign:"left",
-            }}>
+          {navItems.map(item => (
+            <button key={item.label} onClick={item.onClick} style={{ width:"100%", ...rowBase, background:"transparent", border:"none", cursor:"pointer", textAlign:"left" }}>
               <span style={{ fontSize:14, fontWeight:600, color:C.text }}>{item.label}</span>
-              <span style={{ display:"flex", alignItems:"center", gap:6, color:C.muted, fontSize:13 }}>
-                {item.value}<span style={{ fontSize:14 }}>›</span>
-              </span>
+              <span style={{ color:C.muted, fontSize:14 }}>›</span>
             </button>
           ))}
+          {supported && (
+            <div onClick={togglePush} style={{ ...rowBase, cursor: pushBusy ? "default" : "pointer" }}>
+              <div>
+                <div style={{ fontSize:14, fontWeight:600, color:C.text }}>🔔 Push notifications</div>
+                {pushErr && <div style={{ fontSize:11, color:C.red, marginTop:2 }}>{pushErr}</div>}
+              </div>
+              <Toggle on={pushOn} onChange={togglePush} busy={pushBusy} />
+            </div>
+          )}
+          <div onClick={onToggleDevMode} style={{ ...rowBase, borderBottom:"none", cursor:"pointer" }}>
+            <span style={{ fontSize:14, fontWeight:600, color:C.text }}>🛠️ Developer mode</span>
+            <Toggle on={devMode} onChange={onToggleDevMode} />
+          </div>
         </div>
       </div>
     </div>
@@ -4770,7 +4842,6 @@ function App({ onSwitchGroup, groupKey }) {
             onToggleDevMode={() => { const next = !devMode; devModeRef.current = next; setDevMode(next); setLoading(true); setTab("table"); setLeagueView("league"); fetchMatches(false, next); }}
             onTakeTour={handleTakeTour}
             onViewRules={() => setShowInfo(true)}
-            onSubscribeNotifications={() => setShowPushSettings(true)}
             onSwitchGroup={onSwitchGroup}
             onClose={() => setShowMore(false)}
           />
