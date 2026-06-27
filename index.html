@@ -4082,12 +4082,13 @@ function App({ onSwitchGroup }) {
   useEffect(() => {
     const handleScroll = () => {
       const y = window.scrollY;
+      // Cooldown FIRST: when the title bar collapses/expands it changes page
+      // height, which fires spurious scroll events. Checking the lock before
+      // the y<48 guard breaks the feedback loop where the height change
+      // itself triggers a show → hide → show cycle.
+      if (Date.now() < barLockRef.current) { lastScrollY.current = y; return; }
       // Near the top: always show the full header.
       if (y < 48) { lastScrollY.current = y; setBarsVisible(true); return; }
-      // Cooldown after a toggle. Collapsing the title changes page height, which
-      // fires extra scroll events; without this guard they fight the toggle and
-      // the bar flickers "between states" on slow scroll.
-      if (Date.now() < barLockRef.current) { lastScrollY.current = y; return; }
       const diff = y - lastScrollY.current;
       // Dead zone: ignore small moves and DON'T reset the anchor, so slow scroll
       // accumulates until it clearly passes the threshold instead of toggling
@@ -4096,7 +4097,9 @@ function App({ onSwitchGroup }) {
       lastScrollY.current = y;
       setBarsVisible(prev => {
         const next = diff < 0; // scrolling up => show, down => hide
-        if (next !== prev) barLockRef.current = Date.now() + 220;
+        // Lock duration must exceed the CSS transition (280ms) so height
+        // changes from the animation don't re-trigger the handler mid-flight.
+        if (next !== prev) barLockRef.current = Date.now() + 320;
         return next;
       });
     };
