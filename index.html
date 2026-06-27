@@ -3583,16 +3583,18 @@ function NotificationsDrawer({ matches, ranked, matchPtsById, onClose, onSeenUpd
     .filter(m => isSettled(m.status))
     .map(m => ({ type:"match", date: new Date(m.utcDate).getTime(), m }));
 
-  // Group-qualification items — one per team that made it out of the groups,
-  // timestamped at their last group match so they interleave chronologically.
+  // Group-qualification and elimination items — one per team, timestamped at
+  // their last group match so they interleave chronologically.
   const qualItems = [];
+  const elimItems = [];
   const seenCodes = new Set();
   for (const player of ranked) {
     if (player.grimReaper) continue;
     for (const team of (player.teams || [])) {
       if (seenCodes.has(team.code)) continue;
       seenCodes.add(team.code);
-      if (!team.stage || team.stage === "GROUP_ELIM") continue;
+      if (!team.stage) continue;
+
       const groupMatchTs = matches
         .filter(m => {
           const h = m.homeTeam?.tla?.toUpperCase();
@@ -3603,13 +3605,36 @@ function NotificationsDrawer({ matches, ranked, matchPtsById, onClose, onSeenUpd
         })
         .map(m => new Date(m.utcDate).getTime());
       const lastGroupTs = groupMatchTs.length ? Math.max(...groupMatchTs) : 0;
-      if (!lastGroupTs) continue;
-      const bonus = typeof ptsTotal === "function" ? ptsTotal(team.code, "LAST_32") : null;
-      qualItems.push({ type:"qualify", date: lastGroupTs, team, owner: player.name, bonus });
+
+      if (team.stage === "GROUP_ELIM") {
+        if (!lastGroupTs) continue;
+        const penalty = typeof ptsTotal === "function" ? ptsTotal(team.code, "GROUP_ELIM") : null;
+        elimItems.push({ type:"elim", date: lastGroupTs, team, owner: player.name, stage: "GROUP_ELIM", penalty });
+      } else {
+        if (lastGroupTs) {
+          const bonus = typeof ptsTotal === "function" ? ptsTotal(team.code, "LAST_32") : null;
+          qualItems.push({ type:"qualify", date: lastGroupTs, team, owner: player.name, bonus });
+        }
+        if (team.eliminated === true) {
+          const elimMatchTs = matches
+            .filter(m => {
+              const h = m.homeTeam?.tla?.toUpperCase();
+              const a = m.awayTeam?.tla?.toUpperCase();
+              return (h === team.code || a === team.code)
+                && (m.stage || "").toUpperCase() === team.stage
+                && isSettled(m.status);
+            })
+            .map(m => new Date(m.utcDate).getTime());
+          const elimTs = elimMatchTs.length ? Math.max(...elimMatchTs) : 0;
+          if (elimTs) {
+            elimItems.push({ type:"elim", date: elimTs, team, owner: player.name, stage: team.stage, penalty: null });
+          }
+        }
+      }
     }
   }
 
-  const allItems = [...matchItems, ...qualItems].sort((a, b) => b.date - a.date);
+  const allItems = [...matchItems, ...qualItems, ...elimItems].sort((a, b) => b.date - a.date);
   const unread = allItems.filter(item => item.date > lastSeen);
   const read   = allItems.filter(item => item.date <= lastSeen);
 
@@ -3648,17 +3673,19 @@ function NotificationsDrawer({ matches, ranked, matchPtsById, onClose, onSeenUpd
     const homeName = m.homeTeam?.name || h || "TBD";
     const awayName = m.awayTeam?.name || a || "TBD";
     const pts = matchPtsById?.[m.id];
+    const hLabel = hOwner ? `${hOwner}'s ${homeName}` : homeName;
+    const aLabel = aOwner ? `${aOwner}'s ${awayName}` : awayName;
     let icon, title, p1Label, p1Pts, p2Label, p2Pts;
     if (hs > as_) {
-      icon = "🏆"; title = `${hOwner || homeName} beats ${aOwner || awayName}`;
+      icon = "🏆"; title = `${hLabel} beat ${aLabel}`;
       p1Label = hOwner || homeName; p1Pts = pts?.home;
       p2Label = aOwner || awayName; p2Pts = pts?.away;
     } else if (as_ > hs) {
-      icon = "🏆"; title = `${aOwner || awayName} beats ${hOwner || homeName}`;
+      icon = "🏆"; title = `${aLabel} beat ${hLabel}`;
       p1Label = aOwner || awayName; p1Pts = pts?.away;
       p2Label = hOwner || homeName; p2Pts = pts?.home;
     } else {
-      icon = "🤝"; title = `${hOwner || homeName} and ${aOwner || awayName} draw`;
+      icon = "🤝"; title = `${hLabel} and ${aLabel} draw`;
       p1Label = hOwner || homeName; p1Pts = pts?.home;
       p2Label = aOwner || awayName; p2Pts = pts?.away;
     }
@@ -3689,8 +3716,27 @@ function NotificationsDrawer({ matches, ranked, matchPtsById, onClose, onSeenUpd
     </div>
   );
 
+  const renderElimCard = ({ team, owner, stage, penalty, date }, dimmed) => {
+    const stageLabel = typeof STAGE_LABEL === "object" ? STAGE_LABEL[stage] : stage;
+    const subtitle = stage === "GROUP_ELIM"
+      ? "Group stage exit"
+      : `Knocked out in ${stageLabel || stage}`;
+    return (
+      <div key={`e-${team.code}`} style={{ padding:"10px 6px", borderBottom:`1px solid ${C.border}`, opacity: dimmed ? 0.5 : 1 }}>
+        <div style={{ fontSize:10, color:C.muted, marginBottom:3 }}>WC Sweeps · {relTime(date)}</div>
+        <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:2 }}>💀 {owner}'s {team.name} {stage === "GROUP_ELIM" ? "eliminated!" : "knocked out"}</div>
+        <div style={{ fontSize:12, color:C.dim, display:"flex", alignItems:"center", gap:8 }}>
+          <span>{subtitle}</span>
+          {penalty !== null && penalty < 0 && <span style={{ color:C.red, fontWeight:700 }}>{penalty} pts</span>}
+        </div>
+      </div>
+    );
+  };
+
   const renderItem = (item, dimmed) =>
-    item.type === "qualify" ? renderQualCard(item, dimmed) : renderMatchCard(item.m, dimmed);
+    item.type === "qualify" ? renderQualCard(item, dimmed)
+    : item.type === "elim" ? renderElimCard(item, dimmed)
+    : renderMatchCard(item.m, dimmed);
 
   return (
     <>
