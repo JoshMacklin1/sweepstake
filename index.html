@@ -1301,62 +1301,69 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
           </div>
 
           <div style={{ fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Results</div>
-          {teamMatches.length === 0 ? (
+          {teamMatches.length === 0 && stageBonus === 0 ? (
             <div style={{ fontSize: 12, color: C.muted, padding: "8px 0" }}>No results yet</div>
-          ) : teamMatches.map(m => {
-            const isHome = m.homeTeam?.tla?.toUpperCase() === tla;
-            const oppCode = isHome ? m.awayTeam?.tla?.toUpperCase() : m.homeTeam?.tla?.toUpperCase();
-            const oppName = isHome ? (m.awayTeam?.name || "TBD") : (m.homeTeam?.name || "TBD");
-            const hs = m.score?.fullTime?.home ?? 0;
-            const as_ = m.score?.fullTime?.away ?? 0;
-            const myGoals = isHome ? hs : as_;
-            const oppGoals = isHome ? as_ : hs;
-            const pen = m.score?.penalties;
-            let result = "D";
-            if (myGoals > oppGoals) result = "W";
-            else if (myGoals < oppGoals) result = "L";
-            else if (pen) {
-              const myPen = isHome ? pen.home : pen.away;
-              const oppPen = isHome ? pen.away : pen.home;
-              result = myPen > oppPen ? "W" : "L";
-            }
-            const mPts = matchPtsById[m.id];
-            const earnedPts = mPts ? (isHome ? mPts.home : mPts.away) : null;
-            const resultColor = result === "W" ? C.accent : result === "L" ? C.red : C.muted;
-            return (
-              <div key={m.id} className={onTeamClick && oppCode ? "player-card" : undefined} onClick={onTeamClick && oppCode ? () => onTeamClick(oppCode) : undefined} style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 0", borderBottom: `1px solid ${C.border}`, cursor: onTeamClick && oppCode ? "pointer" : "default" }}>
-                <div style={{
-                  width: 22, height: 22, borderRadius: 4, flexShrink: 0,
-                  background: result === "W" ? C.posBg : result === "L" ? C.negBg : "rgba(148,163,184,0.12)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 10, fontWeight: 800, color: resultColor,
-                }}>{result}</div>
-                <Flag code={oppCode} size={18} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{oppName}</div>
-                  <div style={{ fontSize: 10, color: C.muted }}>{fmt(m.utcDate)} · {(m.stage || "").replace(/_/g, " ")}</div>
+          ) : (() => {
+            const renderMatchRow = (m) => {
+              const isHome = m.homeTeam?.tla?.toUpperCase() === tla;
+              const oppCode = isHome ? m.awayTeam?.tla?.toUpperCase() : m.homeTeam?.tla?.toUpperCase();
+              const oppName = isHome ? (m.awayTeam?.name || "TBD") : (m.homeTeam?.name || "TBD");
+              const hs = m.score?.fullTime?.home ?? 0;
+              const as_ = m.score?.fullTime?.away ?? 0;
+              const myGoals = isHome ? hs : as_;
+              const oppGoals = isHome ? as_ : hs;
+              const pen = m.score?.penalties;
+              let result = "D";
+              if (myGoals > oppGoals) result = "W";
+              else if (myGoals < oppGoals) result = "L";
+              else if (pen) {
+                const myPen = isHome ? pen.home : pen.away;
+                const oppPen = isHome ? pen.away : pen.home;
+                result = myPen > oppPen ? "W" : "L";
+              }
+              const mPts = matchPtsById[m.id];
+              const earnedPts = mPts ? (isHome ? mPts.home : mPts.away) : null;
+              const resultColor = result === "W" ? C.accent : result === "L" ? C.red : C.muted;
+              return (
+                <div key={m.id} className={onTeamClick && oppCode ? "player-card" : undefined} onClick={onTeamClick && oppCode ? () => onTeamClick(oppCode) : undefined} style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 0", borderBottom: `1px solid ${C.border}`, cursor: onTeamClick && oppCode ? "pointer" : "default" }}>
+                  <div style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0, background: result === "W" ? C.posBg : result === "L" ? C.negBg : "rgba(148,163,184,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: resultColor }}>{result}</div>
+                  <Flag code={oppCode} size={18} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{oppName}</div>
+                    <div style={{ fontSize: 10, color: C.muted }}>{fmt(m.utcDate)} · {(m.stage || "").replace(/_/g, " ")}</div>
+                  </div>
+                  <div style={{ textAlign: "right", flexShrink: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{myGoals}–{oppGoals}</div>
+                    {earnedPts != null && (
+                      <div style={{ fontSize: 10, fontWeight: 700, color: earnedPts > 0 ? C.accent : C.muted }}>
+                        {earnedPts > 0 ? `+${earnedPts}` : earnedPts} pts
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div style={{ textAlign: "right", flexShrink: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{myGoals}–{oppGoals}</div>
-                  {earnedPts != null && (
-                    <div style={{ fontSize: 10, fontWeight: 700, color: earnedPts > 0 ? C.accent : C.muted }}>
-                      {earnedPts > 0 ? `+${earnedPts}` : earnedPts} pts
-                    </div>
-                  )}
+              );
+            };
+            const groupMatches   = teamMatches.filter(m => (m.stage || "").toUpperCase().includes("GROUP"));
+            const knockoutMatches = teamMatches.filter(m => !(m.stage || "").toUpperCase().includes("GROUP"));
+            const teamName_ = teamEntry?.name || tla;
+            return (<>
+              {groupMatches.map(renderMatchRow)}
+              {stageBonus > 0 && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 0", borderBottom: `1px solid ${C.border}` }}>
+                  <div style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0, background: C.posBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 }}>🎟️</div>
+                  <Flag code={tla} size={18} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Qualified for {STAGE_LABEL[stage] || "Last 32"}</div>
+                    <div style={{ fontSize: 10, color: C.muted }}>Top-2 group finish · not tied to one game</div>
+                  </div>
+                  <div style={{ textAlign: "right", flexShrink: 0 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: C.accent }}>+{stageBonus} pts</div>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-          {stageBonus > 0 && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 10px", marginTop: 8, borderRadius: 8, border: "1px solid rgba(34,197,94,0.25)", background: "rgba(34,197,94,0.07)" }}>
-              <div style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0, background: C.posBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>🎟️</div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>Qualified for {STAGE_LABEL[stage] || "Last 32"}</div>
-                <div style={{ fontSize: 10, color: C.muted }}>Top-2 group finish · not tied to one game</div>
-              </div>
-              <div style={{ fontSize: 13, fontWeight: 800, color: C.accent, flexShrink: 0 }}>+{stageBonus} pts</div>
-            </div>
-          )}
+              )}
+              {knockoutMatches.map(renderMatchRow)}
+            </>);
+          })()}
 
           {upcomingMatches.length > 0 && (<>
             <div style={{ fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 20, marginBottom: 8 }}>Upcoming</div>
