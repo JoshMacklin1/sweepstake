@@ -1301,16 +1301,6 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
           </div>
 
           <div style={{ fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Results</div>
-          {stageBonus > 0 && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 10px", marginBottom: 8, borderRadius: 8, border: "1px solid rgba(34,197,94,0.25)", background: "rgba(34,197,94,0.07)" }}>
-              <div style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0, background: C.posBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>🎟️</div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>Qualified for {STAGE_LABEL[stage] || "Last 32"}</div>
-                <div style={{ fontSize: 10, color: C.muted }}>Top-2 group finish · not tied to one game</div>
-              </div>
-              <div style={{ fontSize: 13, fontWeight: 800, color: C.accent, flexShrink: 0 }}>+{stageBonus} pts</div>
-            </div>
-          )}
           {teamMatches.length === 0 ? (
             <div style={{ fontSize: 12, color: C.muted, padding: "8px 0" }}>No results yet</div>
           ) : teamMatches.map(m => {
@@ -1357,6 +1347,16 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
               </div>
             );
           })}
+          {stageBonus > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 10px", marginTop: 8, borderRadius: 8, border: "1px solid rgba(34,197,94,0.25)", background: "rgba(34,197,94,0.07)" }}>
+              <div style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0, background: C.posBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>🎟️</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>Qualified for {STAGE_LABEL[stage] || "Last 32"}</div>
+                <div style={{ fontSize: 10, color: C.muted }}>Top-2 group finish · not tied to one game</div>
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: C.accent, flexShrink: 0 }}>+{stageBonus} pts</div>
+            </div>
+          )}
 
           {upcomingMatches.length > 0 && (<>
             <div style={{ fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 20, marginBottom: 8 }}>Upcoming</div>
