@@ -3496,15 +3496,27 @@ function PushSettingsModal({ onClose }) {
 // literal push-notification history (the browser has no API for that, and
 // football-data.org doesn't give per-goal timestamps for a true minute-by-
 // minute feed anyway). Reuses the exact same 24h-window + MatchCard
-// Slides down from the top and shows one push-notification-style card per
-// settled match in the last 24h. Format mirrors the actual push notifications
-// sent by sw.js: icon + "WC Sweeps · Xm ago" header + bold result headline +
-// score subtitle.
-function NotificationsDrawer({ matches, ranked, onClose }) {
-  const cutoffMs = Date.now() - 24 * 60 * 60 * 1000;
-  const recent = matches
-    .filter(m => isSettled(m.status) && new Date(m.utcDate).getTime() >= cutoffMs)
+// Slides down from the top. Push-notification-style cards for every settled
+// match ever, split into "New" (since last close) and "Earlier" (already seen).
+// Last-seen timestamp stored per group in localStorage; updated on close so
+// the split reflects what the user hasn't opened the drawer since.
+const NOTIF_SEEN_BASE_KEY = "sw_notif_seen";
+
+function NotificationsDrawer({ matches, ranked, onClose, groupKey }) {
+  const seenKey = groupKey ? `${NOTIF_SEEN_BASE_KEY}_${groupKey}` : NOTIF_SEEN_BASE_KEY;
+  const lastSeen = parseInt(localStorage.getItem(seenKey) || "0", 10);
+
+  const all = matches
+    .filter(m => isSettled(m.status))
     .sort((a, b) => new Date(b.utcDate) - new Date(a.utcDate));
+
+  const unread = all.filter(m => new Date(m.utcDate).getTime() > lastSeen);
+  const read   = all.filter(m => new Date(m.utcDate).getTime() <= lastSeen);
+
+  const handleClose = () => {
+    localStorage.setItem(seenKey, String(Date.now()));
+    onClose();
+  };
 
   const relTime = (dateStr) => {
     const diff = Date.now() - new Date(dateStr).getTime();
@@ -3516,52 +3528,66 @@ function NotificationsDrawer({ matches, ranked, onClose }) {
     return `${Math.floor(hrs / 24)}d ago`;
   };
 
+  const renderCard = (m, dimmed) => {
+    const h = m.homeTeam?.tla?.toUpperCase();
+    const a = m.awayTeam?.tla?.toUpperCase();
+    const hs = m.score?.fullTime?.home ?? 0;
+    const as_ = m.score?.fullTime?.away ?? 0;
+    const hOwner = ownerOf(h, ranked);
+    const aOwner = ownerOf(a, ranked);
+    const homeName = m.homeTeam?.name || h || "TBD";
+    const awayName = m.awayTeam?.name || a || "TBD";
+    const scoreStr = `${homeName} ${hs}–${as_} ${awayName}`;
+    let icon, title;
+    if (hs > as_) {
+      icon = "⚽"; title = hOwner ? `${hOwner}'s ${homeName} wins!` : `${homeName} wins!`;
+    } else if (as_ > hs) {
+      icon = "⚽"; title = aOwner ? `${aOwner}'s ${awayName} wins!` : `${awayName} wins!`;
+    } else if (hs === 0) {
+      icon = "🔒"; title = `0–0 Draw · ${homeName} vs ${awayName}`;
+    } else {
+      icon = "🤝"; title = `Draw! ${homeName} ${hs}–${as_} ${awayName}`;
+    }
+    return (
+      <div key={m.id} style={{ display:"flex", gap:10, padding:"10px 6px", borderBottom:`1px solid ${C.border}`, opacity: dimmed ? 0.5 : 1 }}>
+        <div style={{ width:38, height:38, borderRadius:10, background:C.card, border:`1px solid ${C.border}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, flexShrink:0 }}>{icon}</div>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontSize:10, color:C.muted, marginBottom:3 }}>WC Sweeps · {relTime(m.utcDate)}</div>
+          <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:2 }}>{icon} {title}</div>
+          {(hs !== as_) && <div style={{ fontSize:12, color:C.dim }}>{scoreStr}</div>}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <>
-      <div onClick={onClose} style={{ position:"fixed", inset:0, zIndex:35, background:"rgba(0,0,0,0.5)", backdropFilter:"blur(3px)", WebkitBackdropFilter:"blur(3px)" }} />
+      <div onClick={handleClose} style={{ position:"fixed", inset:0, zIndex:35, background:"rgba(0,0,0,0.5)", backdropFilter:"blur(3px)", WebkitBackdropFilter:"blur(3px)" }} />
       <div className="notif-panel" style={{ background:C.bg, borderBottom:`1px solid ${C.border}`, borderLeft:`1px solid ${C.border}`, borderRight:`1px solid ${C.border}` }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"52px 16px 12px", borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
-          <div style={{ fontSize:15, fontWeight:800, color:C.text }}>Notifications</div>
-          <button onClick={onClose} aria-label="Close" style={{ background:"transparent", border:"none", color:C.muted, fontSize:22, cursor:"pointer", lineHeight:1, padding:"2px 6px" }}>✕</button>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <div style={{ fontSize:15, fontWeight:800, color:C.text }}>Notifications</div>
+            {unread.length > 0 && <span style={{ background:C.accent, color:"white", fontSize:10, fontWeight:800, borderRadius:10, padding:"1px 7px", lineHeight:"17px" }}>{unread.length}</span>}
+          </div>
+          <button onClick={handleClose} aria-label="Close" style={{ background:"transparent", border:"none", color:C.muted, fontSize:22, cursor:"pointer", lineHeight:1, padding:"2px 6px" }}>✕</button>
         </div>
-        <div style={{ overflowY:"auto", maxHeight:"calc(72vh - 80px)", padding:"8px 10px 24px" }}>
-          {recent.length === 0
-            ? <div style={{ fontSize:13, color:C.muted, textAlign:"center", padding:"24px 0" }}>No match activity in the last 24h</div>
-            : recent.map(m => {
-                const h = m.homeTeam?.tla?.toUpperCase();
-                const a = m.awayTeam?.tla?.toUpperCase();
-                const hs = m.score?.fullTime?.home ?? 0;
-                const as_ = m.score?.fullTime?.away ?? 0;
-                const hOwner = ownerOf(h, ranked);
-                const aOwner = ownerOf(a, ranked);
-                const homeName = m.homeTeam?.name || h || "TBD";
-                const awayName = m.awayTeam?.name || a || "TBD";
-                const scoreStr = `${homeName} ${hs}–${as_} ${awayName}`;
-                let icon, title;
-                if (hs > as_) {
-                  icon = "⚽";
-                  title = hOwner ? `${hOwner}'s ${homeName} wins!` : `${homeName} wins!`;
-                } else if (as_ > hs) {
-                  icon = "⚽";
-                  title = aOwner ? `${aOwner}'s ${awayName} wins!` : `${awayName} wins!`;
-                } else if (hs === 0) {
-                  icon = "🔒";
-                  title = `0–0 Draw · ${homeName} vs ${awayName}`;
-                } else {
-                  icon = "🤝";
-                  title = `Draw! ${homeName} ${hs}–${as_} ${awayName}`;
-                }
-                return (
-                  <div key={m.id} style={{ display:"flex", gap:10, padding:"10px 6px", borderBottom:`1px solid ${C.border}` }}>
-                    <div style={{ width:38, height:38, borderRadius:10, background:C.card, border:`1px solid ${C.border}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, flexShrink:0 }}>{icon}</div>
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:10, color:C.muted, marginBottom:3 }}>WC Sweeps · {relTime(m.utcDate)}</div>
-                      <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:2 }}>{icon} {title}</div>
-                      {(hs > as_ || as_ > hs) && <div style={{ fontSize:12, color:C.dim }}>{scoreStr}</div>}
-                    </div>
-                  </div>
-                );
-              })
+        <div style={{ overflowY:"auto", maxHeight:"calc(72vh - 80px)", padding:"0 10px 24px" }}>
+          {all.length === 0
+            ? <div style={{ fontSize:13, color:C.muted, textAlign:"center", padding:"24px 0" }}>No notifications yet</div>
+            : <>
+                {unread.length > 0 && (
+                  <>
+                    <div style={{ ...s.label, padding:"10px 6px 4px" }}>New</div>
+                    {unread.map(m => renderCard(m, false))}
+                  </>
+                )}
+                {read.length > 0 && (
+                  <>
+                    <div style={{ ...s.label, padding:"10px 6px 4px" }}>Earlier</div>
+                    {read.map(m => renderCard(m, true))}
+                  </>
+                )}
+              </>
           }
         </div>
       </div>
@@ -4740,7 +4766,7 @@ function App({ onSwitchGroup, groupKey }) {
         {showPushSettings && <PushSettingsModal onClose={() => setShowPushSettings(false)} />}
 
         {showNotifications && (
-          <NotificationsDrawer matches={matches} ranked={ranked} upcoming={upcoming} matchPtsById={matchPtsById} onClose={() => setShowNotifications(false)} />
+          <NotificationsDrawer matches={matches} ranked={ranked} groupKey={groupKey} onClose={() => setShowNotifications(false)} />
         )}
 
         {(selectedPlayer || selectedTeam) && (
