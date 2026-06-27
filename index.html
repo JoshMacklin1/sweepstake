@@ -852,15 +852,15 @@ function PlayerRow({ player, rank, displayRank, onOpen, badges = [], rank24hChan
 // Renders .detail-backdrop + .detail-sheet; passes bodyRef to children via
 // render prop so callers can place their scrollable body.
 // ─────────────────────────────────────────────────────────────────────────────
-function SnapSheet({ onClose, scrollBodyToBottom = false, children }) {
+function SnapSheet({ onClose, scrollBodyToBottom = false, initialSnap = "half", children }) {
   React.useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = prev; };
   }, []);
 
-  const [snapState, setSnapState] = React.useState("half");
-  const snapStateRef = React.useRef("half");
+  const [snapState, setSnapState] = React.useState(initialSnap);
+  const snapStateRef = React.useRef(initialSnap);
   React.useEffect(() => { snapStateRef.current = snapState; }, [snapState]);
 
   const sheetRef = React.useRef(null);
@@ -3952,6 +3952,7 @@ function App({ onSwitchGroup }) {
   };
   // Closes whichever card is open (player or team) back to the base state.
   const closeCard = () => {
+    setSnapFull(false);
     const m = window.history.state?.appModal;
     if (m === "player" || m === "team") window.history.back();
     else { setSelectedPlayer(null); setSelectedTeam(null); }
@@ -3965,6 +3966,7 @@ function App({ onSwitchGroup }) {
   const prevScoresRef = React.useRef({});
   const [barsVisible, setBarsVisible] = useState(true);
   const [showSearch,  setShowSearch]  = useState(false);
+  const [snapFull,    setSnapFull]    = useState(false);
   const lastScrollY = React.useRef(0);
   const barLockRef = React.useRef(0);
 
@@ -4621,7 +4623,9 @@ function App({ onSwitchGroup }) {
         {showRace && <BarRaceModal history={ranked.map(p => ({ name: p.name, hist: p.hist, total: p.total }))} allRanked={ranked} bucketLabels={bucketLabels} elimByFrame={raceElim} stageByFrame={raceStages} onClose={() => setShowRace(false)} />}
 
         {showSearch && (
-          <SearchOverlay ranked={ranked} onClose={() => setShowSearch(false)} onSelectPlayer={openPlayerModal} onSelectTeam={openTeamModal} />
+          <SearchOverlay ranked={ranked} onClose={() => setShowSearch(false)}
+            onSelectPlayer={(name) => { setSnapFull(true); openPlayerModal(name); }}
+            onSelectTeam={(tla)  => { setSnapFull(true); openTeamModal(tla); }} />
         )}
 
         {/* ── RULES & INFO — same pop-over on mobile and desktop now that the
@@ -4659,7 +4663,7 @@ function App({ onSwitchGroup }) {
         )}
 
         {(selectedPlayer || selectedTeam) && (
-          <SnapSheet onClose={closeCard} scrollBodyToBottom={!selectedTeam && scrollPlayerToBadges}>
+          <SnapSheet onClose={closeCard} scrollBodyToBottom={!selectedTeam && scrollPlayerToBadges} initialSnap={snapFull ? "full" : "half"}>
             {(bodyRef) => {
               // Team takes precedence: switching player -> team sets selectedTeam
               // and clears selectedPlayer, swapping the content of this same sheet
