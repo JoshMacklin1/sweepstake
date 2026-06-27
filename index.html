@@ -4245,6 +4245,29 @@ function App({ onSwitchGroup, groupKey }) {
   const notifSeenKey = groupKey ? `${NOTIF_SEEN_BASE_KEY}_${groupKey}` : NOTIF_SEEN_BASE_KEY;
   const [notifSeenTs, setNotifSeenTs] = useState(() => parseInt(localStorage.getItem(notifSeenKey) || "0", 10));
   useEffect(() => { setNotifSeenTs(parseInt(localStorage.getItem(notifSeenKey) || "0", 10)); }, [notifSeenKey]);
+
+  // Re-sync push subscription groupKey whenever App mounts (which happens on
+  // every group switch). Without this, the server retains whichever groupKey
+  // was active when the device first subscribed, so players from the wrong
+  // group show up in push notifications.
+  useEffect(() => {
+    const supported = "serviceWorker" in navigator && "PushManager" in window;
+    if (!supported || localStorage.getItem("sw_push_subscribed") !== "yes") return;
+    (async () => {
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (!sub) { localStorage.removeItem("sw_push_subscribed"); return; }
+        const prefs = { goals: true, kickoff: true, fulltime: true,
+          ...JSON.parse(localStorage.getItem("sw_notification_prefs") || "{}") };
+        await fetch(`${WORKER_URL}/push/subscribe`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ subscription: sub.toJSON(), prefs, groupKey }),
+        });
+      } catch (e) {}
+    })();
+  }, [groupKey]);
   const unreadNotifCount = matches.filter(m => isSettled(m.status) && new Date(m.utcDate).getTime() > notifSeenTs).length; // "Subscribe notifications" from the More menu
   const [countdown, setCountdown] = useState("");
   const [selectedDay, setSelectedDay] = useState(null); // null = default to "today", clamped to the tournament's match range
