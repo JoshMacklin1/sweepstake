@@ -4422,7 +4422,6 @@ function App({ onSwitchGroup, groupKey }) {
           const aOwner = ownerOf(a, ranked);
           const broadcast = getBroadcast(h, a);
           return (
-            <div style={{ overflow:"hidden", maxHeight: barsVisible ? 120 : 0, opacity: barsVisible ? 1 : 0, transition:"max-height 0.28s ease, opacity 0.2s ease" }}>
             <div style={{ padding:"8px 14px 12px", borderBottom:`1px solid ${C.border}` }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
                 <span style={{ fontSize:10, color:C.muted, fontWeight:700, letterSpacing:"0.1em" }}>NEXT MATCH</span>
@@ -4448,7 +4447,6 @@ function App({ onSwitchGroup, groupKey }) {
                   <Flag code={a} size={18} />
                 </div>
               </div>
-            </div>
             </div>
           );
         })()}
