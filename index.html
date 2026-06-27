@@ -3502,7 +3502,7 @@ function PushSettingsModal({ onClose }) {
 // the split reflects what the user hasn't opened the drawer since.
 const NOTIF_SEEN_BASE_KEY = "sw_notif_seen";
 
-function NotificationsDrawer({ matches, ranked, onClose, groupKey }) {
+function NotificationsDrawer({ matches, ranked, onClose, onSeenUpdate, groupKey }) {
   const seenKey = groupKey ? `${NOTIF_SEEN_BASE_KEY}_${groupKey}` : NOTIF_SEEN_BASE_KEY;
   const lastSeen = parseInt(localStorage.getItem(seenKey) || "0", 10);
 
@@ -3514,7 +3514,9 @@ function NotificationsDrawer({ matches, ranked, onClose, groupKey }) {
   const read   = all.filter(m => new Date(m.utcDate).getTime() <= lastSeen);
 
   const handleClose = () => {
-    localStorage.setItem(seenKey, String(Date.now()));
+    const ts = Date.now();
+    localStorage.setItem(seenKey, String(ts));
+    onSeenUpdate?.(ts);
     onClose();
   };
 
@@ -3965,7 +3967,11 @@ function App({ onSwitchGroup, groupKey }) {
   const [showTour,    setShowTour]    = useState(false); // first-time app walkthrough, also replayable from the More menu
   const [showMore,         setShowMore]         = useState(false); // bottom-nav/sidebar "More" menu (was "Rules & Info")
   const [showNotifications, setShowNotifications] = useState(false); // bell — recent match events drawer
-  const [showPushSettings, setShowPushSettings] = useState(false); // "Subscribe notifications" from the More menu
+  const [showPushSettings, setShowPushSettings] = useState(false);
+  const notifSeenKey = groupKey ? `${NOTIF_SEEN_BASE_KEY}_${groupKey}` : NOTIF_SEEN_BASE_KEY;
+  const [notifSeenTs, setNotifSeenTs] = useState(() => parseInt(localStorage.getItem(notifSeenKey) || "0", 10));
+  useEffect(() => { setNotifSeenTs(parseInt(localStorage.getItem(notifSeenKey) || "0", 10)); }, [notifSeenKey]);
+  const unreadNotifCount = matches.filter(m => isSettled(m.status) && new Date(m.utcDate).getTime() > notifSeenTs).length; // "Subscribe notifications" from the More menu
   const [countdown, setCountdown] = useState("");
   const [selectedDay, setSelectedDay] = useState(null); // null = default to "today", clamped to the tournament's match range
   const matchesRef = React.useRef(matches);
@@ -4485,12 +4491,19 @@ function App({ onSwitchGroup, groupKey }) {
               </svg>
               <span style={{ fontSize:14, color:"rgba(255,255,255,0.6)" }}>Search players or teams…</span>
             </div>
-            <button onClick={() => setShowNotifications(true)} aria-label="Notifications" style={{ background:"rgba(255,255,255,0.1)", border:"1px solid rgba(255,255,255,0.2)", width:32, height:32, borderRadius:"50%", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path d="M6 10.5a6 6 0 1 1 12 0c0 3.2 1 5.1 1.8 6.1.3.35.05.9-.4.9H4.6c-.45 0-.7-.55-.4-.9.8-1 1.8-2.9 1.8-6.1Z" stroke="rgba(255,255,255,0.75)" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M9.5 19.5a2.5 2.5 0 0 0 5 0" stroke="rgba(255,255,255,0.75)" strokeWidth="1.7" strokeLinecap="round"/>
-              </svg>
-            </button>
+            <div style={{ position:"relative", flexShrink:0 }}>
+              <button onClick={() => setShowNotifications(true)} aria-label="Notifications" style={{ background:"rgba(255,255,255,0.1)", border:"1px solid rgba(255,255,255,0.2)", width:32, height:32, borderRadius:"50%", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path d="M6 10.5a6 6 0 1 1 12 0c0 3.2 1 5.1 1.8 6.1.3.35.05.9-.4.9H4.6c-.45 0-.7-.55-.4-.9.8-1 1.8-2.9 1.8-6.1Z" stroke="rgba(255,255,255,0.75)" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M9.5 19.5a2.5 2.5 0 0 0 5 0" stroke="rgba(255,255,255,0.75)" strokeWidth="1.7" strokeLinecap="round"/>
+                </svg>
+              </button>
+              {unreadNotifCount > 0 && (
+                <div style={{ position:"absolute", top:-3, right:-3, minWidth:15, height:15, borderRadius:8, background:"#ef4444", color:"white", fontSize:9, fontWeight:800, display:"flex", alignItems:"center", justifyContent:"center", padding:"0 3px", lineHeight:1, pointerEvents:"none" }}>
+                  {unreadNotifCount > 9 ? "9+" : unreadNotifCount}
+                </div>
+              )}
+            </div>
           </div>
         </div>
                 {/* Live banner — expands into header */}
@@ -4766,7 +4779,7 @@ function App({ onSwitchGroup, groupKey }) {
         {showPushSettings && <PushSettingsModal onClose={() => setShowPushSettings(false)} />}
 
         {showNotifications && (
-          <NotificationsDrawer matches={matches} ranked={ranked} groupKey={groupKey} onClose={() => setShowNotifications(false)} />
+          <NotificationsDrawer matches={matches} ranked={ranked} groupKey={groupKey} onClose={() => setShowNotifications(false)} onSeenUpdate={setNotifSeenTs} />
         )}
 
         {(selectedPlayer || selectedTeam) && (
