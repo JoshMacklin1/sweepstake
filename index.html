@@ -3421,9 +3421,7 @@ function InfoContent() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MORE MENU — Chrome-style dropdown anchored to the top-right ⋮ button.
-// A transparent full-screen backdrop catches outside taps; the card itself
-// animates in from the top-right corner.
+// MORE MENU — bottom sheet triggered from the bottom nav "More" tab.
 // ─────────────────────────────────────────────────────────────────────────────
 function MoreMenu({ devMode, onToggleDevMode, onTakeTour, onViewRules, onSubscribeNotifications, onSwitchGroup, onClose }) {
   const items = [
@@ -3433,30 +3431,34 @@ function MoreMenu({ devMode, onToggleDevMode, onTakeTour, onViewRules, onSubscri
     { label: "🔄 Switch group",        onClick: onSwitchGroup },
     { label: "🛠️ Developer mode",     value: devMode ? "On" : "Off", onClick: onToggleDevMode },
   ];
-  return (<>
-    {/* Transparent backdrop — dismiss on outside tap */}
-    <div onClick={onClose} style={{ position:"fixed", inset:0, zIndex:40 }} />
-    {/* Dropdown card */}
-    <div style={{
-      position:"fixed", top:62, right:10, zIndex:41,
-      background:C.card, border:`1px solid ${C.border}`,
-      borderRadius:14, boxShadow:"0 8px 32px rgba(0,0,0,0.45)",
-      minWidth:220, overflow:"hidden",
-      animation:"dropdownIn 0.15s ease both",
-    }}>
-      {items.map((item, i) => (
-        <button key={item.label} onClick={() => { item.onClick(); onClose(); }} style={{
-          width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between",
-          padding:"13px 16px", background:"transparent", border:"none",
-          borderBottom: i < items.length - 1 ? `1px solid ${C.border}` : "none",
-          cursor:"pointer", textAlign:"left", WebkitTapHighlightColor:"transparent",
-        }}>
-          <span style={{ fontSize:14, fontWeight:500, color:C.text }}>{item.label}</span>
-          {item.value && <span style={{ fontSize:12, color:C.muted }}>{item.value}</span>}
-        </button>
-      ))}
+  return (
+    <div className="detail-backdrop" onClick={onClose}>
+      <div className="detail-sheet" onClick={(e) => e.stopPropagation()} style={{
+        background:C.bg, display:"flex", flexDirection:"column", border:`1px solid ${C.border}`, boxShadow:"0 24px 64px rgba(0,0,0,0.55)",
+      }}>
+        <div className="sheet-handle"><span></span></div>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"14px 16px", borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
+          <div style={{ fontSize:15, fontWeight:800, color:C.text }}>More</div>
+          <button onClick={onClose} aria-label="Close" style={{ background:"transparent", border:"none", color:C.muted, fontSize:22, cursor:"pointer", lineHeight:1 }}>✕</button>
+        </div>
+        <div style={{ flex:1, overflowY:"auto", padding:"4px 4px 28px" }}>
+          {items.map((item, i) => (
+            <button key={item.label} onClick={() => { item.onClick(); onClose(); }} style={{
+              width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between",
+              padding:"14px 12px", background:"transparent", border:"none",
+              borderBottom: i < items.length - 1 ? `1px solid ${C.border}` : "none",
+              cursor:"pointer", textAlign:"left",
+            }}>
+              <span style={{ fontSize:14, fontWeight:600, color:C.text }}>{item.label}</span>
+              <span style={{ display:"flex", alignItems:"center", gap:6, color:C.muted, fontSize:13 }}>
+                {item.value}<span style={{ fontSize:14 }}>›</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
-  </>);
+  );
 }
 
 // Push-notification settings, opened from the More menu. Reuses the same
@@ -4403,9 +4405,10 @@ function App({ onSwitchGroup, groupKey }) {
               </svg>
               <span style={{ fontSize:14, color:"rgba(255,255,255,0.6)" }}>Search players or teams…</span>
             </div>
-            <button onClick={() => setShowMore(true)} aria-label="More options" style={{ background:"rgba(255,255,255,0.1)", border:"1px solid rgba(255,255,255,0.2)", width:32, height:32, borderRadius:"50%", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="rgba(255,255,255,0.75)">
-                <circle cx="12" cy="5"  r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/>
+            <button onClick={() => setShowNotifications(true)} aria-label="Notifications" style={{ background:"rgba(255,255,255,0.1)", border:"1px solid rgba(255,255,255,0.2)", width:32, height:32, borderRadius:"50%", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <path d="M6 10.5a6 6 0 1 1 12 0c0 3.2 1 5.1 1.8 6.1.3.35.05.9-.4.9H4.6c-.45 0-.7-.55-.4-.9.8-1 1.8-2.9 1.8-6.1Z" stroke="rgba(255,255,255,0.75)" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M9.5 19.5a2.5 2.5 0 0 0 5 0" stroke="rgba(255,255,255,0.75)" strokeWidth="1.7" strokeLinecap="round"/>
               </svg>
             </button>
           </div>
@@ -4523,6 +4526,7 @@ function App({ onSwitchGroup, groupKey }) {
           ["table", "League", navIconTable],
           ["scores", "Scores", navIconScores],
           ["race", "The Race", navIconRace],
+          ["more", "More", navIconMore],
         ]).map(([id, label, renderIcon]) => {
           // More: opens the MoreMenu bottom sheet on both mobile and desktop
           // (was a desktop sidebar tab / mobile pop-over split when this slot
