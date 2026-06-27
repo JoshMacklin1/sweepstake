@@ -3441,15 +3441,15 @@ function Toggle({ on, onChange, busy }) {
       onClick={(e) => { e.stopPropagation(); if (!busy) onChange(); }}
       style={{
         width:44, height:26, borderRadius:13, flexShrink:0,
-        background: on ? C.accent : C.surface,
-        border:`1px solid ${on ? C.accent : C.border}`,
+        background: on ? C.accent : "rgba(255,255,255,0.1)",
+        border:`2px solid ${on ? C.accent : "rgba(255,255,255,0.3)"}`,
         position:"relative", cursor: busy ? "default" : "pointer",
         transition:"background 0.18s, border-color 0.18s",
         opacity: busy ? 0.6 : 1,
       }}
     >
       <div style={{
-        position:"absolute", top:3, left: on ? 20 : 3,
+        position:"absolute", top:2, left: on ? 19 : 2,
         width:18, height:18, borderRadius:"50%",
         background:"white", transition:"left 0.18s",
         boxShadow:"0 1px 3px rgba(0,0,0,0.35)",
