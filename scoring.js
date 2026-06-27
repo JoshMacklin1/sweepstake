@@ -372,8 +372,8 @@ var reaperBountyForCode = (code) => {
 var POT = {
   POR:1,MEX:1,ARG:1,NED:1,ESP:1,ENG:1,FRA:1,BRA:1,CAN:1,GER:1,USA:1,BEL:1,
   MAR:2,JPN:2,URU:2,SEN:2,CRO:2,IRN:2,SUI:2,COL:2,AUT:2,ECU:2,KOR:2,AUS:2,
-  SCO:3,EGY:3,PAR:3,ALG:3,QAT:3,NOR:3,CIV:3,KSA:3,PAN:3,SWE:3,UZB:3,RSA:3,
-  JOR:4,CUW:4,BIH:4,HAI:4,GHA:4,NZL:4,CPV:4,IRQ:4,TUN:4,CZE:4,TUR:4,DRC:4,COD:4,
+  SCO:3,EGY:3,PAR:3,ALG:3,QAT:3,NOR:3,CIV:3,KSA:3,PAN:3,TUN:3,UZB:3,RSA:3,
+  JOR:4,CUW:4,BIH:4,HAI:4,GHA:4,NZL:4,CPV:4,IRQ:4,SWE:4,CZE:4,TUR:4,DRC:4,COD:4,
   // ^ COD is an alias for DRC (DR Congo) — confirmed the real football-data.org
   // API uses FIFA's official "COD" code (ISO 3166-1 alpha-3, "Congo-Kinshasa")
   // for the 2026 World Cup, not "DRC" as our own data originally assumed.
