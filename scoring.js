@@ -587,9 +587,13 @@ function clinchedR32(matches) {
   return clinched;
 }
 
-// The top-8 best 3rd-placed teams (ranked by Pts → GD → GF, same as the Groups
-// tab table) who qualify for the Last 32. Uses "as it stands" — provisional for
-// groups that haven't finished all 6 games yet, consistent with the UI table.
+// Returns the 3rd-placed teams definitively confirmed in the top 8 (and thus
+// qualified for the Last 32). A team from a COMPLETE group (all 3 matchdays
+// played) is confirmed if, even assuming every incomplete group produces a
+// 3rd-placed team that beats them, they still rank top-8. Concretely: a team
+// at rank R (among complete-group thirds, 0-indexed) is confirmed when
+// R + numIncompleteGroups < 8. Teams from incomplete groups are never confirmed
+// here (their group position is still fluid).
 function qualifiedThirdPlacers(matches) {
   const normCode = c => (c === "COD" ? "DRC" : c);
   const allCodes = new Set(Object.values(GROUP_ASSIGNMENTS).flat());
@@ -612,9 +616,15 @@ function qualifiedThirdPlacers(matches) {
   });
 
   const thirds = [];
+  let numIncompleteGroups = 0;
+
   Object.values(GROUP_ASSIGNMENTS).forEach(teams => {
     const active = teams.filter(c => gPlayed[c] > 0);
-    if (active.length < 3) return;
+    if (active.length < 3) { numIncompleteGroups++; return; }
+
+    const groupComplete = teams.every(c => gPlayed[c] === 3);
+    if (!groupComplete) numIncompleteGroups++;
+
     const sorted = [...active].sort((a, b) => {
       const pd = gPts[b] - gPts[a]; if (pd !== 0) return pd;
       const gda = (gGf[a] - gGa[a]), gdb = (gGf[b] - gGa[b]);
@@ -622,7 +632,7 @@ function qualifiedThirdPlacers(matches) {
       return gGf[b] - gGf[a];
     });
     const t = sorted[2];
-    thirds.push({ code: t, pts: gPts[t], gd: gGf[t] - gGa[t], gf: gGf[t] });
+    thirds.push({ code: t, pts: gPts[t], gd: gGf[t] - gGa[t], gf: gGf[t], groupComplete });
   });
 
   thirds.sort((a, b) => {
@@ -630,7 +640,17 @@ function qualifiedThirdPlacers(matches) {
     if (b.gd  !== a.gd)  return b.gd  - a.gd;
     return b.gf - a.gf;
   });
-  return thirds.slice(0, 8).map(t => t.code);
+
+  // Only teams from complete groups can be confirmed; rank them among themselves.
+  // A team at position i (0-indexed) is confirmed if i + numIncompleteGroups < 8.
+  const confirmed = [];
+  let rank = 0;
+  thirds.forEach(t => {
+    if (!t.groupComplete) return;
+    if (rank + numIncompleteGroups < 8) confirmed.push(t.code);
+    rank++;
+  });
+  return confirmed;
 }
 
 function deriveStages(matches) {
