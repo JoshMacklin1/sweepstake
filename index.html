@@ -3574,16 +3574,44 @@ function PushSettingsModal({ onClose }) {
 // the split reflects what the user hasn't opened the drawer since.
 const NOTIF_SEEN_BASE_KEY = "sw_notif_seen";
 
-function NotificationsDrawer({ matches, ranked, onClose, onSeenUpdate, groupKey }) {
+function NotificationsDrawer({ matches, ranked, matchPtsById, onClose, onSeenUpdate, groupKey }) {
   const seenKey = groupKey ? `${NOTIF_SEEN_BASE_KEY}_${groupKey}` : NOTIF_SEEN_BASE_KEY;
   const lastSeen = parseInt(localStorage.getItem(seenKey) || "0", 10);
 
-  const all = matches
+  // Match-result items
+  const matchItems = matches
     .filter(m => isSettled(m.status))
-    .sort((a, b) => new Date(b.utcDate) - new Date(a.utcDate));
+    .map(m => ({ type:"match", date: new Date(m.utcDate).getTime(), m }));
 
-  const unread = all.filter(m => new Date(m.utcDate).getTime() > lastSeen);
-  const read   = all.filter(m => new Date(m.utcDate).getTime() <= lastSeen);
+  // Group-qualification items — one per team that made it out of the groups,
+  // timestamped at their last group match so they interleave chronologically.
+  const qualItems = [];
+  const seenCodes = new Set();
+  for (const player of ranked) {
+    if (player.grimReaper) continue;
+    for (const team of (player.teams || [])) {
+      if (seenCodes.has(team.code)) continue;
+      seenCodes.add(team.code);
+      if (!team.stage || team.stage === "GROUP_ELIM") continue;
+      const groupMatchTs = matches
+        .filter(m => {
+          const h = m.homeTeam?.tla?.toUpperCase();
+          const a = m.awayTeam?.tla?.toUpperCase();
+          return (h === team.code || a === team.code)
+            && (m.stage || "").toUpperCase().includes("GROUP")
+            && isSettled(m.status);
+        })
+        .map(m => new Date(m.utcDate).getTime());
+      const lastGroupTs = groupMatchTs.length ? Math.max(...groupMatchTs) : 0;
+      if (!lastGroupTs) continue;
+      const bonus = typeof window.stageBonus === "function" ? window.stageBonus(team.pot, "LAST_32") : null;
+      qualItems.push({ type:"qualify", date: lastGroupTs, team, owner: player.name, bonus });
+    }
+  }
+
+  const allItems = [...matchItems, ...qualItems].sort((a, b) => b.date - a.date);
+  const unread = allItems.filter(item => item.date > lastSeen);
+  const read   = allItems.filter(item => item.date <= lastSeen);
 
   const handleClose = () => {
     const ts = Date.now();
@@ -3592,8 +3620,8 @@ function NotificationsDrawer({ matches, ranked, onClose, onSeenUpdate, groupKey 
     onClose();
   };
 
-  const relTime = (dateStr) => {
-    const diff = Date.now() - new Date(dateStr).getTime();
+  const relTime = (ts) => {
+    const diff = Date.now() - ts;
     const mins = Math.floor(diff / 60000);
     if (mins < 1) return "just now";
     if (mins < 60) return `${mins}m ago`;
@@ -3602,7 +3630,13 @@ function NotificationsDrawer({ matches, ranked, onClose, onSeenUpdate, groupKey 
     return `${Math.floor(hrs / 24)}d ago`;
   };
 
-  const renderCard = (m, dimmed) => {
+  const ptsStr = (n) => {
+    if (n === null || n === undefined) return null;
+    const color = n > 0 ? C.accent : n < 0 ? C.red : C.muted;
+    return <span style={{ color, fontWeight:700 }}>{n >= 0 ? "+" : ""}{n} pts</span>;
+  };
+
+  const renderMatchCard = (m, dimmed) => {
     const h = m.homeTeam?.tla?.toUpperCase();
     const a = m.awayTeam?.tla?.toUpperCase();
     const hs = m.score?.fullTime?.home ?? 0;
@@ -3611,26 +3645,50 @@ function NotificationsDrawer({ matches, ranked, onClose, onSeenUpdate, groupKey 
     const aOwner = ownerOf(a, ranked);
     const homeName = m.homeTeam?.name || h || "TBD";
     const awayName = m.awayTeam?.name || a || "TBD";
-    const scoreStr = `${homeName} ${hs}–${as_} ${awayName}`;
-    let icon, title;
+    const pts = matchPtsById?.[m.id];
+    let icon, title, p1Label, p1Pts, p2Label, p2Pts;
     if (hs > as_) {
-      icon = "🏆";
-      title = `${hOwner || homeName} beats ${aOwner || awayName}`;
+      icon = "🏆"; title = `${hOwner || homeName} beats ${aOwner || awayName}`;
+      p1Label = hOwner || homeName; p1Pts = pts?.home;
+      p2Label = aOwner || awayName; p2Pts = pts?.away;
     } else if (as_ > hs) {
-      icon = "🏆";
-      title = `${aOwner || awayName} beats ${hOwner || homeName}`;
+      icon = "🏆"; title = `${aOwner || awayName} beats ${hOwner || homeName}`;
+      p1Label = aOwner || awayName; p1Pts = pts?.away;
+      p2Label = hOwner || homeName; p2Pts = pts?.home;
     } else {
-      icon = "🤝";
-      title = `${hOwner || homeName} and ${aOwner || awayName} draw`;
+      icon = "🤝"; title = `${hOwner || homeName} and ${aOwner || awayName} draw`;
+      p1Label = hOwner || homeName; p1Pts = pts?.home;
+      p2Label = aOwner || awayName; p2Pts = pts?.away;
     }
+    const hasPts = pts && (p1Pts !== undefined || p2Pts !== undefined);
     return (
-      <div key={m.id} style={{ padding:"10px 6px", borderBottom:`1px solid ${C.border}`, opacity: dimmed ? 0.5 : 1 }}>
-        <div style={{ fontSize:10, color:C.muted, marginBottom:3 }}>WC Sweeps · {relTime(m.utcDate)}</div>
+      <div key={`m-${m.id}`} style={{ padding:"10px 6px", borderBottom:`1px solid ${C.border}`, opacity: dimmed ? 0.5 : 1 }}>
+        <div style={{ fontSize:10, color:C.muted, marginBottom:3 }}>WC Sweeps · {relTime(new Date(m.utcDate).getTime())}</div>
         <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:2 }}>{icon} {title}</div>
-        <div style={{ fontSize:12, color:C.dim }}>{scoreStr}</div>
+        <div style={{ fontSize:12, color:C.dim }}>{homeName} {hs}–{as_} {awayName}</div>
+        {hasPts && (
+          <div style={{ fontSize:11, color:C.muted, marginTop:3, display:"flex", gap:10 }}>
+            <span>{p1Label} {ptsStr(p1Pts)}</span>
+            {p2Pts !== undefined && <span>{p2Label} {ptsStr(p2Pts)}</span>}
+          </div>
+        )}
       </div>
     );
   };
+
+  const renderQualCard = ({ team, owner, bonus, date }, dimmed) => (
+    <div key={`q-${team.code}`} style={{ padding:"10px 6px", borderBottom:`1px solid ${C.border}`, opacity: dimmed ? 0.5 : 1 }}>
+      <div style={{ fontSize:10, color:C.muted, marginBottom:3 }}>WC Sweeps · {relTime(date)}</div>
+      <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:2 }}>⭐ {owner}'s {team.name} qualify!</div>
+      <div style={{ fontSize:12, color:C.dim, display:"flex", alignItems:"center", gap:8 }}>
+        <span>Advanced from group stage</span>
+        {bonus > 0 && <span style={{ color:C.accent, fontWeight:700 }}>+{bonus} pts</span>}
+      </div>
+    </div>
+  );
+
+  const renderItem = (item, dimmed) =>
+    item.type === "qualify" ? renderQualCard(item, dimmed) : renderMatchCard(item.m, dimmed);
 
   return (
     <>
@@ -3644,19 +3702,19 @@ function NotificationsDrawer({ matches, ranked, onClose, onSeenUpdate, groupKey 
           <button onClick={handleClose} aria-label="Close" style={{ background:"transparent", border:"none", color:C.muted, fontSize:22, cursor:"pointer", lineHeight:1, padding:"2px 6px" }}>✕</button>
         </div>
         <div style={{ overflowY:"auto", maxHeight:"calc(72vh - 80px)", padding:"0 10px 24px" }}>
-          {all.length === 0
+          {allItems.length === 0
             ? <div style={{ fontSize:13, color:C.muted, textAlign:"center", padding:"24px 0" }}>No notifications yet</div>
             : <>
                 {unread.length > 0 && (
                   <>
                     <div style={{ ...s.label, padding:"10px 6px 4px" }}>New</div>
-                    {unread.map(m => renderCard(m, false))}
+                    {unread.map(item => renderItem(item, false))}
                   </>
                 )}
                 {read.length > 0 && (
                   <>
                     <div style={{ ...s.label, padding:"10px 6px 4px" }}>Earlier</div>
-                    {read.map(m => renderCard(m, true))}
+                    {read.map(item => renderItem(item, true))}
                   </>
                 )}
               </>
@@ -4848,7 +4906,7 @@ function App({ onSwitchGroup, groupKey }) {
         {showPushSettings && <PushSettingsModal onClose={() => setShowPushSettings(false)} />}
 
         {showNotifications && (
-          <NotificationsDrawer matches={matches} ranked={ranked} groupKey={groupKey} onClose={() => setShowNotifications(false)} onSeenUpdate={setNotifSeenTs} />
+          <NotificationsDrawer matches={matches} ranked={ranked} matchPtsById={matchPtsById} groupKey={groupKey} onClose={() => setShowNotifications(false)} onSeenUpdate={setNotifSeenTs} />
         )}
 
         {(selectedPlayer || selectedTeam) && (
