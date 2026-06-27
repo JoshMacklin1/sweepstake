@@ -5131,6 +5131,7 @@ function GroupGate() {
     // is all App needs.
     PLAYERS = GROUPS[groupKey].players;
     PLAYER_NAME_ORDER = PLAYERS.map(p => p.name);
+    KNOCKOUT_ONLY = !!(GROUPS[groupKey].knockoutOnly);
     const onSwitchGroup = () => {
       localStorage.removeItem(GROUP_STORAGE_KEY);
       setGroupKey(null);

@@ -35,6 +35,9 @@ var VAPID_PUBLIC_KEY = "BBuhMJuFwH_TG-NwDHP8JE5iEi5rPfWnv3Qa6gcFNxW7fID5B_N5IYa3
 // DEV_MODE is now controlled via UI toggle — default off
 var DEV_MODE_DEFAULT = false;
 
+// Set to true by index.html for groups that use knockout-only scoring (no group-stage W/D pts).
+var KNOCKOUT_ONLY = false;
+
 var MOCK_MATCHES = [
   // ═══════════════════════════════════════════════════════════════
   // GROUP STAGE — all 12 groups complete (3 games each)
@@ -254,6 +257,7 @@ var GROUPS = {
   RODENTS: {
     code: "RODENTS",
     label: "Rodents",
+    knockoutOnly: true,
     // 8 real players, 6 teams each — covers all 48 World Cup teams between
     // them. Josh plays the Grim Reaper here, not a real player. Team
     // assignments were predetermined by the group's own draw (not
@@ -414,6 +418,7 @@ var GROUP_WIN_PTS  = [2,  4,  8,  12];
 var GROUP_DRAW_PTS = [1,  2,  3,   5];
 
 function groupGamePts(code, result) {
+  if (KNOCKOUT_ONLY) return 0;
   const pot = (POT[code] || 4) - 1;
   if (result === "W") return GROUP_WIN_PTS[pot];
   if (result === "D") return GROUP_DRAW_PTS[pot];
