@@ -1149,13 +1149,13 @@ function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, bad
                     className={onTeamClick ? "player-card" : undefined}
                     onClick={onTeamClick ? () => onTeamClick(t.code) : undefined}
                     style={{ display:"flex", alignItems:"center", gap:8, padding:"9px 0", borderBottom:`1px solid ${C.border}`, cursor: onTeamClick ? "pointer" : "default" }}>
-                    <div style={{ width:22, height:22, borderRadius:4, flexShrink:0, background:C.posBg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:800, color:C.accent }}>Q</div>
+                    <div style={{ width:22, height:22, borderRadius:4, flexShrink:0, background:"rgba(245,158,11,0.18)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:800, color:C.gold }}>Q</div>
                     <Flag code={t.code} size={18} />
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ fontSize:12, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}</div>
                       <div style={{ fontSize:10, color:C.muted }}>Qualified for {STAGE_LABEL[t.stage] || "Last 32"} · top-2 group finish</div>
                     </div>
-                    <div style={{ fontSize:10, fontWeight:700, color:C.accent, flexShrink:0 }}>+{bonus} pts</div>
+                    <div style={{ fontSize:10, fontWeight:700, color:C.gold, flexShrink:0 }}>+{bonus} pts</div>
                   </div>
                 ))}
                 {settled.map(({ m, t, isHome }) => {
@@ -1342,14 +1342,14 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
               {groupMatches.map(renderMatchRow)}
               {stageBonus > 0 && (
                 <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 0", borderBottom: `1px solid ${C.border}` }}>
-                  <div style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0, background: C.posBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: C.accent }}>Q</div>
+                  <div style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0, background: "rgba(245,158,11,0.18)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: C.gold }}>Q</div>
                   <Flag code={tla} size={18} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Qualified for {STAGE_LABEL[stage] || "Last 32"}</div>
                     <div style={{ fontSize: 10, color: C.muted }}>Top-2 group finish · not tied to one game</div>
                   </div>
                   <div style={{ textAlign: "right", flexShrink: 0 }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: C.accent }}>+{stageBonus} pts</div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: C.gold }}>+{stageBonus} pts</div>
                   </div>
                 </div>
               )}
