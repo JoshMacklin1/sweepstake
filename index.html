@@ -3634,7 +3634,40 @@ function NotificationsDrawer({ matches, ranked, matchPtsById, onClose, onSeenUpd
     }
   }
 
-  const allItems = [...matchItems, ...qualItems, ...elimItems].sort((a, b) => b.date - a.date);
+  // New-leader notifications — simulate running totals to detect each leadership
+  // change, timestamped at the match that triggered it.
+  const leaderItems = [];
+  {
+    const teamToPlayer = {};
+    for (const player of ranked) {
+      if (player.grimReaper) continue;
+      for (const team of (player.teams || [])) teamToPlayer[team.code] = player.name;
+    }
+    const totals = {};
+    for (const player of ranked) {
+      if (!player.grimReaper) totals[player.name] = 0;
+    }
+    let currentLeader = null;
+    const sorted = matches
+      .filter(m => isSettled(m.status) && matchPtsById?.[m.id])
+      .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
+    for (const m of sorted) {
+      const h = m.homeTeam?.tla?.toUpperCase();
+      const a = m.awayTeam?.tla?.toUpperCase();
+      const pts = matchPtsById[m.id];
+      if (h && teamToPlayer[h] && pts?.home != null) totals[teamToPlayer[h]] = (totals[teamToPlayer[h]] || 0) + pts.home;
+      if (a && teamToPlayer[a] && pts?.away != null) totals[teamToPlayer[a]] = (totals[teamToPlayer[a]] || 0) + pts.away;
+      const entries = Object.entries(totals).sort((x, y) => y[1] - x[1]);
+      const [topName, topPts] = entries[0];
+      const secondPts = entries.length > 1 ? entries[1][1] : 0;
+      if (topPts > 0 && topPts > secondPts && topName !== currentLeader) {
+        leaderItems.push({ type:"leader", date: new Date(m.utcDate).getTime(), leader: topName, pts: topPts, ahead: topPts - secondPts });
+        currentLeader = topName;
+      }
+    }
+  }
+
+  const allItems = [...matchItems, ...qualItems, ...elimItems, ...leaderItems].sort((a, b) => b.date - a.date);
   const unread = allItems.filter(item => item.date > lastSeen);
   const read   = allItems.filter(item => item.date <= lastSeen);
 
@@ -3733,9 +3766,18 @@ function NotificationsDrawer({ matches, ranked, matchPtsById, onClose, onSeenUpd
     );
   };
 
+  const renderLeaderCard = ({ leader, pts, ahead, date }, dimmed) => (
+    <div key={`l-${date}`} style={{ padding:"10px 6px", borderBottom:`1px solid ${C.border}`, opacity: dimmed ? 0.5 : 1 }}>
+      <div style={{ fontSize:10, color:C.muted, marginBottom:3 }}>WC Sweeps · {relTime(date)}</div>
+      <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:2 }}>👑 New Leader: {leader}</div>
+      <div style={{ fontSize:12, color:C.dim }}>{pts} pts · {ahead} pt{ahead !== 1 ? "s" : ""} clear</div>
+    </div>
+  );
+
   const renderItem = (item, dimmed) =>
     item.type === "qualify" ? renderQualCard(item, dimmed)
     : item.type === "elim" ? renderElimCard(item, dimmed)
+    : item.type === "leader" ? renderLeaderCard(item, dimmed)
     : renderMatchCard(item.m, dimmed);
 
   return (
