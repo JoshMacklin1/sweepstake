@@ -3969,6 +3969,7 @@ function App({ onSwitchGroup }) {
   const [snapFull,    setSnapFull]    = useState(false);
   const lastScrollY = React.useRef(0);
   const barLockRef = React.useRef(0);
+  const barsVisibleRef = React.useRef(true); // mirrors barsVisible for synchronous reads inside the scroll handler
 
   const fetchMatches = useCallback(async (isManual = false, forceDev = null) => {
     if (isManual) setRefreshing(true);
@@ -4080,28 +4081,40 @@ function App({ onSwitchGroup }) {
   }, [showTour, closeTour]);
 
   useEffect(() => {
+    // Cumulative-accumulator approach: require a sustained directional movement
+    // before toggling, so slow/wobbly scroll never produces a partial-animation
+    // state.  HIDE_PX > bar height (60px) so the bar collapsing can't fake a
+    // downward trigger; SHOW_PX is asymmetrically smaller so reveal feels snappy.
+    const SHOW_PX = 40;
+    const HIDE_PX = 80;
+    let accrued = 0;
+
     const handleScroll = () => {
       const y = window.scrollY;
-      // Cooldown FIRST: when the title bar collapses/expands it changes page
-      // height, which fires spurious scroll events. Checking the lock before
-      // the y<48 guard breaks the feedback loop where the height change
-      // itself triggers a show → hide → show cycle.
+      // Cooldown: ignore scroll events fired by our own height changes.
       if (Date.now() < barLockRef.current) { lastScrollY.current = y; return; }
-      // Near the top: always show the full header.
-      if (y < 48) { lastScrollY.current = y; setBarsVisible(true); return; }
+      // Near the very top: always show.
+      if (y < 48) { lastScrollY.current = y; accrued = 0; setBarsVisible(true); barsVisibleRef.current = true; return; }
+
       const diff = y - lastScrollY.current;
-      // Dead zone: ignore small moves and DON'T reset the anchor, so slow scroll
-      // accumulates until it clearly passes the threshold instead of toggling
-      // on every pixel.
-      if (Math.abs(diff) < 12) return;
       lastScrollY.current = y;
-      setBarsVisible(prev => {
-        const next = diff < 0; // scrolling up => show, down => hide
-        // Lock duration must exceed the CSS transition (280ms) so height
-        // changes from the animation don't re-trigger the handler mid-flight.
-        if (next !== prev) barLockRef.current = Date.now() + 320;
-        return next;
-      });
+      if (Math.abs(diff) < 2) return; // ignore micro-jitter
+
+      // Direction reversal resets the accumulator so the threshold starts fresh.
+      if ((diff > 0 && accrued < 0) || (diff < 0 && accrued > 0)) accrued = 0;
+      accrued += diff;
+
+      if (accrued >= HIDE_PX && barsVisibleRef.current) {
+        accrued = 0;
+        barLockRef.current = Date.now() + 320; // set synchronously before setState
+        barsVisibleRef.current = false;
+        setBarsVisible(false);
+      } else if (accrued <= -SHOW_PX && !barsVisibleRef.current) {
+        accrued = 0;
+        barLockRef.current = Date.now() + 320;
+        barsVisibleRef.current = true;
+        setBarsVisible(true);
+      }
     };
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
