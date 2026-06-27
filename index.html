@@ -1116,25 +1116,19 @@ function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, bad
             </>
           )}
           {!isReaper && (() => {
-            // All results + upcoming across every team the player owns. Led by
-            // the player's own team (results span multiple teams); tapping a row
-            // switches the card to that team. Results newest-first, upcoming
-            // soonest-first.
+            // All results across every team the player owns. Tapping a row
+            // switches the card to that team. Results newest-first.
             const settled = [];
-            const upcoming = [];
             (player.teams || []).forEach(t => {
               matches.forEach(m => {
                 const h = m.homeTeam?.tla?.toUpperCase();
                 const a = m.awayTeam?.tla?.toUpperCase();
                 if (h !== t.code && a !== t.code) return;
-                const row = { m, t, isHome: h === t.code };
-                if (isSettled(m.status)) settled.push(row);
-                else if (m.status === "SCHEDULED" || m.status === "TIMED") upcoming.push(row);
+                if (isSettled(m.status)) settled.push({ m, t, isHome: h === t.code });
               });
             });
             settled.sort((x, y) => new Date(y.m.utcDate) - new Date(x.m.utcDate));
-            upcoming.sort((x, y) => new Date(x.m.utcDate) - new Date(y.m.utcDate));
-            if (settled.length === 0 && upcoming.length === 0) return null;
+            if (settled.length === 0) return null;
             // Per-team orphaned Last-32 qualification bonuses (not tied to a game).
             const milestoneTeams = (player.teams || [])
               .map(t => ({ t, bonus: stageBonusFor(t.code, t.pts, matches, matchPtsById) }))
@@ -1202,22 +1196,6 @@ function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, bad
                             {earnedPts > 0 ? `+${earnedPts}` : earnedPts} pts
                           </div>
                         )}
-                      </div>
-                    </div>
-                  );
-                })}
-                {upcoming.length > 0 && (
-                  <div style={{ fontSize:11, color:C.text, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", margin:"22px 0 8px" }}>Upcoming</div>
-                )}
-                {upcoming.map(({ m, t, isHome }) => {
-                  const oppName = isHome ? (m.awayTeam?.name || "TBD") : (m.homeTeam?.name || "TBD");
-                  return (
-                    <div key={"u" + t.code + m.id} {...rowClick(t.code)}>
-                      <div style={{ width:22, height:22, borderRadius:4, flexShrink:0, background:"rgba(148,163,184,0.12)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:800, color:C.muted }}>vs</div>
-                      <Flag code={t.code} size={18} />
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontSize:12, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}</div>
-                        <div style={{ fontSize:10, color:C.muted }}>vs {oppName} · {fmt(m.utcDate)}</div>
                       </div>
                     </div>
                   );
