@@ -1154,14 +1154,14 @@ function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, bad
                   <div key={"q" + t.code}
                     className={onTeamClick ? "player-card" : undefined}
                     onClick={onTeamClick ? () => onTeamClick(t.code) : undefined}
-                    style={{ display:"flex", alignItems:"center", gap:8, padding:"9px 10px", marginBottom:8, borderRadius:8, border:"1px solid rgba(34,197,94,0.25)", background:"rgba(34,197,94,0.07)", cursor: onTeamClick ? "pointer" : "default" }}>
-                    <div style={{ width:22, height:22, borderRadius:4, flexShrink:0, background:C.posBg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:12 }}>🎟️</div>
+                    style={{ display:"flex", alignItems:"center", gap:8, padding:"9px 0", borderBottom:`1px solid ${C.border}`, cursor: onTeamClick ? "pointer" : "default" }}>
+                    <div style={{ width:22, height:22, borderRadius:4, flexShrink:0, background:C.posBg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:800, color:C.accent }}>Q</div>
                     <Flag code={t.code} size={18} />
                     <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:12, fontWeight:700, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}</div>
+                      <div style={{ fontSize:12, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}</div>
                       <div style={{ fontSize:10, color:C.muted }}>Qualified for {STAGE_LABEL[t.stage] || "Last 32"} · top-2 group finish</div>
                     </div>
-                    <div style={{ fontSize:13, fontWeight:800, color:C.accent, flexShrink:0 }}>+{bonus} pts</div>
+                    <div style={{ fontSize:10, fontWeight:700, color:C.accent, flexShrink:0 }}>+{bonus} pts</div>
                   </div>
                 ))}
                 {settled.map(({ m, t, isHome }) => {
