@@ -298,7 +298,7 @@
   });
 </script>
 
-<script src="scoring.js?v=2"></script>
+<script src="scoring.js?v=3"></script>
 <!-- scoring.js defines PLAYERS, POT, PTS_INC, scorePlayers, deriveStages, etc.
      as classic-script globals (see scoring.js header comment for why it's a
      classic script and not type="module"). The Babel script below depends on
@@ -978,6 +978,27 @@ function SnapSheet({ onClose, scrollBodyToBottom = false, children }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // PLAYER MODAL — pop-over with points, results, win chances
 // ─────────────────────────────────────────────────────────────────────────────
+// The Last-32 qualification bonus is earned by finishing top-2 in the group, so
+// — unlike every other points source — it isn't tied to a single match and has
+// no natural row in a Results list. We surface it as a "milestone" line. It's
+// computed as the gap between a team's banked total and the sum of its per-match
+// points, which means it only appears while orphaned and disappears on its own
+// once the real Last 32 fixture is played (deriveMatchPts then attaches those
+// points to that game, closing the gap). Returns 0 (or negative, e.g. a group
+// penalty) when there's nothing to surface.
+function stageBonusFor(tla, teamTotalPts, matches, matchPtsById) {
+  let attached = 0;
+  (matches || []).forEach(m => {
+    const h = m.homeTeam && m.homeTeam.tla ? m.homeTeam.tla.toUpperCase() : null;
+    const a = m.awayTeam && m.awayTeam.tla ? m.awayTeam.tla.toUpperCase() : null;
+    if (h !== tla && a !== tla) return;
+    const mp = matchPtsById && matchPtsById[m.id];
+    if (!mp) return;
+    attached += (h === tla ? mp.home : mp.away) || 0;
+  });
+  return Math.round((teamTotalPts || 0) - attached);
+}
+
 function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, badges = [], matches = [], matchPtsById = {}, onTeamClick, onClose }) {
   if (!player) return null;
   const isReaper = player.grimReaper;
@@ -1100,6 +1121,11 @@ function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, bad
             settled.sort((x, y) => new Date(y.m.utcDate) - new Date(x.m.utcDate));
             upcoming.sort((x, y) => new Date(x.m.utcDate) - new Date(y.m.utcDate));
             if (settled.length === 0 && upcoming.length === 0) return null;
+            // Per-team orphaned Last-32 qualification bonuses (not tied to a game).
+            const milestoneTeams = (player.teams || [])
+              .map(t => ({ t, bonus: stageBonusFor(t.code, t.pts, matches, matchPtsById) }))
+              .filter(x => x.bonus > 0)
+              .sort((a, b) => b.bonus - a.bonus);
             const rowClick = (code) => ({
               className: onTeamClick ? "player-card" : undefined,
               onClick: onTeamClick ? () => onTeamClick(code) : undefined,
@@ -1107,9 +1133,23 @@ function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, bad
             });
             return (
               <>
-                {settled.length > 0 && (
+                {(settled.length > 0 || milestoneTeams.length > 0) && (
                   <div style={{ fontSize:11, color:C.text, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", margin:"22px 0 8px" }}>Results</div>
                 )}
+                {milestoneTeams.map(({ t, bonus }) => (
+                  <div key={"q" + t.code}
+                    className={onTeamClick ? "player-card" : undefined}
+                    onClick={onTeamClick ? () => onTeamClick(t.code) : undefined}
+                    style={{ display:"flex", alignItems:"center", gap:8, padding:"9px 10px", marginBottom:8, borderRadius:8, border:"1px solid rgba(34,197,94,0.25)", background:"rgba(34,197,94,0.07)", cursor: onTeamClick ? "pointer" : "default" }}>
+                    <div style={{ width:22, height:22, borderRadius:4, flexShrink:0, background:C.posBg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:12 }}>🎟️</div>
+                    <Flag code={t.code} size={18} />
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:12, fontWeight:700, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}</div>
+                      <div style={{ fontSize:10, color:C.muted }}>Qualified for {STAGE_LABEL[t.stage] || "Last 32"} · top-2 group finish</div>
+                    </div>
+                    <div style={{ fontSize:13, fontWeight:800, color:C.accent, flexShrink:0 }}>+{bonus} pts</div>
+                  </div>
+                ))}
                 {settled.map(({ m, t, isHome }) => {
                   const oppName = isHome ? (m.awayTeam?.name || "TBD") : (m.homeTeam?.name || "TBD");
                   const hs = m.score?.fullTime?.home ?? 0;
@@ -1210,6 +1250,8 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
   const eliminated = teamEntry?.eliminated;
   const won = teamEntry?.won;
   const totalPts = teamEntry?.pts ?? 0;
+  // Orphaned Last-32 qualification bonus (points not tied to any single match).
+  const stageBonus = stageBonusFor(tla, totalPts, matches, matchPtsById);
 
   return (<>
         <div className="sheet-handle"><span></span></div>
@@ -1254,11 +1296,24 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
               <div style={{ fontSize: 14, fontWeight: 900, lineHeight: 1.4, color: won ? C.gold : eliminated ? C.red : C.accent }}>
                 {won ? "Winner 🏆" : eliminated ? "Eliminated" : stage ? (STAGE_LABEL[stage] || stage.replace(/_/g, " ")) : "Active"}
               </div>
+              {stageBonus > 0 && (
+                <div style={{ fontSize: 11, fontWeight: 800, color: C.accent, marginTop: 3 }}>+{stageBonus} pts</div>
+              )}
               <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>Stage</div>
             </div>
           </div>
 
           <div style={{ fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Results</div>
+          {stageBonus > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 10px", marginBottom: 8, borderRadius: 8, border: "1px solid rgba(34,197,94,0.25)", background: "rgba(34,197,94,0.07)" }}>
+              <div style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0, background: C.posBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>🎟️</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>Qualified for {STAGE_LABEL[stage] || "Last 32"}</div>
+                <div style={{ fontSize: 10, color: C.muted }}>Top-2 group finish · not tied to one game</div>
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: C.accent, flexShrink: 0 }}>+{stageBonus} pts</div>
+            </div>
+          )}
           {teamMatches.length === 0 ? (
             <div style={{ fontSize: 12, color: C.muted, padding: "8px 0" }}>No results yet</div>
           ) : teamMatches.map(m => {
