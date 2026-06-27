@@ -3871,7 +3871,7 @@ function SearchOverlay({ ranked, onClose, onSelectPlayer, onSelectTeam, groupKey
   );
 }
 
-function App({ onSwitchGroup }) {
+function App({ onSwitchGroup, groupKey }) {
   const [matches,     setMatches]     = useState([]);
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState(null);
@@ -4742,7 +4742,7 @@ function GroupGate() {
       localStorage.removeItem(GROUP_STORAGE_KEY);
       setGroupKey(null);
     };
-    return <App onSwitchGroup={onSwitchGroup} />;
+    return <App onSwitchGroup={onSwitchGroup} groupKey={groupKey} />;
   }
 
   const handleSubmit = (e) => {
