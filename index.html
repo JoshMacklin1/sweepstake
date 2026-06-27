@@ -4406,7 +4406,11 @@ function App({ onSwitchGroup }) {
               </svg>
               <span style={{ fontSize:14, color:C.muted }}>Search players or teams…</span>
             </div>
-            <button onClick={() => setShowInfo(true)} aria-label="Rules & Info" style={{ background:C.card, border:`1px solid ${C.border}`, color:C.dim, fontSize:13, width:32, height:32, borderRadius:"50%", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:700, flexShrink:0 }}>?</button>
+            <button onClick={() => setShowMore(true)} aria-label="More options" style={{ background:C.card, border:`1px solid ${C.border}`, color:C.dim, width:32, height:32, borderRadius:"50%", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill={C.dim}>
+                <circle cx="12" cy="5"  r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/>
+              </svg>
+            </button>
           </div>
         </div>
                 {/* Live banner — expands into header */}
@@ -4522,7 +4526,6 @@ function App({ onSwitchGroup }) {
           ["table", "League", navIconTable],
           ["scores", "Scores", navIconScores],
           ["race", "The Race", navIconRace],
-          ["more", "More", navIconMore],
         ]).map(([id, label, renderIcon]) => {
           // More: opens the MoreMenu bottom sheet on both mobile and desktop
           // (was a desktop sidebar tab / mobile pop-over split when this slot
