@@ -495,7 +495,8 @@ function FlagRow({ teams, baseHeight = 18 }) {
             <div key={t.code} style={{ position: "relative", display: "inline-block", height: h, flexShrink: 0 }}>
               <img src={url} alt={t.name || t.code} {...flagHandlers(t.code, h)}
                 style={{ width: w, height: h, objectFit: "cover", borderRadius: 2, display: "block",
-                  opacity: dimmed ? 0.25 : 1, outline: t.won ? "2px solid #f59e0b" : "none" }} />
+                  opacity: dimmed ? 0.25 : 1,
+                  outline: t.won ? "2px solid #f59e0b" : (!dimmed && t.stage && t.stage !== "GROUP_ELIM" && STAGE_PILL_CFG[t.stage] ? `1.5px solid ${STAGE_PILL_CFG[t.stage].color}` : "none") }} />
               {dimmed && (
                 <span style={{ position: "absolute", top: 0, right: 0, fontSize: Math.max(7, Math.round(9 * scale)), fontWeight: 900, color: C.red, textShadow: "0 0 2px rgba(0,0,0,0.9)", lineHeight: 1, zIndex: 1, pointerEvents: "none" }}>✕</span>
               )}
@@ -513,7 +514,8 @@ function FlagRow({ teams, baseHeight = 18 }) {
             <img src={url} alt={t.name || t.code} {...flagHandlers(t.code, h)}
               title={`${t.name} (Pot ${t.pot})${t.stage ? " — " + STAGE_LABEL[t.stage] : ""}`}
               style={{ width: w, height: h, objectFit: "cover", borderRadius: 2, display: "block",
-                opacity: dimmed ? 0.25 : 1, outline: t.won ? "2px solid #f59e0b" : "none" }} />
+                opacity: dimmed ? 0.25 : 1,
+                outline: t.won ? "2px solid #f59e0b" : (!dimmed && t.stage && t.stage !== "GROUP_ELIM" && STAGE_PILL_CFG[t.stage] ? `1.5px solid ${STAGE_PILL_CFG[t.stage].color}` : "none") }} />
             {dimmed && (
               <span style={{ position: "absolute", top: 0, right: 0, fontSize: Math.max(7, Math.round(9 * scale)), fontWeight: 900, color: C.red, textShadow: "0 0 2px rgba(0,0,0,0.9)", lineHeight: 1, zIndex: 1, pointerEvents: "none" }}>✕</span>
             )}
@@ -521,6 +523,37 @@ function FlagRow({ teams, baseHeight = 18 }) {
         );
       })}
     </div>
+  );
+}
+
+// Stage pill — coloured badge communicating which round a team has reached.
+// Colors progress from cool/muted (early stages) to vivid/warm (deep runs).
+const STAGE_PILL_CFG = {
+  WINNER:         { color: "#f59e0b", bg: "rgba(245,158,11,0.18)",   label: "Winner 🏆" },
+  FINALIST:       { color: "#c084fc", bg: "rgba(192,132,252,0.15)",   label: "Final" },
+  SEMI_FINALS:    { color: "#60a5fa", bg: "rgba(96,165,250,0.15)",    label: "Semi-Final" },
+  QUARTER_FINALS: { color: "#34d399", bg: "rgba(52,211,153,0.15)",    label: "Quarter-Final" },
+  LAST_16:        { color: "#fb923c", bg: "rgba(251,146,60,0.15)",    label: "Last 16" },
+  LAST_32:        { color: "#94a3b8", bg: "rgba(148,163,184,0.13)",   label: "Last 32" },
+  GROUP_ELIM:     { color: "#ef4444", bg: "rgba(239,68,68,0.13)",     label: "Groups" },
+  GROUP:          { color: "#475569", bg: "rgba(71,85,105,0.10)",     label: "Groups" },
+};
+function StagePill({ stage, won, small = false }) {
+  const key = won ? "WINNER" : (stage || "GROUP");
+  const cfg = STAGE_PILL_CFG[key] || STAGE_PILL_CFG.GROUP;
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center",
+      padding: small ? "1px 5px" : "3px 8px",
+      borderRadius: 99,
+      background: cfg.bg,
+      border: `1px solid ${cfg.color}55`,
+      fontSize: small ? 9 : 10,
+      fontWeight: 700,
+      color: cfg.color,
+      whiteSpace: "nowrap",
+      flexShrink: 0,
+    }}>{cfg.label}</span>
   );
 }
 
@@ -1086,7 +1119,10 @@ function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, bad
                     <div style={{ marginRight:10, flexShrink:0 }}><Flag code={t.code} size={20} /></div>
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ fontSize:13, fontWeight:600, color:C.text }}>{t.name} <span style={{ fontSize:10, color:C.muted, fontWeight:400 }}>(P{t.pot})</span></div>
-                      <div style={{ fontSize:11, color:C.muted }}>{(t.w + t.d + t.l) > 0 ? `${t.w}W ${t.d}D ${t.l}L` : "0W 0D 0L"} · {t.won ? "Winner 🏆" : t.stage ? STAGE_LABEL[t.stage] : "Group Stage"}</div>
+                      <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:2 }}>
+                        <span style={{ fontSize:11, color:C.muted }}>{(t.w + t.d + t.l) > 0 ? `${t.w}W ${t.d}D ${t.l}L` : "0W 0D 0L"}</span>
+                        <StagePill stage={t.stage} won={t.won} small />
+                      </div>
                     </div>
                     <div style={{ textAlign:"right", flexShrink:0 }}>
                       <div style={{ fontSize:13, fontWeight:700, color: t.pts < 0 ? C.red : t.pts > 0 ? C.text : C.muted }}>{t.pts > 0 ? "+" : ""}{t.pts}pts</div>
@@ -1300,10 +1336,8 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
               <div style={{ fontSize: 24, fontWeight: 900, color: totalPts < 0 ? C.red : C.text }}>{totalPts > 0 ? `+${totalPts}` : totalPts}</div>
               <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>Points</div>
             </div>
-            <div style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: s.card.borderRadius, padding: "12px 8px", textAlign: "center" }}>
-              <div style={{ fontSize: 14, fontWeight: 900, lineHeight: 1.4, color: won ? C.gold : eliminated ? C.red : C.accent }}>
-                {won ? "Winner 🏆" : eliminated ? "Eliminated" : stage ? (STAGE_LABEL[stage] || stage.replace(/_/g, " ")) : "Active"}
-              </div>
+            <div style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: s.card.borderRadius, padding: "12px 8px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+              <StagePill stage={eliminated && !won ? (stage || "GROUP_ELIM") : stage} won={won} />
               <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>Stage</div>
             </div>
           </div>
@@ -2598,7 +2632,7 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onClose
               <Flag code={h} size={32} />
               <div style={{ fontSize: 13, fontWeight: 800, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>{m.homeTeam?.name || h}</div>
               {hOwner && <div style={{ fontSize: 11, fontWeight: 600, color: C.accent }}>{hOwner}</div>}
-              <div style={{ fontSize: 10, color: hEntry?.eliminated ? C.red : hEntry?.won ? C.gold : C.muted }}>{stageStr(hEntry)}</div>
+              {hEntry && <StagePill stage={hEntry.stage} won={hEntry.won} small />}
               {pts?.home != null && <div style={{ fontSize: 12, fontWeight: 800, color: pts.home > 0 ? C.accent : pts.home < 0 ? C.red : C.muted }}>{pts.home > 0 ? `+${pts.home}` : pts.home} pts</div>}
             </div>
 
@@ -2615,7 +2649,7 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onClose
               <Flag code={a} size={32} />
               <div style={{ fontSize: 13, fontWeight: 800, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>{m.awayTeam?.name || a}</div>
               {aOwner && <div style={{ fontSize: 11, fontWeight: 600, color: C.accent }}>{aOwner}</div>}
-              <div style={{ fontSize: 10, color: aEntry?.eliminated ? C.red : aEntry?.won ? C.gold : C.muted }}>{stageStr(aEntry)}</div>
+              {aEntry && <StagePill stage={aEntry.stage} won={aEntry.won} small />}
               {pts?.away != null && <div style={{ fontSize: 12, fontWeight: 800, color: pts.away > 0 ? C.accent : pts.away < 0 ? C.red : C.muted }}>{pts.away > 0 ? `+${pts.away}` : pts.away} pts</div>}
             </div>
           </div>
