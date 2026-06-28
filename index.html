@@ -538,6 +538,22 @@ const STAGE_PILL_CFG = {
   GROUP_ELIM:     { color: "#64748b", bg: "rgba(100,116,139,0.13)",   label: "Groups" },
   GROUP:          { color: "#475569", bg: "rgba(71,85,105,0.10)",     label: "Groups" },
 };
+function StatusPill({ won, eliminated, small = false }) {
+  const color = won ? "#f59e0b" : eliminated ? "#ef4444" : "#22c55e";
+  const bg    = won ? "rgba(245,158,11,0.18)" : eliminated ? "rgba(239,68,68,0.13)" : "rgba(34,197,94,0.13)";
+  const label = won ? "Winner 🏆" : eliminated ? "Eliminated" : "Still in";
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center",
+      padding: small ? "1px 5px" : "3px 8px",
+      borderRadius: 99, background: bg,
+      border: `1px solid ${color}55`,
+      fontSize: small ? 9 : 10, fontWeight: 700,
+      color, whiteSpace: "nowrap", flexShrink: 0,
+    }}>{label}</span>
+  );
+}
+
 function StagePill({ stage, won, small = false }) {
   const key = won ? "WINNER" : (stage || "GROUP");
   const cfg = STAGE_PILL_CFG[key] || STAGE_PILL_CFG.GROUP;
@@ -1121,6 +1137,7 @@ function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, bad
                       <div style={{ fontSize:13, fontWeight:600, color:C.text }}>{t.name} <span style={{ fontSize:10, color:C.muted, fontWeight:400 }}>(P{t.pot})</span></div>
                       <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:2 }}>
                         <span style={{ fontSize:11, color:C.muted }}>{(t.w + t.d + t.l) > 0 ? `${t.w}W ${t.d}D ${t.l}L` : "0W 0D 0L"}</span>
+                        <StatusPill won={t.won} eliminated={t.eliminated} small />
                         <StagePill stage={t.stage} won={t.won} small />
                       </div>
                     </div>
