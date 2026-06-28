@@ -2773,7 +2773,7 @@ function HomeMatchRow({ m, ranked, pts, onTeamClick, onMatchClick, isLast, banne
   );
 }
 
-function MatchFocusCard({ matches, ranked, matchPtsById = {} }) {
+function MatchFocusCard({ matches, ranked, matchPtsById = {}, onMatchClick }) {
   const [countdown, setCountdown] = React.useState("");
   const [idx, setIdx] = useState(0);
   const trackRef = React.useRef(null);
@@ -2831,7 +2831,10 @@ function MatchFocusCard({ matches, ranked, matchPtsById = {} }) {
     const thresh = Math.max(40, d.w * 0.15);
     if (d.dx <= -thresh) settle(safeIdx + 1);
     else if (d.dx >= thresh) settle(safeIdx - 1);
-    else settle(safeIdx);
+    else {
+      settle(safeIdx);
+      if (Math.abs(d.dx) < 8 && onMatchClick && games[safeIdx]) onMatchClick(games[safeIdx].id);
+    }
   };
 
   useEffect(() => {
@@ -2904,7 +2907,7 @@ function MatchFocusCard({ matches, ranked, matchPtsById = {} }) {
         </div>
       </div>
       <div onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
-        style={{ padding:"8px 14px 12px", overflow:"hidden", touchAction: multi ? "pan-y" : "auto" }}>
+        style={{ padding:"8px 14px 12px", overflow:"hidden", touchAction: multi ? "pan-y" : "auto", cursor: onMatchClick ? "pointer" : "default" }}>
         <div ref={trackRef} style={{ display:"flex" }}>
           {games.map(renderGame)}
         </div>
@@ -2981,7 +2984,7 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
 
   return (
     <div>
-      <MatchFocusCard matches={matches} ranked={ranked} matchPtsById={matchPtsById} />
+      <MatchFocusCard matches={matches} ranked={ranked} matchPtsById={matchPtsById} onMatchClick={openMatchModal} />
       {/* Headline leader card */}
       {topThree[0] && (
         <div className="player-card" onClick={() => openPlayer(topThree[0].name)} style={{
