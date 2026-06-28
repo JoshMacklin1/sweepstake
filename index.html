@@ -1243,7 +1243,7 @@ function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, bad
                     const { t, pts, dateStr } = ev;
                     return (
                       <div key={"q" + t.code} className={onTeamClick ? "player-card" : undefined} onClick={onTeamClick ? () => onTeamClick(t.code) : undefined} style={{ display:"flex", alignItems:"center", gap:8, padding:"9px 0", borderBottom:`1px solid ${C.border}`, cursor: onTeamClick ? "pointer" : "default" }}>
-                        <div style={{ width:22, height:22, borderRadius:4, flexShrink:0, background:"rgba(245,158,11,0.18)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:800, color:C.gold }}>Q</div>
+                        <div style={{ width:22, height:22, borderRadius:4, flexShrink:0, background:C.posBg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:800, color:C.accent }}>Q</div>
                         <Flag code={t.code} size={18} />
                         <div style={{ flex:1, minWidth:0 }}>
                           <div style={{ fontSize:12, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}</div>
@@ -1260,7 +1260,7 @@ function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, bad
                         <div style={{ width:22, height:22, borderRadius:4, flexShrink:0, background:C.negBg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:8, fontWeight:800, color:C.red }}>OUT</div>
                         <Flag code={t.code} size={18} />
                         <div style={{ flex:1, minWidth:0 }}>
-                          <div style={{ fontSize:12, fontWeight:600, color:C.red, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}</div>
+                          <div style={{ fontSize:12, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}</div>
                           <div style={{ fontSize:10, color:C.muted }}>Eliminated from groups · {dateStr}</div>
                         </div>
                         {pts != null && <div style={{ fontSize:12, fontWeight:800, color:C.text, flexShrink:0 }}>{pts} pts</div>}
@@ -1430,7 +1430,7 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
                   if (ev.type === "match") return renderMatchRow(ev.m);
                   if (ev.type === "qual") return (
                     <div key="qual" style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 0", borderBottom: `1px solid ${C.border}` }}>
-                      <div style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0, background: "rgba(245,158,11,0.18)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: C.gold }}>Q</div>
+                      <div style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0, background: C.posBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: C.accent }}>Q</div>
                       <Flag code={tla} size={18} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Qualified for {STAGE_LABEL[stage] || "Last 32"}</div>
@@ -1448,7 +1448,7 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
                       <div style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0, background: C.negBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 800, color: C.red }}>OUT</div>
                       <Flag code={tla} size={18} />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: C.red, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Eliminated from groups</div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Eliminated from groups</div>
                         <div style={{ fontSize: 10, color: C.muted }}>bottom of group · {ev.dateStr}</div>
                       </div>
                       {ev.pts != null && (
