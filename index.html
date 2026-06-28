@@ -1116,89 +1116,105 @@ function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, bad
             </>
           )}
           {!isReaper && (() => {
-            // All results across every team the player owns. Tapping a row
-            // switches the card to that team. Results newest-first.
-            const settled = [];
+            // Unified events: match rows + Q/ELIM milestones across all teams, newest-first.
+            const events = [];
             (player.teams || []).forEach(t => {
               matches.forEach(m => {
                 const h = m.homeTeam?.tla?.toUpperCase();
                 const a = m.awayTeam?.tla?.toUpperCase();
                 if (h !== t.code && a !== t.code) return;
-                if (isSettled(m.status)) settled.push({ m, t, isHome: h === t.code });
+                if (isSettled(m.status)) {
+                  events.push({ type: "match", sortTime: new Date(m.utcDate).getTime(), m, t, isHome: h === t.code });
+                }
               });
+              const bonus = stageBonusFor(t.code, t.pts, matches, matchPtsById);
+              const grpMatchesForTeam = matches.filter(m => {
+                const h = m.homeTeam?.tla?.toUpperCase();
+                const a = m.awayTeam?.tla?.toUpperCase();
+                return (h === t.code || a === t.code) && (m.stage || "").toUpperCase().includes("GROUP") && isSettled(m.status);
+              });
+              const lastGrpForTeam = grpMatchesForTeam.length > 0
+                ? grpMatchesForTeam.reduce((best, m) => new Date(m.utcDate) > new Date(best.utcDate) ? m : best)
+                : null;
+              if (lastGrpForTeam) {
+                const lastGrpTime = new Date(lastGrpForTeam.utcDate).getTime();
+                const dateStr = fmt(lastGrpForTeam.utcDate);
+                if (bonus < 0) {
+                  events.push({ type: "elim", sortTime: lastGrpTime + 500, t, pts: bonus, dateStr });
+                } else if (t.stage) {
+                  events.push({ type: "qual", sortTime: lastGrpTime + 500, t, pts: bonus > 0 ? bonus : null, dateStr });
+                }
+              }
             });
-            settled.sort((x, y) => new Date(y.m.utcDate) - new Date(x.m.utcDate));
-            if (settled.length === 0) return null;
-            // Per-team orphaned Last-32 qualification bonuses (not tied to a game).
-            const milestoneTeams = (player.teams || [])
-              .map(t => ({ t, bonus: stageBonusFor(t.code, t.pts, matches, matchPtsById) }))
-              .filter(x => x.bonus > 0)
-              .sort((a, b) => b.bonus - a.bonus);
-            const rowClick = (code) => ({
-              className: onTeamClick ? "player-card" : undefined,
-              onClick: onTeamClick ? () => onTeamClick(code) : undefined,
-              style: { display:"flex", alignItems:"center", gap:8, padding:"9px 0", borderBottom:`1px solid ${C.border}`, cursor: onTeamClick ? "pointer" : "default" },
-            });
+            events.sort((a, b) => b.sortTime - a.sortTime);
+            if (events.length === 0) return null;
             return (
               <>
-                {(settled.length > 0 || milestoneTeams.length > 0) && (
-                  <div style={{ fontSize:11, color:C.text, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", margin:"22px 0 8px" }}>Results</div>
-                )}
-                {milestoneTeams.map(({ t, bonus }) => (
-                  <div key={"q" + t.code}
-                    className={onTeamClick ? "player-card" : undefined}
-                    onClick={onTeamClick ? () => onTeamClick(t.code) : undefined}
-                    style={{ display:"flex", alignItems:"center", gap:8, padding:"9px 0", borderBottom:`1px solid ${C.border}`, cursor: onTeamClick ? "pointer" : "default" }}>
-                    <div style={{ width:22, height:22, borderRadius:4, flexShrink:0, background:"rgba(245,158,11,0.18)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:800, color:C.gold }}>Q</div>
-                    <Flag code={t.code} size={18} />
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:12, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}</div>
-                      <div style={{ fontSize:10, color:C.muted }}>Qualified for {STAGE_LABEL[t.stage] || "Last 32"} · top-2 group finish</div>
-                    </div>
-                    <div style={{ fontSize:10, fontWeight:700, color:C.gold, flexShrink:0 }}>+{bonus} pts</div>
-                  </div>
-                ))}
-                {settled.map(({ m, t, isHome }) => {
-                  const oppName = isHome ? (m.awayTeam?.name || "TBD") : (m.homeTeam?.name || "TBD");
-                  const hs = m.score?.fullTime?.home ?? 0;
-                  const as_ = m.score?.fullTime?.away ?? 0;
-                  const myGoals = isHome ? hs : as_;
-                  const oppGoals = isHome ? as_ : hs;
-                  const pen = m.score?.penalties;
-                  let result = "D";
-                  if (myGoals > oppGoals) result = "W";
-                  else if (myGoals < oppGoals) result = "L";
-                  else if (pen) {
-                    const myPen = isHome ? pen.home : pen.away;
-                    const oppPen = isHome ? pen.away : pen.home;
-                    result = myPen > oppPen ? "W" : "L";
+                <div style={{ fontSize:11, color:C.text, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", margin:"22px 0 8px" }}>Results</div>
+                {events.map((ev) => {
+                  if (ev.type === "match") {
+                    const { m, t, isHome } = ev;
+                    const oppName = isHome ? (m.awayTeam?.name || "TBD") : (m.homeTeam?.name || "TBD");
+                    const hs = m.score?.fullTime?.home ?? 0;
+                    const as_ = m.score?.fullTime?.away ?? 0;
+                    const myGoals = isHome ? hs : as_;
+                    const oppGoals = isHome ? as_ : hs;
+                    const pen = m.score?.penalties;
+                    let result = "D";
+                    if (myGoals > oppGoals) result = "W";
+                    else if (myGoals < oppGoals) result = "L";
+                    else if (pen) {
+                      const myPen = isHome ? pen.home : pen.away;
+                      const oppPen = isHome ? pen.away : pen.home;
+                      result = myPen > oppPen ? "W" : "L";
+                    }
+                    const mPts = matchPtsById[m.id];
+                    const earnedPts = mPts ? (isHome ? mPts.home : mPts.away) : null;
+                    const resultColor = result === "W" ? C.accent : result === "L" ? C.red : C.muted;
+                    return (
+                      <div key={"r" + t.code + m.id} className={onTeamClick ? "player-card" : undefined} onClick={onTeamClick ? () => onTeamClick(t.code) : undefined} style={{ display:"flex", alignItems:"center", gap:8, padding:"9px 0", borderBottom:`1px solid ${C.border}`, cursor: onTeamClick ? "pointer" : "default" }}>
+                        <div style={{ width:22, height:22, borderRadius:4, flexShrink:0, background: result === "W" ? C.posBg : result === "L" ? C.negBg : "rgba(148,163,184,0.12)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:800, color:resultColor }}>{result}</div>
+                        <Flag code={t.code} size={18} />
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontSize:12, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}</div>
+                          <div style={{ fontSize:10, color:C.muted }}>vs {oppName} · {fmt(m.utcDate)}</div>
+                        </div>
+                        <div style={{ textAlign:"right", flexShrink:0 }}>
+                          {earnedPts != null && <div style={{ fontSize:12, fontWeight:800, color:C.text }}>{earnedPts > 0 ? `+${earnedPts}` : earnedPts} pts</div>}
+                          <div style={{ fontSize:11, color:resultColor }}>{myGoals}–{oppGoals}</div>
+                        </div>
+                      </div>
+                    );
                   }
-                  const mPts = matchPtsById[m.id];
-                  const earnedPts = mPts ? (isHome ? mPts.home : mPts.away) : null;
-                  const resultColor = result === "W" ? C.accent : result === "L" ? C.red : C.muted;
-                  return (
-                    <div key={"r" + t.code + m.id} {...rowClick(t.code)}>
-                      <div style={{
-                        width:22, height:22, borderRadius:4, flexShrink:0,
-                        background: result === "W" ? C.posBg : result === "L" ? C.negBg : "rgba(148,163,184,0.12)",
-                        display:"flex", alignItems:"center", justifyContent:"center",
-                        fontSize:10, fontWeight:800, color:resultColor,
-                      }}>{result}</div>
-                      <Flag code={t.code} size={18} />
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontSize:12, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}</div>
-                        <div style={{ fontSize:10, color:C.muted }}>vs {oppName} · {fmt(m.utcDate)}</div>
+                  if (ev.type === "qual") {
+                    const { t, pts, dateStr } = ev;
+                    return (
+                      <div key={"q" + t.code} className={onTeamClick ? "player-card" : undefined} onClick={onTeamClick ? () => onTeamClick(t.code) : undefined} style={{ display:"flex", alignItems:"center", gap:8, padding:"9px 0", borderBottom:`1px solid ${C.border}`, cursor: onTeamClick ? "pointer" : "default" }}>
+                        <div style={{ width:22, height:22, borderRadius:4, flexShrink:0, background:"rgba(245,158,11,0.18)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:800, color:C.gold }}>Q</div>
+                        <Flag code={t.code} size={18} />
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontSize:12, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}</div>
+                          <div style={{ fontSize:10, color:C.muted }}>{dateStr} · Qualified for {STAGE_LABEL[t.stage] || "Last 32"}</div>
+                        </div>
+                        {pts != null && <div style={{ fontSize:12, fontWeight:800, color:C.text, flexShrink:0 }}>+{pts} pts</div>}
                       </div>
-                      <div style={{ textAlign:"right", flexShrink:0 }}>
-                        <div style={{ fontSize:14, fontWeight:800, color:C.text }}>{myGoals}–{oppGoals}</div>
-                        {earnedPts != null && (
-                          <div style={{ fontSize:10, fontWeight:700, color: earnedPts > 0 ? C.accent : C.muted }}>
-                            {earnedPts > 0 ? `+${earnedPts}` : earnedPts} pts
-                          </div>
-                        )}
+                    );
+                  }
+                  if (ev.type === "elim") {
+                    const { t, pts, dateStr } = ev;
+                    return (
+                      <div key={"e" + t.code} className={onTeamClick ? "player-card" : undefined} onClick={onTeamClick ? () => onTeamClick(t.code) : undefined} style={{ display:"flex", alignItems:"center", gap:8, padding:"9px 0", borderBottom:`1px solid ${C.border}`, cursor: onTeamClick ? "pointer" : "default" }}>
+                        <div style={{ width:22, height:22, borderRadius:4, flexShrink:0, background:C.negBg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:8, fontWeight:800, color:C.red }}>OUT</div>
+                        <Flag code={t.code} size={18} />
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontSize:12, fontWeight:600, color:C.red, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}</div>
+                          <div style={{ fontSize:10, color:C.muted }}>{dateStr} · Eliminated from groups</div>
+                        </div>
+                        <div style={{ fontSize:12, fontWeight:800, color:C.text, flexShrink:0 }}>{pts} pts</div>
                       </div>
-                    </div>
-                  );
+                    );
+                  }
+                  return null;
                 })}
               </>
             );
@@ -1293,9 +1309,7 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
           </div>
 
           <div style={{ fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Results</div>
-          {teamMatches.length === 0 && stageBonus === 0 ? (
-            <div style={{ fontSize: 12, color: C.muted, padding: "8px 0" }}>No results yet</div>
-          ) : (() => {
+          {(() => {
             const renderMatchRow = (m) => {
               const isHome = m.homeTeam?.tla?.toUpperCase() === tla;
               const oppCode = isHome ? m.awayTeam?.tla?.toUpperCase() : m.homeTeam?.tla?.toUpperCase();
@@ -1325,36 +1339,69 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
                     <div style={{ fontSize: 10, color: C.muted }}>{fmt(m.utcDate)} · {(m.stage || "").replace(/_/g, " ")}</div>
                   </div>
                   <div style={{ textAlign: "right", flexShrink: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{myGoals}–{oppGoals}</div>
-                    {earnedPts != null && (
-                      <div style={{ fontSize: 10, fontWeight: 700, color: earnedPts > 0 ? C.accent : C.muted }}>
-                        {earnedPts > 0 ? `+${earnedPts}` : earnedPts} pts
-                      </div>
-                    )}
+                    {earnedPts != null && <div style={{ fontSize: 12, fontWeight: 800, color: C.text }}>{earnedPts > 0 ? `+${earnedPts}` : earnedPts} pts</div>}
+                    <div style={{ fontSize: 11, color: resultColor }}>{myGoals}–{oppGoals}</div>
                   </div>
                 </div>
               );
             };
-            const groupMatches   = teamMatches.filter(m => (m.stage || "").toUpperCase().includes("GROUP"));
-            const knockoutMatches = teamMatches.filter(m => !(m.stage || "").toUpperCase().includes("GROUP"));
-            const teamName_ = teamEntry?.name || tla;
-            return (<>
-              {groupMatches.map(renderMatchRow)}
-              {stageBonus > 0 && (
-                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 0", borderBottom: `1px solid ${C.border}` }}>
-                  <div style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0, background: "rgba(245,158,11,0.18)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: C.gold }}>Q</div>
-                  <Flag code={tla} size={18} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Qualified for {STAGE_LABEL[stage] || "Last 32"}</div>
-                    <div style={{ fontSize: 10, color: C.muted }}>Top-2 group finish · not tied to one game</div>
-                  </div>
-                  <div style={{ textAlign: "right", flexShrink: 0 }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: C.gold }}>+{stageBonus} pts</div>
-                  </div>
-                </div>
-              )}
-              {knockoutMatches.map(renderMatchRow)}
-            </>);
+
+            // Build unified events: match rows + Q/ELIM milestones, sorted newest-first
+            const grpMatches = teamMatches.filter(m => (m.stage || "").toUpperCase().includes("GROUP"));
+            const lastGrpMatch = grpMatches.length > 0 ? grpMatches[grpMatches.length - 1] : null;
+            const events = teamMatches.map(m => ({ type: "match", sortTime: new Date(m.utcDate).getTime(), m }));
+
+            if (lastGrpMatch) {
+              const lastGrpTime = new Date(lastGrpMatch.utcDate).getTime();
+              const dateStr = fmt(lastGrpMatch.utcDate);
+              if (stageBonus < 0) {
+                events.push({ type: "elim", sortTime: lastGrpTime + 500, dateStr, pts: stageBonus });
+              } else if (stage) {
+                events.push({ type: "qual", sortTime: lastGrpTime + 500, dateStr, pts: stageBonus > 0 ? stageBonus : null });
+              }
+            }
+
+            events.sort((a, b) => b.sortTime - a.sortTime);
+
+            if (events.length === 0) {
+              return <div style={{ fontSize: 12, color: C.muted, padding: "8px 0" }}>No results yet</div>;
+            }
+            return (
+              <>
+                {events.map((ev) => {
+                  if (ev.type === "match") return renderMatchRow(ev.m);
+                  if (ev.type === "qual") return (
+                    <div key="qual" style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 0", borderBottom: `1px solid ${C.border}` }}>
+                      <div style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0, background: "rgba(245,158,11,0.18)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: C.gold }}>Q</div>
+                      <Flag code={tla} size={18} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Qualified for {STAGE_LABEL[stage] || "Last 32"}</div>
+                        <div style={{ fontSize: 10, color: C.muted }}>{ev.dateStr} · top-2 group finish</div>
+                      </div>
+                      {ev.pts != null && (
+                        <div style={{ textAlign: "right", flexShrink: 0 }}>
+                          <div style={{ fontSize: 12, fontWeight: 800, color: C.text }}>+{ev.pts} pts</div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                  if (ev.type === "elim") return (
+                    <div key="elim" style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 0", borderBottom: `1px solid ${C.border}` }}>
+                      <div style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0, background: C.negBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 800, color: C.red }}>OUT</div>
+                      <Flag code={tla} size={18} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: C.red, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Eliminated</div>
+                        <div style={{ fontSize: 10, color: C.muted }}>{ev.dateStr} · bottom of group</div>
+                      </div>
+                      <div style={{ textAlign: "right", flexShrink: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 800, color: C.text }}>{ev.pts} pts</div>
+                      </div>
+                    </div>
+                  );
+                  return null;
+                })}
+              </>
+            );
           })()}
 
           {upcomingMatches.length > 0 && (<>
