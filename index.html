@@ -2664,15 +2664,6 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onClose
                 hVal={hEntry ? `${hEntry.w}W ${hEntry.d}D ${hEntry.l}L` : "—"}
                 aVal={aEntry ? `${aEntry.w}W ${aEntry.d}D ${aEntry.l}L` : "—"}
               />
-              {pts && (
-                <StatRow
-                  label="This Match"
-                  hVal={pts.home != null ? `${pts.home > 0 ? "+" : ""}${pts.home} pts` : "—"}
-                  aVal={pts.away != null ? `${pts.away > 0 ? "+" : ""}${pts.away} pts` : "—"}
-                  hColor={pts.home > 0 ? C.accent : pts.home < 0 ? C.red : C.muted}
-                  aColor={pts.away > 0 ? C.accent : pts.away < 0 ? C.red : C.muted}
-                />
-              )}
             </div>
           </>
         )}
