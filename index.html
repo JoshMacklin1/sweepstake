@@ -496,7 +496,7 @@ function FlagRow({ teams, baseHeight = 18 }) {
               <img src={url} alt={t.name || t.code} {...flagHandlers(t.code, h)}
                 style={{ width: w, height: h, objectFit: "cover", borderRadius: 2, display: "block",
                   opacity: dimmed ? 0.25 : 1,
-                  outline: t.won ? "2px solid #f59e0b" : (!dimmed && t.stage && t.stage !== "GROUP_ELIM" && STAGE_PILL_CFG[t.stage] ? `1.5px solid ${STAGE_PILL_CFG[t.stage].color}` : "none") }} />
+                  outline: t.won ? "2px solid #f59e0b" : "none" }} />
               {dimmed && (
                 <span style={{ position: "absolute", top: 0, right: 0, fontSize: Math.max(7, Math.round(9 * scale)), fontWeight: 900, color: C.red, textShadow: "0 0 2px rgba(0,0,0,0.9)", lineHeight: 1, zIndex: 1, pointerEvents: "none" }}>✕</span>
               )}
@@ -515,7 +515,7 @@ function FlagRow({ teams, baseHeight = 18 }) {
               title={`${t.name} (Pot ${t.pot})${t.stage ? " — " + STAGE_LABEL[t.stage] : ""}`}
               style={{ width: w, height: h, objectFit: "cover", borderRadius: 2, display: "block",
                 opacity: dimmed ? 0.25 : 1,
-                outline: t.won ? "2px solid #f59e0b" : (!dimmed && t.stage && t.stage !== "GROUP_ELIM" && STAGE_PILL_CFG[t.stage] ? `1.5px solid ${STAGE_PILL_CFG[t.stage].color}` : "none") }} />
+                outline: t.won ? "2px solid #f59e0b" : "none" }} />
             {dimmed && (
               <span style={{ position: "absolute", top: 0, right: 0, fontSize: Math.max(7, Math.round(9 * scale)), fontWeight: 900, color: C.red, textShadow: "0 0 2px rgba(0,0,0,0.9)", lineHeight: 1, zIndex: 1, pointerEvents: "none" }}>✕</span>
             )}
