@@ -1230,7 +1230,7 @@ function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, bad
                         <Flag code={t.code} size={18} />
                         <div style={{ flex:1, minWidth:0 }}>
                           <div style={{ fontSize:12, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}</div>
-                          <div style={{ fontSize:10, color:C.muted }}>{dateStr} · Qualified for {STAGE_LABEL[t.stage] || "Last 32"}</div>
+                          <div style={{ fontSize:10, color:C.muted }}>Qualified for {STAGE_LABEL[t.stage] || "Last 32"} · {dateStr}</div>
                         </div>
                         {pts != null && <div style={{ fontSize:12, fontWeight:800, color:C.text, flexShrink:0 }}>+{pts} pts</div>}
                       </div>
@@ -1244,7 +1244,7 @@ function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, bad
                         <Flag code={t.code} size={18} />
                         <div style={{ flex:1, minWidth:0 }}>
                           <div style={{ fontSize:12, fontWeight:600, color:C.red, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}</div>
-                          <div style={{ fontSize:10, color:C.muted }}>{dateStr} · Eliminated from groups</div>
+                          <div style={{ fontSize:10, color:C.muted }}>Eliminated from groups · {dateStr}</div>
                         </div>
                         <div style={{ fontSize:12, fontWeight:800, color:C.text, flexShrink:0 }}>{pts} pts</div>
                       </div>
@@ -1412,7 +1412,7 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
                       <Flag code={tla} size={18} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Qualified for {STAGE_LABEL[stage] || "Last 32"}</div>
-                        <div style={{ fontSize: 10, color: C.muted }}>{ev.dateStr} · top-2 group finish</div>
+                        <div style={{ fontSize: 10, color: C.muted }}>top-2 group finish · {ev.dateStr}</div>
                       </div>
                       {ev.pts != null && (
                         <div style={{ textAlign: "right", flexShrink: 0 }}>
@@ -1427,7 +1427,7 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
                       <Flag code={tla} size={18} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 12, fontWeight: 600, color: C.red, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Eliminated</div>
-                        <div style={{ fontSize: 10, color: C.muted }}>{ev.dateStr} · bottom of group</div>
+                        <div style={{ fontSize: 10, color: C.muted }}>bottom of group · {ev.dateStr}</div>
                       </div>
                       <div style={{ textAlign: "right", flexShrink: 0 }}>
                         <div style={{ fontSize: 12, fontWeight: 800, color: C.text }}>{ev.pts} pts</div>
@@ -2987,7 +2987,7 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
          treatment (not the plain text row this used to be) — same data,
          dressed with the same visual language as the League tab so Home
          doesn't look like a stripped-down report next to it. */}
-      <Section icon="🏆" title="Top of the Table" onOpen={() => { window.scrollTo(0, 0); setTab("table"); }} linkLabel="View league"
+      <Section icon="🏆" title="Top of the Table" onOpen={() => { window.history.pushState({ appTab: "table", appModal: null }, ""); window.scrollTo(0, 0); setTab("table"); }} linkLabel="View league"
         empty={topThree.length === 0 ? "No standings yet" : null}>
         {topThree.map((p, i) => {
           const delta = rank24hChange.get(p.name) || 0;
@@ -3016,7 +3016,7 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
         })}
       </Section>
 
-      <Section icon="🌐" title="Recent Results" onOpen={() => { window.scrollTo(0, 0); setTab("scores"); }} linkLabel="View all scores"
+      <Section icon="🌐" title="Recent Results" onOpen={() => { window.history.pushState({ appTab: "scores", appModal: null }, ""); window.scrollTo(0, 0); setTab("scores"); }} linkLabel="View all scores"
         empty={recentResults.length === 0 ? "No matches in the last 24h" : null}>
         {recentResults.map((m, i) => (
           <HomeMatchRow key={m.id} m={m} ranked={ranked} pts={matchPtsById[m.id]} onMatchClick={openMatchModal} isLast={i === recentResults.length - 1} banners />
@@ -3038,14 +3038,14 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
         ))}
       </Section>
 
-      <Section icon="📅" title="Up Next" onOpen={() => { window.scrollTo(0, 0); setTab("scores"); }} linkLabel="View all scores"
+      <Section icon="📅" title="Up Next" onOpen={() => { window.history.pushState({ appTab: "scores", appModal: null }, ""); window.scrollTo(0, 0); setTab("scores"); }} linkLabel="View all scores"
         empty={upNext.length === 0 ? "No upcoming fixtures" : null}>
         {upNext.map((m, i) => (
           <HomeMatchRow key={m.id} m={m} ranked={ranked} onMatchClick={openMatchModal} isLast={i === upNext.length - 1} />
         ))}
       </Section>
 
-      <Section icon="📊" title="Risers & Fallers" onOpen={() => { window.scrollTo(0, 0); setTab("race"); }} linkLabel="Watch the race"
+      <Section icon="📊" title="Risers & Fallers" onOpen={() => { window.history.pushState({ appTab: "race", appModal: null }, ""); window.scrollTo(0, 0); setTab("race"); }} linkLabel="Watch the race"
         empty={risers.length === 0 && fallers.length === 0 ? "No position changes in the last 24h" : null}>
         {risers.length > 0 && <div style={{ fontSize: 10, fontWeight: 700, color: C.accent, letterSpacing: "0.06em", padding: "10px 14px 4px" }}>RISERS</div>}
         {risers.map((p, i) => (
