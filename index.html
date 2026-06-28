@@ -1257,7 +1257,7 @@ function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, bad
                     const { t, pts, dateStr } = ev;
                     return (
                       <div key={"e" + t.code} className={onTeamClick ? "player-card" : undefined} onClick={onTeamClick ? () => onTeamClick(t.code) : undefined} style={{ display:"flex", alignItems:"center", gap:8, padding:"9px 0", borderBottom:`1px solid ${C.border}`, cursor: onTeamClick ? "pointer" : "default" }}>
-                        <div style={{ width:22, height:22, borderRadius:4, flexShrink:0, background:C.negBg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:8, fontWeight:800, color:C.red }}>OUT</div>
+                        <div style={{ width:22, height:22, borderRadius:4, flexShrink:0, background:C.negBg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:800, color:C.red }}>E</div>
                         <Flag code={t.code} size={18} />
                         <div style={{ flex:1, minWidth:0 }}>
                           <div style={{ fontSize:12, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}</div>
@@ -1445,7 +1445,7 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
                   );
                   if (ev.type === "elim") return (
                     <div key="elim" style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 0", borderBottom: `1px solid ${C.border}` }}>
-                      <div style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0, background: C.negBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 800, color: C.red }}>OUT</div>
+                      <div style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0, background: C.negBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: C.red }}>E</div>
                       <Flag code={tla} size={18} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Eliminated from groups</div>
