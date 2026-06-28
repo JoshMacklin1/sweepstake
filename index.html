@@ -2553,6 +2553,97 @@ function HomeMatchRow({ m, ranked, pts, onTeamClick, isLast, banners = false }) 
   );
 }
 
+function MatchFocusCard({ matches, ranked }) {
+  const [countdown, setCountdown] = React.useState("");
+
+  const liveMatches = matches.filter(m => m.status === "IN_PLAY" || m.status === "PAUSED")
+    .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
+  const nextMatch = matches.filter(m => m.status === "SCHEDULED" || m.status === "TIMED")
+    .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate))[0];
+
+  const isLive = liveMatches.length > 0;
+  const focus = isLive ? liveMatches[0] : nextMatch;
+
+  React.useEffect(() => {
+    if (isLive || !nextMatch) { setCountdown(""); return; }
+    const tick = () => {
+      const diff = new Date(nextMatch.utcDate) - new Date();
+      if (diff <= 0) { setCountdown(""); return; }
+      const hh = Math.floor(diff / 3600000);
+      const mm = Math.floor((diff % 3600000) / 60000);
+      const ss = Math.floor((diff % 60000) / 1000);
+      setCountdown(hh > 0
+        ? `${hh}h ${String(mm).padStart(2,"0")}m ${String(ss).padStart(2,"0")}s`
+        : `${mm}m ${String(ss).padStart(2,"0")}s`);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [isLive, nextMatch?.id]);
+
+  if (!focus) return null;
+
+  const h = focus.homeTeam?.tla?.toUpperCase();
+  const a = focus.awayTeam?.tla?.toUpperCase();
+  const hOwner = ownerOf(h, ranked);
+  const aOwner = ownerOf(a, ranked);
+  const hs = focus.score?.fullTime?.home ?? focus.score?.halfTime?.home ?? 0;
+  const as_ = focus.score?.fullTime?.away ?? focus.score?.halfTime?.away ?? 0;
+  const stageLabel = (focus.stage || "").replace(/_/g, " ").toLowerCase()
+    .replace(/\b\w/g, c => c.toUpperCase());
+  const broadcast = typeof getBroadcast === "function" ? getBroadcast(h, a) : { b: "", url: "" };
+
+  return (
+    <div style={{ ...s.card, marginBottom: 16, overflow: "hidden" }}>
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "8px 14px", borderBottom: `1px solid ${C.border}`,
+        background: isLive ? "rgba(239,68,68,0.07)" : "transparent",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          {isLive && <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#ef4444", flexShrink: 0, display: "inline-block" }} />}
+          <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", color: isLive ? "#ef4444" : C.muted }}>
+            {isLive ? (liveMatches.length > 1 ? `${liveMatches.length} LIVE` : "LIVE") : "NEXT MATCH"}
+          </span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {stageLabel && <span style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.07em" }}>{stageLabel}</span>}
+          {!isLive && countdown && <span style={{ fontSize: 11, fontFamily: "monospace", color: C.accent }}>{countdown}</span>}
+        </div>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", padding: "14px 16px", gap: 8 }}>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, textAlign: "center" }}>
+          <Flag code={h} size={42} />
+          <div style={{ fontSize: 12, fontWeight: 800, color: C.text }}>{hOwner || focus.homeTeam?.name}</div>
+          {hOwner && <div style={{ fontSize: 10, color: C.muted, lineHeight: 1.2 }}>{focus.homeTeam?.name}{POT[h] ? ` (P${potOf(h)})` : ""}</div>}
+        </div>
+        <div style={{ flexShrink: 0, textAlign: "center", minWidth: 60 }}>
+          {isLive ? (
+            <div style={{ fontSize: 30, fontWeight: 900, color: C.text, lineHeight: 1 }}>
+              {hs}<span style={{ color: C.muted, margin: "0 5px" }}>–</span>{as_}
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 7 }}>
+              <div style={{ fontSize: 16, color: C.muted, fontWeight: 600 }}>vs</div>
+              {broadcast.b && (
+                <a href={broadcast.url} target="_blank" rel="noopener noreferrer"
+                  style={{ background: broadcast.b === "ITV" ? "#003087" : "#FF6B35", color: "white", fontSize: 9, fontWeight: 800, padding: "2px 6px", borderRadius: 3, textDecoration: "none" }}>
+                  ▶ {broadcast.b}
+                </a>
+              )}
+            </div>
+          )}
+        </div>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, textAlign: "center" }}>
+          <Flag code={a} size={42} />
+          <div style={{ fontSize: 12, fontWeight: 800, color: C.text }}>{aOwner || focus.awayTeam?.name}</div>
+          {aOwner && <div style={{ fontSize: 10, color: C.muted, lineHeight: 1.2 }}>{focus.awayTeam?.name}{POT[a] ? ` (P${potOf(a)})` : ""}</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // BBC/email-digest-style homepage — a snapshot of yesterday, now, and what's
 // next, mirroring the daily email's sections so the two feel like the same
 // product. Pure read-only summary view; "Open the full table" hands off to
@@ -2613,10 +2704,8 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
 
   return (
     <div>
-      {/* Headline leader card — the one "hero" element on the page, same
-         visual weight as the live-match banner up in the sticky header, so
-         Home has an immediate payoff instead of opening on a wall of
-         uppercase section labels. */}
+      <MatchFocusCard matches={matches} ranked={ranked} />
+      {/* Headline leader card */}
       {topThree[0] && (
         <div className="player-card" onClick={() => openPlayer(topThree[0].name)} style={{
           ...s.card, padding: "18px 16px", marginBottom: 16, textAlign: "center", cursor: "pointer",
@@ -4338,25 +4427,9 @@ function App({ onSwitchGroup, groupKey }) {
     })();
   }, [groupKey]);
   const unreadNotifCount = matches.filter(m => m.status === "FINISHED" && new Date(m.utcDate).getTime() > notifSeenTs).length; // "Subscribe notifications" from the More menu
-  const [countdown, setCountdown] = useState("");
   const [selectedDay, setSelectedDay] = useState(null); // null = default to "today", clamped to the tournament's match range
   const matchesRef = React.useRef(matches);
   React.useEffect(() => { matchesRef.current = matches; }, [matches]);
-  React.useEffect(() => {
-    const tick = () => {
-      const next = matchesRef.current.filter(m => m.status === "SCHEDULED" || m.status === "TIMED").sort((a,b) => new Date(a.utcDate) - new Date(b.utcDate))[0];
-      if (!next) { setCountdown(""); return; }
-      const diff = new Date(next.utcDate) - new Date();
-      if (diff <= 0) { setCountdown("Starting now!"); return; }
-      const h = Math.floor(diff / 3600000);
-      const mn = Math.floor((diff % 3600000) / 60000);
-      const s = Math.floor((diff % 60000) / 1000);
-      setCountdown(`${h}h ${String(mn).padStart(2,"0")}m ${String(s).padStart(2,"0")}s`);
-    };
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, []);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [scrollPlayerToBadges, setScrollPlayerToBadges] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState(null);
@@ -4835,7 +4908,7 @@ function App({ onSwitchGroup, groupKey }) {
       {/* ── Sticky header: title (collapses on scroll) + live banner + toggle ── */}
       <div id="appHeader" style={{
         position:"sticky", top:0, zIndex:20,
-        background:C.bg,
+        background:C.bg, borderBottom:`1px solid ${C.border}`,
       }}>
         {/* Header row: logo + search trigger + info button */}
         <div data-title-row="1" style={{
@@ -4872,47 +4945,6 @@ function App({ onSwitchGroup, groupKey }) {
             </div>
           </div>
         </div>
-                {/* Live banner — expands into header */}
-        {live.length > 0 ? (
-          <LiveBanner live={live} ranked={ranked} matchPtsById={matchPtsById} />
-        ) : (() => {
-          const next = matches.filter(m => m.status === "SCHEDULED" || m.status === "TIMED").sort((a,b) => new Date(a.utcDate) - new Date(b.utcDate))[0];
-          if (!next) return null;
-          if (new Date(next.utcDate) - new Date() > 60 * 60 * 1000) return null;
-          const h = next.homeTeam?.tla?.toUpperCase();
-          const a = next.awayTeam?.tla?.toUpperCase();
-          const hOwner = ownerOf(h, ranked);
-          const aOwner = ownerOf(a, ranked);
-          const broadcast = getBroadcast(h, a);
-          return (
-            <div style={{ padding:"8px 14px 12px", borderBottom:`1px solid ${C.border}` }}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
-                <span style={{ fontSize:10, color:C.muted, fontWeight:700, letterSpacing:"0.1em" }}>NEXT MATCH</span>
-                <span style={{ color:C.accent, fontFamily:"monospace", fontSize:11 }}>{countdown}</span>
-              </div>
-              <div style={{ display:"flex", alignItems:"center" }}>
-                <div style={{ flex:1, display:"flex", alignItems:"center", gap:6 }}>
-                  <Flag code={h} size={18} />
-                  <div>
-                    <div style={{ fontSize:12, fontWeight:700, color:C.text }}>{hOwner || next.homeTeam?.name}</div>
-                    <div style={{ fontSize:10, color:C.muted }}>{next.homeTeam?.name}{POT[h] ? <span style={{ color:C.muted, fontSize:9 }}> (P{potOf(h)})</span> : ""}</div>
-                  </div>
-                </div>
-                <div style={{ textAlign:"center", padding:"0 8px" }}>
-                  <div style={{ fontSize:13, color:C.muted, marginBottom:3 }}>vs</div>
-                  <a href={broadcast.url} target="_blank" rel="noopener noreferrer" style={{ background:broadcast.b==="ITV"?"#003087":"#FF6B35", color:"white", fontSize:9, fontWeight:800, padding:"2px 5px", borderRadius:3, textDecoration:"none", whiteSpace:"nowrap", display:"inline-block" }}>▶ {broadcast.b}</a>
-                </div>
-                <div style={{ flex:1, display:"flex", alignItems:"center", gap:6, justifyContent:"flex-end" }}>
-                  <div style={{ textAlign:"right" }}>
-                    <div style={{ fontSize:12, fontWeight:700, color:C.text }}>{aOwner || next.awayTeam?.name}</div>
-                    <div style={{ fontSize:10, color:C.muted }}>{next.awayTeam?.name}{POT[a] ? <span style={{ color:C.muted, fontSize:9 }}> (P{potOf(a)})</span> : ""}</div>
-                  </div>
-                  <Flag code={a} size={18} />
-                </div>
-              </div>
-            </div>
-          );
-        })()}
         {/* Sweeps/Groups/Knockouts toggle (mobile League tab) — stays a child
            of #appHeader, in normal flow right after the banner, rather than
            a separately-positioned sticky element. A JS-measured separate
