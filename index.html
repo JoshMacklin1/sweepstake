@@ -3223,7 +3223,7 @@ function TeamsTab({ matches, view, setView, onTeamClick }) {
     if (!koByStage[m.stage]) koByStage[m.stage] = [];
     koByStage[m.stage].push(m);
   });
-  Object.keys(koByStage).forEach(s => koByStage[s].sort((a,b) => new Date(a.date) - new Date(b.date)));
+  Object.keys(koByStage).forEach(s => koByStage[s].sort((a,b) => a.id - b.id));
 
   // Helper: get team name from tla
   const teamName = (tla) => {
