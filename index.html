@@ -654,7 +654,7 @@ function DayPicker({ days, selected, onSelect }) {
   );
 }
 
-function MatchCard({ m, ranked, upcoming = [], pts, onPlayerClick, onTeamClick }) {
+function MatchCard({ m, ranked, upcoming = [], pts, onPlayerClick, onTeamClick, onMatchClick }) {
   const h = m.homeTeam?.tla?.toUpperCase();
   const a = m.awayTeam?.tla?.toUpperCase();
   const fin = m.status === "FINISHED";
@@ -746,7 +746,7 @@ function MatchCard({ m, ranked, upcoming = [], pts, onPlayerClick, onTeamClick }
     : "none";
 
   return (
-    <div style={{ ...s.card, border: rivalryBorder, boxShadow: rivalryGlow }}>
+    <div className={onMatchClick ? "player-card" : undefined} onClick={onMatchClick ? () => onMatchClick(m.id) : undefined} style={{ ...s.card, border: rivalryBorder, boxShadow: rivalryGlow, cursor: onMatchClick ? "pointer" : "default" }}>
       <div style={{ padding: "12px 14px" }}>
         {/* Header row: stage left | rivalry centre | date right */}
         <div style={{ display:"flex", alignItems:"center", marginBottom:10 }}>
@@ -769,9 +769,9 @@ function MatchCard({ m, ranked, upcoming = [], pts, onPlayerClick, onTeamClick }
         {/* Teams row */}
         <div style={{ display:"flex", alignItems:"center" }}>
           <div
-            className={(onTeamClick && h) || (onPlayerClick && hOwner) ? "player-card" : undefined}
-            onClick={onTeamClick && h ? () => onTeamClick(h) : onPlayerClick && hOwner ? () => onPlayerClick(hOwner) : undefined}
-            style={{ flex:1, display:"flex", alignItems:"center", gap:8, cursor: (onTeamClick && h) || (onPlayerClick && hOwner) ? "pointer" : "default" }}>
+            className={!onMatchClick && ((onTeamClick && h) || (onPlayerClick && hOwner)) ? "player-card" : undefined}
+            onClick={!onMatchClick && onTeamClick && h ? () => onTeamClick(h) : !onMatchClick && onPlayerClick && hOwner ? () => onPlayerClick(hOwner) : undefined}
+            style={{ flex:1, display:"flex", alignItems:"center", gap:8, cursor: !onMatchClick && ((onTeamClick && h) || (onPlayerClick && hOwner)) ? "pointer" : "default" }}>
             <Flag code={h} size={22} />
             <div>
               <div style={{ fontSize:13, fontWeight:700, color: C.text }}>{ownerOf(h, ranked) || ""}</div>
@@ -795,9 +795,9 @@ function MatchCard({ m, ranked, upcoming = [], pts, onPlayerClick, onTeamClick }
             }
           </div>
           <div
-            className={(onTeamClick && a) || (onPlayerClick && aOwner) ? "player-card" : undefined}
-            onClick={onTeamClick && a ? () => onTeamClick(a) : onPlayerClick && aOwner ? () => onPlayerClick(aOwner) : undefined}
-            style={{ flex:1, display:"flex", alignItems:"center", gap:8, justifyContent:"flex-end", cursor: (onTeamClick && a) || (onPlayerClick && aOwner) ? "pointer" : "default" }}>
+            className={!onMatchClick && ((onTeamClick && a) || (onPlayerClick && aOwner)) ? "player-card" : undefined}
+            onClick={!onMatchClick && onTeamClick && a ? () => onTeamClick(a) : !onMatchClick && onPlayerClick && aOwner ? () => onPlayerClick(aOwner) : undefined}
+            style={{ flex:1, display:"flex", alignItems:"center", gap:8, justifyContent:"flex-end", cursor: !onMatchClick && ((onTeamClick && a) || (onPlayerClick && aOwner)) ? "pointer" : "default" }}>
             <div style={{ textAlign:"right" }}>
               <div style={{ fontSize:13, fontWeight:700, color: C.text }}>{ownerOf(a, ranked) || ""}</div>
               <div style={{ fontSize:11, color: C.muted }}>{m.awayTeam?.name || "TBD"}{POT[a] ? <span style={{ color:C.muted, fontSize:9 }}> (P{potOf(a)})</span> : ""}</div>
@@ -5410,7 +5410,7 @@ function App({ onSwitchGroup, groupKey }) {
         {tab === "scores" && !loading && (
           dayMatches.length === 0
             ? <div style={{ color:C.muted, textAlign:"center", padding:32, fontSize:14 }}>No matches on this day</div>
-            : <div className="league-grid fixture-grid">{dayMatches.map(m => <MatchCard key={m.id} m={m} ranked={ranked} upcoming={upcoming} pts={matchPtsById[m.id]} onTeamClick={openTeamModal} />)}</div>
+            : <div className="league-grid fixture-grid">{dayMatches.map(m => <MatchCard key={m.id} m={m} ranked={ranked} upcoming={upcoming} pts={matchPtsById[m.id]} onMatchClick={openMatchModal} onTeamClick={openTeamModal} />)}</div>
         )}
 
         {/* ── THE RACE ── */}
