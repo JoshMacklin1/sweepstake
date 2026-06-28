@@ -1337,10 +1337,16 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
               <div style={{ fontSize: 24, fontWeight: 900, color: totalPts < 0 ? C.red : C.text, lineHeight: 1 }}>{totalPts > 0 ? `+${totalPts}` : totalPts}</div>
               <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 4 }}>Points</div>
             </div>
-            <div style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: s.card.borderRadius, padding: "12px 8px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-              <StagePill stage={eliminated && !won ? (stage || "GROUP_ELIM") : stage} won={won} small />
-              <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>Stage</div>
-            </div>
+            {(() => {
+              const sk = won ? "WINNER" : (eliminated && !won ? (stage || "GROUP_ELIM") : (stage || "GROUP"));
+              const scfg = STAGE_PILL_CFG[sk] || STAGE_PILL_CFG.GROUP;
+              return (
+                <div style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: s.card.borderRadius, padding: "12px 8px", textAlign: "center" }}>
+                  <div style={{ fontSize: 16, fontWeight: 900, color: scfg.color, lineHeight: 1 }}>{scfg.label}</div>
+                  <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 4 }}>Stage</div>
+                </div>
+              );
+            })()}
           </div>
 
           <div style={{ fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Results</div>
