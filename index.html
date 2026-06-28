@@ -1359,7 +1359,7 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
               const scfg = STAGE_PILL_CFG[sk] || STAGE_PILL_CFG.GROUP;
               return (
                 <div style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: s.card.borderRadius, padding: "12px 8px", textAlign: "center" }}>
-                  <div style={{ fontSize: 16, fontWeight: 900, color: scfg.color, lineHeight: 1 }}>{scfg.label}</div>
+                  <div style={{ fontSize: 24, fontWeight: 900, color: scfg.color, lineHeight: 1 }}>{scfg.label}</div>
                   <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 4 }}>Stage</div>
                 </div>
               );
@@ -1448,7 +1448,7 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
                       <div style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0, background: C.negBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 800, color: C.red }}>OUT</div>
                       <Flag code={tla} size={18} />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <StatusPill won={false} eliminated={true} small />
+                        <div style={{ fontSize: 12, fontWeight: 600, color: C.red, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Eliminated from groups</div>
                         <div style={{ fontSize: 10, color: C.muted }}>bottom of group · {ev.dateStr}</div>
                       </div>
                       {ev.pts != null && (
