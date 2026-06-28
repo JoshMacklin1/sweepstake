@@ -1336,9 +1336,11 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
               <div style={{ fontSize: 24, fontWeight: 900, color: totalPts < 0 ? C.red : C.text }}>{totalPts > 0 ? `+${totalPts}` : totalPts}</div>
               <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>Points</div>
             </div>
-            <div style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: s.card.borderRadius, padding: "12px 8px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+            <div style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: s.card.borderRadius, padding: "12px 8px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
               <StagePill stage={eliminated && !won ? (stage || "GROUP_ELIM") : stage} won={won} />
-              <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>Stage</div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: won ? C.gold : eliminated ? C.red : C.accent }}>
+                {won ? "Winner 🏆" : eliminated ? "Eliminated" : "Active"}
+              </div>
             </div>
           </div>
 
