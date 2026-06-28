@@ -1192,9 +1192,10 @@ function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, bad
               if (lastGrpForTeam) {
                 const lastGrpTime = new Date(lastGrpForTeam.utcDate).getTime();
                 const dateStr = fmt(lastGrpForTeam.utcDate);
-                if (t.eliminated || bonus < 0) {
+                const isGroupElim = (bonus < 0) || (t.eliminated && (!t.stage || t.stage === "GROUP_ELIM"));
+                if (isGroupElim) {
                   events.push({ type: "elim", sortTime: lastGrpTime + 500, t, pts: bonus < 0 ? bonus : null, dateStr });
-                } else if (t.stage) {
+                } else if (t.stage && t.stage !== "GROUP_ELIM") {
                   events.push({ type: "qual", sortTime: lastGrpTime + 500, t, pts: bonus > 0 ? bonus : null, dateStr });
                 }
               }
@@ -1412,9 +1413,12 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
             if (lastGrpMatch) {
               const lastGrpTime = new Date(lastGrpMatch.utcDate).getTime();
               const dateStr = fmt(lastGrpMatch.utcDate);
-              if (eliminated || stageBonus < 0) {
+              // Only show "eliminated from groups" if eliminated AT the group stage.
+              // Teams eliminated later (e.g. Last 32) have stage="LAST_32" — show qual instead.
+              const isGroupElim = (stageBonus < 0) || (eliminated && (!stage || stage === "GROUP_ELIM"));
+              if (isGroupElim) {
                 events.push({ type: "elim", sortTime: lastGrpTime + 500, dateStr, pts: stageBonus < 0 ? stageBonus : null });
-              } else if (stage) {
+              } else if (stage && stage !== "GROUP_ELIM") {
                 events.push({ type: "qual", sortTime: lastGrpTime + 500, dateStr, pts: stageBonus > 0 ? stageBonus : null });
               }
             }
