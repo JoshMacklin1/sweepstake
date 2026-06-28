@@ -1306,7 +1306,7 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
               <div style={{ fontSize: 18, fontWeight: 900, color: C.text }}>{teamName}</div>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
                 <span style={{ fontSize: 11, color: C.muted }}>{owner ? `Pot ${pot}` : `Unassigned · Pot ${pot}`}</span>
-                <span style={{ fontSize: 10, fontWeight: 700, color: won ? C.gold : eliminated ? C.red : C.accent }}>· {won ? "Winner 🏆" : eliminated ? "Eliminated" : "Active"}</span>
+                <span style={{ fontSize: 10, fontWeight: 700, color: won ? C.gold : eliminated ? C.red : C.accent }}>· {won ? "Winner 🏆" : eliminated ? "Eliminated" : "Still in"}</span>
               </div>
             </div>
           </div>
@@ -2649,8 +2649,8 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onClose
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "0 12px", marginBottom: 18 }}>
               <StatRow
                 label="Status"
-                hVal={hEntry ? (hEntry.won ? "Winner 🏆" : hEntry.eliminated ? "Eliminated" : "Active") : "—"}
-                aVal={aEntry ? (aEntry.won ? "Winner 🏆" : aEntry.eliminated ? "Eliminated" : "Active") : "—"}
+                hVal={hEntry ? (hEntry.won ? "Winner 🏆" : hEntry.eliminated ? "Eliminated" : "Still in") : "—"}
+                aVal={aEntry ? (aEntry.won ? "Winner 🏆" : aEntry.eliminated ? "Eliminated" : "Still in") : "—"}
                 hColor={hEntry ? (hEntry.won ? C.gold : hEntry.eliminated ? C.red : C.accent) : C.muted}
                 aColor={aEntry ? (aEntry.won ? C.gold : aEntry.eliminated ? C.red : C.accent) : C.muted}
               />
