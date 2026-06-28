@@ -2628,7 +2628,6 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onClose
               <Flag code={h} size={32} />
               <div style={{ fontSize: 13, fontWeight: 800, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>{m.homeTeam?.name || h}{POT[h] ? <span style={{ fontSize: 10, fontWeight: 600, color: C.muted }}> (P{POT[h]})</span> : ""}</div>
               {hOwner && <div style={{ fontSize: 11, fontWeight: 600, color: C.accent }}>{hOwner}</div>}
-              {hEntry && <StagePill stage={hEntry.stage} won={hEntry.won} small />}
             </div>
 
             <div style={{ flexShrink: 0, textAlign: "center", minWidth: 52 }}>
@@ -2640,7 +2639,6 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onClose
               <Flag code={a} size={32} />
               <div style={{ fontSize: 13, fontWeight: 800, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>{m.awayTeam?.name || a}{POT[a] ? <span style={{ fontSize: 10, fontWeight: 600, color: C.muted }}> (P{POT[a]})</span> : ""}</div>
               {aOwner && <div style={{ fontSize: 11, fontWeight: 600, color: C.accent }}>{aOwner}</div>}
-              {aEntry && <StagePill stage={aEntry.stage} won={aEntry.won} small />}
             </div>
           </div>
         </div>
@@ -2650,6 +2648,18 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onClose
           <>
             <div style={{ fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Sweepstake Stats</div>
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "0 12px", marginBottom: 18 }}>
+              <StatRow
+                label="Status"
+                hVal={hEntry ? (hEntry.won ? "Winner 🏆" : hEntry.eliminated ? "Eliminated" : "Active") : "—"}
+                aVal={aEntry ? (aEntry.won ? "Winner 🏆" : aEntry.eliminated ? "Eliminated" : "Active") : "—"}
+                hColor={hEntry ? (hEntry.won ? C.gold : hEntry.eliminated ? C.red : C.accent) : C.muted}
+                aColor={aEntry ? (aEntry.won ? C.gold : aEntry.eliminated ? C.red : C.accent) : C.muted}
+              />
+              <StatRow
+                label="Stage"
+                hVal={hEntry ? (hEntry.stage ? (STAGE_LABEL[hEntry.stage] || hEntry.stage.replace(/_/g, " ")) : "Groups") : "—"}
+                aVal={aEntry ? (aEntry.stage ? (STAGE_LABEL[aEntry.stage] || aEntry.stage.replace(/_/g, " ")) : "Groups") : "—"}
+              />
               <StatRow
                 label="Total Pts"
                 hVal={hEntry ? `${hEntry.pts > 0 ? "+" : ""}${hEntry.pts}` : "—"}
