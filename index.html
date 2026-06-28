@@ -2812,14 +2812,13 @@ function MatchFocusCard({ matches, ranked, matchPtsById = {}, onMatchClick }) {
   }, [count]);
 
   const onDown = (e) => {
-    if (!multi) return;
     const d = drag.current;
     d.active = true; d.startX = e.clientX; d.dx = 0; d.w = e.currentTarget.clientWidth;
-    if (trackRef.current) trackRef.current.style.transition = "none";
+    if (multi && trackRef.current) trackRef.current.style.transition = "none";
     e.currentTarget.setPointerCapture && e.currentTarget.setPointerCapture(e.pointerId);
   };
   const onMove = (e) => {
-    const d = drag.current; if (!d.active) return;
+    const d = drag.current; if (!d.active || !multi) return;
     d.dx = e.clientX - d.startX;
     const edge = (safeIdx === 0 && d.dx > 0) || (safeIdx === count - 1 && d.dx < 0);
     const eff = edge ? d.dx * 0.35 : d.dx;
