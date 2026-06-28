@@ -3174,7 +3174,7 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
   );
 }
 
-function TeamsTab({ matches, view, setView, onTeamClick }) {
+function TeamsTab({ matches, view, setView, onTeamClick, matchPtsById = {} }) {
   const bracketRef = React.useRef(null);
   // ── Hardcoded group assignments (A-L, 4 teams each) ─────────────────
   const GROUP_ASSIGNMENTS = {
@@ -3352,7 +3352,7 @@ function TeamsTab({ matches, view, setView, onTeamClick }) {
     );
   };
 
-  const BracketSlot = ({ tla, matchNum, side, score, isWinner, status }) => {
+  const BracketSlot = ({ tla, matchNum, side, score, isWinner, status, pts }) => {
     const name = tla ? (teamName(tla) || tla) : null;
     const owner = tla ? ownerOf[tla] : null;
     const pot = tla && POT[tla] ? `P${potOf(tla)}` : null;
@@ -3390,11 +3390,14 @@ function TeamsTab({ matches, view, setView, onTeamClick }) {
         ) : (
           <span style={{ fontSize:11, color:C.muted, flex:1 }}>{label}</span>
         )}
-        {score != null && (
-          <span style={{ fontSize:13, fontWeight:700, color: isWinner ? C.accent : C.dim, flexShrink:0, marginLeft:2, opacity: isElim ? 0.45 : 1 }}>
-            {score}{isLive ? <span style={{color:C.red,fontSize:9}}> ●</span> : ""}
-          </span>
-        )}
+        <div style={{ flexShrink:0, marginLeft:2, textAlign:"right" }}>
+          {score != null && (
+            <div style={{ fontSize:13, fontWeight:700, color: isWinner ? C.accent : C.dim, opacity: isElim ? 0.45 : 1, lineHeight:1 }}>
+              {score}{isLive ? <span style={{color:C.red,fontSize:9}}> ●</span> : ""}
+            </div>
+          )}
+          {pts > 0 && <div style={{ fontSize:9, fontWeight:800, color:C.accent, marginTop:1 }}>+{pts}pts</div>}
+        </div>
       </div>
     );
   };
@@ -3409,17 +3412,18 @@ function TeamsTab({ matches, view, setView, onTeamClick }) {
         </div>
       );
     }
-    const { home, away, homeScore, awayScore, status, winner } = match;
+    const { id, home, away, homeScore, awayScore, status, winner } = match;
     const hasScore = homeScore != null && awayScore != null;
     const isProjected = status === "PROJECTED";
+    const mpts = id ? matchPtsById[id] : null;
     return (
       <div style={{
         border: `1px ${isProjected ? "dashed" : "solid"} ${winner ? C.accent+"44" : (isProjected ? C.muted+"66" : C.border)}`,
         borderRadius:6, overflow:"hidden", minWidth:180, height:76, boxSizing:"border-box", background:C.card,
         opacity: isProjected ? 0.85 : 1,
       }}>
-        <BracketSlot tla={home} side="home" score={hasScore ? homeScore : null} isWinner={winner === home} status={status} />
-        <BracketSlot tla={away} side="away" score={hasScore ? awayScore : null} isWinner={winner === away} status={status} />
+        <BracketSlot tla={home} side="home" score={hasScore ? homeScore : null} isWinner={winner === home} status={status} pts={mpts?.home} />
+        <BracketSlot tla={away} side="away" score={hasScore ? awayScore : null} isWinner={winner === away} status={status} pts={mpts?.away} />
       </div>
     );
   };
@@ -5527,7 +5531,7 @@ function App({ onSwitchGroup, groupKey }) {
             )}
 
             {(leagueView === "groups" || leagueView === "knockout") && (
-              <TeamsTab matches={matches} view={leagueView} setView={setLeagueView} onTeamClick={openTeamModal} />
+              <TeamsTab matches={matches} view={leagueView} setView={setLeagueView} onTeamClick={openTeamModal} matchPtsById={matchPtsById} />
             )}
           </>
         )}
