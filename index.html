@@ -1131,8 +1131,8 @@ function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, bad
                   <div key={t.code} onClick={onTeamClick ? () => onTeamClick(t.code) : undefined}
                     role={onTeamClick ? "button" : undefined} tabIndex={onTeamClick ? 0 : undefined}
                     onKeyDown={onTeamClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onTeamClick(t.code); } } : undefined}
-                    style={{ display:"flex", alignItems:"center", padding:"9px 0", borderBottom:`1px solid ${C.border}`, opacity: out ? 0.5 : 1, cursor: onTeamClick ? "pointer" : "default", WebkitTapHighlightColor:"transparent" }}>
-                    <div style={{ marginRight:10, flexShrink:0 }}><Flag code={t.code} size={20} /></div>
+                    style={{ display:"flex", alignItems:"center", padding:"9px 0", borderBottom:`1px solid ${C.border}`, cursor: onTeamClick ? "pointer" : "default", WebkitTapHighlightColor:"transparent" }}>
+                    <div style={{ marginRight:10, flexShrink:0, filter: out ? "grayscale(1)" : "none", opacity: out ? 0.45 : 1 }}><Flag code={t.code} size={20} /></div>
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ fontSize:13, fontWeight:600, color:C.text }}>{t.name} <span style={{ fontSize:10, color:C.muted, fontWeight:400 }}>(P{t.pot})</span></div>
                       <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:2 }}>
