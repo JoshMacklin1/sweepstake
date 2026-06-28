@@ -2778,6 +2778,7 @@ function MatchFocusCard({ matches, ranked, matchPtsById = {}, onMatchClick }) {
   const [idx, setIdx] = useState(0);
   const trackRef = React.useRef(null);
   const drag = React.useRef({ startX: 0, dx: 0, active: false, w: 0 });
+  const tapHandled = React.useRef(false);
   const ANIM = "transform 0.28s cubic-bezier(0.4,0,0.2,1)";
 
   const liveMatches = matches.filter(m => m.status === "IN_PLAY" || m.status === "PAUSED")
@@ -2832,7 +2833,10 @@ function MatchFocusCard({ matches, ranked, matchPtsById = {}, onMatchClick }) {
     else if (d.dx >= thresh) settle(safeIdx - 1);
     else {
       settle(safeIdx);
-      if (Math.abs(d.dx) < 8 && onMatchClick && games[safeIdx]) onMatchClick(games[safeIdx].id);
+      if (Math.abs(d.dx) < 8 && onMatchClick && games[safeIdx]) {
+        tapHandled.current = true;
+        onMatchClick(games[safeIdx].id);
+      }
     }
   };
 
@@ -2906,6 +2910,7 @@ function MatchFocusCard({ matches, ranked, matchPtsById = {}, onMatchClick }) {
         </div>
       </div>
       <div onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
+        onClick={e => { if (tapHandled.current) { tapHandled.current = false; e.stopPropagation(); } }}
         style={{ padding:"8px 14px 12px", overflow:"hidden", touchAction: multi ? "pan-y" : "auto", cursor: onMatchClick ? "pointer" : "default" }}>
         <div ref={trackRef} style={{ display:"flex" }}>
           {games.map(renderGame)}
