@@ -1331,16 +1331,20 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
               </div>
             );
           })()}
-          <div style={{ display: "flex", gap: 10, marginBottom: 18 }}>
-            <div style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: s.card.borderRadius, padding: "12px 8px", textAlign: "center" }}>
-              <div style={{ fontSize: 24, fontWeight: 900, color: totalPts < 0 ? C.red : C.text }}>{totalPts > 0 ? `+${totalPts}` : totalPts}</div>
-              <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>Points</div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
+            <div style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: s.card.borderRadius, padding: "12px 6px", textAlign: "center" }}>
+              <div style={{ fontSize: 22, fontWeight: 900, color: totalPts < 0 ? C.red : C.text, lineHeight: 1 }}>{totalPts > 0 ? `+${totalPts}` : totalPts}</div>
+              <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 4 }}>Points</div>
             </div>
-            <div style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: s.card.borderRadius, padding: "12px 8px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
-              <StagePill stage={eliminated && !won ? (stage || "GROUP_ELIM") : stage} won={won} />
-              <div style={{ fontSize: 10, fontWeight: 700, color: won ? C.gold : eliminated ? C.red : C.accent }}>
-                {won ? "Winner 🏆" : eliminated ? "Eliminated" : "Active"}
+            <div style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: s.card.borderRadius, padding: "12px 6px", textAlign: "center" }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: won ? C.gold : eliminated ? C.red : C.accent, lineHeight: 1 }}>
+                {won ? "Winner" : eliminated ? "Out" : "Active"}
               </div>
+              <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 4 }}>Status</div>
+            </div>
+            <div style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: s.card.borderRadius, padding: "12px 6px", textAlign: "center" }}>
+              <StagePill stage={eliminated && !won ? (stage || "GROUP_ELIM") : stage} won={won} small />
+              <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 4 }}>Stage</div>
             </div>
           </div>
 
@@ -1372,7 +1376,7 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
                   <Flag code={oppCode} size={18} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{oppName}</div>
-                    <div style={{ fontSize: 10, color: C.muted }}>{fmt(m.utcDate)} · {(m.stage || "").replace(/_/g, " ")}</div>
+                    <div style={{ fontSize: 10, color: C.muted }}>{(m.stage || "").replace(/_/g, " ")} · {fmt(m.utcDate)}</div>
                   </div>
                   <div style={{ textAlign: "right", flexShrink: 0 }}>
                     {earnedPts != null && <div style={{ fontSize: 12, fontWeight: 800, color: C.text }}>{earnedPts > 0 ? `+${earnedPts}` : earnedPts} pts</div>}
@@ -1459,7 +1463,7 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
                   <Flag code={oppCode} size={18} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{oppName}</div>
-                    <div style={{ fontSize: 10, color: C.muted }}>{fmt(m.utcDate)} · {(m.stage || "").replace(/_/g, " ")}</div>
+                    <div style={{ fontSize: 10, color: C.muted }}>{(m.stage || "").replace(/_/g, " ")} · {fmt(m.utcDate)}</div>
                   </div>
                 </div>
               );
