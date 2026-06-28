@@ -2778,7 +2778,6 @@ function MatchFocusCard({ matches, ranked, matchPtsById = {}, onMatchClick }) {
   const [idx, setIdx] = useState(0);
   const trackRef = React.useRef(null);
   const drag = React.useRef({ startX: 0, dx: 0, active: false, w: 0 });
-  const tapHandled = React.useRef(false);
   const ANIM = "transform 0.28s cubic-bezier(0.4,0,0.2,1)";
 
   const liveMatches = matches.filter(m => m.status === "IN_PLAY" || m.status === "PAUSED")
@@ -2831,13 +2830,15 @@ function MatchFocusCard({ matches, ranked, matchPtsById = {}, onMatchClick }) {
     const thresh = Math.max(40, d.w * 0.15);
     if (d.dx <= -thresh) settle(safeIdx + 1);
     else if (d.dx >= thresh) settle(safeIdx - 1);
-    else {
-      settle(safeIdx);
-      if (Math.abs(d.dx) < 8 && onMatchClick && games[safeIdx]) {
-        tapHandled.current = true;
-        onMatchClick(games[safeIdx].id);
-      }
-    }
+    else settle(safeIdx);
+  };
+  // Use onClick (not onPointerUp) to open the H2H modal — click fires on the
+  // card element before React re-renders, so the backdrop doesn't exist yet
+  // and can't intercept the event. onPointerUp triggers a re-render first,
+  // then the browser fires a synthetic click directly onto the fresh backdrop.
+  const onTap = () => {
+    const d = drag.current;
+    if (Math.abs(d.dx) < 8 && onMatchClick && games[safeIdx]) onMatchClick(games[safeIdx].id);
   };
 
   useEffect(() => {
@@ -2910,7 +2911,7 @@ function MatchFocusCard({ matches, ranked, matchPtsById = {}, onMatchClick }) {
         </div>
       </div>
       <div onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
-        onClick={e => { if (tapHandled.current) { tapHandled.current = false; e.stopPropagation(); } }}
+        onClick={onTap}
         style={{ padding:"8px 14px 12px", overflow:"hidden", touchAction: multi ? "pan-y" : "auto", cursor: onMatchClick ? "pointer" : "default" }}>
         <div ref={trackRef} style={{ display:"flex" }}>
           {games.map(renderGame)}
