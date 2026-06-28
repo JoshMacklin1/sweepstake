@@ -2630,11 +2630,7 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onClose
             </div>
 
             <div style={{ flexShrink: 0, textAlign: "center", minWidth: 52 }}>
-              {(fin || live) ? (
-                <div style={{ fontSize: 28, fontWeight: 900, color: live ? C.red : C.text, letterSpacing: 2, lineHeight: 1 }}>{hs}–{as_}</div>
-              ) : (
-                <div style={{ fontSize: 13, fontWeight: 700, color: C.muted }}>vs</div>
-              )}
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.muted }}>vs</div>
               {live && <div style={{ fontSize: 9, fontWeight: 800, color: C.red, marginTop: 3, letterSpacing: "0.08em" }}>LIVE</div>}
             </div>
 
