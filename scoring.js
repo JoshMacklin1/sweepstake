@@ -750,9 +750,7 @@ function deriveStages(matches) {
     if (!eliminated[code]) markStage(code, "LAST_32");
   });
 
-  // Group stage eliminations — only mark teams NOT in the top 2 of their group.
-  // Without the rank check, all 4 teams get flagged when a group finishes before
-  // the knockout round starts (e.g. Group B completing all 6 games first).
+  // Group stage eliminations.
   const knockoutTeams = new Set(Object.keys(stageReached));
   const groupGames = {};
   const grpPts = {}, grpGF = {}, grpGA = {};
@@ -773,13 +771,41 @@ function deriveStages(matches) {
       else { grpPts[h]++; grpPts[a]++; }
     }
   });
-  Object.entries(groupGames).forEach(([code, n]) => {
-    if (n >= 3 && !knockoutTeams.has(code) && !eliminated[code]) {
-      if (!isDefinitelyFourth(code, grpPts, grpGF, grpGA)) return;
-      eliminated[code] = "GROUP_ELIM";
-      stageReached[code] = "GROUP_ELIM";
-    }
+  const grpCmp = (a, b) => {
+    const pd = (grpPts[b]||0) - (grpPts[a]||0); if (pd !== 0) return pd;
+    const gdd = ((grpGF[b]||0)-(grpGA[b]||0)) - ((grpGF[a]||0)-(grpGA[a]||0)); if (gdd !== 0) return gdd;
+    return (grpGF[b]||0) - (grpGF[a]||0);
+  };
+  // For each complete group (all 4 teams played 3 games), mark 4th place eliminated.
+  // For incomplete groups use the conservative isDefinitelyFourth check.
+  let allGroupsDone = true;
+  Object.values(GROUP_ASSIGNMENTS).forEach(teams => {
+    const groupComplete = teams.every(c => (groupGames[c]||0) >= 3);
+    if (!groupComplete) { allGroupsDone = false; }
+    const sorted = [...teams].sort(grpCmp);
+    teams.forEach(code => {
+      if (knockoutTeams.has(code) || eliminated[code]) return;
+      const rank = sorted.indexOf(code);
+      if (rank < 3) return; // top 3 handled elsewhere (or may qualify as 3rd)
+      // rank === 3 → 4th place
+      if (groupComplete || isDefinitelyFourth(code, grpPts, grpGF, grpGA)) {
+        eliminated[code] = "GROUP_ELIM";
+        stageReached[code] = "GROUP_ELIM";
+      }
+    });
   });
+  // Once all groups are fully played, also eliminate the bottom-4 third-placers
+  // (best-8 of 12 thirds qualify; the other 4 are left in limbo without this).
+  if (allGroupsDone) {
+    const top8thirds = new Set(qualifiedThirdPlacers(matches));
+    Object.values(GROUP_ASSIGNMENTS).forEach(teams => {
+      const third = [...teams].sort(grpCmp)[2];
+      if (third && !top8thirds.has(third) && !knockoutTeams.has(third) && !eliminated[third]) {
+        eliminated[third] = "GROUP_ELIM";
+        stageReached[third] = "GROUP_ELIM";
+      }
+    });
+  }
 
   return { eliminated, winners, stageReached };
 }
