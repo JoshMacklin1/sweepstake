@@ -700,16 +700,20 @@ function deriveStages(matches) {
       if (winner) { winners[winner] = true; markStage(winner, "WINNER"); }
       if (loser)  { eliminated[loser] = "FINALIST"; markStage(loser, "FINALIST"); }
     } else if (stage.includes("SEMI")) {
-      markStage(winner, "SEMI_FINALS"); markStage(loser, "SEMI_FINALS");
+      if (winner) markStage(winner, "FINALIST");
+      markStage(loser, "SEMI_FINALS");
       if (loser) eliminated[loser] = "SEMI_FINALS";
     } else if (stage.includes("QUARTER")) {
-      markStage(winner, "QUARTER_FINALS"); markStage(loser, "QUARTER_FINALS");
+      if (winner) markStage(winner, "SEMI_FINALS");
+      markStage(loser, "QUARTER_FINALS");
       if (loser) eliminated[loser] = "QUARTER_FINALS";
     } else if (stage.includes("LAST_16") || stage.includes("16")) {
-      markStage(winner, "LAST_16"); markStage(loser, "LAST_16");
+      if (winner) markStage(winner, "QUARTER_FINALS");
+      markStage(loser, "LAST_16");
       if (loser) eliminated[loser] = "LAST_16";
     } else if (stage.includes("LAST_32") || stage.includes("32")) {
-      markStage(winner, "LAST_32"); markStage(loser, "LAST_32");
+      if (winner) markStage(winner, "LAST_16");
+      markStage(loser, "LAST_32");
       if (loser) eliminated[loser] = "LAST_32";
     }
   });
