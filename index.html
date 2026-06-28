@@ -2553,21 +2553,71 @@ function HomeMatchRow({ m, ranked, pts, onTeamClick, isLast, banners = false }) 
   );
 }
 
-function MatchFocusCard({ matches, ranked }) {
+function MatchFocusCard({ matches, ranked, matchPtsById = {} }) {
   const [countdown, setCountdown] = React.useState("");
+  const [idx, setIdx] = useState(0);
+  const trackRef = React.useRef(null);
+  const drag = React.useRef({ startX: 0, dx: 0, active: false, w: 0 });
+  const ANIM = "transform 0.28s cubic-bezier(0.4,0,0.2,1)";
 
   const liveMatches = matches.filter(m => m.status === "IN_PLAY" || m.status === "PAUSED")
     .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
-  const nextMatch = matches.filter(m => m.status === "SCHEDULED" || m.status === "TIMED")
-    .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate))[0];
-
   const isLive = liveMatches.length > 0;
-  const focus = isLive ? liveMatches[0] : nextMatch;
 
-  React.useEffect(() => {
-    if (isLive || !nextMatch) { setCountdown(""); return; }
+  // For upcoming: show all matches sharing the same earliest kickoff minute.
+  const upcomingSorted = matches.filter(m => m.status === "SCHEDULED" || m.status === "TIMED")
+    .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
+  const nextTime = upcomingSorted.length > 0 ? new Date(upcomingSorted[0].utcDate).getTime() : null;
+  const nextBatch = nextTime
+    ? upcomingSorted.filter(m => Math.abs(new Date(m.utcDate).getTime() - nextTime) < 60000)
+    : [];
+
+  const games = isLive ? liveMatches : nextBatch;
+  const count = games.length;
+  const multi = count > 1;
+  const safeIdx = Math.max(0, Math.min(idx, count - 1));
+
+  useEffect(() => {
+    const t = trackRef.current; if (!t) return;
+    t.style.transition = ANIM;
+    t.style.transform = `translateX(${-safeIdx * 100}%)`;
+  }, [safeIdx, count]);
+  useEffect(() => { if (idx > count - 1) setIdx(Math.max(0, count - 1)); }, [count]);
+
+  const settle = useCallback((i) => {
+    const t = trackRef.current;
+    const clamped = Math.max(0, Math.min(count - 1, i));
+    if (t) { t.style.transition = ANIM; t.style.transform = `translateX(${-clamped * 100}%)`; }
+    setIdx(clamped);
+  }, [count]);
+
+  const onDown = (e) => {
+    if (!multi) return;
+    const d = drag.current;
+    d.active = true; d.startX = e.clientX; d.dx = 0; d.w = e.currentTarget.clientWidth;
+    if (trackRef.current) trackRef.current.style.transition = "none";
+    e.currentTarget.setPointerCapture && e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onMove = (e) => {
+    const d = drag.current; if (!d.active) return;
+    d.dx = e.clientX - d.startX;
+    const edge = (safeIdx === 0 && d.dx > 0) || (safeIdx === count - 1 && d.dx < 0);
+    const eff = edge ? d.dx * 0.35 : d.dx;
+    if (trackRef.current) trackRef.current.style.transform = `translateX(calc(${-safeIdx * 100}% + ${eff}px))`;
+  };
+  const onUp = () => {
+    const d = drag.current; if (!d.active) return;
+    d.active = false;
+    const thresh = Math.max(40, d.w * 0.15);
+    if (d.dx <= -thresh) settle(safeIdx + 1);
+    else if (d.dx >= thresh) settle(safeIdx - 1);
+    else settle(safeIdx);
+  };
+
+  useEffect(() => {
+    if (isLive || !nextBatch[0]) { setCountdown(""); return; }
     const tick = () => {
-      const diff = new Date(nextMatch.utcDate) - new Date();
+      const diff = new Date(nextBatch[0].utcDate) - new Date();
       if (diff <= 0) { setCountdown(""); return; }
       const hh = Math.floor(diff / 3600000);
       const mm = Math.floor((diff % 3600000) / 60000);
@@ -2579,67 +2629,74 @@ function MatchFocusCard({ matches, ranked }) {
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [isLive, nextMatch?.id]);
+  }, [isLive, nextBatch[0]?.id]);
 
-  if (!focus) return null;
+  if (games.length === 0) return null;
 
-  const h = focus.homeTeam?.tla?.toUpperCase();
-  const a = focus.awayTeam?.tla?.toUpperCase();
-  const hOwner = ownerOf(h, ranked);
-  const aOwner = ownerOf(a, ranked);
-  const hs = focus.score?.fullTime?.home ?? focus.score?.halfTime?.home ?? 0;
-  const as_ = focus.score?.fullTime?.away ?? focus.score?.halfTime?.away ?? 0;
-  const stageLabel = (focus.stage || "").replace(/_/g, " ").toLowerCase()
-    .replace(/\b\w/g, c => c.toUpperCase());
-  const broadcast = typeof getBroadcast === "function" ? getBroadcast(h, a) : { b: "", url: "" };
+  const renderGame = (m) => {
+    const h = m.homeTeam?.tla?.toUpperCase();
+    const a = m.awayTeam?.tla?.toUpperCase();
+    const hOwner = ownerOf(h, ranked);
+    const aOwner = ownerOf(a, ranked);
+    const broadcast = typeof getBroadcast === "function" ? getBroadcast(h, a) : { b: "", url: "" };
+    const livePts = matchPtsById[m.id];
+    return (
+      <div key={m.id} style={{ flex:"0 0 100%", display:"flex", alignItems:"center" }}>
+        <div style={{ flex:1, display:"flex", alignItems:"center", gap:6 }}>
+          <Flag code={h} size={18} />
+          <div>
+            <div style={{ fontSize:12, fontWeight:700, color:C.text }}>{hOwner || m.homeTeam?.name}</div>
+            <div style={{ fontSize:10, color:C.muted }}>{m.homeTeam?.name}{POT[h] ? <span style={{ fontSize:9 }}> (P{potOf(h)})</span> : ""}</div>
+            {livePts && livePts.home > 0 && <div style={{ fontSize:10, fontWeight:800, color:C.accent, marginTop:2 }}>+{livePts.home} pts</div>}
+          </div>
+        </div>
+        <div style={{ textAlign:"center", padding:"0 8px", flexShrink:0 }}>
+          {isLive
+            ? <div style={{ fontSize:16, fontWeight:800, color:C.red, letterSpacing:2 }}>{m.score?.fullTime?.home??0}–{m.score?.fullTime?.away??0}</div>
+            : <div style={{ fontSize:13, color:C.muted, marginBottom:4 }}>vs</div>
+          }
+          {broadcast.b && <a href={broadcast.url} target="_blank" rel="noopener noreferrer" style={{ background:broadcast.b==="ITV"?"#003087":"#FF6B35", color:"white", fontSize:9, fontWeight:800, padding:"2px 5px", borderRadius:3, textDecoration:"none", whiteSpace:"nowrap", display:"inline-block" }}>▶ {broadcast.b}</a>}
+        </div>
+        <div style={{ flex:1, display:"flex", alignItems:"center", gap:6, justifyContent:"flex-end" }}>
+          <div style={{ textAlign:"right" }}>
+            <div style={{ fontSize:12, fontWeight:700, color:C.text }}>{aOwner || m.awayTeam?.name}</div>
+            <div style={{ fontSize:10, color:C.muted }}>{m.awayTeam?.name}{POT[a] ? <span style={{ fontSize:9 }}> (P{potOf(a)})</span> : ""}</div>
+            {livePts && livePts.away > 0 && <div style={{ fontSize:10, fontWeight:800, color:C.accent, marginTop:2 }}>+{livePts.away} pts</div>}
+          </div>
+          <Flag code={a} size={18} />
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <div style={{ ...s.card, marginBottom: 16, overflow: "hidden" }}>
-      <div style={{
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "8px 14px", borderBottom: `1px solid ${C.border}`,
-        background: isLive ? "rgba(239,68,68,0.07)" : "transparent",
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          {isLive && <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#ef4444", flexShrink: 0, display: "inline-block" }} />}
-          <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", color: isLive ? "#ef4444" : C.muted }}>
-            {isLive ? (liveMatches.length > 1 ? `${liveMatches.length} LIVE` : "LIVE") : "NEXT MATCH"}
+    <div style={{ ...s.card, marginBottom:16 }}>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"8px 14px 0" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+          {isLive && <span style={{ display:"inline-block", width:6, height:6, borderRadius:"50%", background:C.red, animation:"pulse-red 1.5s infinite" }} />}
+          <span style={{ fontSize:10, fontWeight:800, letterSpacing:"0.1em", color: isLive ? C.red : C.muted }}>
+            {isLive ? "LIVE NOW" : "NEXT MATCH"}
           </span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {stageLabel && <span style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.07em" }}>{stageLabel}</span>}
-          {!isLive && countdown && <span style={{ fontSize: 11, fontFamily: "monospace", color: C.accent }}>{countdown}</span>}
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          {!isLive && countdown && <span style={{ fontSize:11, fontFamily:"monospace", color:C.accent }}>{countdown}</span>}
+          {multi && <span style={{ fontSize:10, fontWeight:700, color:C.muted, fontVariantNumeric:"tabular-nums" }}>{safeIdx+1}/{count}</span>}
         </div>
       </div>
-      <div style={{ display: "flex", alignItems: "center", padding: "14px 16px", gap: 8 }}>
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, textAlign: "center" }}>
-          <Flag code={h} size={42} />
-          <div style={{ fontSize: 12, fontWeight: 800, color: C.text }}>{hOwner || focus.homeTeam?.name}</div>
-          {hOwner && <div style={{ fontSize: 10, color: C.muted, lineHeight: 1.2 }}>{focus.homeTeam?.name}{POT[h] ? ` (P${potOf(h)})` : ""}</div>}
-        </div>
-        <div style={{ flexShrink: 0, textAlign: "center", minWidth: 60 }}>
-          {isLive ? (
-            <div style={{ fontSize: 30, fontWeight: 900, color: C.text, lineHeight: 1 }}>
-              {hs}<span style={{ color: C.muted, margin: "0 5px" }}>–</span>{as_}
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 7 }}>
-              <div style={{ fontSize: 16, color: C.muted, fontWeight: 600 }}>vs</div>
-              {broadcast.b && (
-                <a href={broadcast.url} target="_blank" rel="noopener noreferrer"
-                  style={{ background: broadcast.b === "ITV" ? "#003087" : "#FF6B35", color: "white", fontSize: 9, fontWeight: 800, padding: "2px 6px", borderRadius: 3, textDecoration: "none" }}>
-                  ▶ {broadcast.b}
-                </a>
-              )}
-            </div>
-          )}
-        </div>
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, textAlign: "center" }}>
-          <Flag code={a} size={42} />
-          <div style={{ fontSize: 12, fontWeight: 800, color: C.text }}>{aOwner || focus.awayTeam?.name}</div>
-          {aOwner && <div style={{ fontSize: 10, color: C.muted, lineHeight: 1.2 }}>{focus.awayTeam?.name}{POT[a] ? ` (P${potOf(a)})` : ""}</div>}
+      <div onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
+        style={{ padding:"8px 14px 12px", overflow:"hidden", touchAction: multi ? "pan-y" : "auto" }}>
+        <div ref={trackRef} style={{ display:"flex" }}>
+          {games.map(renderGame)}
         </div>
       </div>
+      {multi && (
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:7, paddingBottom:10, height:16 }}>
+          {games.map((m, i) => (
+            <button key={m.id} onClick={() => settle(i)} aria-label={`Match ${i+1}`}
+              style={{ width:i===safeIdx?8:6, height:i===safeIdx?8:6, padding:0, border:"none", cursor:"pointer", borderRadius:"50%", background:i===safeIdx?(isLive?C.red:C.accent):C.border, transition:"all 0.2s" }}/>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -2704,7 +2761,7 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
 
   return (
     <div>
-      <MatchFocusCard matches={matches} ranked={ranked} />
+      <MatchFocusCard matches={matches} ranked={ranked} matchPtsById={matchPtsById} />
       {/* Headline leader card */}
       {topThree[0] && (
         <div className="player-card" onClick={() => openPlayer(topThree[0].name)} style={{
