@@ -4953,6 +4953,7 @@ function App({ onSwitchGroup, groupKey }) {
         ) : (() => {
           const next = matches.filter(m => m.status === "SCHEDULED" || m.status === "TIMED").sort((a,b) => new Date(a.utcDate) - new Date(b.utcDate))[0];
           if (!next) return null;
+          if (new Date(next.utcDate) - new Date() > 60 * 60 * 1000) return null;
           const h = next.homeTeam?.tla?.toUpperCase();
           const a = next.awayTeam?.tla?.toUpperCase();
           const hOwner = ownerOf(h, ranked);
