@@ -1274,7 +1274,7 @@ function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, bad
                         <Flag code={t.code} size={18} />
                         <div style={{ flex:1, minWidth:0 }}>
                           <div style={{ fontSize:12, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}</div>
-                          <div style={{ fontSize:10, color:C.muted }}>Qualified for {STAGE_LABEL[t.stage] || "Last 32"} · {dateStr}</div>
+                          <div style={{ fontSize:10, color:C.muted }}>Qualified for Knockouts · {dateStr}</div>
                         </div>
                         {pts != null && <div style={{ fontSize:12, fontWeight:800, color:C.text, flexShrink:0 }}>+{pts} pts</div>}
                       </div>
@@ -1498,7 +1498,7 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
                       <div style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0, background: C.posBg, border: `1px solid ${C.accent}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 900, color: C.accent }}>Q</div>
                       <Flag code={tla} size={18} />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Qualified for {STAGE_LABEL[stage] || "Last 32"}</div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Qualified for Knockouts</div>
                         <div style={{ fontSize: 10, color: C.muted }}>top-2 group finish · {ev.dateStr}</div>
                       </div>
                       {ev.pts != null && (

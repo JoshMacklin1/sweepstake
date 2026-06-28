@@ -1990,14 +1990,17 @@ function deriveMatchPts(matches) {
       if (winner) { const d = award(winner, "WINNER");   if (winner === h) hPts = d; else aPts = d; }
       if (loser)  { const d = award(loser,  "FINALIST"); if (loser  === h) hPts = d; else aPts = d; }
     } else {
-      let stageKey = null;
-      if (stage.includes("SEMI"))                                  stageKey = "SEMI_FINALS";
-      else if (stage.includes("QUARTER"))                          stageKey = "QUARTER_FINALS";
-      else if (stage.includes("LAST_16") || stage.includes("16"))  stageKey = "LAST_16";
-      else if (stage.includes("LAST_32") || stage.includes("32"))  stageKey = "LAST_32";
-      if (stageKey && loser) {
-        const dl = award(loser, stageKey);  if (loser  === h) hPts = dl; else aPts = dl;
-        if (winner) { const dw = award(winner, stageKey); if (winner === h) hPts = dw; else aPts = dw; }
+      // stageKey = stage being played; nextStageKey = stage winner advances to
+      let stageKey = null, nextStageKey = null;
+      if (stage.includes("SEMI"))                                  { stageKey = "SEMI_FINALS";    nextStageKey = "FINALIST"; }
+      else if (stage.includes("QUARTER"))                          { stageKey = "QUARTER_FINALS"; nextStageKey = "SEMI_FINALS"; }
+      else if (stage.includes("LAST_16") || stage.includes("16")) { stageKey = "LAST_16";         nextStageKey = "QUARTER_FINALS"; }
+      else if (stage.includes("LAST_32") || stage.includes("32")) { stageKey = "LAST_32";         nextStageKey = "LAST_16"; }
+      if (stageKey) {
+        // Loser's stage bonus stays off the match row — it shows at their Q milestone via stageBonusFor
+        if (loser) award(loser, stageKey); // bank for tracking; don't add to match display
+        // Winner earns the next stage's bonus (advancing beyond the current round)
+        if (winner && nextStageKey) { const dw = award(winner, nextStageKey); if (winner === h) hPts = dw; else aPts = dw; }
       }
     }
 
