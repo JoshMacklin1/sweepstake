@@ -1323,7 +1323,7 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
               <div style={{ fontSize: 18, fontWeight: 900, color: C.text }}>{teamName}</div>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
                 <span style={{ fontSize: 11, color: C.muted }}>{owner ? `Pot ${pot}` : `Unassigned · Pot ${pot}`}</span>
-                <span style={{ fontSize: 10, fontWeight: 700, color: won ? C.gold : eliminated ? C.red : C.accent }}>· {won ? "Winner 🏆" : eliminated ? "Eliminated" : "Still in"}</span>
+                <StatusPill won={won} eliminated={eliminated} small />
               </div>
             </div>
           </div>
@@ -1448,7 +1448,7 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
                       <div style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0, background: C.negBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 800, color: C.red }}>OUT</div>
                       <Flag code={tla} size={18} />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: C.red, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Eliminated</div>
+                        <StatusPill won={false} eliminated={true} small />
                         <div style={{ fontSize: 10, color: C.muted }}>bottom of group · {ev.dateStr}</div>
                       </div>
                       {ev.pts != null && (
@@ -2616,14 +2616,6 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onClose
   const hEntry = allTeams.find(t => t.code === h);
   const aEntry = allTeams.find(t => t.code === a);
 
-  const stageStr = (entry) => {
-    if (!entry) return "—";
-    if (entry.won) return "Winner 🏆";
-    if (entry.eliminated) return "Eliminated";
-    if (entry.stage) return STAGE_LABEL[entry.stage] || entry.stage.replace(/_/g, " ");
-    return "Group Stage";
-  };
-
   const StatRow = ({ label, hVal, aVal, hColor, aColor }) => (
     <div style={{ display: "flex", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${C.border}` }}>
       <div style={{ flex: 1, textAlign: "right", fontSize: 13, fontWeight: 700, color: hColor || C.text }}>{hVal}</div>
@@ -2672,10 +2664,8 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onClose
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "0 12px", marginBottom: 18 }}>
               <StatRow
                 label="Status"
-                hVal={hEntry ? (hEntry.won ? "Winner 🏆" : hEntry.eliminated ? "Eliminated" : "Still in") : "—"}
-                aVal={aEntry ? (aEntry.won ? "Winner 🏆" : aEntry.eliminated ? "Eliminated" : "Still in") : "—"}
-                hColor={hEntry ? (hEntry.won ? C.gold : hEntry.eliminated ? C.red : C.accent) : C.muted}
-                aColor={aEntry ? (aEntry.won ? C.gold : aEntry.eliminated ? C.red : C.accent) : C.muted}
+                hVal={hEntry ? <StatusPill won={hEntry.won} eliminated={hEntry.eliminated} small /> : "—"}
+                aVal={aEntry ? <StatusPill won={aEntry.won} eliminated={aEntry.eliminated} small /> : "—"}
               />
               <StatRow
                 label="Stage"
