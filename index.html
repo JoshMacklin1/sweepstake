@@ -1304,8 +1304,9 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
             <Flag code={tla} size={28} />
             <div>
               <div style={{ fontSize: 18, fontWeight: 900, color: C.text }}>{teamName}</div>
-              <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
-                {owner ? `Pot ${pot}` : `Unassigned · Pot ${pot}`}
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+                <span style={{ fontSize: 11, color: C.muted }}>{owner ? `Pot ${pot}` : `Unassigned · Pot ${pot}`}</span>
+                <span style={{ fontSize: 10, fontWeight: 700, color: won ? C.gold : eliminated ? C.red : C.accent }}>· {won ? "Winner 🏆" : eliminated ? "Eliminated" : "Active"}</span>
               </div>
             </div>
           </div>
@@ -1331,20 +1332,14 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
               </div>
             );
           })()}
-          <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
-            <div style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: s.card.borderRadius, padding: "12px 6px", textAlign: "center" }}>
-              <div style={{ fontSize: 22, fontWeight: 900, color: totalPts < 0 ? C.red : C.text, lineHeight: 1 }}>{totalPts > 0 ? `+${totalPts}` : totalPts}</div>
+          <div style={{ display: "flex", gap: 10, marginBottom: 18 }}>
+            <div style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: s.card.borderRadius, padding: "12px 8px", textAlign: "center" }}>
+              <div style={{ fontSize: 24, fontWeight: 900, color: totalPts < 0 ? C.red : C.text, lineHeight: 1 }}>{totalPts > 0 ? `+${totalPts}` : totalPts}</div>
               <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 4 }}>Points</div>
             </div>
-            <div style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: s.card.borderRadius, padding: "12px 6px", textAlign: "center" }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: won ? C.gold : eliminated ? C.red : C.accent, lineHeight: 1 }}>
-                {won ? "Winner" : eliminated ? "Out" : "Active"}
-              </div>
-              <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 4 }}>Status</div>
-            </div>
-            <div style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: s.card.borderRadius, padding: "12px 6px", textAlign: "center" }}>
+            <div style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: s.card.borderRadius, padding: "12px 8px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
               <StagePill stage={eliminated && !won ? (stage || "GROUP_ELIM") : stage} won={won} small />
-              <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 4 }}>Stage</div>
+              <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>Stage</div>
             </div>
           </div>
 
