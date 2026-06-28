@@ -1807,16 +1807,37 @@ function deriveSparklineHistory(matches) {
         else if (as_ > hs) grpPts[a] += 3;
         else { grpPts[h]++; grpPts[a]++; }
       }
-      [h, a].forEach(code => {
-        if (code) groupGames[code] = (groupGames[code]||0) + 1;
-        if (code && groupGames[code] >= 3 && !knockoutTeams.has(code) && !eliminated[code]) {
-          if (isDefinitelyFourth(code, grpPts, grpGF, grpGA)) {
-            eliminated[code] = "GROUP_ELIM"; award(code, "GROUP_ELIM");
-            const bounty = reaperBountyForCode(code);
+      if (h) groupGames[h] = (groupGames[h]||0) + 1;
+      if (a) groupGames[a] = (groupGames[a]||0) + 1;
+      // Eliminate 4th place: if this was the group's final game, use definitive
+      // pts/GD/GF sort; otherwise fall back to the conservative isDefinitelyFourth.
+      const _grpLetter = h ? Object.keys(GROUP_ASSIGNMENTS).find(g => GROUP_ASSIGNMENTS[g].includes(h)) : null;
+      if (_grpLetter) {
+        const _grpTeams = GROUP_ASSIGNMENTS[_grpLetter];
+        const _grpCmp = (x, y) => {
+          const pd = (grpPts[y]||0)-(grpPts[x]||0); if (pd) return pd;
+          const gd = ((grpGF[y]||0)-(grpGA[y]||0))-((grpGF[x]||0)-(grpGA[x]||0)); if (gd) return gd;
+          return (grpGF[y]||0)-(grpGF[x]||0);
+        };
+        const _groupComplete = _grpTeams.every(c => (groupGames[c]||0) >= 3);
+        if (_groupComplete) {
+          const fourth = [..._grpTeams].sort(_grpCmp)[3];
+          if (fourth && !eliminated[fourth] && !knockoutTeams.has(fourth)) {
+            eliminated[fourth] = "GROUP_ELIM"; award(fourth, "GROUP_ELIM");
+            const bounty = reaperBountyForCode(fourth);
             if (bounty > 0) { running[reaperName] += bounty; changedPlayers.add(reaperName); }
           }
+        } else {
+          [h, a].forEach(code => {
+            if (!code || eliminated[code] || knockoutTeams.has(code)) return;
+            if ((groupGames[code]||0) >= 3 && isDefinitelyFourth(code, grpPts, grpGF, grpGA)) {
+              eliminated[code] = "GROUP_ELIM"; award(code, "GROUP_ELIM");
+              const bounty = reaperBountyForCode(code);
+              if (bounty > 0) { running[reaperName] += bounty; changedPlayers.add(reaperName); }
+            }
+          });
         }
-      });
+      }
       // As-of-this-frame clinch: force not-yet-replayed games back to scheduled
       // so clinchedR32 only "knows" results up to here, then award newly-clinched
       // teams their Last 32 bonus once (silently — no extra frame).
@@ -1847,6 +1868,37 @@ function deriveSparklineHistory(matches) {
     });
   });
   if (thirdPlaceChanged.size > 0) PLAYERS.forEach(p => history[p.name].push(running[p.name]));
+
+  // Eliminate the bottom-4 third-placers (non-qualifying thirds) once all
+  // groups are done — they miss the top-8 cutoff and take the GROUP_ELIM penalty.
+  const _allGroupsDone = Object.values(GROUP_ASSIGNMENTS).every(teams =>
+    teams.every(c => (groupGames[c]||0) >= 3)
+  );
+  if (_allGroupsDone) {
+    const _top8thirds = new Set(qualifiedThirdPlacers(matches));
+    const _grpCmpFinal = (x, y) => {
+      const pd = (grpPts[y]||0)-(grpPts[x]||0); if (pd) return pd;
+      const gd = ((grpGF[y]||0)-(grpGA[y]||0))-((grpGF[x]||0)-(grpGA[x]||0)); if (gd) return gd;
+      return (grpGF[y]||0)-(grpGF[x]||0);
+    };
+    const elimThirdChanged = new Set();
+    Object.values(GROUP_ASSIGNMENTS).forEach(teams => {
+      const third = [...teams].sort(_grpCmpFinal)[2];
+      if (!third || _top8thirds.has(third) || eliminated[third] || knockoutTeams.has(third)) return;
+      eliminated[third] = "GROUP_ELIM";
+      const pls = teamPlayer[third] || [];
+      const newPts = ptsTotal(third, "GROUP_ELIM");
+      pls.forEach(pl => {
+        const key = pl + ":" + third;
+        running[pl] += (newPts - (teamPts[key] || 0));
+        teamPts[key] = newPts;
+        elimThirdChanged.add(pl);
+      });
+      const bounty = reaperBountyForCode(third);
+      if (bounty > 0 && reaperName) { running[reaperName] += bounty; elimThirdChanged.add(reaperName); }
+    });
+    if (elimThirdChanged.size > 0) PLAYERS.forEach(p => history[p.name].push(running[p.name]));
+  }
 
   // Append live match contribution as the final sparkline point
   const liveMatches = matches.filter(m => m.status === "IN_PLAY" || m.status === "PAUSED");
