@@ -2635,7 +2635,6 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onClose
               <div style={{ fontSize: 13, fontWeight: 800, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>{m.homeTeam?.name || h}</div>
               {hOwner && <div style={{ fontSize: 11, fontWeight: 600, color: C.accent }}>{hOwner}</div>}
               {hEntry && <StagePill stage={hEntry.stage} won={hEntry.won} small />}
-              {pts?.home != null && <div style={{ fontSize: 12, fontWeight: 800, color: pts.home > 0 ? C.accent : pts.home < 0 ? C.red : C.muted }}>{pts.home > 0 ? `+${pts.home}` : pts.home} pts</div>}
             </div>
 
             <div style={{ flexShrink: 0, textAlign: "center", minWidth: 52 }}>
@@ -2652,7 +2651,6 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onClose
               <div style={{ fontSize: 13, fontWeight: 800, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>{m.awayTeam?.name || a}</div>
               {aOwner && <div style={{ fontSize: 11, fontWeight: 600, color: C.accent }}>{aOwner}</div>}
               {aEntry && <StagePill stage={aEntry.stage} won={aEntry.won} small />}
-              {pts?.away != null && <div style={{ fontSize: 12, fontWeight: 800, color: pts.away > 0 ? C.accent : pts.away < 0 ? C.red : C.muted }}>{pts.away > 0 ? `+${pts.away}` : pts.away} pts</div>}
             </div>
           </div>
         </div>
