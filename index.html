@@ -3367,13 +3367,39 @@ function TeamsTab({ matches, view, setView, onTeamClick }) {
   // moment the schedule skeleton exists — long before the draw is actually
   // known. Only treat R32 as "real" once at least one match has resolved teams.
   const r32HasResolvedTeams = r32.some(m => m.home && m.away);
-  const r16 = koByStage["LAST_16"] || [];
+  const r16Raw = koByStage["LAST_16"] || [];
   const qf  = koByStage["QUARTER_FINALS"] || [];
   const sf  = koByStage["SEMI_FINALS"] || [];
   const fin = koByStage["FINAL"] || [];
 
   // Pad arrays so visual alignment works
   const pad = (arr, len) => { while (arr.length < len) arr.push(null); return arr; };
+
+  // Project Last 16 from R32 winners where API hasn't populated teams yet.
+  // Each consecutive pair of R32 matches (sorted by ID = bracket order) feeds
+  // one R16 slot: r32[0]+r32[1] → r16[0], r32[2]+r32[3] → r16[1], etc.
+  const r16 = (() => {
+    const apiR16WithTeams = r16Raw.filter(m => m.home || m.away);
+    if (apiR16WithTeams.length >= 8) return r16Raw; // API fully populated
+    // Merge: use API entry if it has teams, else derive from R32 winners
+    const projected = [];
+    for (let i = 0; i < 16; i += 2) {
+      const m1 = r32[i] || null;
+      const m2 = r32[i + 1] || null;
+      const slotIdx = i / 2;
+      const apiSlot = r16Raw[slotIdx] || null;
+      if (apiSlot && (apiSlot.home || apiSlot.away)) {
+        projected.push(apiSlot);
+      } else {
+        const home = m1?.winner || null;
+        const away = m2?.winner || null;
+        projected.push((home || away)
+          ? { home, away, homeScore: null, awayScore: null, status: "PROJECTED", winner: null }
+          : null);
+      }
+    }
+    return projected;
+  })();
 
   const C_local = C; // capture in closure
 
