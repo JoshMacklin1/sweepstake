@@ -1175,8 +1175,8 @@ function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, bad
               if (lastGrpForTeam) {
                 const lastGrpTime = new Date(lastGrpForTeam.utcDate).getTime();
                 const dateStr = fmt(lastGrpForTeam.utcDate);
-                if (bonus < 0) {
-                  events.push({ type: "elim", sortTime: lastGrpTime + 500, t, pts: bonus, dateStr });
+                if (t.eliminated || bonus < 0) {
+                  events.push({ type: "elim", sortTime: lastGrpTime + 500, t, pts: bonus < 0 ? bonus : null, dateStr });
                 } else if (t.stage) {
                   events.push({ type: "qual", sortTime: lastGrpTime + 500, t, pts: bonus > 0 ? bonus : null, dateStr });
                 }
@@ -1246,7 +1246,7 @@ function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, bad
                           <div style={{ fontSize:12, fontWeight:600, color:C.red, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}</div>
                           <div style={{ fontSize:10, color:C.muted }}>Eliminated from groups · {dateStr}</div>
                         </div>
-                        <div style={{ fontSize:12, fontWeight:800, color:C.text, flexShrink:0 }}>{pts} pts</div>
+                        {pts != null && <div style={{ fontSize:12, fontWeight:800, color:C.text, flexShrink:0 }}>{pts} pts</div>}
                       </div>
                     );
                   }
@@ -1390,8 +1390,8 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
             if (lastGrpMatch) {
               const lastGrpTime = new Date(lastGrpMatch.utcDate).getTime();
               const dateStr = fmt(lastGrpMatch.utcDate);
-              if (stageBonus < 0) {
-                events.push({ type: "elim", sortTime: lastGrpTime + 500, dateStr, pts: stageBonus });
+              if (eliminated || stageBonus < 0) {
+                events.push({ type: "elim", sortTime: lastGrpTime + 500, dateStr, pts: stageBonus < 0 ? stageBonus : null });
               } else if (stage) {
                 events.push({ type: "qual", sortTime: lastGrpTime + 500, dateStr, pts: stageBonus > 0 ? stageBonus : null });
               }
@@ -1429,9 +1429,11 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
                         <div style={{ fontSize: 12, fontWeight: 600, color: C.red, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Eliminated</div>
                         <div style={{ fontSize: 10, color: C.muted }}>bottom of group · {ev.dateStr}</div>
                       </div>
-                      <div style={{ textAlign: "right", flexShrink: 0 }}>
-                        <div style={{ fontSize: 12, fontWeight: 800, color: C.text }}>{ev.pts} pts</div>
-                      </div>
+                      {ev.pts != null && (
+                        <div style={{ textAlign: "right", flexShrink: 0 }}>
+                          <div style={{ fontSize: 12, fontWeight: 800, color: C.text }}>{ev.pts} pts</div>
+                        </div>
+                      )}
                     </div>
                   );
                   return null;
