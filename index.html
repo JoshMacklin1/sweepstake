@@ -1199,6 +1199,32 @@ function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, bad
                   events.push({ type: "qual", sortTime: lastGrpTime + 500, t, pts: bonus > 0 ? bonus : null, dateStr });
                 }
               }
+              // Add E milestone for teams eliminated in knockouts (separate from group Q milestone)
+              if (t.eliminated && t.stage && t.stage !== "GROUP_ELIM") {
+                const koMatchesForTeam = matches.filter(m => {
+                  const h = m.homeTeam?.tla?.toUpperCase();
+                  const a = m.awayTeam?.tla?.toUpperCase();
+                  return (h === t.code || a === t.code) && !(m.stage||"").toUpperCase().includes("GROUP") && isSettled(m.status);
+                });
+                const koLoss = koMatchesForTeam.find(m => {
+                  const isHome = m.homeTeam?.tla?.toUpperCase() === t.code;
+                  const hs = m.score?.fullTime?.home ?? 0;
+                  const as_ = m.score?.fullTime?.away ?? 0;
+                  const myGoals = isHome ? hs : as_;
+                  const oppGoals = isHome ? as_ : hs;
+                  if (myGoals < oppGoals) return true;
+                  const pen = m.score?.penalties;
+                  if (myGoals === oppGoals && pen) {
+                    const myPen = isHome ? pen.home : pen.away;
+                    const oppPen = isHome ? pen.away : pen.home;
+                    return myPen < oppPen;
+                  }
+                  return false;
+                });
+                if (koLoss) {
+                  events.push({ type: "koElim", sortTime: new Date(koLoss.utcDate).getTime() + 500, t, dateStr: fmt(koLoss.utcDate), stageLabel: (koLoss.stage||"").replace(/_/g," ") });
+                }
+              }
             });
             events.sort((a, b) => b.sortTime - a.sortTime);
             if (events.length === 0) return null;
@@ -1265,6 +1291,19 @@ function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, bad
                           <div style={{ fontSize:10, color:C.muted }}>Eliminated from groups · {dateStr}</div>
                         </div>
                         {pts != null && <div style={{ fontSize:12, fontWeight:800, color:C.text, flexShrink:0 }}>{pts} pts</div>}
+                      </div>
+                    );
+                  }
+                  if (ev.type === "koElim") {
+                    const { t, dateStr, stageLabel } = ev;
+                    return (
+                      <div key={"ke" + t.code} className={onTeamClick ? "player-card" : undefined} onClick={onTeamClick ? () => onTeamClick(t.code) : undefined} style={{ display:"flex", alignItems:"center", gap:8, padding:"9px 0", borderBottom:`1px solid ${C.border}`, cursor: onTeamClick ? "pointer" : "default" }}>
+                        <div style={{ width:22, height:22, borderRadius:4, flexShrink:0, background:C.negBg, border:`1px solid ${C.red}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:900, color:C.red }}>E</div>
+                        <Flag code={t.code} size={18} />
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontSize:12, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}</div>
+                          <div style={{ fontSize:10, color:C.muted }}>{stageLabel} · {dateStr}</div>
+                        </div>
                       </div>
                     );
                   }
@@ -1422,6 +1461,28 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
                 events.push({ type: "qual", sortTime: lastGrpTime + 500, dateStr, pts: stageBonus > 0 ? stageBonus : null });
               }
             }
+            // Add E milestone for teams eliminated in knockouts (separate from group Q)
+            if (eliminated && stage && stage !== "GROUP_ELIM") {
+              const koLoss = teamMatches.find(m => {
+                if ((m.stage||"").toUpperCase().includes("GROUP")) return false;
+                const isHome = m.homeTeam?.tla?.toUpperCase() === tla;
+                const hs = m.score?.fullTime?.home ?? 0;
+                const as_ = m.score?.fullTime?.away ?? 0;
+                const myGoals = isHome ? hs : as_;
+                const oppGoals = isHome ? as_ : hs;
+                if (myGoals < oppGoals) return true;
+                const pen = m.score?.penalties;
+                if (myGoals === oppGoals && pen) {
+                  const myPen = isHome ? pen.home : pen.away;
+                  const oppPen = isHome ? pen.away : pen.home;
+                  return myPen < oppPen;
+                }
+                return false;
+              });
+              if (koLoss) {
+                events.push({ type: "koElim", sortTime: new Date(koLoss.utcDate).getTime() + 500, dateStr: fmt(koLoss.utcDate), stageLabel: (koLoss.stage||"").replace(/_/g," ") });
+              }
+            }
 
             events.sort((a, b) => b.sortTime - a.sortTime);
 
@@ -1460,6 +1521,16 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
                           <div style={{ fontSize: 12, fontWeight: 800, color: C.text }}>{ev.pts} pts</div>
                         </div>
                       )}
+                    </div>
+                  );
+                  if (ev.type === "koElim") return (
+                    <div key="koelim" style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 0", borderBottom: `1px solid ${C.border}` }}>
+                      <div style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0, background: C.negBg, border: `1px solid ${C.red}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 900, color: C.red }}>E</div>
+                      <Flag code={tla} size={18} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Eliminated</div>
+                        <div style={{ fontSize: 10, color: C.muted }}>{ev.stageLabel} · {ev.dateStr}</div>
+                      </div>
                     </div>
                   );
                   return null;
