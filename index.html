@@ -526,6 +526,16 @@ function FlagRow({ teams, baseHeight = 18 }) {
   );
 }
 
+// Maps raw API match stage strings to STAGE_PILL_CFG keys.
+const MATCH_STAGE_TO_PILL = {
+  GROUP_STAGE:    "GROUP",
+  LAST_32:        "LAST_32",
+  LAST_16:        "LAST_16",
+  QUARTER_FINALS: "QUARTER_FINALS",
+  SEMI_FINALS:    "SEMI_FINALS",
+  FINAL:          "FINALIST",
+};
+
 // Stage pill — coloured badge communicating which round a team has reached.
 // Colors progress from cool/muted (early stages) to vivid/warm (deep runs).
 const STAGE_PILL_CFG = {
@@ -1372,7 +1382,10 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
                   <Flag code={oppCode} size={18} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{oppName}</div>
-                    <div style={{ fontSize: 10, color: C.muted }}>{fmt(m.utcDate)} · {(m.stage || "").replace(/_/g, " ")}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 2 }}>
+                      <span style={{ fontSize: 10, color: C.muted, flexShrink: 0 }}>{fmt(m.utcDate)}</span>
+                      {m.stage && <StagePill stage={MATCH_STAGE_TO_PILL[m.stage] || m.stage} small />}
+                    </div>
                   </div>
                   <div style={{ textAlign: "right", flexShrink: 0 }}>
                     {earnedPts != null && <div style={{ fontSize: 12, fontWeight: 800, color: C.text }}>{earnedPts > 0 ? `+${earnedPts}` : earnedPts} pts</div>}
@@ -1459,7 +1472,10 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
                   <Flag code={oppCode} size={18} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{oppName}</div>
-                    <div style={{ fontSize: 10, color: C.muted }}>{fmt(m.utcDate)} · {(m.stage || "").replace(/_/g, " ")}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 2 }}>
+                      <span style={{ fontSize: 10, color: C.muted, flexShrink: 0 }}>{fmt(m.utcDate)}</span>
+                      {m.stage && <StagePill stage={MATCH_STAGE_TO_PILL[m.stage] || m.stage} small />}
+                    </div>
                   </div>
                 </div>
               );
