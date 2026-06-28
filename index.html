@@ -2540,7 +2540,140 @@ function resultBanner(m) {
   return null;
 }
 
-function HomeMatchRow({ m, ranked, pts, onTeamClick, isLast, banners = false }) {
+function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onClose }) {
+  const h = m.homeTeam?.tla?.toUpperCase();
+  const a = m.awayTeam?.tla?.toUpperCase();
+  const fin = m.status === "FINISHED";
+  const live = m.status === "IN_PLAY" || m.status === "PAUSED";
+  const hs = m.score?.fullTime?.home ?? null;
+  const as_ = m.score?.fullTime?.away ?? null;
+  const pts = matchPtsById[m.id];
+  const banner = resultBanner(m);
+
+  const hOwner = ownerOf(h, ranked);
+  const aOwner = ownerOf(a, ranked);
+  const allTeams = ranked.flatMap(p => p.teams || []);
+  const hEntry = allTeams.find(t => t.code === h);
+  const aEntry = allTeams.find(t => t.code === a);
+
+  const stageStr = (entry) => {
+    if (!entry) return "—";
+    if (entry.won) return "Winner 🏆";
+    if (entry.eliminated) return "Eliminated";
+    if (entry.stage) return STAGE_LABEL[entry.stage] || entry.stage.replace(/_/g, " ");
+    return "Group Stage";
+  };
+
+  const StatRow = ({ label, hVal, aVal, hColor, aColor }) => (
+    <div style={{ display: "flex", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${C.border}` }}>
+      <div style={{ flex: 1, textAlign: "right", fontSize: 13, fontWeight: 700, color: hColor || C.text }}>{hVal}</div>
+      <div style={{ width: 96, textAlign: "center", fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em" }}>{label}</div>
+      <div style={{ flex: 1, textAlign: "left", fontSize: 13, fontWeight: 700, color: aColor || C.text }}>{aVal}</div>
+    </div>
+  );
+
+  return (
+    <>
+      <div className="sheet-handle"><span></span></div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "14px 16px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+        <div>
+          <div style={{ fontSize: 18, fontWeight: 900, color: C.text }}>Head to Head</div>
+          <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{(m.stage || "").replace(/_/g, " ")} · {fmt(m.utcDate)}</div>
+        </div>
+        <button onClick={onClose} aria-label="Close" style={{ background: "transparent", border: "none", color: C.muted, fontSize: 22, cursor: "pointer", lineHeight: 1 }}>✕</button>
+      </div>
+
+      <div ref={bodyRef} style={{ flex: 1, overflowY: "auto", padding: "16px 14px 28px" }}>
+        {banner && (
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 6, marginBottom: 12 }}>
+            <span style={{ fontSize: 16 }}>{banner.icon}</span>
+            <span style={{ fontSize: 11, fontWeight: 900, color: C.gold, letterSpacing: "0.08em" }}>{banner.label}</span>
+          </div>
+        )}
+
+        {/* Match block: home · score · away */}
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "16px 12px", marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, textAlign: "center", minWidth: 0 }}>
+              <Flag code={h} size={32} />
+              <div style={{ fontSize: 13, fontWeight: 800, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>{m.homeTeam?.name || h}</div>
+              {hOwner && <div style={{ fontSize: 11, fontWeight: 600, color: C.accent }}>{hOwner}</div>}
+              <div style={{ fontSize: 10, color: hEntry?.eliminated ? C.red : hEntry?.won ? C.gold : C.muted }}>{stageStr(hEntry)}</div>
+              {pts?.home != null && <div style={{ fontSize: 12, fontWeight: 800, color: pts.home > 0 ? C.accent : pts.home < 0 ? C.red : C.muted }}>{pts.home > 0 ? `+${pts.home}` : pts.home} pts</div>}
+            </div>
+
+            <div style={{ flexShrink: 0, textAlign: "center", minWidth: 52 }}>
+              {(fin || live) ? (
+                <div style={{ fontSize: 28, fontWeight: 900, color: live ? C.red : C.text, letterSpacing: 2, lineHeight: 1 }}>{hs}–{as_}</div>
+              ) : (
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.muted }}>vs</div>
+              )}
+              {live && <div style={{ fontSize: 9, fontWeight: 800, color: C.red, marginTop: 3, letterSpacing: "0.08em" }}>LIVE</div>}
+            </div>
+
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, textAlign: "center", minWidth: 0 }}>
+              <Flag code={a} size={32} />
+              <div style={{ fontSize: 13, fontWeight: 800, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>{m.awayTeam?.name || a}</div>
+              {aOwner && <div style={{ fontSize: 11, fontWeight: 600, color: C.accent }}>{aOwner}</div>}
+              <div style={{ fontSize: 10, color: aEntry?.eliminated ? C.red : aEntry?.won ? C.gold : C.muted }}>{stageStr(aEntry)}</div>
+              {pts?.away != null && <div style={{ fontSize: 12, fontWeight: 800, color: pts.away > 0 ? C.accent : pts.away < 0 ? C.red : C.muted }}>{pts.away > 0 ? `+${pts.away}` : pts.away} pts</div>}
+            </div>
+          </div>
+        </div>
+
+        {/* Comparative sweepstake stats */}
+        {(hEntry || aEntry) && (
+          <>
+            <div style={{ fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Sweepstake Stats</div>
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "0 12px", marginBottom: 18 }}>
+              <StatRow
+                label="Total Pts"
+                hVal={hEntry ? `${hEntry.pts > 0 ? "+" : ""}${hEntry.pts}` : "—"}
+                aVal={aEntry ? `${aEntry.pts > 0 ? "+" : ""}${aEntry.pts}` : "—"}
+                hColor={hEntry ? (hEntry.pts < 0 ? C.red : C.text) : C.muted}
+                aColor={aEntry ? (aEntry.pts < 0 ? C.red : C.text) : C.muted}
+              />
+              <StatRow
+                label="Record"
+                hVal={hEntry ? `${hEntry.w}W ${hEntry.d}D ${hEntry.l}L` : "—"}
+                aVal={aEntry ? `${aEntry.w}W ${aEntry.d}D ${aEntry.l}L` : "—"}
+              />
+              {pts && (
+                <StatRow
+                  label="This Match"
+                  hVal={pts.home != null ? `${pts.home > 0 ? "+" : ""}${pts.home} pts` : "—"}
+                  aVal={pts.away != null ? `${pts.away > 0 ? "+" : ""}${pts.away} pts` : "—"}
+                  hColor={pts.home > 0 ? C.accent : pts.home < 0 ? C.red : C.muted}
+                  aColor={pts.away > 0 ? C.accent : pts.away < 0 ? C.red : C.muted}
+                />
+              )}
+            </div>
+          </>
+        )}
+
+        {/* Navigate to individual team cards */}
+        <div style={{ display: "flex", gap: 10 }}>
+          {h && onTeamClick && (
+            <button onClick={() => onTeamClick(h)} style={{ flex: 1, padding: "11px 8px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, color: C.accent, fontWeight: 700, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+              <Flag code={h} size={14} />
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.homeTeam?.name || h}</span>
+              <span style={{ fontSize: 14, lineHeight: 1, flexShrink: 0 }}>›</span>
+            </button>
+          )}
+          {a && onTeamClick && (
+            <button onClick={() => onTeamClick(a)} style={{ flex: 1, padding: "11px 8px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, color: C.accent, fontWeight: 700, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+              <Flag code={a} size={14} />
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.awayTeam?.name || a}</span>
+              <span style={{ fontSize: 14, lineHeight: 1, flexShrink: 0 }}>›</span>
+            </button>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function HomeMatchRow({ m, ranked, pts, onTeamClick, onMatchClick, isLast, banners = false }) {
   const h = m.homeTeam?.tla?.toUpperCase();
   const a = m.awayTeam?.tla?.toUpperCase();
   const fin = m.status === "FINISHED";
@@ -2550,8 +2683,12 @@ function HomeMatchRow({ m, ranked, pts, onTeamClick, isLast, banners = false }) 
   const hs = m.score?.fullTime?.home ?? 0;
   const as_ = m.score?.fullTime?.away ?? 0;
   const banner = banners ? resultBanner(m) : null;
+  const rowClickable = !!onMatchClick;
   return (
-    <div style={{ padding: "10px 14px", borderBottom: isLast ? "none" : `1px solid ${C.border}`, boxShadow: banner ? `inset 3px 0 0 ${C.gold}` : "none" }}>
+    <div
+      className={rowClickable ? "player-card" : undefined}
+      onClick={rowClickable ? () => onMatchClick(m.id) : undefined}
+      style={{ padding: "10px 14px", borderBottom: isLast ? "none" : `1px solid ${C.border}`, boxShadow: banner ? `inset 3px 0 0 ${C.gold}` : "none", cursor: rowClickable ? "pointer" : "default" }}>
       {banners && (
         <div style={{ display: "flex", alignItems: "center", marginBottom: 7 }}>
           <span style={{ fontSize: 9, color: live ? C.red : C.dim, fontWeight: 700, letterSpacing: "0.08em", flex: 1, textTransform: "uppercase", animation: live ? "pulse-red 1.5s infinite" : "none" }}>{live ? "⚡ LIVE" : (m.stage || "").replace(/_/g, " ")}</span>
@@ -2566,9 +2703,9 @@ function HomeMatchRow({ m, ranked, pts, onTeamClick, isLast, banners = false }) 
       )}
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <div
-          className={onTeamClick && h ? "player-card" : undefined}
-          onClick={onTeamClick && h ? () => onTeamClick(h) : undefined}
-          style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, cursor: onTeamClick && h ? "pointer" : "default", minWidth: 0 }}>
+          className={!rowClickable && onTeamClick && h ? "player-card" : undefined}
+          onClick={!rowClickable && onTeamClick && h ? () => onTeamClick(h) : undefined}
+          style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, cursor: !rowClickable && onTeamClick && h ? "pointer" : "default", minWidth: 0 }}>
           <Flag code={h} size={20} />
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{hOwner || m.homeTeam?.name || "TBD"}</div>
@@ -2585,9 +2722,9 @@ function HomeMatchRow({ m, ranked, pts, onTeamClick, isLast, banners = false }) 
               </div>}
         </div>
         <div
-          className={onTeamClick && a ? "player-card" : undefined}
-          onClick={onTeamClick && a ? () => onTeamClick(a) : undefined}
-          style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-end", cursor: onTeamClick && a ? "pointer" : "default", minWidth: 0 }}>
+          className={!rowClickable && onTeamClick && a ? "player-card" : undefined}
+          onClick={!rowClickable && onTeamClick && a ? () => onTeamClick(a) : undefined}
+          style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-end", cursor: !rowClickable && onTeamClick && a ? "pointer" : "default", minWidth: 0 }}>
           <div style={{ textAlign: "right", minWidth: 0 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{aOwner || m.awayTeam?.name || "TBD"}</div>
             {aOwner && <div style={{ fontSize: 10, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.awayTeam?.name}</div>}
@@ -2752,7 +2889,7 @@ function MatchFocusCard({ matches, ranked, matchPtsById = {} }) {
 // next, mirroring the daily email's sections so the two feel like the same
 // product. Pure read-only summary view; "Open the full table" hands off to
 // the League tab for anything that needs deeper interaction.
-function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, matchPtsById, upcoming, setTab, openPlayerModal, openTeamModal }) {
+function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, matchPtsById, upcoming, setTab, openPlayerModal, openTeamModal, openMatchModal }) {
   const openPlayer = (name, scrollToBottom = false) => openPlayerModal(name, scrollToBottom);
   // Badges assigned in the last 24h (not "since you last looked" — same
   // rolling window as everything else on this tab). Single-holder badges
@@ -2861,7 +2998,7 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
       <Section icon="🌐" title="Recent Results" onOpen={() => { window.scrollTo(0, 0); setTab("scores"); }} linkLabel="View all scores"
         empty={recentResults.length === 0 ? "No matches in the last 24h" : null}>
         {recentResults.map((m, i) => (
-          <HomeMatchRow key={m.id} m={m} ranked={ranked} pts={matchPtsById[m.id]} onTeamClick={openTeamModal} isLast={i === recentResults.length - 1} banners />
+          <HomeMatchRow key={m.id} m={m} ranked={ranked} pts={matchPtsById[m.id]} onMatchClick={openMatchModal} isLast={i === recentResults.length - 1} banners />
         ))}
       </Section>
 
@@ -2906,7 +3043,7 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
       <Section icon="📅" title="Up Next" onOpen={() => { window.scrollTo(0, 0); setTab("scores"); }} linkLabel="View all scores"
         empty={upNext.length === 0 ? "No upcoming fixtures" : null}>
         {upNext.map((m, i) => (
-          <HomeMatchRow key={m.id} m={m} ranked={ranked} onTeamClick={openTeamModal} isLast={i === upNext.length - 1} />
+          <HomeMatchRow key={m.id} m={m} ranked={ranked} onMatchClick={openMatchModal} isLast={i === upNext.length - 1} />
         ))}
       </Section>
     </div>
@@ -4537,6 +4674,7 @@ function App({ onSwitchGroup, groupKey }) {
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [scrollPlayerToBadges, setScrollPlayerToBadges] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState(null);
+  const [selectedMatch, setSelectedMatch] = useState(null);
 
   // Wire app navigation into the browser History API so that the OS back
   // gesture (swipe-left on iOS/Android) navigates within the app rather
@@ -4553,6 +4691,7 @@ function App({ onSwitchGroup, groupKey }) {
       setSelectedPlayer(s.appPlayer || null);
       setScrollPlayerToBadges(false);
       setSelectedTeam(s.appTeam || null);
+      setSelectedMatch(s.appMatch || null);
     };
     window.addEventListener("popstate", handler);
     return () => window.removeEventListener("popstate", handler);
@@ -4568,6 +4707,17 @@ function App({ onSwitchGroup, groupKey }) {
   };
   const openTeamModal = (tla) => {
     window.history.pushState({ appTab: tabRef.current, appModal: "team", appTeam: tla }, "");
+    setSelectedTeam(tla);
+  };
+  const openMatchModal = (matchId) => {
+    window.history.pushState({ appTab: tabRef.current, appModal: "match", appMatch: matchId }, "");
+    setSelectedMatch(matchId);
+  };
+  // Navigate from H2H card to a team card — replaces the match history entry.
+  const switchToTeamFromH2H = (tla) => {
+    window.history.replaceState({ appTab: tabRef.current, appModal: "team", appTeam: tla }, "");
+    setSelectedMatch(null);
+    setSelectedPlayer(null);
     setSelectedTeam(tla);
   };
   // Switching from the player card to a team card: REPLACE the player history
@@ -4589,8 +4739,8 @@ function App({ onSwitchGroup, groupKey }) {
   const closeCard = () => {
     setSnapFull(false);
     const m = window.history.state?.appModal;
-    if (m === "player" || m === "team") window.history.back();
-    else { setSelectedPlayer(null); setSelectedTeam(null); }
+    if (m === "player" || m === "team" || m === "match") window.history.back();
+    else { setSelectedPlayer(null); setSelectedTeam(null); setSelectedMatch(null); }
   };
   const [refreshing,  setRefreshing]  = useState(false);
   const [devMode,     setDevMode]     = useState(DEV_MODE_DEFAULT);
@@ -5196,7 +5346,7 @@ function App({ onSwitchGroup, groupKey }) {
         {/* ── TODAY (email-digest-style homepage) ── */}
         {tab === "home" && !loading && (
           <HomeTab matches={matches} ranked={ranked} badges={badges} rank24hChange={rank24hChange}
-            rank24hPtsChange={rank24hPtsChange} matchPtsById={matchPtsById} upcoming={upcoming} setTab={setTab} openPlayerModal={openPlayerModal} openTeamModal={openTeamModal} />
+            rank24hPtsChange={rank24hPtsChange} matchPtsById={matchPtsById} upcoming={upcoming} setTab={setTab} openPlayerModal={openPlayerModal} openTeamModal={openTeamModal} openMatchModal={openMatchModal} />
         )}
 
         {/* ── LEAGUE TABLE ── */}
@@ -5286,14 +5436,19 @@ function App({ onSwitchGroup, groupKey }) {
           <NotificationsDrawer matches={matches} ranked={ranked} matchPtsById={matchPtsById} groupKey={groupKey} onClose={() => setShowNotifications(false)} onSeenUpdate={setNotifSeenTs} />
         )}
 
-        {(selectedPlayer || selectedTeam) && (
-          <SnapSheet onClose={closeCard} scrollBodyToBottom={!selectedTeam && scrollPlayerToBadges} initialSnap={snapFull ? "full" : "half"}>
+        {(selectedPlayer || selectedTeam || selectedMatch) && (
+          <SnapSheet onClose={closeCard} scrollBodyToBottom={!selectedTeam && !selectedMatch && scrollPlayerToBadges} initialSnap={snapFull ? "full" : "half"}>
             {(bodyRef) => {
               // Team takes precedence: switching player -> team sets selectedTeam
               // and clears selectedPlayer, swapping the content of this same sheet
               // (so the height/snap state is preserved across the switch).
               if (selectedTeam) {
                 return <TeamCardContent key={selectedTeam} bodyRef={bodyRef} tla={selectedTeam} matches={matches} ranked={ranked} matchPtsById={matchPtsById} onTeamClick={switchToTeam} onOwnerClick={switchToPlayer} onClose={closeCard} />;
+              }
+              if (selectedMatch) {
+                const matchObj = matches.find(m => String(m.id) === String(selectedMatch));
+                if (!matchObj) return null;
+                return <HeadToHeadCard key={selectedMatch} bodyRef={bodyRef} m={matchObj} ranked={ranked} matchPtsById={matchPtsById} onTeamClick={switchToTeamFromH2H} onClose={closeCard} />;
               }
               const idx = ranked.findIndex(x => x.name === selectedPlayer);
               const p = ranked[idx];
