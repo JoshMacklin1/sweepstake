@@ -3361,7 +3361,7 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
         })}
       </Section>
 
-      <Section icon="🏅" title="New Accolades"
+      <Section icon="🏅" title="New Accolades" onOpen={() => { window.history.pushState({ appTab: "table", appModal: null }, ""); window.scrollTo(0, 0); setTab("table"); }} linkLabel="View league"
         empty={newAccolades.length === 0 ? "No new accolades in the last 24h" : null}>
         {newAccolades.map((b, i) => (
           <div key={i} className="player-card" onClick={() => openPlayer(b.name)} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 14px", cursor: "pointer", borderBottom: i < newAccolades.length - 1 ? `1px solid ${C.border}` : "none" }}>
