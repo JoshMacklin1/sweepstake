@@ -1082,13 +1082,32 @@ function SnapSheet({ onClose, scrollBodyToBottom = false, initialSnap = "half", 
         setDragY(0);
       }
     };
+    // onBodyMove: added directly to the scroll body with passive:false so iOS
+    // doesn't commit the gesture as a native scroll before JS can intercept.
+    // Without this, touches starting inside overflow:auto children bypass the
+    // parent passive:false touchmove listener on iOS Safari.
+    const onBodyMove = (e) => {
+      if (!dragInfo.current.active) return;
+      const bodyEl = bodyRef.current;
+      if (!bodyEl) return;
+      const delta = e.touches[0].clientY - dragInfo.current.startY;
+      const atTop = bodyEl.scrollTop <= 0;
+      if (dragInfo.current.dragY !== 0 ||
+          (delta > 0 && atTop) ||
+          (delta < 0 && atTop && snapStateRef.current === "half")) {
+        e.preventDefault();
+      }
+    };
+    const bodyEl = bodyRef.current;
     el.addEventListener("touchstart", onStart, { passive: true });
     el.addEventListener("touchmove", onMove, { passive: false });
     el.addEventListener("touchend", onEnd, { passive: true });
+    if (bodyEl) bodyEl.addEventListener("touchmove", onBodyMove, { passive: false });
     return () => {
       el.removeEventListener("touchstart", onStart);
       el.removeEventListener("touchmove", onMove);
       el.removeEventListener("touchend", onEnd);
+      if (bodyEl) bodyEl.removeEventListener("touchmove", onBodyMove);
     };
     // [] deliberately — onClose is recreated every App render; capturing once
     // is correct since this sheet instance only ever closes itself.
