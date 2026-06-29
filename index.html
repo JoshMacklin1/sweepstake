@@ -687,6 +687,38 @@ function MatchCard({ m, ranked, upcoming = [], pts, onPlayerClick, onTeamClick, 
   const hRank = ranked.findIndex(p => p.name === hOwner);
   const aRank = ranked.findIndex(p => p.name === aOwner);
 
+  const [showStakes, setShowStakes] = React.useState(false);
+
+  // Points at stake for each possible result — only computed for upcoming matches
+  const stakesResult = (scheduled && h && a) ? (() => {
+    const isGroup = (m.stage || "").toUpperCase().includes("GROUP");
+    if (isGroup) {
+      return {
+        rows: [
+          { label: m.homeTeam?.name || h, hPts: groupGamePts(h, "W"), aPts: 0 },
+          { label: "Draw",                hPts: groupGamePts(h, "D"),  aPts: groupGamePts(a, "D"), reaperDraw: true },
+          { label: m.awayTeam?.name || a, hPts: 0, aPts: groupGamePts(a, "W") },
+        ],
+        note: null,
+      };
+    }
+    const stage = (m.stage || "").toUpperCase();
+    let thisStage = null, nextStage = null;
+    if (stage === "FINAL")                                         { thisStage = "FINALIST";       nextStage = "WINNER"; }
+    else if (stage.includes("SEMI"))                               { thisStage = "SEMI_FINALS";    nextStage = "FINALIST"; }
+    else if (stage.includes("QUARTER"))                            { thisStage = "QUARTER_FINALS"; nextStage = "SEMI_FINALS"; }
+    else if (stage.includes("LAST_16") || stage.includes("16"))   { thisStage = "LAST_16";        nextStage = "QUARTER_FINALS"; }
+    else if (stage.includes("LAST_32") || stage.includes("32"))   { thisStage = "LAST_32";        nextStage = "LAST_16"; }
+    if (!thisStage) return null;
+    return {
+      rows: [
+        { label: m.homeTeam?.name || h, hPts: ptsTotal(h, nextStage) - ptsTotal(h, thisStage), aPts: 0 },
+        { label: m.awayTeam?.name || a, hPts: 0, aPts: ptsTotal(a, nextStage) - ptsTotal(a, thisStage) },
+      ],
+      note: `win = advance to ${STAGE_LABEL[nextStage] || nextStage}`,
+    };
+  })() : null;
+
   // Rivalry clash — only flag the FIRST fixture between any two owners
   const firstClashBetween = (ownerA, ownerB) => {
     if (!ownerA || !ownerB || ownerA === ownerB) return null;
@@ -826,6 +858,44 @@ function MatchCard({ m, ranked, upcoming = [], pts, onPlayerClick, onTeamClick, 
             <Flag code={a} size={22} />
           </div>
         </div>
+        {stakesResult && (
+          <>
+            <div
+              onClick={e => { e.stopPropagation(); setShowStakes(s => !s); }}
+              style={{ marginTop:8, textAlign:"center", cursor:"pointer", padding:"2px 0" }}
+            >
+              <span style={{ fontSize:10, color:C.muted, fontWeight:700, letterSpacing:"0.06em" }}>
+                📊 STAKES {showStakes ? "▲" : "▾"}
+              </span>
+            </div>
+            {showStakes && (
+              <div style={{ marginTop:6, padding:"8px 4px 2px", borderTop:`1px solid ${C.border}` }}>
+                {stakesResult.rows.map((row, i) => {
+                  const sameOwner = hOwner && aOwner && hOwner === aOwner;
+                  return (
+                    <div key={i} style={{ display:"flex", alignItems:"center", gap:4, marginBottom: i < stakesResult.rows.length - 1 ? 5 : 0 }}>
+                      <span style={{ flex:1.4, color:C.dim, fontWeight:600, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", fontSize:10 }}>{row.label}</span>
+                      {sameOwner ? (
+                        <span style={{ flex:2, textAlign:"center", color:C.accent, fontWeight:700, fontSize:11 }}>{hOwner} +{row.hPts + row.aPts}</span>
+                      ) : (
+                        <>
+                          <span style={{ flex:1, textAlign:"center", fontWeight:700, fontSize:11, color: row.hPts > 0 ? C.accent : C.muted }}>
+                            {hOwner || h} {row.hPts > 0 ? `+${row.hPts}` : "0"}
+                          </span>
+                          <span style={{ flex:1, textAlign:"right", fontWeight:700, fontSize:11, color: row.aPts > 0 ? C.accent : C.muted }}>
+                            {aOwner || a} {row.aPts > 0 ? `+${row.aPts}` : "0"}
+                          </span>
+                        </>
+                      )}
+                      {row.reaperDraw && <span style={{ fontSize:9, color:C.dangerText, flexShrink:0 }}>💀+3 if 0-0</span>}
+                    </div>
+                  );
+                })}
+                {stakesResult.note && <div style={{ fontSize:9, color:C.muted, marginTop:5, textAlign:"center" }}>{stakesResult.note}</div>}
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
