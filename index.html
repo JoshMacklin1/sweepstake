@@ -5100,11 +5100,18 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
         if (team?.tla?.toUpperCase() === "COD") return { ...team, tla: "DRC" };
         return team;
       };
-      const normalizedMatches = (data.matches || []).map(m => ({
-        ...m,
-        homeTeam: normalizeTla(m.homeTeam),
-        awayTeam: normalizeTla(m.awayTeam),
-      }));
+      const normalizedMatches = (data.matches || []).map(m => {
+        let nm = { ...m, homeTeam: normalizeTla(m.homeTeam), awayTeam: normalizeTla(m.awayTeam) };
+        // football-data.org adds penalty-shootout goals to score.fullTime for
+        // matches decided on penalties (e.g. 1-1 aet + 4-5 pens → fullTime 5-6).
+        // Subtract them back so every downstream display shows the pre-penalty score.
+        const ft = m.score?.fullTime;
+        const pen = m.score?.penalties;
+        if (ft?.home != null && pen?.home != null) {
+          nm = { ...nm, score: { ...m.score, fullTime: { home: ft.home - pen.home, away: ft.away - pen.away } } };
+        }
+        return nm;
+      });
       // Merge with existing state rather than replacing outright. The
       // football-data.org API intermittently omits already-finished matches
       // from its response (e.g. Uruguay's group results disappearing and
