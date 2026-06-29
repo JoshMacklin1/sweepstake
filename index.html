@@ -1082,10 +1082,13 @@ function SnapSheet({ onClose, scrollBodyToBottom = false, initialSnap = "half", 
         setDragY(0);
       }
     };
-    // onBodyMove: added directly to the scroll body with passive:false so iOS
-    // doesn't commit the gesture as a native scroll before JS can intercept.
-    // Without this, touches starting inside overflow:auto children bypass the
-    // parent passive:false touchmove listener on iOS Safari.
+    // Body touch listeners: both touchstart AND touchmove must be passive:false
+    // on the scroll body itself. Browsers commit a gesture as native scroll at
+    // touchstart time — if every touchstart listener in the path is passive:true,
+    // the browser locks in scroll and ignores later preventDefault() calls, even
+    // in a non-passive touchmove. The empty noop passive:false touchstart opts
+    // the body out of that fast-path so touchmove can still cancel scroll.
+    const noop = () => {};
     const onBodyMove = (e) => {
       if (!dragInfo.current.active) return;
       const bodyEl = bodyRef.current;
@@ -1102,12 +1105,18 @@ function SnapSheet({ onClose, scrollBodyToBottom = false, initialSnap = "half", 
     el.addEventListener("touchstart", onStart, { passive: true });
     el.addEventListener("touchmove", onMove, { passive: false });
     el.addEventListener("touchend", onEnd, { passive: true });
-    if (bodyEl) bodyEl.addEventListener("touchmove", onBodyMove, { passive: false });
+    if (bodyEl) {
+      bodyEl.addEventListener("touchstart", noop,       { passive: false });
+      bodyEl.addEventListener("touchmove",  onBodyMove, { passive: false });
+    }
     return () => {
       el.removeEventListener("touchstart", onStart);
       el.removeEventListener("touchmove", onMove);
       el.removeEventListener("touchend", onEnd);
-      if (bodyEl) bodyEl.removeEventListener("touchmove", onBodyMove);
+      if (bodyEl) {
+        bodyEl.removeEventListener("touchstart", noop);
+        bodyEl.removeEventListener("touchmove",  onBodyMove);
+      }
     };
     // [] deliberately — onClose is recreated every App render; capturing once
     // is correct since this sheet instance only ever closes itself.
