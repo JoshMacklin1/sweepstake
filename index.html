@@ -3577,7 +3577,7 @@ function KnockoutBracket({ matches, onTeamClick, matchPtsById = {}, bracketRef: 
     const nextIdx = Math.min(currentIdx + 1, allRounds.length - 1);
     const displayIndices = currentIdx === nextIdx ? [currentIdx] : [currentIdx, nextIdx];
     return (
-      <div style={{ padding:"12px 12px 0" }}>
+      <div style={{ padding:"12px 12px 12px" }}>
         <div style={{ display:"flex", gap:12 }}>
           {displayIndices.map(globalIdx => {
             const round = allRounds[globalIdx];
