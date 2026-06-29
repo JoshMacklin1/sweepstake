@@ -1570,7 +1570,7 @@ function deriveHistory(matches) {
   const knockoutTeams = new Set();
   const bucketLabels = ["Start"];
 
-  matches.filter(m => !(m.stage||"").toUpperCase().includes("GROUP") && isSettled(m.status)).forEach(m => {
+  matches.filter(m => !(m.stage||"").toUpperCase().includes("GROUP")).forEach(m => {
     if (m.homeTeam?.tla) knockoutTeams.add(m.homeTeam.tla.toUpperCase());
     if (m.awayTeam?.tla) knockoutTeams.add(m.awayTeam.tla.toUpperCase());
   });
@@ -1721,7 +1721,10 @@ function deriveSparklineHistory(matches) {
   const grpPts = {}, grpGF = {}, grpGA = {};
   const knockoutTeams = new Set();
 
-  matches.filter(m => !(m.stage||"").toUpperCase().includes("GROUP") && isSettled(m.status)).forEach(m => {
+  // Include ALL non-group matches (scheduled and finished) so teams in published-
+  // but-unplayed knockout fixtures aren't falsely eliminated as GROUP_ELIM during
+  // the replay — mirrors the same logic deriveStages uses to build knockoutTeams.
+  matches.filter(m => !(m.stage||"").toUpperCase().includes("GROUP")).forEach(m => {
     if (m.homeTeam?.tla) knockoutTeams.add(m.homeTeam.tla.toUpperCase());
     if (m.awayTeam?.tla) knockoutTeams.add(m.awayTeam.tla.toUpperCase());
   });
@@ -1904,6 +1907,28 @@ function deriveSparklineHistory(matches) {
     if (elimThirdChanged.size > 0) PLAYERS.forEach(p => history[p.name].push(running[p.name]));
   }
 
+  // Reconciliation pass: catch any GROUP_ELIM teams the replay missed (e.g.
+  // non-qualifying 3rd-placers when not all groups are done yet). deriveStages
+  // is the same authoritative source scorePlayers uses for `total`, so this
+  // makes the final bar-race frame match the league.
+  const { stageReached: authStages } = deriveStages(matches);
+  const reconChanged = new Set();
+  Object.entries(authStages).forEach(([code, stage]) => {
+    if (stage !== "GROUP_ELIM") return;
+    if (eliminated[code]) return; // already handled during replay
+    eliminated[code] = "GROUP_ELIM";
+    const newPts = ptsTotal(code, "GROUP_ELIM");
+    (teamPlayer[code] || []).forEach(pl => {
+      const key = pl + ":" + code;
+      running[pl] += (newPts - (teamPts[key] || 0));
+      teamPts[key] = newPts;
+      reconChanged.add(pl);
+    });
+    const bounty = reaperBountyForCode(code);
+    if (bounty > 0 && reaperName) { running[reaperName] += bounty; reconChanged.add(reaperName); }
+  });
+  if (reconChanged.size > 0) PLAYERS.forEach(p => history[p.name].push(running[p.name]));
+
   // Append live match contribution as the final sparkline point
   const liveMatches = matches.filter(m => m.status === "IN_PLAY" || m.status === "PAUSED");
   if (liveMatches.length > 0) {
@@ -2025,7 +2050,7 @@ function deriveRaceEliminations(matches) {
   }));
   const owned = (code) => (teamPlayer[code] || []).length > 0;
   const knockoutTeams = new Set();
-  matches.filter(m => !(m.stage||"").toUpperCase().includes("GROUP") && isSettled(m.status)).forEach(m => {
+  matches.filter(m => !(m.stage||"").toUpperCase().includes("GROUP")).forEach(m => {
     if (m.homeTeam?.tla) knockoutTeams.add(m.homeTeam.tla.toUpperCase());
     if (m.awayTeam?.tla) knockoutTeams.add(m.awayTeam.tla.toUpperCase());
   });
@@ -2120,7 +2145,7 @@ function deriveRaceStages(matches) {
   }));
   const owned = (code) => (teamPlayer[code] || []).length > 0;
   const knockoutTeams = new Set();
-  matches.filter(m => !(m.stage||"").toUpperCase().includes("GROUP") && isSettled(m.status)).forEach(m => {
+  matches.filter(m => !(m.stage||"").toUpperCase().includes("GROUP")).forEach(m => {
     if (m.homeTeam?.tla) knockoutTeams.add(m.homeTeam.tla.toUpperCase());
     if (m.awayTeam?.tla) knockoutTeams.add(m.awayTeam.tla.toUpperCase());
   });

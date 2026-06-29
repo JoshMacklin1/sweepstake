@@ -1852,7 +1852,11 @@ function BarRaceModal({ history, allRanked, bucketLabels = [], elimByFrame = [],
     standings.forEach(s => { prevRanks.current[s.name] = s.rank; });
   }, [standings]);
 
+  const minValue = Math.min(...standings.map(s => s.value), 0);
   const maxValue = Math.max(...standings.map(s => s.value), 1);
+  // Offset so negative values still render a visible bar (shifted so min = 0).
+  const barOffset = minValue < 0 ? -minValue : 0;
+  const barRange = maxValue + barOffset || 1;
 
   // Work out tournament stage label for current frame
   const frameLabel = frame === 0 ? "Start" : `Game ${frame} of ${maxLen - 1}`;
@@ -1904,7 +1908,7 @@ function BarRaceModal({ history, allRanked, bucketLabels = [], elimByFrame = [],
             const s = standings.find(x => x.name === p.name);
             if (!s) return null;
             const topPct = (s.rank / n) * 100;
-            const barW = maxValue > 0 ? (s.value / maxValue) * 100 : 0;
+            const barW = ((s.value + barOffset) / barRange) * 100;
             return (
               <div key={s.name} style={{
                 position:"absolute",
@@ -1962,16 +1966,16 @@ function BarRaceModal({ history, allRanked, bucketLabels = [], elimByFrame = [],
                       animation: "barGlow 1.8s ease-in-out infinite",
                     } : {}),
                   }}/>
-                  {s.value > 0 && (
+                  {s.value !== 0 && (
                     <div style={{
                       position:"absolute", left:0, top:0, bottom:0, right:0,
                       display:"flex", alignItems:"center",
                       justifyContent: barW > 70 ? "flex-end" : "flex-start",
-                      paddingLeft: barW > 70 ? 0 : `calc(${barW}% + 6px)`,
+                      paddingLeft: barW > 70 ? 0 : `calc(${Math.max(barW, 0)}% + 6px)`,
                       paddingRight: barW > 70 ? 8 : 0,
                       pointerEvents:"none",
                     }}>
-                      <span style={{ fontSize:11, fontWeight:700, color:C.text, whiteSpace:"nowrap" }}>
+                      <span style={{ fontSize:11, fontWeight:700, color: s.value < 0 ? C.red : C.text, whiteSpace:"nowrap" }}>
                         {s.value}pts
                       </span>
                     </div>
