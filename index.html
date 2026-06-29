@@ -3278,11 +3278,6 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
     .sort((a, b) => new Date(b.utcDate) - new Date(a.utcDate));
 
   const real = ranked.filter(p => !p.grimReaper);
-  const risers = real.filter(p => (rank24hChange.get(p.name) || 0) > 0)
-    .sort((a, b) => rank24hChange.get(b.name) - rank24hChange.get(a.name)).slice(0, 5);
-  const fallers = real.filter(p => (rank24hChange.get(p.name) || 0) < 0)
-    .sort((a, b) => rank24hChange.get(a.name) - rank24hChange.get(b.name)).slice(0, 5);
-
   const topThree = real.slice(0, 3);
 
   const upNext = [...upcoming]
@@ -3395,28 +3390,6 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
         ))}
       </Section>
 
-      <Section icon="📊" title="Risers & Fallers" onOpen={() => { window.history.pushState({ appTab: "race", appModal: null }, ""); window.scrollTo(0, 0); setTab("race"); }} linkLabel="Watch the race"
-        empty={risers.length === 0 && fallers.length === 0 ? "No position changes in the last 24h" : null}>
-        {risers.length > 0 && <div style={{ fontSize: 10, fontWeight: 700, color: C.accent, letterSpacing: "0.06em", padding: "10px 14px 4px" }}>RISERS</div>}
-        {risers.map((p, i) => (
-          <div key={p.name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "6px 14px", borderBottom: (i < risers.length - 1 || fallers.length > 0) ? `1px solid ${C.border}` : "none" }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: C.text, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
-            <span style={{ fontSize: 12, fontWeight: 700, color: C.accent, flexShrink: 0, whiteSpace: "nowrap" }}>
-              ▲ {rank24hChange.get(p.name)} place{rank24hChange.get(p.name) === 1 ? "" : "s"}
-              {rank24hPtsChange.get(p.name) > 0 ? ` (+${rank24hPtsChange.get(p.name)}pts)` : ""}
-            </span>
-          </div>
-        ))}
-        {fallers.length > 0 && <div style={{ fontSize: 10, fontWeight: 700, color: C.red, letterSpacing: "0.06em", padding: "10px 14px 4px" }}>FALLERS</div>}
-        {fallers.map((p, i) => (
-          <div key={p.name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "6px 14px", borderBottom: i < fallers.length - 1 ? `1px solid ${C.border}` : "none" }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: C.text, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
-            <span style={{ fontSize: 12, fontWeight: 700, color: C.red, flexShrink: 0, whiteSpace: "nowrap" }}>
-              ▼ {Math.abs(rank24hChange.get(p.name))} place{Math.abs(rank24hChange.get(p.name)) === 1 ? "" : "s"}
-            </span>
-          </div>
-        ))}
-      </Section>
     </div>
   );
 }
