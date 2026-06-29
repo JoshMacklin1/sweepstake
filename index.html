@@ -1717,6 +1717,7 @@ function HScrollButtons({ targetRef, step = 200 }) {
 
 function BumpChart({ history, allRanked, bucketLabels = [], raceHistory }) {
   const [selected, setSelected] = React.useState(null);
+  const [atLeft, setAtLeft] = React.useState(false);
   const scrollRef = React.useRef(null);
   const maxLen = Math.max(...history.map(p => p.hist.length));
 
@@ -1725,6 +1726,11 @@ function BumpChart({ history, allRanked, bucketLabels = [], raceHistory }) {
     const el = scrollRef.current;
     if (el) requestAnimationFrame(() => { el.scrollLeft = el.scrollWidth; });
   }, [maxLen]);
+
+  const handleBumpScroll = React.useCallback(() => {
+    const el = scrollRef.current;
+    if (el) setAtLeft(el.scrollLeft <= 1);
+  }, []);
 
   if (maxLen < 2) {
     return (
@@ -1793,7 +1799,7 @@ function BumpChart({ history, allRanked, bucketLabels = [], raceHistory }) {
     <div style={{ padding:"8px 0 0" }}>
       <HScrollButtons targetRef={scrollRef} step={COL_W * 2} />
       <div style={{ position:"relative" }}>
-        <div ref={scrollRef} style={{ overflowX:"scroll", overflowY:"hidden", WebkitOverflowScrolling:"touch" }}>
+        <div ref={scrollRef} onScroll={handleBumpScroll} style={{ overflowX:"scroll", overflowY:"hidden", WebkitOverflowScrolling:"touch" }}>
           <div style={{ display:"inline-block" }}>
         <svg width={W} height={H} style={{ display:"block" }}>
           {/* Horizontal grid lines */}
@@ -1857,8 +1863,8 @@ function BumpChart({ history, allRanked, bucketLabels = [], raceHistory }) {
         </svg>
           </div>
         </div>
-        {/* Left fade — only when the chart is wide enough to scroll horizontally */}
-        {scrollable && (
+        {/* Left fade — only when scrollable and not already at the leftmost position */}
+        {scrollable && !atLeft && (
         <div style={{
           position:"absolute", top:0, left:0, bottom:0, width:48,
           background:`linear-gradient(to right, ${C.bg} 0%, transparent 100%)`,
