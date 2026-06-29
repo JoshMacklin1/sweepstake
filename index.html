@@ -3376,15 +3376,15 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
         ))}
       </Section>
 
+      <Section icon="🗓️" title="Knockout Bracket" onOpen={() => { window.history.pushState({ appTab: "table", appModal: null }, ""); window.scrollTo(0, 0); setTab("table"); setLeagueView("knockout"); }} linkLabel="View full bracket">
+        <KnockoutBracket matches={matches} matchPtsById={matchPtsById} onTeamClick={openTeamModal} homeMode />
+      </Section>
+
       <Section icon="🌐" title="Recent Results" onOpen={() => { window.history.pushState({ appTab: "scores", appModal: null }, ""); window.scrollTo(0, 0); setTab("scores"); }} linkLabel="View all scores"
         empty={recentResults.length === 0 ? "No matches in the last 24h" : null}>
         {recentResults.map((m, i) => (
           <HomeMatchRow key={m.id} m={m} ranked={ranked} pts={matchPtsById[m.id]} onMatchClick={openMatchModal} isLast={i === recentResults.length - 1} banners />
         ))}
-      </Section>
-
-      <Section icon="🗓️" title="Knockout Bracket" onOpen={() => { window.history.pushState({ appTab: "table", appModal: null }, ""); window.scrollTo(0, 0); setTab("table"); setLeagueView("knockout"); }} linkLabel="View full bracket">
-        <KnockoutBracket matches={matches} matchPtsById={matchPtsById} onTeamClick={openTeamModal} homeMode />
       </Section>
 
       <Section icon="📅" title="Up Next" onOpen={() => { window.history.pushState({ appTab: "scores", appModal: null }, ""); window.scrollTo(0, 0); setTab("scores"); }} linkLabel="View all scores"
