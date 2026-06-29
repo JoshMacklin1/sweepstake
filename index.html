@@ -3361,13 +3361,6 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
         })}
       </Section>
 
-      <Section icon="🌐" title="Recent Results" onOpen={() => { window.history.pushState({ appTab: "scores", appModal: null }, ""); window.scrollTo(0, 0); setTab("scores"); }} linkLabel="View all scores"
-        empty={recentResults.length === 0 ? "No matches in the last 24h" : null}>
-        {recentResults.map((m, i) => (
-          <HomeMatchRow key={m.id} m={m} ranked={ranked} pts={matchPtsById[m.id]} onMatchClick={openMatchModal} isLast={i === recentResults.length - 1} banners />
-        ))}
-      </Section>
-
       <Section icon="🏅" title="New Accolades"
         empty={newAccolades.length === 0 ? "No new accolades in the last 24h" : null}>
         {newAccolades.map((b, i) => (
@@ -3380,6 +3373,13 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
               <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{b.desc}</div>
             </div>
           </div>
+        ))}
+      </Section>
+
+      <Section icon="🌐" title="Recent Results" onOpen={() => { window.history.pushState({ appTab: "scores", appModal: null }, ""); window.scrollTo(0, 0); setTab("scores"); }} linkLabel="View all scores"
+        empty={recentResults.length === 0 ? "No matches in the last 24h" : null}>
+        {recentResults.map((m, i) => (
+          <HomeMatchRow key={m.id} m={m} ranked={ranked} pts={matchPtsById[m.id]} onMatchClick={openMatchModal} isLast={i === recentResults.length - 1} banners />
         ))}
       </Section>
 
