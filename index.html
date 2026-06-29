@@ -1993,18 +1993,16 @@ function BarRaceModal({ history, allRanked, bucketLabels = [], elimByFrame = [],
             </div>
           );
         })()}
-        {raceFinished && (
-          <div style={{ position:"absolute", inset:0, zIndex: n + 10, display:"flex", alignItems:"center", justifyContent:"center",
-                        background:"rgba(13,31,18,0.55)", pointerEvents:"none", animation:"modalIn 0.4s ease-out" }}>
-            <div style={{ textAlign:"center", padding:"24px 30px", borderRadius:16, background:C.card, border:`1px solid ${C.border}`,
-                          boxShadow:"0 12px 44px rgba(0,0,0,0.55)", maxWidth:"82%", animation:"goalPop 0.5s ease-out" }}>
-              <div style={{ fontSize:46, lineHeight:1, marginBottom:8 }}>🏆</div>
-              <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.14em", textTransform:"uppercase", color:C.muted, marginBottom:6 }}>
-                {tournamentDone ? "Sweepstake Champion" : "Leading the Race"}
-              </div>
-              <div style={{ fontSize:26, fontWeight:900, color:playerColor(champ.name), lineHeight:1.1, marginBottom:4 }}>{champ.name}</div>
-              <div style={{ fontSize:14, fontWeight:700, color:C.text }}>{champ.total}pts</div>
-              <div style={{ fontSize:18, marginTop:12 }}>🎉🥳🎉</div>
+        {raceFinished && tournamentDone && (
+          <div style={{ position:"absolute", top:10, left:"50%", transform:"translateX(-50%)", zIndex: n + 10,
+                        pointerEvents:"none", animation:"goalPop 0.5s ease-out" }}>
+            <div style={{ textAlign:"center", padding:"10px 20px", borderRadius:12, background:C.card, border:`1px solid ${C.border}`,
+                          boxShadow:"0 6px 24px rgba(0,0,0,0.55)", whiteSpace:"nowrap" }}>
+              <span style={{ fontSize:18, marginRight:6 }}>🏆</span>
+              <span style={{ fontSize:10, fontWeight:700, letterSpacing:"0.12em", textTransform:"uppercase", color:C.muted, marginRight:8 }}>Champion</span>
+              <span style={{ fontSize:16, fontWeight:900, color:playerColor(champ.name) }}>{champ.name}</span>
+              <span style={{ fontSize:12, fontWeight:700, color:C.text, marginLeft:8 }}>{champ.total}pts</span>
+              <span style={{ fontSize:16, marginLeft:6 }}>🎉</span>
             </div>
           </div>
         )}
