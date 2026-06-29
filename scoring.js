@@ -1691,6 +1691,31 @@ function deriveHistory(matches) {
     bucketLabels.push(currentBucket);
   }
 
+  // Reconciliation: catch GROUP_ELIM teams missed during replay (e.g. non-qualifying
+  // 3rd-placers only detectable once all groups finish). Uses deriveStages as the
+  // same authoritative source that scorePlayers uses, so bump chart final positions
+  // match the league table.
+  const { stageReached: authStages } = deriveStages(matches);
+  const reconChanged = new Set();
+  Object.entries(authStages).forEach(([code, stage]) => {
+    if (stage !== "GROUP_ELIM") return;
+    if (eliminated[code]) return;
+    eliminated[code] = "GROUP_ELIM";
+    const newPts = ptsTotal(code, "GROUP_ELIM");
+    (teamPlayer[code] || []).forEach(pl => {
+      const key = pl + ":" + code;
+      running[pl] += (newPts - (teamPts[key] || 0));
+      teamPts[key] = newPts;
+      reconChanged.add(pl);
+    });
+    const bounty = reaperBountyForCode(code);
+    if (bounty > 0 && reaperName) { running[reaperName] += bounty; reconChanged.add(reaperName); }
+  });
+  if (reconChanged.size > 0) {
+    PLAYERS.forEach(p => history[p.name].push(running[p.name]));
+    bucketLabels.push(""); // empty → shows "Now" at last column
+  }
+
   return { history, bucketLabels };
 }
 
