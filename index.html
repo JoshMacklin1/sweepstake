@@ -2794,6 +2794,16 @@ function resultBanner(m) {
   return null;
 }
 
+function StatRow({ label, hVal, aVal, hColor, aColor }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${C.border}` }}>
+      <div style={{ flex: 1, textAlign: "right", fontSize: 13, fontWeight: 700, color: hColor || C.text }}>{hVal}</div>
+      <div style={{ width: 96, textAlign: "center", fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em" }}>{label}</div>
+      <div style={{ flex: 1, textAlign: "left", fontSize: 13, fontWeight: 700, color: aColor || C.text }}>{aVal}</div>
+    </div>
+  );
+}
+
 function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onClose }) {
   const h = m.homeTeam?.tla?.toUpperCase();
   const a = m.awayTeam?.tla?.toUpperCase();
@@ -2830,13 +2840,6 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onClose
     };
   }, []);
 
-  const StatRow = ({ label, hVal, aVal, hColor, aColor }) => (
-    <div style={{ display: "flex", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${C.border}` }}>
-      <div style={{ flex: 1, textAlign: "right", fontSize: 13, fontWeight: 700, color: hColor || C.text }}>{hVal}</div>
-      <div style={{ width: 96, textAlign: "center", fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em" }}>{label}</div>
-      <div style={{ flex: 1, textAlign: "left", fontSize: 13, fontWeight: 700, color: aColor || C.text }}>{aVal}</div>
-    </div>
-  );
 
   return (
     <>
