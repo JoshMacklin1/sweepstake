@@ -1006,6 +1006,15 @@ function SnapSheet({ onClose, scrollBodyToBottom = false, initialSnap = "half", 
   const dragInfo = React.useRef({ startY: 0, startTime: 0, active: false, dragY: 0 });
   const [dragY,    setDragY]    = React.useState(0);
   const [dragging, setDragging] = React.useState(false);
+  const [closing,  setClosing]  = React.useState(false);
+  const closingRef = React.useRef(false);
+  const triggerCloseRef = React.useRef(null);
+  triggerCloseRef.current = () => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    setClosing(true);
+    setTimeout(onClose, 250);
+  };
 
   React.useEffect(() => {
     if (scrollBodyToBottom && bodyRef.current) {
@@ -1060,7 +1069,7 @@ function SnapSheet({ onClose, scrollBodyToBottom = false, initialSnap = "half", 
         } else {
           // Downward drag — close
           if (finalDragY > el.offsetHeight * 0.25 || velocity > 0.5) {
-            onClose();
+            triggerCloseRef.current();
           } else {
             setDragY(0);
           }
@@ -1088,7 +1097,8 @@ function SnapSheet({ onClose, scrollBodyToBottom = false, initialSnap = "half", 
   const isMobile = window.innerWidth < 768;
 
   return (
-    <div className="detail-backdrop" onClick={onClose}>
+    <div className="detail-backdrop" onClick={() => triggerCloseRef.current()}
+      style={{ background: closing ? "rgba(0,0,0,0)" : "rgba(0,0,0,0.55)", transition: "background 0.25s ease" }}>
       <div
         className="detail-sheet"
         ref={sheetRef}
@@ -1103,11 +1113,16 @@ function SnapSheet({ onClose, scrollBodyToBottom = false, initialSnap = "half", 
                 ? `calc(50vh - ${dragY}px)` // dragY is negative, so -dragY grows the sheet upward
                 : "50vh"
             : undefined,
-          transform: dragging && dragY < 0 && snapState === "half" ? "none" : `translateY(${dragY}px)`,
-          transition: dragging ? "none" : "transform 0.25s ease, height 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
+          transform: closing
+            ? isMobile ? "translateY(120%)" : "scale(0.96)"
+            : dragging && dragY < 0 && snapState === "half" ? "none" : `translateY(${dragY}px)`,
+          opacity: closing && !isMobile ? 0 : undefined,
+          transition: closing
+            ? isMobile ? "transform 0.25s ease" : "transform 0.18s ease, opacity 0.18s ease"
+            : dragging ? "none" : "transform 0.25s ease, height 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
         }}
       >
-        {children(bodyRef)}
+        {children(bodyRef, () => triggerCloseRef.current())}
       </div>
     </div>
   );
@@ -4000,6 +4015,15 @@ function MoreMenu({ devMode, onToggleDevMode, onTakeTour, onViewRules, onSwitchG
   const [pushOn,   setPushOn]   = useState(() => localStorage.getItem("sw_push_subscribed") === "yes");
   const [pushBusy, setPushBusy] = useState(false);
   const [pushErr,  setPushErr]  = useState("");
+  const [closing,  setClosing]  = React.useState(false);
+  const closingRef = React.useRef(false);
+  const triggerClose = () => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    setClosing(true);
+    setTimeout(onClose, 250);
+  };
+  const isMobile = window.innerWidth < 768;
 
   const urlBase64ToUint8Array = (b64) => {
     const padded = b64.replace(/-/g,"+").replace(/_/g,"/").padEnd(b64.length+(4-b64.length%4)%4,"=");
@@ -4046,14 +4070,18 @@ function MoreMenu({ devMode, onToggleDevMode, onTakeTour, onViewRules, onSwitchG
   const rowBase = { display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 12px", borderBottom:`1px solid ${C.border}` };
 
   return (
-    <div className="detail-backdrop" onClick={onClose}>
+    <div className="detail-backdrop" onClick={triggerClose}
+      style={{ background: closing ? "rgba(0,0,0,0)" : "rgba(0,0,0,0.55)", transition: "background 0.25s ease" }}>
       <div className="detail-sheet" onClick={(e) => e.stopPropagation()} style={{
         background:C.bg, display:"flex", flexDirection:"column", border:`1px solid ${C.border}`, boxShadow:"0 24px 64px rgba(0,0,0,0.55)",
+        transform: closing ? (isMobile ? "translateY(120%)" : "scale(0.96)") : undefined,
+        opacity: closing && !isMobile ? 0 : undefined,
+        transition: closing ? (isMobile ? "transform 0.25s ease" : "transform 0.18s ease, opacity 0.18s ease") : undefined,
       }}>
         <div className="sheet-handle"><span></span></div>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"14px 16px", borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
           <div style={{ fontSize:15, fontWeight:800, color:C.text }}>More</div>
-          <button onClick={onClose} aria-label="Close" style={{ background:"transparent", border:"none", color:C.muted, fontSize:22, cursor:"pointer", lineHeight:1 }}>✕</button>
+          <button onClick={triggerClose} aria-label="Close" style={{ background:"transparent", border:"none", color:C.muted, fontSize:22, cursor:"pointer", lineHeight:1 }}>✕</button>
         </div>
         <div style={{ flex:1, overflowY:"auto", padding:"4px 4px 28px" }}>
           {navItems.map(item => (
@@ -5679,22 +5707,22 @@ function App({ onSwitchGroup, groupKey }) {
 
         {(selectedPlayer || selectedTeam || selectedMatch) && (
           <SnapSheet onClose={closeCard} scrollBodyToBottom={!selectedTeam && !selectedMatch && scrollPlayerToBadges} initialSnap={snapFull ? "full" : "half"}>
-            {(bodyRef) => {
+            {(bodyRef, handleClose) => {
               // Team takes precedence: switching player -> team sets selectedTeam
               // and clears selectedPlayer, swapping the content of this same sheet
               // (so the height/snap state is preserved across the switch).
               if (selectedTeam) {
-                return <TeamCardContent key={selectedTeam} bodyRef={bodyRef} tla={selectedTeam} matches={matches} ranked={ranked} matchPtsById={matchPtsById} onTeamClick={switchToTeam} onOwnerClick={switchToPlayer} onClose={closeCard} />;
+                return <TeamCardContent key={selectedTeam} bodyRef={bodyRef} tla={selectedTeam} matches={matches} ranked={ranked} matchPtsById={matchPtsById} onTeamClick={switchToTeam} onOwnerClick={switchToPlayer} onClose={handleClose} />;
               }
               if (selectedMatch) {
                 const matchObj = matches.find(m => String(m.id) === String(selectedMatch));
                 if (!matchObj) return null;
-                return <HeadToHeadCard key={selectedMatch} bodyRef={bodyRef} m={matchObj} ranked={ranked} matchPtsById={matchPtsById} onTeamClick={switchToTeamFromH2H} onClose={closeCard} />;
+                return <HeadToHeadCard key={selectedMatch} bodyRef={bodyRef} m={matchObj} ranked={ranked} matchPtsById={matchPtsById} onTeamClick={switchToTeamFromH2H} onClose={handleClose} />;
               }
               const idx = ranked.findIndex(x => x.name === selectedPlayer);
               const p = ranked[idx];
               if (!p) return null;
-              return <PlayerCardContent bodyRef={bodyRef} player={p} displayRank={p._displayRank || (idx + 1)} winPct={winPct.players ? winPct.players[selectedPlayer] : 0} winTeams={winPct.teams} badges={badges[selectedPlayer] || []} matches={matches} matchPtsById={matchPtsById} onTeamClick={switchToTeam} onClose={closeCard} />;
+              return <PlayerCardContent bodyRef={bodyRef} player={p} displayRank={p._displayRank || (idx + 1)} winPct={winPct.players ? winPct.players[selectedPlayer] : 0} winTeams={winPct.teams} badges={badges[selectedPlayer] || []} matches={matches} matchPtsById={matchPtsById} onTeamClick={switchToTeam} onClose={handleClose} />;
             }}
           </SnapSheet>
         )}
