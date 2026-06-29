@@ -2819,6 +2819,11 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onClose
 
   return (
     <>
+      {/* bodyRef is hidden — scrollTop always 0 so SnapSheet sees atTop=true everywhere.
+          Visible content lives in plain divs with no overflow so the browser never
+          commits a touch to native scroll, letting the sheet's drag handlers work. */}
+      <div ref={bodyRef} style={{ display: "none" }} />
+
       <div className="sheet-handle"><span></span></div>
 
       {/* Fixed header: title row + match preview — large non-scrollable grip area for drag */}
@@ -2857,7 +2862,7 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onClose
         <div style={{ borderBottom: `1px solid ${C.border}` }} />
       </div>
 
-      <div ref={bodyRef} style={{ flex: 1, overflowY: "hidden", padding: "16px 14px 28px" }}>
+      <div style={{ flex: 1, padding: "16px 14px 28px" }}>
         {/* Comparative sweepstake stats */}
         {(hEntry || aEntry) && (
           <>
