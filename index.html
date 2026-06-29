@@ -3384,7 +3384,7 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
       </Section>
 
       <Section icon="🗓️" title="Knockout Bracket" onOpen={() => { window.history.pushState({ appTab: "table", appModal: null }, ""); window.scrollTo(0, 0); setTab("table"); setLeagueView("knockout"); }} linkLabel="View full bracket">
-        <KnockoutBracket matches={matches} matchPtsById={matchPtsById} onTeamClick={openTeamModal} />
+        <KnockoutBracket matches={matches} matchPtsById={matchPtsById} onTeamClick={openTeamModal} homeMode />
       </Section>
 
       <Section icon="📅" title="Up Next" onOpen={() => { window.history.pushState({ appTab: "scores", appModal: null }, ""); window.scrollTo(0, 0); setTab("scores"); }} linkLabel="View all scores"
@@ -3402,7 +3402,7 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
 // KNOCKOUT BRACKET — shared by TeamsTab (knockout view) and HomeTab (section).
 // Self-contained: derives all bracket data from `matches` + globals.
 // ─────────────────────────────────────────────────────────────────────────────
-function KnockoutBracket({ matches, onTeamClick, matchPtsById = {}, bracketRef: externalRef }) {
+function KnockoutBracket({ matches, onTeamClick, matchPtsById = {}, bracketRef: externalRef, homeMode = false }) {
   const internalRef = React.useRef(null);
   const bracketRef = externalRef || internalRef;
 
@@ -3524,10 +3524,11 @@ function KnockoutBracket({ matches, onTeamClick, matchPtsById = {}, bracketRef: 
     );
   };
 
-  const BracketMatch = ({ match, matchNum }) => {
+  const BracketMatch = ({ match, matchNum, compact }) => {
+    const sizeStyle = compact ? {} : { minWidth:180 };
     if (!match) {
       return (
-        <div style={{ border:`1px solid ${C.border}`, borderRadius:6, overflow:"hidden", minWidth:180, height:76, boxSizing:"border-box", background:C.card }}>
+        <div style={{ border:`1px solid ${C.border}`, borderRadius:6, overflow:"hidden", ...sizeStyle, height:76, boxSizing:"border-box", background:C.card }}>
           <BracketSlot tla={null} matchNum={matchNum} side="home" />
           <BracketSlot tla={null} matchNum={matchNum ? matchNum + 0.1 : null} side="away" />
         </div>
@@ -3540,7 +3541,7 @@ function KnockoutBracket({ matches, onTeamClick, matchPtsById = {}, bracketRef: 
     return (
       <div style={{
         border: `1px ${isProjected ? "dashed" : "solid"} ${winner ? C.accent+"44" : (isProjected ? C.muted+"66" : C.border)}`,
-        borderRadius:6, overflow:"hidden", minWidth:180, height:76, boxSizing:"border-box", background:C.card,
+        borderRadius:6, overflow:"hidden", ...sizeStyle, height:76, boxSizing:"border-box", background:C.card,
         opacity: isProjected ? 0.85 : 1,
       }}>
         <BracketSlot tla={home} side="home" score={hasScore ? homeScore : null} isWinner={winner === home} status={status} pts={mpts?.home} />
@@ -3563,6 +3564,42 @@ function KnockoutBracket({ matches, onTeamClick, matchPtsById = {}, bracketRef: 
     { key:"sf",  label:"Semi Final",    data: pad([...sf], 2) },
     { key:"fin", label:"🏆 Final",       data: pad([...fin], 1) },
   ];
+
+  if (homeMode) {
+    const activeStatuses = new Set(["IN_PLAY", "PAUSED", "SCHEDULED", "TIMED"]);
+    let currentIdx = allRounds.findIndex(r => r.data.some(m => m && activeStatuses.has(m.status)));
+    if (currentIdx === -1) {
+      for (let i = allRounds.length - 1; i >= 0; i--) {
+        if (allRounds[i].data.some(m => m && (m.home || m.away))) { currentIdx = i; break; }
+      }
+    }
+    if (currentIdx === -1) currentIdx = 0;
+    const nextIdx = Math.min(currentIdx + 1, allRounds.length - 1);
+    const displayIndices = currentIdx === nextIdx ? [currentIdx] : [currentIdx, nextIdx];
+    return (
+      <div style={{ padding:"12px 12px 0" }}>
+        <div style={{ display:"flex", gap:12 }}>
+          {displayIndices.map(globalIdx => {
+            const round = allRounds[globalIdx];
+            return (
+              <div key={round.key} style={{ flex:1, display:"flex", flexDirection:"column", minWidth:0 }}>
+                <div style={{ fontSize:10, fontWeight:700, color: round.key === "fin" ? C.accent : C.muted, textTransform:"uppercase", letterSpacing:1, padding:"0 4px 8px", textAlign:"center" }}>
+                  {round.label}
+                </div>
+                <div style={{ position:"relative", height: totalHeight }}>
+                  {round.data.map((m, i) => (
+                    <div key={i} style={{ position:"absolute", top: topFor(globalIdx, i), left:0, right:0, height:MATCH_H }}>
+                      <BracketMatch match={m} matchNum={round.key === "r32" ? i+1 : null} compact />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
