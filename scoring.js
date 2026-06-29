@@ -682,6 +682,7 @@ function deriveStages(matches) {
 
   done.forEach(m => {
     const stage = (m.stage || "").toUpperCase();
+    const fin   = m.status === "FINISHED"; // only finished matches eliminate teams
     const h = m.homeTeam?.tla?.toUpperCase();
     const a = m.awayTeam?.tla?.toUpperCase();
     const hs = m.score?.fullTime?.home ?? 0;
@@ -697,24 +698,20 @@ function deriveStages(matches) {
     }
 
     if (stage === "FINAL") {
-      if (winner) { winners[winner] = true; markStage(winner, "WINNER"); }
-      if (loser)  { eliminated[loser] = "FINALIST"; markStage(loser, "FINALIST"); }
+      if (winner && fin) { winners[winner] = true; markStage(winner, "WINNER"); }
+      if (loser)  { markStage(loser, "FINALIST"); if (fin) eliminated[loser] = "FINALIST"; }
     } else if (stage.includes("SEMI")) {
       if (winner) markStage(winner, "FINALIST");
-      markStage(loser, "SEMI_FINALS");
-      if (loser) eliminated[loser] = "SEMI_FINALS";
+      if (loser)  { markStage(loser, "SEMI_FINALS"); if (fin) eliminated[loser] = "SEMI_FINALS"; }
     } else if (stage.includes("QUARTER")) {
       if (winner) markStage(winner, "SEMI_FINALS");
-      markStage(loser, "QUARTER_FINALS");
-      if (loser) eliminated[loser] = "QUARTER_FINALS";
+      if (loser)  { markStage(loser, "QUARTER_FINALS"); if (fin) eliminated[loser] = "QUARTER_FINALS"; }
     } else if (stage.includes("LAST_16") || stage.includes("16")) {
       if (winner) markStage(winner, "QUARTER_FINALS");
-      markStage(loser, "LAST_16");
-      if (loser) eliminated[loser] = "LAST_16";
+      if (loser)  { markStage(loser, "LAST_16"); if (fin) eliminated[loser] = "LAST_16"; }
     } else if (stage.includes("LAST_32") || stage.includes("32")) {
       if (winner) markStage(winner, "LAST_16");
-      markStage(loser, "LAST_32");
-      if (loser) eliminated[loser] = "LAST_32";
+      if (loser)  { markStage(loser, "LAST_32"); if (fin) eliminated[loser] = "LAST_32"; }
     }
   });
 
