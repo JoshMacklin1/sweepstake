@@ -2857,7 +2857,7 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onClose
         <div style={{ borderBottom: `1px solid ${C.border}` }} />
       </div>
 
-      <div ref={bodyRef} style={{ flex: 1, overflowY: "auto", padding: "16px 14px 28px" }}>
+      <div ref={bodyRef} style={{ flex: 1, overflowY: "hidden", padding: "16px 14px 28px" }}>
         {/* Comparative sweepstake stats */}
         {(hEntry || aEntry) && (
           <>
