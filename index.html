@@ -4167,7 +4167,7 @@ function Toggle({ on, onChange, busy }) {
   );
 }
 
-function MoreMenu({ devMode, onToggleDevMode, onTakeTour, onViewRules, onSwitchGroup, onShareTable, onClose }) {
+function MoreMenu({ devMode, onToggleDevMode, onTakeTour, onViewRules, onSwitchGroup, onShareTable, onClose, isAdmin = false }) {
   const supported = typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window;
   const [pushOn,   setPushOn]   = useState(() => localStorage.getItem("sw_push_subscribed") === "yes");
   const [pushBusy, setPushBusy] = useState(false);
@@ -4256,10 +4256,12 @@ function MoreMenu({ devMode, onToggleDevMode, onTakeTour, onViewRules, onSwitchG
               <Toggle on={pushOn} onChange={togglePush} busy={pushBusy} />
             </div>
           )}
-          <div onClick={onToggleDevMode} style={{ ...rowBase, borderBottom:"none", cursor:"pointer" }}>
-            <span style={{ fontSize:14, fontWeight:600, color:C.text }}>🛠️ Developer mode</span>
-            <Toggle on={devMode} onChange={onToggleDevMode} />
-          </div>
+          {isAdmin && (
+            <div onClick={onToggleDevMode} style={{ ...rowBase, cursor:"pointer" }}>
+              <span style={{ fontSize:14, fontWeight:600, color:C.text }}>🛠️ Developer mode</span>
+              <Toggle on={devMode} onChange={onToggleDevMode} />
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -5041,7 +5043,7 @@ function SearchOverlay({ ranked, onClose, onSelectPlayer, onSelectTeam, groupKey
   );
 }
 
-function App({ onSwitchGroup, groupKey }) {
+function App({ onSwitchGroup, groupKey, isAdmin = false }) {
   const [matches,     setMatches]     = useState([]);
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState(null);
@@ -5858,6 +5860,7 @@ function App({ onSwitchGroup, groupKey }) {
             onSwitchGroup={onSwitchGroup}
             onShareTable={() => setShowShareTable(true)}
             onClose={() => setShowMore(false)}
+            isAdmin={isAdmin}
           />
         )}
 
@@ -5908,22 +5911,78 @@ const GROUP_STORAGE_KEY = "sw_group";
 function matchGroupCode(rawCode) {
   const normalized = (rawCode || "").trim().toUpperCase();
   if (!normalized) return null;
+  if (normalized === "ADMIN") return "ADMIN";
   return Object.keys(GROUPS).find(key => GROUPS[key].code.toUpperCase() === normalized) || null;
+}
+
+const ADMIN_SIM_KEY = "sw_admin_sim";
+
+function AdminGroupSelector({ onSelect, onSignOut }) {
+  const [selected, setSelected] = useState(Object.keys(GROUPS)[0]);
+  return (
+    <div style={{ minHeight:"100vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"24px 20px" }}>
+      <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjYuNDEgMy42NiAyMDIuMTcgMjAwLjY1Ij48Y2lyY2xlIGN4PSIxMzMuNjgiIGN5PSIxOTQuODUiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTA3LjUwIiBjeT0iMTk0Ljg1IiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjgxLjMyIiBjeT0iMTk0Ljg1IiByPSI5LjQ1IiBmaWxsPSIjMEI2RTJDIi8+PGNpcmNsZSBjeD0iMTcyLjk1IiBjeT0iMTcyLjE0IiByPSI5LjQ1IiBmaWxsPSIjRDUyQjFFIi8+PGNpcmNsZSBjeD0iMTQ2Ljc3IiBjeT0iMTcyLjE0IiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjEyMC41OSIgY3k9IjE3Mi4xNCIgcj0iOS40NSIgZmlsbD0iIzBCNkUyQyIvPjxjaXJjbGUgY3g9Ijk0LjQxIiBjeT0iMTcyLjE0IiByPSI5LjQ1IiBmaWxsPSIjMEI2RTJDIi8+PGNpcmNsZSBjeD0iNjguMjMiIGN5PSIxNzIuMTQiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iNDIuMDUiIGN5PSIxNzIuMTQiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTg2LjA0IiBjeT0iMTQ5LjQyIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjE1OS44NiIgY3k9IjE0OS40MiIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxMzMuNjgiIGN5PSIxNDkuNDIiIHI9IjkuNDUiIGZpbGw9IiMwQjZFMkMiLz48Y2lyY2xlIGN4PSIxMDcuNTAiIGN5PSIxNDkuNDIiIHI9IjkuNDUiIGZpbGw9IiMwQjZFMkMiLz48Y2lyY2xlIGN4PSI4MS4zMiIgY3k9IjE0OS40MiIgcj0iOS40NSIgZmlsbD0iIzBCNkUyQyIvPjxjaXJjbGUgY3g9IjU1LjE0IiBjeT0iMTQ5LjQyIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjI4Ljk2IiBjeT0iMTQ5LjQyIiByPSI5LjQ1IiBmaWxsPSIjMUEzRkEwIi8+PGNpcmNsZSBjeD0iMTk5LjEzIiBjeT0iMTI2LjcwIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjE3Mi45NSIgY3k9IjEyNi43MCIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxNDYuNzciIGN5PSIxMjYuNzAiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTIwLjU5IiBjeT0iMTI2LjcwIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9Ijk0LjQxIiBjeT0iMTI2LjcwIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjY4LjIzIiBjeT0iMTI2LjcwIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjQyLjA1IiBjeT0iMTI2LjcwIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjE1Ljg3IiBjeT0iMTI2LjcwIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjE4Ni4wNCIgY3k9IjEwMy45OCIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxNTkuODYiIGN5PSIxMDMuOTgiIHI9IjkuNDUiIGZpbGw9IiMxQTNGQTAiLz48Y2lyY2xlIGN4PSIxMzMuNjgiIGN5PSIxMDMuOTgiIHI9IjkuNDUiIGZpbGw9IiMxQTNGQTAiLz48Y2lyY2xlIGN4PSIxMDcuNTAiIGN5PSIxMDMuOTgiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iODEuMzIiIGN5PSIxMDMuOTgiIHI9IjkuNDUiIGZpbGw9IiNENTJCMUUiLz48Y2lyY2xlIGN4PSI1NS4xNCIgY3k9IjEwMy45OCIgcj0iOS40NSIgZmlsbD0iI0Q1MkIxRSIvPjxjaXJjbGUgY3g9IjI4Ljk2IiBjeT0iMTAzLjk4IiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjE5OS4xMyIgY3k9IjgxLjI3IiByPSI5LjQ1IiBmaWxsPSIjMUEzRkEwIi8+PGNpcmNsZSBjeD0iMTcyLjk1IiBjeT0iODEuMjciIHI9IjkuNDUiIGZpbGw9IiMxQTNGQTAiLz48Y2lyY2xlIGN4PSIxNDYuNzciIGN5PSI4MS4yNyIgcj0iOS40NSIgZmlsbD0iIzFBM0ZBMCIvPjxjaXJjbGUgY3g9IjEyMC41OSIgY3k9IjgxLjI3IiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9Ijk0LjQxIiBjeT0iODEuMjciIHI9IjkuNDUiIGZpbGw9IiNENTJCMUUiLz48Y2lyY2xlIGN4PSI2OC4yMyIgY3k9IjgxLjI3IiByPSI5LjQ1IiBmaWxsPSIjRDUyQjFFIi8+PGNpcmNsZSBjeD0iNDIuMDUiIGN5PSI4MS4yNyIgcj0iOS40NSIgZmlsbD0iI0Q1MkIxRSIvPjxjaXJjbGUgY3g9IjE1Ljg3IiBjeT0iODEuMjciIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTg2LjA0IiBjeT0iNTguNTUiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTU5Ljg2IiBjeT0iNTguNTUiIHI9IjkuNDUiIGZpbGw9IiMxQTNGQTAiLz48Y2lyY2xlIGN4PSIxMzMuNjgiIGN5PSI1OC41NSIgcj0iOS40NSIgZmlsbD0iIzFBM0ZBMCIvPjxjaXJjbGUgY3g9IjEwNy41MCIgY3k9IjU4LjU1IiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjgxLjMyIiBjeT0iNTguNTUiIHI9IjkuNDUiIGZpbGw9IiNENTJCMUUiLz48Y2lyY2xlIGN4PSI1NS4xNCIgY3k9IjU4LjU1IiByPSI5LjQ1IiBmaWxsPSIjRDUyQjFFIi8+PGNpcmNsZSBjeD0iMjguOTYiIGN5PSI1OC41NSIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxNzIuOTUiIGN5PSIzNS44MyIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxNDYuNzciIGN5PSIzNS44MyIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxMjAuNTkiIGN5PSIzNS44MyIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSI5NC40MSIgY3k9IjM1LjgzIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjY4LjIzIiBjeT0iMzUuODMiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iNDIuMDUiIGN5PSIzNS44MyIgcj0iOS40NSIgZmlsbD0iI0Q1MkIxRSIvPjxjaXJjbGUgY3g9IjEzMy42OCIgY3k9IjEzLjEyIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjEwNy41MCIgY3k9IjEzLjEyIiByPSI5LjQ1IiBmaWxsPSIjMEI2RTJDIi8+PGNpcmNsZSBjeD0iODEuMzIiIGN5PSIxMy4xMiIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48L3N2Zz4=" style={{ width:64, height:64, marginBottom:20 }} alt="logo" />
+      <div style={{ fontSize:11, color:"#f97316", fontWeight:700, letterSpacing:"0.18em", textTransform:"uppercase", marginBottom:8 }}>Admin</div>
+      <div style={{ fontSize:28, fontWeight:900, color:C.text, marginBottom:8 }}>Select Group</div>
+      <div style={{ fontSize:13, color:C.dim, marginBottom:24, textAlign:"center", lineHeight:1.5 }}>Choose a group to simulate.</div>
+      <div style={{ width:"100%", maxWidth:320, display:"flex", flexDirection:"column", gap:10 }}>
+        <select value={selected} onChange={e => setSelected(e.target.value)} style={{
+          width:"100%", padding:"14px 16px", borderRadius:12, border:`1px solid ${C.border}`,
+          background:C.card, color:C.text, fontSize:15, fontWeight:600, cursor:"pointer",
+        }}>
+          {Object.entries(GROUPS).map(([key, g]) => (
+            <option key={key} value={key}>{g.label}</option>
+          ))}
+        </select>
+        <button onClick={() => onSelect(selected)} style={{
+          width:"100%", padding:"14px", borderRadius:12, border:"none", cursor:"pointer",
+          background:C.accent, color:"white", fontSize:15, fontWeight:800,
+        }}>View Group</button>
+        <button onClick={onSignOut} style={{
+          width:"100%", padding:"12px", borderRadius:12, border:`1px solid ${C.border}`,
+          background:"transparent", color:C.muted, fontSize:13, fontWeight:600, cursor:"pointer",
+        }}>Sign out</button>
+      </div>
+    </div>
+  );
 }
 
 function GroupGate() {
   const [groupKey, setGroupKey] = useState(() => {
     const stored = localStorage.getItem(GROUP_STORAGE_KEY);
+    if (stored === "ADMIN") return "ADMIN";
+    return stored && GROUPS[stored] ? stored : null;
+  });
+  const [simGroup, setSimGroup] = useState(() => {
+    const stored = localStorage.getItem(ADMIN_SIM_KEY);
     return stored && GROUPS[stored] ? stored : null;
   });
   const [codeInput, setCodeInput] = useState("");
   const [error, setError] = useState("");
 
+  // Admin logged in + group chosen → render App with isAdmin flag
+  if (groupKey === "ADMIN" && simGroup) {
+    PLAYERS = GROUPS[simGroup].players;
+    PLAYER_NAME_ORDER = PLAYERS.map(p => p.name);
+    KNOCKOUT_ONLY = !!(GROUPS[simGroup].knockoutOnly);
+    POT_OVERRIDES = GROUPS[simGroup].potOverrides || {};
+    const onSwitchGroup = () => {
+      localStorage.removeItem(ADMIN_SIM_KEY);
+      setSimGroup(null);
+    };
+    return <App onSwitchGroup={onSwitchGroup} groupKey={simGroup} isAdmin={true} />;
+  }
+
+  // Admin logged in but no group chosen yet → show group picker
+  if (groupKey === "ADMIN") {
+    return <AdminGroupSelector
+      onSelect={(key) => { localStorage.setItem(ADMIN_SIM_KEY, key); setSimGroup(key); }}
+      onSignOut={() => { localStorage.removeItem(GROUP_STORAGE_KEY); localStorage.removeItem(ADMIN_SIM_KEY); setGroupKey(null); setSimGroup(null); }}
+    />;
+  }
+
+  // Regular group logged in
   if (groupKey) {
-    // Reassigned on every GroupGate render (cheap, idempotent) rather than in
-    // an effect, so PLAYERS is correct before App's very first render —
-    // scoring.js functions and components read these globals live, so this
-    // is all App needs.
     PLAYERS = GROUPS[groupKey].players;
     PLAYER_NAME_ORDER = PLAYERS.map(p => p.name);
     KNOCKOUT_ONLY = !!(GROUPS[groupKey].knockoutOnly);
