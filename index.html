@@ -1353,6 +1353,7 @@ function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, bad
                 {events.map((ev) => {
                   if (ev.type === "match") {
                     const { m, t, isHome } = ev;
+                    const isLive = m.status === "IN_PLAY" || m.status === "PAUSED";
                     const oppName = isHome ? (m.awayTeam?.name || "TBD") : (m.homeTeam?.name || "TBD");
                     const hs = m.score?.fullTime?.home ?? 0;
                     const as_ = m.score?.fullTime?.away ?? 0;
@@ -1369,17 +1370,18 @@ function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, bad
                     }
                     const mPts = matchPtsById[m.id];
                     const earnedPts = mPts ? (isHome ? mPts.home : mPts.away) : null;
-                    const resultColor = result === "W" ? C.accent : result === "L" ? C.red : C.muted;
+                    const resultColor = isLive ? "#f97316" : result === "W" ? C.accent : result === "L" ? C.red : C.muted;
+                    const badgeBg = isLive ? "rgba(249,115,22,0.15)" : result === "W" ? C.posBg : result === "L" ? C.negBg : "rgba(148,163,184,0.12)";
                     return (
                       <div key={"r" + t.code + m.id} className={onTeamClick ? "player-card" : undefined} onClick={onTeamClick ? () => onTeamClick(t.code) : undefined} style={{ display:"flex", alignItems:"center", gap:8, padding:"9px 0", borderBottom:`1px solid ${C.border}`, cursor: onTeamClick ? "pointer" : "default" }}>
-                        <div style={{ width:22, height:22, borderRadius:4, flexShrink:0, background: result === "W" ? C.posBg : result === "L" ? C.negBg : "rgba(148,163,184,0.12)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:800, color:resultColor }}>{result}</div>
+                        <div style={{ width:22, height:22, borderRadius:4, flexShrink:0, background: badgeBg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:800, color:resultColor }}>{result}</div>
                         <Flag code={t.code} size={18} />
                         <div style={{ flex:1, minWidth:0 }}>
                           <div style={{ fontSize:12, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}</div>
-                          <div style={{ fontSize:10, color:C.muted }}>vs {oppName} · {fmt(m.utcDate)}</div>
+                          <div style={{ fontSize:10, color:C.muted }}>{isLive && <span style={{ color:"#f97316", fontWeight:700 }}>LIVE · </span>}vs {oppName} · {fmt(m.utcDate)}</div>
                         </div>
                         <div style={{ textAlign:"right", flexShrink:0 }}>
-                          {earnedPts != null && <div style={{ fontSize:12, fontWeight:800, color:C.text }}>{earnedPts > 0 ? `+${earnedPts}` : earnedPts} pts</div>}
+                          {earnedPts != null && <div style={{ fontSize:12, fontWeight:800, color: isLive ? "#f97316" : C.text }}>{earnedPts > 0 ? `+${earnedPts}` : earnedPts} pts</div>}
                           <div style={{ fontSize:11, color:resultColor }}>{myGoals}–{oppGoals}</div>
                         </div>
                       </div>
@@ -1529,6 +1531,7 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
           {(() => {
             const renderMatchRow = (m) => {
               const isHome = m.homeTeam?.tla?.toUpperCase() === tla;
+              const isLive = m.status === "IN_PLAY" || m.status === "PAUSED";
               const oppCode = isHome ? m.awayTeam?.tla?.toUpperCase() : m.homeTeam?.tla?.toUpperCase();
               const oppName = isHome ? (m.awayTeam?.name || "TBD") : (m.homeTeam?.name || "TBD");
               const hs = m.score?.fullTime?.home ?? 0;
@@ -1546,17 +1549,18 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
               }
               const mPts = matchPtsById[m.id];
               const earnedPts = mPts ? (isHome ? mPts.home : mPts.away) : null;
-              const resultColor = result === "W" ? C.accent : result === "L" ? C.red : C.muted;
+              const resultColor = isLive ? "#f97316" : result === "W" ? C.accent : result === "L" ? C.red : C.muted;
+              const badgeBg = isLive ? "rgba(249,115,22,0.15)" : result === "W" ? C.posBg : result === "L" ? C.negBg : "rgba(148,163,184,0.12)";
               return (
                 <div key={m.id} className={onTeamClick && oppCode ? "player-card" : undefined} onClick={onTeamClick && oppCode ? () => onTeamClick(oppCode) : undefined} style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 0", borderBottom: `1px solid ${C.border}`, cursor: onTeamClick && oppCode ? "pointer" : "default" }}>
-                  <div style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0, background: result === "W" ? C.posBg : result === "L" ? C.negBg : "rgba(148,163,184,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: resultColor }}>{result}</div>
+                  <div style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0, background: badgeBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: resultColor }}>{result}</div>
                   <Flag code={oppCode} size={18} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{oppName}</div>
-                    <div style={{ fontSize: 10, color: C.muted }}>{(m.stage || "").replace(/_/g, " ")} · {fmt(m.utcDate)}</div>
+                    <div style={{ fontSize: 10, color: C.muted }}>{isLive && <span style={{ color: "#f97316", fontWeight: 700 }}>LIVE · </span>}{(m.stage || "").replace(/_/g, " ")} · {fmt(m.utcDate)}</div>
                   </div>
                   <div style={{ textAlign: "right", flexShrink: 0 }}>
-                    {earnedPts != null && <div style={{ fontSize: 12, fontWeight: 800, color: C.text }}>{earnedPts > 0 ? `+${earnedPts}` : earnedPts} pts</div>}
+                    {earnedPts != null && <div style={{ fontSize: 12, fontWeight: 800, color: isLive ? "#f97316" : C.text }}>{earnedPts > 0 ? `+${earnedPts}` : earnedPts} pts</div>}
                     <div style={{ fontSize: 11, color: resultColor }}>{myGoals}–{oppGoals}</div>
                   </div>
                 </div>
