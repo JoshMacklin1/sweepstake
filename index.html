@@ -2870,15 +2870,25 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onPlaye
           <button onClick={onClose} aria-label="Close" style={{ background: "transparent", border: "none", color: C.muted, fontSize: 22, cursor: "pointer", lineHeight: 1 }}>✕</button>
         </div>
 
-        {/* Match block: home · score · away */}
+        {/* Match block: home · score · away — content switches with view toggle */}
         <div style={{ padding: "0 14px 12px" }}>
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "16px 12px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, textAlign: "center", minWidth: 0 }}>
-                <Flag code={h} size={32} />
-                <div style={{ fontSize: 13, fontWeight: 800, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>{m.homeTeam?.name || h}{POT[h] ? <span style={{ fontSize: 10, fontWeight: 600, color: C.muted }}> (P{POT[h]})</span> : ""}</div>
-                {hOwner && <div style={{ fontSize: 11, fontWeight: 600, color: C.accent }}>{hOwner}</div>}
-              </div>
+              {view === "teams" ? (
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, textAlign: "center", minWidth: 0 }}>
+                  <Flag code={h} size={32} />
+                  <div style={{ fontSize: 13, fontWeight: 800, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>{m.homeTeam?.name || h}{POT[h] ? <span style={{ fontSize: 10, fontWeight: 600, color: C.muted }}> (P{POT[h]})</span> : ""}</div>
+                  {hOwner && <div style={{ fontSize: 11, fontWeight: 600, color: C.accent }}>{hOwner}</div>}
+                </div>
+              ) : (
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, textAlign: "center", minWidth: 0 }}>
+                  {hOwner
+                    ? <span style={{ width: 36, height: 36, borderRadius: "50%", background: playerColor(hOwner), display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 900, color: "#0d1f12", flexShrink: 0 }}>{hOwner[0]}</span>
+                    : <span style={{ width: 36, height: 36, borderRadius: "50%", background: C.border, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 16, color: C.muted }}>?</span>}
+                  <div style={{ fontSize: 13, fontWeight: 800, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>{hOwner || "No owner"}</div>
+                  {hRank != null && <div style={{ fontSize: 11, fontWeight: 600, color: C.muted }}>{toOrdinal(hRank)}</div>}
+                </div>
+              )}
 
               <div style={{ flexShrink: 0, textAlign: "center", minWidth: 52 }}>
                 {(fin || live) && hs !== null && as_ !== null
@@ -2888,11 +2898,21 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onPlaye
                 {fin && <div style={{ fontSize: 9, fontWeight: 700, color: C.muted, marginTop: 4, letterSpacing: "0.06em", textTransform: "uppercase" }}>FT</div>}
               </div>
 
-              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, textAlign: "center", minWidth: 0 }}>
-                <Flag code={a} size={32} />
-                <div style={{ fontSize: 13, fontWeight: 800, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>{m.awayTeam?.name || a}{POT[a] ? <span style={{ fontSize: 10, fontWeight: 600, color: C.muted }}> (P{POT[a]})</span> : ""}</div>
-                {aOwner && <div style={{ fontSize: 11, fontWeight: 600, color: C.accent }}>{aOwner}</div>}
-              </div>
+              {view === "teams" ? (
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, textAlign: "center", minWidth: 0 }}>
+                  <Flag code={a} size={32} />
+                  <div style={{ fontSize: 13, fontWeight: 800, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>{m.awayTeam?.name || a}{POT[a] ? <span style={{ fontSize: 10, fontWeight: 600, color: C.muted }}> (P{POT[a]})</span> : ""}</div>
+                  {aOwner && <div style={{ fontSize: 11, fontWeight: 600, color: C.accent }}>{aOwner}</div>}
+                </div>
+              ) : (
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, textAlign: "center", minWidth: 0 }}>
+                  {aOwner
+                    ? <span style={{ width: 36, height: 36, borderRadius: "50%", background: playerColor(aOwner), display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 900, color: "#0d1f12", flexShrink: 0 }}>{aOwner[0]}</span>
+                    : <span style={{ width: 36, height: 36, borderRadius: "50%", background: C.border, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 16, color: C.muted }}>?</span>}
+                  <div style={{ fontSize: 13, fontWeight: 800, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>{aOwner || "No owner"}</div>
+                  {aRank != null && <div style={{ fontSize: 11, fontWeight: 600, color: C.muted }}>{toOrdinal(aRank)}</div>}
+                </div>
+              )}
             </div>
           </div>
         </div>
