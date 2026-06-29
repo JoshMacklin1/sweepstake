@@ -1044,8 +1044,9 @@ function SnapSheet({ onClose, scrollBodyToBottom = false, initialSnap = "half", 
         dragInfo.current.dragY = delta;
         setDragging(true);
         setDragY(delta);
-      } else if (dragInfo.current.dragY !== 0 && Math.sign(delta) !== Math.sign(dragInfo.current.dragY)) {
-        // Reversed direction — clamp
+      } else if (dragInfo.current.dragY !== 0 && delta !== 0 && Math.sign(delta) !== Math.sign(dragInfo.current.dragY)) {
+        // Reversed direction — clamp (delta===0 guard prevents false-clamp when finger
+        // returns exactly to the touch-start Y as it lifts off)
         dragInfo.current.dragY = 0;
         setDragY(0);
       }
@@ -2809,6 +2810,26 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onClose
   const hEntry = allTeams.find(t => t.code === h);
   const aEntry = allTeams.find(t => t.code === a);
 
+  const contentRef = React.useRef(null);
+  React.useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    // Mirror what SnapSheet does on the PlayerCard/TeamCard bodyRef:
+    // a passive:false touchstart prevents Chrome committing to scroll at touchstart
+    // time, and a passive:false touchmove that calls preventDefault() cancels any
+    // scroll Chrome might have started — keeping touchmove events cancelable so the
+    // sheet's onMove handler can intercept the full drag gesture.
+    // H2H has no scrollable body so it's safe to always prevent default on touchmove.
+    const noop = () => {};
+    const stopScroll = (e) => e.preventDefault();
+    el.addEventListener("touchstart", noop,        { passive: false });
+    el.addEventListener("touchmove",  stopScroll,  { passive: false });
+    return () => {
+      el.removeEventListener("touchstart", noop);
+      el.removeEventListener("touchmove",  stopScroll);
+    };
+  }, []);
+
   const StatRow = ({ label, hVal, aVal, hColor, aColor }) => (
     <div style={{ display: "flex", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${C.border}` }}>
       <div style={{ flex: 1, textAlign: "right", fontSize: 13, fontWeight: 700, color: hColor || C.text }}>{hVal}</div>
@@ -2862,7 +2883,7 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onClose
         <div style={{ borderBottom: `1px solid ${C.border}` }} />
       </div>
 
-      <div style={{ flex: 1, padding: "16px 14px 28px", touchAction: "none" }}>
+      <div ref={contentRef} style={{ flex: 1, padding: "16px 14px 28px", touchAction: "none" }}>
         {/* Comparative sweepstake stats */}
         {(hEntry || aEntry) && (
           <>
