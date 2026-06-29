@@ -2814,9 +2814,20 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onClose
   React.useEffect(() => {
     const el = contentRef.current;
     if (!el) return;
+    // Mirror what SnapSheet does on the PlayerCard/TeamCard bodyRef:
+    // a passive:false touchstart prevents Chrome committing to scroll at touchstart
+    // time, and a passive:false touchmove that calls preventDefault() cancels any
+    // scroll Chrome might have started — keeping touchmove events cancelable so the
+    // sheet's onMove handler can intercept the full drag gesture.
+    // H2H has no scrollable body so it's safe to always prevent default on touchmove.
     const noop = () => {};
-    el.addEventListener("touchstart", noop, { passive: false });
-    return () => el.removeEventListener("touchstart", noop);
+    const stopScroll = (e) => e.preventDefault();
+    el.addEventListener("touchstart", noop,        { passive: false });
+    el.addEventListener("touchmove",  stopScroll,  { passive: false });
+    return () => {
+      el.removeEventListener("touchstart", noop);
+      el.removeEventListener("touchmove",  stopScroll);
+    };
   }, []);
 
   const StatRow = ({ label, hVal, aVal, hColor, aColor }) => (
