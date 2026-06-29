@@ -760,7 +760,7 @@ function MatchCard({ m, ranked, upcoming = [], pts, onPlayerClick, onTeamClick, 
   // (mathematically-locked-into-4th timing), which is already handled
   // precisely for player badges in computeBadges — not duplicated here to
   // avoid the two disagreeing.
-  const shockExitLabel = fin && isKnockout && loserCode && potOf(loserCode) <= 2
+  const shockExitLabel = fin && isKnockout && loserCode && potOf(loserCode) <= 2 && winnerCode && potOf(winnerCode) > potOf(loserCode)
     ? { icon:"😱", label:"SHOCK EXIT" }
     : null;
 
@@ -2782,7 +2782,7 @@ function resultBanner(m) {
   else if (as_ > hs) { winnerCode = a; loserCode = h; }
   else if (pen)      { winnerCode = pen.home > pen.away ? h : a; loserCode = winnerCode === h ? a : h; }
   const isKnockout = !(m.stage || "").toUpperCase().includes("GROUP");
-  if (isKnockout && loserCode && potOf(loserCode) <= 2) return { icon: "😱", label: "SHOCK EXIT" };
+  if (isKnockout && loserCode && potOf(loserCode) <= 2 && winnerCode && potOf(winnerCode) > potOf(loserCode)) return { icon: "😱", label: "SHOCK EXIT" };
   if (winnerCode && loserCode) {
     const gap = potOf(winnerCode) - potOf(loserCode);
     if (gap === 3) return { icon: "🦄", label: "FAIRYTALE" };
