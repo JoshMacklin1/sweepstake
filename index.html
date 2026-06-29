@@ -3260,7 +3260,7 @@ function MatchFocusCard({ matches, ranked, matchPtsById = {}, onMatchClick }) {
 // next, mirroring the daily email's sections so the two feel like the same
 // product. Pure read-only summary view; "Open the full table" hands off to
 // the League tab for anything that needs deeper interaction.
-function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, matchPtsById, upcoming, setTab, openPlayerModal, openTeamModal, openMatchModal }) {
+function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, matchPtsById, upcoming, setTab, setLeagueView, openPlayerModal, openTeamModal, openMatchModal }) {
   const openPlayer = (name, scrollToBottom = false) => openPlayerModal(name, scrollToBottom);
   // Badges assigned in the last 24h (not "since you last looked" — same
   // rolling window as everything else on this tab). Single-holder badges
@@ -3383,6 +3383,10 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
         ))}
       </Section>
 
+      <Section icon="🗓️" title="Knockout Bracket" onOpen={() => { window.history.pushState({ appTab: "table", appModal: null }, ""); window.scrollTo(0, 0); setTab("table"); setLeagueView("knockout"); }} linkLabel="View full bracket">
+        <KnockoutBracket matches={matches} matchPtsById={matchPtsById} onTeamClick={openTeamModal} />
+      </Section>
+
       <Section icon="📅" title="Up Next" onOpen={() => { window.history.pushState({ appTab: "scores", appModal: null }, ""); window.scrollTo(0, 0); setTab("scores"); }} linkLabel="View all scores"
         empty={upNext.length === 0 ? "No upcoming fixtures" : null}>
         {upNext.map((m, i) => (
@@ -3391,6 +3395,197 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
       </Section>
 
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// KNOCKOUT BRACKET — shared by TeamsTab (knockout view) and HomeTab (section).
+// Self-contained: derives all bracket data from `matches` + globals.
+// ─────────────────────────────────────────────────────────────────────────────
+function KnockoutBracket({ matches, onTeamClick, matchPtsById = {}, bracketRef: externalRef }) {
+  const internalRef = React.useRef(null);
+  const bracketRef = externalRef || internalRef;
+
+  // Owner lookup
+  const ownerOf = {};
+  PLAYERS.forEach(p => {
+    if (p.grimReaper) return;
+    p.codes.forEach(c => { ownerOf[c] = p.name; });
+  });
+
+  const teamName = (tla) => {
+    if (!tla) return null;
+    const m = matches.find(m => m.homeTeam?.tla?.toUpperCase() === tla || m.awayTeam?.tla?.toUpperCase() === tla);
+    if (!m) return tla;
+    return m.homeTeam?.tla?.toUpperCase() === tla ? m.homeTeam.name : m.awayTeam.name;
+  };
+
+  const { eliminated } = deriveStages(matches);
+
+  // Build KO match map
+  const koMatches = {};
+  matches.filter(m => !(m.stage||"").toUpperCase().includes("GROUP")).forEach(m => {
+    const h = m.homeTeam?.tla?.toUpperCase();
+    const a = m.awayTeam?.tla?.toUpperCase();
+    const hs = m.score?.fullTime?.home;
+    const as_ = m.score?.fullTime?.away;
+    const pen = m.score?.penalties;
+    let winner = null;
+    if (hs != null && as_ != null) {
+      if (hs > as_) winner = h;
+      else if (as_ > hs) winner = a;
+      else if (pen) winner = pen.home > pen.away ? h : a;
+    }
+    koMatches[m.id] = { id: m.id, home: h, away: a, homeScore: hs, awayScore: as_, status: m.status, winner, stage: (m.stage||"").toUpperCase() };
+  });
+
+  const koByStage = {};
+  Object.values(koMatches).forEach(m => {
+    if (!koByStage[m.stage]) koByStage[m.stage] = [];
+    koByStage[m.stage].push(m);
+  });
+  Object.keys(koByStage).forEach(st => koByStage[st].sort((a,b) => a.id - b.id));
+
+  const r32 = koByStage["LAST_32"] || [];
+  const r32HasResolvedTeams = r32.some(m => m.home && m.away);
+  const r16Raw = koByStage["LAST_16"] || [];
+  const qf  = koByStage["QUARTER_FINALS"] || [];
+  const sf  = koByStage["SEMI_FINALS"] || [];
+  const fin = koByStage["FINAL"] || [];
+
+  const pad = (arr, len) => { while (arr.length < len) arr.push(null); return arr; };
+
+  const r16 = (() => {
+    const apiR16WithTeams = r16Raw.filter(m => m.home || m.away);
+    if (apiR16WithTeams.length >= 8) return r16Raw;
+    const projected = [];
+    for (let i = 0; i < 16; i += 2) {
+      const m1 = r32[i] || null;
+      const m2 = r32[i + 1] || null;
+      const slotIdx = i / 2;
+      const apiSlot = r16Raw[slotIdx] || null;
+      if (apiSlot && (apiSlot.home || apiSlot.away)) {
+        projected.push(apiSlot);
+      } else {
+        const home = m1?.winner || null;
+        const away = m2?.winner || null;
+        projected.push((home || away) ? { home, away, homeScore: null, awayScore: null, status: "PROJECTED", winner: null } : null);
+      }
+    }
+    return projected;
+  })();
+
+  if (r32.length === 0 && r16Raw.length === 0 && qf.length === 0 && sf.length === 0 && fin.length === 0) {
+    return <div style={{ textAlign:"center", color:C.muted, fontSize:13, padding:"40px 20px" }}>Knockout stage hasn't started yet</div>;
+  }
+
+  const BracketSlot = ({ tla, matchNum, side, score, isWinner, status, pts }) => {
+    const name = tla ? (teamName(tla) || tla) : null;
+    const owner = tla ? ownerOf[tla] : null;
+    const pot = tla && POT[tla] ? `P${potOf(tla)}` : null;
+    const flagUrl = tla ? flag(tla) : null;
+    const isLive = status === "IN_PLAY" || status === "PAUSED";
+    const label = tla ? null : (matchNum ? `W Match ${matchNum}` : "TBD");
+    const isElim = tla && eliminated[tla] && score != null && !isWinner;
+    const clickable = onTeamClick && tla;
+    return (
+      <div className={clickable ? "player-card" : undefined}
+        onClick={clickable ? () => onTeamClick(tla) : undefined}
+        style={{
+          display:"flex", alignItems:"center", gap:7,
+          padding:"4px 8px", height:38, boxSizing:"border-box", minWidth:0, overflow:"hidden",
+          borderBottom: side === "home" ? `1px solid ${C.border}` : "none",
+          background: isWinner ? "rgba(34,197,94,0.08)" : "transparent",
+          cursor: clickable ? "pointer" : "default",
+        }}>
+        {tla && flagUrl
+          ? <div style={{ position:"relative", flexShrink:0, lineHeight:0 }}>
+              <img src={flagUrl} alt={tla} {...flagHandlers(tla, 15)} style={{ width:22, height:15, objectFit:"cover", borderRadius:1, display:"block", opacity: isElim ? 0.45 : 1 }} />
+              {isElim && <span style={{ position:"absolute", top:-2, right:-2, fontSize:9, fontWeight:900, color:C.red, textShadow:"0 0 2px rgba(0,0,0,0.9)", lineHeight:1, zIndex:1, pointerEvents:"none" }}>✕</span>}
+            </div>
+          : <div style={{ width:22, height:15, background:C.border, borderRadius:1, flexShrink:0 }} />}
+        {tla ? (
+          <div style={{ flex:1, minWidth:0, overflow:"hidden", opacity: isElim ? 0.45 : 1 }}>
+            <div style={{ fontSize:12, fontWeight:700, color: isWinner ? C.accent : C.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{owner || "—"}</div>
+            <div style={{ fontSize:10, color:C.muted, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{name}{pot ? ` (${pot})` : ""}</div>
+          </div>
+        ) : (
+          <span style={{ fontSize:11, color:C.muted, flex:1 }}>{label}</span>
+        )}
+        <div style={{ flexShrink:0, marginLeft:2, textAlign:"right" }}>
+          {score != null && (
+            <div style={{ fontSize:13, fontWeight:700, color: isWinner ? C.accent : C.dim, opacity: isElim ? 0.45 : 1, lineHeight:1 }}>
+              {score}{isLive ? <span style={{color:C.red,fontSize:9}}> ●</span> : ""}
+            </div>
+          )}
+          {pts > 0 && <div style={{ fontSize:9, fontWeight:800, color:C.accent, marginTop:1 }}>+{pts}pts</div>}
+        </div>
+      </div>
+    );
+  };
+
+  const BracketMatch = ({ match, matchNum }) => {
+    if (!match) {
+      return (
+        <div style={{ border:`1px solid ${C.border}`, borderRadius:6, overflow:"hidden", minWidth:180, height:76, boxSizing:"border-box", background:C.card }}>
+          <BracketSlot tla={null} matchNum={matchNum} side="home" />
+          <BracketSlot tla={null} matchNum={matchNum ? matchNum + 0.1 : null} side="away" />
+        </div>
+      );
+    }
+    const { id, home, away, homeScore, awayScore, status, winner } = match;
+    const hasScore = homeScore != null && awayScore != null;
+    const isProjected = status === "PROJECTED";
+    const mpts = id ? matchPtsById[id] : null;
+    return (
+      <div style={{
+        border: `1px ${isProjected ? "dashed" : "solid"} ${winner ? C.accent+"44" : (isProjected ? C.muted+"66" : C.border)}`,
+        borderRadius:6, overflow:"hidden", minWidth:180, height:76, boxSizing:"border-box", background:C.card,
+        opacity: isProjected ? 0.85 : 1,
+      }}>
+        <BracketSlot tla={home} side="home" score={hasScore ? homeScore : null} isWinner={winner === home} status={status} pts={mpts?.home} />
+        <BracketSlot tla={away} side="away" score={hasScore ? awayScore : null} isWinner={winner === away} status={status} pts={mpts?.away} />
+      </div>
+    );
+  };
+
+  const MATCH_H = 76;
+  const R32_GAP = 12;
+  const SLOT = MATCH_H + R32_GAP;
+  const totalHeight = 16 * SLOT - R32_GAP;
+  const slotsPerMatch = (roundIdx) => Math.pow(2, roundIdx) * SLOT;
+  const topFor = (roundIdx, matchIdx) => { const sl = slotsPerMatch(roundIdx); return sl * matchIdx + (sl - MATCH_H) / 2; };
+
+  const allRounds = [
+    { key:"r32", label: r32HasResolvedTeams ? "Last 32" : "Last 32 (Projected)", data: pad([...r32], 16) },
+    { key:"r16", label:"Last 16",       data: pad([...r16], 8) },
+    { key:"qf",  label:"Quarter Final", data: pad([...qf], 4) },
+    { key:"sf",  label:"Semi Final",    data: pad([...sf], 2) },
+    { key:"fin", label:"🏆 Final",       data: pad([...fin], 1) },
+  ];
+
+  return (
+    <>
+      <HScrollButtons targetRef={bracketRef} step={196} />
+      <div ref={bracketRef} style={{ overflowX:"auto", WebkitOverflowScrolling:"touch", paddingBottom:8 }}>
+        <div style={{ display:"flex", gap:16, padding:"0 12px 8px", alignItems:"flex-start", width:"max-content" }}>
+          {allRounds.map((round, idx) => (
+            <div key={round.key} style={{ display:"flex", flexDirection:"column", minWidth:180 }}>
+              <div style={{ fontSize:10, fontWeight:700, color: round.key === "fin" ? C.accent : C.muted, textTransform:"uppercase", letterSpacing:1, padding:"0 4px 8px", textAlign:"center" }}>
+                {round.label}
+              </div>
+              <div style={{ position:"relative", height: totalHeight, width:180 }}>
+                {round.data.map((m, i) => (
+                  <div key={i} style={{ position:"absolute", top: topFor(idx, i), left:0, right:0, height:MATCH_H }}>
+                    <BracketMatch match={m} matchNum={round.key === "r32" ? i+1 : null} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -3491,34 +3686,8 @@ function TeamsTab({ matches, view, setView, onTeamClick, matchPtsById = {} }) {
   // ── Sweepstake scoring data ──────────────────────────────────────────
   const grpPts = deriveGroupPts(matches);
 
-  // ── Knockout bracket data ─────────────────────────────────────────────
-  // Build map: team tla → highest stage reached
+  // ── Knockout bracket data (used by TeamRow for swPts) ────────────────
   const { stageReached, eliminated, winners } = deriveStages(matches);
-
-  // Build map: knockout match id → { home, away, homeScore, awayScore, status, winner }
-  const koMatches = {};
-  matches.filter(m => !(m.stage||"").toUpperCase().includes("GROUP")).forEach(m => {
-    const h = m.homeTeam?.tla?.toUpperCase();
-    const a = m.awayTeam?.tla?.toUpperCase();
-    const hs = m.score?.fullTime?.home;
-    const as_ = m.score?.fullTime?.away;
-    const pen = m.score?.penalties;
-    let winner = null;
-    if (hs != null && as_ != null) {
-      if (hs > as_) winner = h;
-      else if (as_ > hs) winner = a;
-      else if (pen) winner = pen.home > pen.away ? h : a;
-    }
-    koMatches[m.id] = { id: m.id, home: h, away: a, homeScore: hs, awayScore: as_, status: m.status, winner, stage: (m.stage||"").toUpperCase(), date: m.utcDate };
-  });
-
-  // Sort knockout matches by date for sequential numbering per round
-  const koByStage = {};
-  Object.values(koMatches).forEach(m => {
-    if (!koByStage[m.stage]) koByStage[m.stage] = [];
-    koByStage[m.stage].push(m);
-  });
-  Object.keys(koByStage).forEach(s => koByStage[s].sort((a,b) => a.id - b.id));
 
   // Helper: get team name from tla
   const teamName = (tla) => {
@@ -3572,135 +3741,6 @@ function TeamsTab({ matches, view, setView, onTeamClick, matchPtsById = {} }) {
     );
   };
 
-  const BracketSlot = ({ tla, matchNum, side, score, isWinner, status, pts }) => {
-    const name = tla ? (teamName(tla) || tla) : null;
-    const owner = tla ? ownerOf[tla] : null;
-    const pot = tla && POT[tla] ? `P${potOf(tla)}` : null;
-    const flagUrl = tla ? flag(tla) : null;
-    const isLive = status === "IN_PLAY" || status === "PAUSED";
-    const label = tla ? null : (matchNum ? `W Match ${matchNum}` : "TBD");
-    // Grey out a team once it's been knocked out of this round (loser of a completed match)
-    const isElim = tla && eliminated[tla] && score != null && !isWinner;
-    const clickable = onTeamClick && tla;
-    return (
-      <div className={clickable ? "player-card" : undefined}
-        onClick={clickable ? () => onTeamClick(tla) : undefined}
-        style={{
-          display:"flex", alignItems:"center", gap:7,
-          padding:"4px 8px", height:38, boxSizing:"border-box", minWidth:0, overflow:"hidden",
-          borderBottom: side === "home" ? `1px solid ${C.border}` : "none",
-          background: isWinner ? "rgba(34,197,94,0.08)" : "transparent",
-          cursor: clickable ? "pointer" : "default",
-        }}>
-        {tla && flagUrl
-          ? <div style={{ position:"relative", flexShrink:0, lineHeight:0 }}>
-              <img src={flagUrl} alt={tla} {...flagHandlers(tla, 15)} style={{ width:22, height:15, objectFit:"cover", borderRadius:1, display:"block", opacity: isElim ? 0.45 : 1 }} />
-              {isElim && <span style={{ position:"absolute", top:-2, right:-2, fontSize:9, fontWeight:900, color:C.red, textShadow:"0 0 2px rgba(0,0,0,0.9)", lineHeight:1, zIndex:1, pointerEvents:"none" }}>✕</span>}
-            </div>
-          : <div style={{ width:22, height:15, background:C.border, borderRadius:1, flexShrink:0 }} />}
-        {tla ? (
-          <div style={{ flex:1, minWidth:0, overflow:"hidden", opacity: isElim ? 0.45 : 1 }}>
-            <div style={{ fontSize:12, fontWeight:700, color: isWinner ? C.accent : C.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
-              {owner || "—"}
-            </div>
-            <div style={{ fontSize:10, color:C.muted, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
-              {name}{pot ? ` (${pot})` : ""}
-            </div>
-          </div>
-        ) : (
-          <span style={{ fontSize:11, color:C.muted, flex:1 }}>{label}</span>
-        )}
-        <div style={{ flexShrink:0, marginLeft:2, textAlign:"right" }}>
-          {score != null && (
-            <div style={{ fontSize:13, fontWeight:700, color: isWinner ? C.accent : C.dim, opacity: isElim ? 0.45 : 1, lineHeight:1 }}>
-              {score}{isLive ? <span style={{color:C.red,fontSize:9}}> ●</span> : ""}
-            </div>
-          )}
-          {pts > 0 && <div style={{ fontSize:9, fontWeight:800, color:C.accent, marginTop:1 }}>+{pts}pts</div>}
-        </div>
-      </div>
-    );
-  };
-
-  const BracketMatch = ({ match, matchNum }) => {
-    if (!match) {
-      // Placeholder
-      return (
-        <div style={{ border:`1px solid ${C.border}`, borderRadius:6, overflow:"hidden", minWidth:180, height:76, boxSizing:"border-box", background:C.card }}>
-          <BracketSlot tla={null} matchNum={matchNum} side="home" />
-          <BracketSlot tla={null} matchNum={matchNum ? matchNum + 0.1 : null} side="away" />
-        </div>
-      );
-    }
-    const { id, home, away, homeScore, awayScore, status, winner } = match;
-    const hasScore = homeScore != null && awayScore != null;
-    const isProjected = status === "PROJECTED";
-    const mpts = id ? matchPtsById[id] : null;
-    return (
-      <div style={{
-        border: `1px ${isProjected ? "dashed" : "solid"} ${winner ? C.accent+"44" : (isProjected ? C.muted+"66" : C.border)}`,
-        borderRadius:6, overflow:"hidden", minWidth:180, height:76, boxSizing:"border-box", background:C.card,
-        opacity: isProjected ? 0.85 : 1,
-      }}>
-        <BracketSlot tla={home} side="home" score={hasScore ? homeScore : null} isWinner={winner === home} status={status} pts={mpts?.home} />
-        <BracketSlot tla={away} side="away" score={hasScore ? awayScore : null} isWinner={winner === away} status={status} pts={mpts?.away} />
-      </div>
-    );
-  };
-
-  // ── Bracket round renderer ─────────────────────────────────────────────
-  const BracketRound = ({ label, matches: rMatches, startNum }) => (
-    <div style={{ display:"flex", flexDirection:"column", gap:0, minWidth:180 }}>
-      <div style={{ fontSize:10, fontWeight:700, color:C.muted, textTransform:"uppercase", letterSpacing:1, padding:"0 4px 8px", textAlign:"center" }}>{label}</div>
-      <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-        {rMatches.map((m, i) => (
-          <BracketMatch key={i} match={m} matchNum={startNum ? startNum + i : null} />
-        ))}
-      </div>
-    </div>
-  );
-
-  // Build bracket rounds — R32 → R16 → QF → SF → F
-  const r32 = koByStage["LAST_32"] || [];
-  // The real API publishes Last 32 fixtures as placeholders (null teams) the
-  // moment the schedule skeleton exists — long before the draw is actually
-  // known. Only treat R32 as "real" once at least one match has resolved teams.
-  const r32HasResolvedTeams = r32.some(m => m.home && m.away);
-  const r16Raw = koByStage["LAST_16"] || [];
-  const qf  = koByStage["QUARTER_FINALS"] || [];
-  const sf  = koByStage["SEMI_FINALS"] || [];
-  const fin = koByStage["FINAL"] || [];
-
-  // Pad arrays so visual alignment works
-  const pad = (arr, len) => { while (arr.length < len) arr.push(null); return arr; };
-
-  // Project Last 16 from R32 winners where API hasn't populated teams yet.
-  // Each consecutive pair of R32 matches (sorted by ID = bracket order) feeds
-  // one R16 slot: r32[0]+r32[1] → r16[0], r32[2]+r32[3] → r16[1], etc.
-  const r16 = (() => {
-    const apiR16WithTeams = r16Raw.filter(m => m.home || m.away);
-    if (apiR16WithTeams.length >= 8) return r16Raw; // API fully populated
-    // Merge: use API entry if it has teams, else derive from R32 winners
-    const projected = [];
-    for (let i = 0; i < 16; i += 2) {
-      const m1 = r32[i] || null;
-      const m2 = r32[i + 1] || null;
-      const slotIdx = i / 2;
-      const apiSlot = r16Raw[slotIdx] || null;
-      if (apiSlot && (apiSlot.home || apiSlot.away)) {
-        projected.push(apiSlot);
-      } else {
-        const home = m1?.winner || null;
-        const away = m2?.winner || null;
-        projected.push((home || away)
-          ? { home, away, homeScore: null, awayScore: null, status: "PROJECTED", winner: null }
-          : null);
-      }
-    }
-    return projected;
-  })();
-
-  const C_local = C; // capture in closure
 
   return (
     <div style={{ paddingBottom:20 }}>
@@ -3778,72 +3818,7 @@ function TeamsTab({ matches, view, setView, onTeamClick, matchPtsById = {} }) {
 
       {/* ── KNOCKOUT ────────────────────────────────────────────── */}
       {view === "knockout" && (
-        <>
-          {(r32.length === 0 && r16.length === 0 && qf.length === 0 && sf.length === 0 && fin.length === 0) ? (
-            <div style={{ textAlign:"center", color:C.muted, fontSize:13, padding:"60px 20px" }}>Knockout stage hasn't started yet</div>
-          ) : (() => {
-            // ── Absolute-positioned bracket so each round's match sits at the
-            // vertical midpoint of its two feeder matches (real bracket look) ──
-            const MATCH_H = 76;   // height of a single match card (two-line owner+team layout)
-            const R32_GAP = 12;   // gap between consecutive R32 matches
-            const SLOT = MATCH_H + R32_GAP; // vertical slot per R32 match
-
-            const allRounds = [
-              { key: "r32", label: r32HasResolvedTeams ? "Last 32" : "Last 32 (Projected)",
-                data: r32HasResolvedTeams
-                  ? pad([...r32], 16)
-                  : (r32Projection.ready
-                      ? pad(r32Projection.fixtures.map(f => ({
-                          home: f.home?.tla || null,
-                          away: f.away?.tla || null,
-                          homeScore: null, awayScore: null, status: "PROJECTED", winner: null,
-                        })), 16)
-                      : pad([], 16)) },
-              { key: "r16", label: "Last 16",       data: pad([...r16], 8)  },
-              { key: "qf",  label: "Quarter Final", data: pad([...qf], 4)   },
-              { key: "sf",  label: "Semi Final",    data: pad([...sf], 2)   },
-              { key: "fin", label: "🏆 Final",       data: pad([...fin], 1)  },
-            ];
-
-            // Always show all 5 rounds — even before any fixtures exist for a round,
-            // so the full bracket shape (with TBD placeholders) is always visible.
-            const activeRounds = allRounds;
-
-            // Total height based on R32 slot count (16 matches)
-            const totalHeight = 16 * SLOT - R32_GAP;
-
-            // Compute top offset for match i in a round, given round index (0=R32, 1=R16, ...)
-            const slotsPerMatch = (roundIdx) => Math.pow(2, roundIdx) * SLOT;
-            const topFor = (roundIdx, matchIdx) => {
-              const s = slotsPerMatch(roundIdx);
-              return s * matchIdx + (s - MATCH_H) / 2;
-            };
-
-            return (
-              <>
-              <HScrollButtons targetRef={bracketRef} step={196} />
-              <div ref={bracketRef} style={{ overflowX:"auto", WebkitOverflowScrolling:"touch", paddingBottom:8 }}>
-                <div style={{ display:"flex", gap:16, padding:"0 12px 8px", alignItems:"flex-start", width:"max-content" }}>
-                  {activeRounds.map((round, idx) => (
-                    <div key={round.key} style={{ display:"flex", flexDirection:"column", minWidth:180 }}>
-                      <div style={{ fontSize:10, fontWeight:700, color: round.key === "fin" ? C.accent : C.muted, textTransform:"uppercase", letterSpacing:1, padding:"0 4px 8px", textAlign:"center" }}>
-                        {round.label}
-                      </div>
-                      <div style={{ position:"relative", height: totalHeight, width:180 }}>
-                        {round.data.map((m, i) => (
-                          <div key={i} style={{ position:"absolute", top: topFor(idx, i), left:0, right:0, height:MATCH_H }}>
-                            <BracketMatch match={m} matchNum={round.key === "r32" ? i+1 : null} />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              </>
-            );
-          })()}
-        </>
+        <KnockoutBracket matches={matches} onTeamClick={onTeamClick} matchPtsById={matchPtsById} bracketRef={bracketRef} />
       )}
     </div>
   );
@@ -5662,7 +5637,7 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
         {/* ── TODAY (email-digest-style homepage) ── */}
         {tab === "home" && !loading && (
           <HomeTab matches={matches} ranked={ranked} badges={badges} rank24hChange={rank24hChange}
-            rank24hPtsChange={rank24hPtsChange} matchPtsById={matchPtsById} upcoming={upcoming} setTab={setTab} openPlayerModal={openPlayerModal} openTeamModal={openTeamModal} openMatchModal={openMatchModal} />
+            rank24hPtsChange={rank24hPtsChange} matchPtsById={matchPtsById} upcoming={upcoming} setTab={setTab} setLeagueView={setLeagueView} openPlayerModal={openPlayerModal} openTeamModal={openTeamModal} openMatchModal={openMatchModal} />
         )}
 
         {/* ── LEAGUE TABLE ── */}
