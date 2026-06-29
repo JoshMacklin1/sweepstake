@@ -4167,7 +4167,7 @@ function Toggle({ on, onChange, busy }) {
   );
 }
 
-function MoreMenu({ devMode, onToggleDevMode, onTakeTour, onViewRules, onSwitchGroup, onShareTable, onClose, isAdmin = false }) {
+function MoreMenu({ devMode, onToggleDevMode, onTakeTour, onViewRules, onSwitchGroup, onClose, isAdmin = false }) {
   const supported = typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window;
   const [pushOn,   setPushOn]   = useState(() => localStorage.getItem("sw_push_subscribed") === "yes");
   const [pushBusy, setPushBusy] = useState(false);
@@ -4218,7 +4218,6 @@ function MoreMenu({ devMode, onToggleDevMode, onTakeTour, onViewRules, onSwitchG
   };
 
   const navItems = [
-    { label:"📤 Share table",     onClick:() => { onShareTable(); onClose(); } },
     { label:"↻ Retake the tour", onClick:() => { onTakeTour(); onClose(); } },
     { label:"❓ Rules & Info",    onClick:() => { onViewRules(); onClose(); } },
     { label:"🔄 Switch group",    onClick:() => { onSwitchGroup(); onClose(); } },
@@ -4264,95 +4263,6 @@ function MoreMenu({ devMode, onToggleDevMode, onTakeTour, onViewRules, onSwitchG
           )}
         </div>
       </div>
-    </div>
-  );
-}
-
-function ShareTableOverlay({ ranked, badges, rank24hChange, onClose }) {
-  const rankColors = ["#84cc16", "#94a3b8", "#b45309"];
-  const today = new Date().toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric" });
-  const host = typeof window !== "undefined" ? window.location.hostname : "";
-
-  const handleShare = () => {
-    let dispRank = 0;
-    const lines = ranked.map((p, i) => {
-      const prev = ranked[i-1];
-      if (i === 0) dispRank = 1;
-      else if (p.total === prev.total && p.tiebreak === prev.tiebreak) { /* same */ }
-      else dispRank = i + 1;
-      const medal = dispRank === 1 ? "🥇" : dispRank === 2 ? "🥈" : dispRank === 3 ? "🥉" : `${dispRank}.`;
-      return `${medal} ${p.name} — ${p.total} pts`;
-    });
-    const text = `🏆 WC Sweepstake 2026\n${today}\n\n${lines.join("\n")}`;
-    if (navigator.share) navigator.share({ title:"WC Sweepstake 2026", text });
-  };
-
-  let _dispRank = 0;
-  return (
-    <div style={{ position:"fixed", inset:0, zIndex:150, background:C.bg, display:"flex", flexDirection:"column", overflowY:"auto" }}>
-      {/* Header */}
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"18px 16px 10px", flexShrink:0 }}>
-        <div>
-          <div style={{ fontSize:17, fontWeight:900, color:C.text, letterSpacing:-0.3 }}>🏆 WC Sweepstake 2026</div>
-          <div style={{ fontSize:11, color:C.muted, marginTop:3 }}>Standings · {today}</div>
-        </div>
-        <div style={{ display:"flex", gap:8 }}>
-          {typeof navigator !== "undefined" && navigator.share && (
-            <button onClick={handleShare} style={{ background:C.accent, border:"none", color:"#080c18", borderRadius:20, padding:"7px 14px", fontSize:12, fontWeight:700, cursor:"pointer" }}>
-              Share ↗
-            </button>
-          )}
-          <button onClick={onClose} style={{ background:"rgba(255,255,255,0.1)", border:`1px solid ${C.border}`, color:C.text, borderRadius:20, padding:"7px 14px", fontSize:12, fontWeight:600, cursor:"pointer" }}>
-            Close
-          </button>
-        </div>
-      </div>
-
-      <div style={{ height:1, background:C.border, margin:"0 16px 2px", flexShrink:0 }} />
-
-      {/* Rows */}
-      <div style={{ flex:1, padding:"2px 16px 16px" }}>
-        {ranked.map((player, i) => {
-          const prev = ranked[i-1];
-          if (i === 0) _dispRank = 1;
-          else if (!(player.total === prev.total && player.tiebreak === prev.tiebreak)) _dispRank = i + 1;
-          const dr = _dispRank;
-          const isTop = dr <= 3;
-          const change = rank24hChange.get(player.name) || 0;
-          return (
-            <div key={player.name} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 0", borderBottom:`1px solid ${C.border}` }}>
-              <div style={{ width:26, height:26, borderRadius:"50%", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, fontWeight:800, background: player.grimReaper ? C.reaperAccent : isTop ? rankColors[dr-1] : C.border, color: isTop ? "#080c18" : C.dim }}>
-                {dr}
-              </div>
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:3 }}>
-                  <span style={{ fontWeight:700, fontSize:14, color: player.grimReaper ? C.dangerTextBright : C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{player.name}</span>
-                  {(badges[player.name] || []).slice(0, 3).map((b, bi) => (
-                    <span key={bi} style={{ fontSize:12 }}>{b.icon}</span>
-                  ))}
-                </div>
-                {!player.grimReaper && <FlagRow teams={player.teams} baseHeight={16} />}
-              </div>
-              <div style={{ textAlign:"right", flexShrink:0 }}>
-                <div style={{ fontSize:20, fontWeight:800, color: player.total < 0 ? C.red : C.text, lineHeight:1 }}>{player.total}</div>
-                <div style={{ fontSize:9, color:C.muted, marginTop:1 }}>pts</div>
-                {change !== 0 && (
-                  <div style={{ fontSize:9, fontWeight:700, color: change > 0 ? C.accent : C.red, marginTop:1 }}>
-                    {change > 0 ? "▲" : "▼"}{Math.abs(change)}
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Footer */}
-      {host && (
-        <div style={{ padding:"10px 16px 36px", textAlign:"center", borderTop:`1px solid ${C.border}`, flexShrink:0 }}>
-          <div style={{ fontSize:11, color:C.muted }}>{host}</div>
-        </div>
-      )}
     </div>
   );
 }
@@ -5056,7 +4966,6 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
   const [showMore,         setShowMore]         = useState(false); // bottom-nav/sidebar "More" menu (was "Rules & Info")
   const [showNotifications, setShowNotifications] = useState(false); // bell — recent match events drawer
   const [showPushSettings, setShowPushSettings] = useState(false);
-  const [showShareTable, setShowShareTable] = useState(false);
   const notifSeenKey = groupKey ? `${NOTIF_SEEN_BASE_KEY}_${groupKey}` : NOTIF_SEEN_BASE_KEY;
   const [notifSeenTs, setNotifSeenTs] = useState(() => parseInt(localStorage.getItem(notifSeenKey) || "0", 10));
   useEffect(() => { setNotifSeenTs(parseInt(localStorage.getItem(notifSeenKey) || "0", 10)); }, [notifSeenKey]);
@@ -5858,15 +5767,12 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
             onTakeTour={handleTakeTour}
             onViewRules={() => setShowInfo(true)}
             onSwitchGroup={onSwitchGroup}
-            onShareTable={() => setShowShareTable(true)}
             onClose={() => setShowMore(false)}
             isAdmin={isAdmin}
           />
         )}
 
         {showPushSettings && <PushSettingsModal onClose={() => setShowPushSettings(false)} />}
-        {showShareTable && <ShareTableOverlay ranked={ranked} badges={badges} rank24hChange={rank24hChange} onClose={() => setShowShareTable(false)} />}
-
         {showNotifications && (
           <NotificationsDrawer matches={matches} ranked={ranked} matchPtsById={matchPtsById} groupKey={groupKey} onClose={() => setShowNotifications(false)} onSeenUpdate={setNotifSeenTs} />
         )}
