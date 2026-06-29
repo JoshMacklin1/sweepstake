@@ -2830,6 +2830,23 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onPlaye
   const aRank = aPlayer ? ranked.findIndex(p => p.name === aOwner) + 1 : null;
   const toOrdinal = n => { const s = ["th","st","nd","rd"]; const v = n % 100; return n + (s[(v-20)%10] || s[v] || s[0]); };
 
+  const STAGE_ORD = ["GROUP_STAGE", "GROUP_ELIM", "LAST_32", "LAST_16", "QUARTER_FINALS", "SEMI_FINALS", "FINALIST", "WINNER"];
+  const playerBestStage = (player) => {
+    const teams = player?.teams || [];
+    const active = teams.filter(t => !t.eliminated);
+    const src = active.length ? active : teams;
+    return src.reduce((best, t) => {
+      const s = t.stage || "GROUP_STAGE";
+      return STAGE_ORD.indexOf(s) > STAGE_ORD.indexOf(best || "GROUP_STAGE") ? s : (best || "GROUP_STAGE");
+    }, null);
+  };
+  const hStillIn = (hPlayer?.teams || []).some(t => !t.eliminated);
+  const aStillIn = (aPlayer?.teams || []).some(t => !t.eliminated);
+  const hWon    = (hPlayer?.teams || []).some(t => t.won);
+  const aWon    = (aPlayer?.teams || []).some(t => t.won);
+  const hBestStage = playerBestStage(hPlayer);
+  const aBestStage = playerBestStage(aPlayer);
+
   const [view, setView] = React.useState("teams");
 
   const contentRef = React.useRef(null);
@@ -2985,9 +3002,14 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onPlaye
                 <div style={{ fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Sweepstake Stats</div>
                 <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "0 12px", marginBottom: 18 }}>
                   <StatRow
-                    label="Position"
-                    hVal={hRank != null ? toOrdinal(hRank) : "—"}
-                    aVal={aRank != null ? toOrdinal(aRank) : "—"}
+                    label="Status"
+                    hVal={hPlayer ? <StatusPill won={hWon} eliminated={!hStillIn && !hWon ? true : null} small /> : "—"}
+                    aVal={aPlayer ? <StatusPill won={aWon} eliminated={!aStillIn && !aWon ? true : null} small /> : "—"}
+                  />
+                  <StatRow
+                    label="Stage"
+                    hVal={hBestStage ? (STAGE_LABEL[hBestStage] || "Groups") : (hPlayer ? "Groups" : "—")}
+                    aVal={aBestStage ? (STAGE_LABEL[aBestStage] || "Groups") : (aPlayer ? "Groups" : "—")}
                   />
                   <StatRow
                     label="Total Pts"
