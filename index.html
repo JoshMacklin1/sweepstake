@@ -3115,7 +3115,7 @@ function HomeMatchRow({ m, ranked, pts, onTeamClick, onMatchClick, isLast, banne
   );
 }
 
-function FamilyLeagueTab({ ranked, groupKey }) {
+function FamilyLeagueTab({ ranked, groupKey, onPlayerClick }) {
   const families = GROUPS[groupKey]?.families;
   if (!families) return null;
   const rankColors = ["#84cc16","#94a3b8","#b45309"];
@@ -3147,7 +3147,7 @@ function FamilyLeagueTab({ ranked, groupKey }) {
           </div>
           <div style={{ borderTop: `1px solid ${C.border}` }}>
             {family.memberData.map(({ name, p }, j) => (
-              <div key={name} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 14px 8px 54px", borderBottom: `1px solid ${C.border}` }}>
+              <div key={name} className={onPlayerClick ? "player-card" : undefined} onClick={onPlayerClick ? () => onPlayerClick(name) : undefined} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 14px 8px 54px", borderBottom: `1px solid ${C.border}`, cursor: onPlayerClick ? "pointer" : "default" }}>
                 <div style={{ fontSize: 10, color: C.muted, fontWeight: 700, minWidth: 14, textAlign: "right" }}>{p?.overallRank ?? "—"}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 3 }}>{name}</div>
@@ -5805,7 +5805,7 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
             )}
 
             {leagueView === "families" && (
-              <FamilyLeagueTab ranked={ranked} groupKey={groupKey} />
+              <FamilyLeagueTab ranked={ranked} groupKey={groupKey} onPlayerClick={openPlayerModal} />
             )}
           </>
         )}
