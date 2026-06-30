@@ -3137,6 +3137,10 @@ function UpcomingMatchRow({ m, onMatchClick, isLast }) {
       className={onMatchClick ? "player-card" : undefined}
       onClick={onMatchClick ? () => onMatchClick(m.id) : undefined}
       style={{ padding: "9px 0", borderBottom: isLast ? "none" : `1px solid ${C.border}`, cursor: onMatchClick ? "pointer" : "default" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
+        <span style={{ fontSize: 9, color: C.muted, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>{(m.stage || "").replace(/_/g, " ")}</span>
+        <span style={{ fontSize: 9, color: C.muted }}>{fmt(m.utcDate)}</span>
+      </div>
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <Flag code={h} size={18} />
         <div style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.homeTeam?.name || h}</div>
@@ -3145,7 +3149,6 @@ function UpcomingMatchRow({ m, onMatchClick, isLast }) {
         <Flag code={a} size={18} />
         {onMatchClick && <span style={{ color: C.muted, fontSize: 18, lineHeight: 1, flexShrink: 0, marginLeft: 2 }}>›</span>}
       </div>
-      <div style={{ fontSize: 10, color: C.muted, marginTop: 3 }}>{(m.stage || "").replace(/_/g, " ")} · {fmt(m.utcDate)}</div>
     </div>
   );
 }
@@ -3312,46 +3315,63 @@ function FamilyCardContent({ bodyRef, familyName, ranked, groupKey, matches = []
         </>);
       })()}
       {(() => {
-        const familyCodes = allMemberTeams.map(t => t.code);
-        const settledFamilyMatches = matches
-          .filter(m => {
-            const h = m.homeTeam?.tla?.toUpperCase();
-            const a = m.awayTeam?.tla?.toUpperCase();
-            return (familyCodes.includes(h) || familyCodes.includes(a)) && isSettled(m.status);
-          })
-          .sort((a, b) => new Date(b.utcDate) - new Date(a.utcDate));
-        if (settledFamilyMatches.length === 0) return null;
+        const seen = new Set();
+        const events = [];
+        allMemberTeams.forEach(t => {
+          const code = t.code;
+          matches
+            .filter(m => {
+              const h = m.homeTeam?.tla?.toUpperCase();
+              const a = m.awayTeam?.tla?.toUpperCase();
+              return (h === code || a === code) && isSettled(m.status);
+            })
+            .forEach(m => {
+              const key = `${code}-${m.id}`;
+              if (seen.has(key)) return;
+              seen.add(key);
+              const h = m.homeTeam?.tla?.toUpperCase();
+              const isHome = h === code;
+              const isLive = m.status === "IN_PLAY" || m.status === "PAUSED";
+              const hs = m.score?.fullTime?.home ?? 0;
+              const as_ = m.score?.fullTime?.away ?? 0;
+              const myGoals = isHome ? hs : as_;
+              const oppGoals = isHome ? as_ : hs;
+              const pen = m.score?.penalties;
+              let result = "D";
+              if (myGoals > oppGoals) result = "W";
+              else if (myGoals < oppGoals) result = "L";
+              else if (pen) {
+                const myPen = isHome ? pen.home : pen.away;
+                const oppPen = isHome ? pen.away : pen.home;
+                result = myPen > oppPen ? "W" : "L";
+              }
+              const mPts = matchPtsById[m.id];
+              const earnedPts = mPts ? (isHome ? mPts.home : mPts.away) : null;
+              const oppName = isHome ? (m.awayTeam?.name || "TBD") : (m.homeTeam?.name || "TBD");
+              const resultColor = isLive ? "#f97316" : result === "W" ? C.accent : result === "L" ? C.red : C.muted;
+              const badgeBg = isLive ? "rgba(249,115,22,0.15)" : result === "W" ? C.posBg : result === "L" ? C.negBg : "rgba(148,163,184,0.12)";
+              events.push({ key, t, m, isLive, myGoals, oppGoals, result, earnedPts, oppName, resultColor, badgeBg });
+            });
+        });
+        events.sort((a, b) => new Date(b.m.utcDate) - new Date(a.m.utcDate));
+        if (events.length === 0) return null;
         return (<>
           <div style={{ fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Results</div>
-          {settledFamilyMatches.map((m, i) => {
-            const h = m.homeTeam?.tla?.toUpperCase();
-            const a = m.awayTeam?.tla?.toUpperCase();
-            const isLive = m.status === "IN_PLAY" || m.status === "PAUSED";
-            const hs = m.score?.fullTime?.home ?? 0;
-            const as_ = m.score?.fullTime?.away ?? 0;
-            const pen = m.score?.penalties;
-            const mPts = matchPtsById[m.id];
-            const hPts = mPts?.home ?? null;
-            const aPts = mPts?.away ?? null;
-            const totalPts = (hPts ?? 0) + (aPts ?? 0);
-            return (
-              <div key={m.id} className={onMatchClick ? "player-card" : undefined} onClick={onMatchClick ? () => onMatchClick(m.id) : undefined}
-                style={{ padding: "9px 0", borderBottom: i < settledFamilyMatches.length - 1 ? `1px solid ${C.border}` : "none", cursor: onMatchClick ? "pointer" : "default" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <Flag code={h} size={18} />
-                  <div style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.homeTeam?.name || h}</div>
-                  <div style={{ flexShrink: 0, textAlign: "center", padding: "0 6px" }}>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: isLive ? "#f97316" : C.text, lineHeight: 1 }}>{hs}–{as_}{pen?.home != null ? <span style={{ fontSize: 10, color: C.muted }}> ({pen.home}–{pen.away}p)</span> : ""}</div>
-                    {totalPts > 0 && <div style={{ fontSize: 9, fontWeight: 800, color: isLive ? "#f97316" : C.accent, marginTop: 2 }}>+{totalPts} pts</div>}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "right" }}>{m.awayTeam?.name || a}</div>
-                  <Flag code={a} size={18} />
-                  {onMatchClick && <span style={{ color: C.muted, fontSize: 18, lineHeight: 1, flexShrink: 0, marginLeft: 2 }}>›</span>}
-                </div>
-                <div style={{ fontSize: 10, color: C.muted, marginTop: 3 }}>{isLive && <span style={{ color: "#f97316", fontWeight: 700 }}>LIVE · </span>}{(m.stage || "").replace(/_/g, " ")} · {fmt(m.utcDate)}</div>
+          {events.map(({ key, t, m, isLive, myGoals, oppGoals, result, earnedPts, oppName, resultColor, badgeBg }, i) => (
+            <div key={key} className={onMatchClick ? "player-card" : undefined} onClick={onMatchClick ? () => onMatchClick(m.id) : undefined}
+              style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 0", borderBottom: i < events.length - 1 ? `1px solid ${C.border}` : "none", cursor: onMatchClick ? "pointer" : "default" }}>
+              <div style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0, background: badgeBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: resultColor }}>{result}</div>
+              <Flag code={t.code} size={18} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}</div>
+                <div style={{ fontSize: 10, color: C.muted }}>{isLive && <span style={{ color: "#f97316", fontWeight: 700 }}>LIVE · </span>}vs {oppName} · {fmt(m.utcDate)}</div>
               </div>
-            );
-          })}
+              <div style={{ textAlign: "right", flexShrink: 0 }}>
+                {earnedPts != null && <div style={{ fontSize: 12, fontWeight: 800, color: isLive ? "#f97316" : C.text }}>{earnedPts > 0 ? `+${earnedPts}` : earnedPts} pts</div>}
+                <div style={{ fontSize: 11, color: resultColor }}>{myGoals}–{oppGoals}</div>
+              </div>
+            </div>
+          ))}
         </>);
       })()}
     </div>
