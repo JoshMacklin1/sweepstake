@@ -334,6 +334,13 @@ var GROUPS = {
     // them) — randomly assigned, balanced so every player gets exactly 3
     // of the 4 pots represented once (misses exactly 1 pot). Josh plays
     // the Grim Reaper here.
+    families: [
+      { name: "Hampson",        members: ["Jon", "India", "Delilah"] },
+      { name: "Campbell",       members: ["Aaron", "Katie", "Lily", "Freya C"] },
+      { name: "Macklin",        members: ["Josh", "Candice", "Jasper"] },
+      { name: "Baldwin-Renton", members: ["Yan", "Freya R", "Nora"] },
+      { name: "Rukin",          members: ["Jake", "Helen", "Frank", "Ivo"] },
+    ],
     players: [
       { name: "Aaron",   teams: ["Mexico","Australia","DR Congo"],        codes: ["MEX","AUS","DRC"], lateB: [false,false,false] },
       { name: "Candice", teams: ["Brazil","Norway","Turkey"],             codes: ["BRA","NOR","TUR"], lateB: [false,false,false] },

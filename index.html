@@ -3115,6 +3115,39 @@ function HomeMatchRow({ m, ranked, pts, onTeamClick, onMatchClick, isLast, banne
   );
 }
 
+function FamilyLeagueTab({ ranked, groupKey }) {
+  const families = GROUPS[groupKey]?.families;
+  if (!families) return null;
+  const scoreMap = Object.fromEntries(ranked.map(p => [p.name, p.total]));
+  const familyRows = families.map(f => {
+    const memberScores = f.members
+      .map(name => ({ name, total: scoreMap[name] ?? 0 }))
+      .sort((a, b) => b.total - a.total);
+    return { name: f.name, memberScores, total: memberScores.reduce((s, m) => s + m.total, 0) };
+  }).sort((a, b) => b.total - a.total);
+  return (
+    <div>
+      {familyRows.map((family, i) => (
+        <div key={family.name} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, marginBottom: 10, overflow: "hidden" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px" }}>
+            <div style={{ fontSize: 20, fontWeight: 900, color: C.muted, minWidth: 24, textAlign: "center" }}>{i + 1}</div>
+            <div style={{ flex: 1, fontSize: 16, fontWeight: 800, color: C.text }}>{family.name}</div>
+            <div style={{ fontSize: 20, fontWeight: 900, color: C.accent }}>{family.total}<span style={{ fontSize: 11, fontWeight: 600, color: C.muted, marginLeft: 3 }}>pts</span></div>
+          </div>
+          <div style={{ borderTop: `1px solid ${C.border}` }}>
+            {family.memberScores.map(({ name, total }, j) => (
+              <div key={name} style={{ display: "flex", alignItems: "center", padding: "8px 16px 8px 52px", borderBottom: j < family.memberScores.length - 1 ? `1px solid ${C.border}` : "none" }}>
+                <div style={{ flex: 1, fontSize: 13, color: C.dim, fontWeight: 600 }}>{name}</div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{total}<span style={{ fontSize: 10, color: C.muted, marginLeft: 2 }}>pts</span></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function MatchFocusCard({ matches, ranked, matchPtsById = {}, onMatchClick }) {
   const [countdown, setCountdown] = React.useState("");
   const [idx, setIdx] = useState(0);
@@ -5578,7 +5611,7 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
         {tab === "table" && !loading && !isDesktop && (
           <div className="sweeps-nav">
             <div className="sweeps-seg">
-              {[["league","Sweeps"],["groups","Groups"],["knockout","Knockouts"]].map(([id, label]) => (
+              {[["league","Sweeps"],["groups","Groups"],["knockout","Knockouts"],...(GROUPS[groupKey]?.families ? [["families","Families"]] : [])].map(([id, label]) => (
                 <button key={id} onClick={() => setLeagueView(id)} style={{
                   background: leagueView === id ? C.accent : "transparent",
                   color: leagueView === id ? "#000" : C.muted,
@@ -5629,6 +5662,7 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
           ["table-sweeps",   "Sweeps",    navIconTable],
           ["table-groups",   "Groups",    navIconGroups],
           ["table-knockout", "Knockouts", navIconKnockout],
+          ...(GROUPS[groupKey]?.families ? [["table-families", "Families", navIconTable]] : []),
           ["scores", "Scores", navIconScores],
           ["race", "The Race", navIconRace],
           ["more", "More", navIconMore],
@@ -5650,8 +5684,8 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
           if (id === "more") {
             active = showMore;
             onNav = () => setShowMore(true);
-          } else if (id === "table-sweeps" || id === "table-groups" || id === "table-knockout") {
-            const view = id === "table-sweeps" ? "league" : id === "table-groups" ? "groups" : "knockout";
+          } else if (id === "table-sweeps" || id === "table-groups" || id === "table-knockout" || id === "table-families") {
+            const view = id === "table-sweeps" ? "league" : id === "table-groups" ? "groups" : id === "table-knockout" ? "knockout" : "families";
             active = tab === "table" && leagueView === view;
             onNav = () => {
               window.history.pushState({ appTab: "table", appModal: null }, "");
@@ -5743,6 +5777,10 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
 
             {(leagueView === "groups" || leagueView === "knockout") && (
               <TeamsTab matches={matches} view={leagueView} setView={setLeagueView} onTeamClick={openTeamModal} matchPtsById={matchPtsById} />
+            )}
+
+            {leagueView === "families" && (
+              <FamilyLeagueTab ranked={ranked} groupKey={groupKey} />
             )}
           </>
         )}
