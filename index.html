@@ -753,24 +753,21 @@ function MatchCard({ m, ranked, upcoming = [], pts, onPlayerClick, onTeamClick, 
   else if (pen)      { winnerCode = pen.home > pen.away ? h : a; loserCode = winnerCode === h ? a : h; }
   const isKnockout = !(m.stage || "").toUpperCase().includes("GROUP");
 
-  // 😱 Shock Exit — a Pot 1/2 favourite is out. Takes priority over the upset
-  // ladder below (an elimination is the bigger story than the pot-gap that
-  // caused it). Knockout losses only: a single match is an unambiguous
-  // elimination there. Group-stage elimination depends on the whole group
-  // (mathematically-locked-into-4th timing), which is already handled
-  // precisely for player badges in computeBadges — not duplicated here to
-  // avoid the two disagreeing.
-  const shockExitLabel = fin && isKnockout && loserCode && potOf(loserCode) <= 2 && winnerCode && potOf(winnerCode) > potOf(loserCode)
-    ? { icon:"😱", label:"SHOCK EXIT" }
-    : null;
+  // Knockout exit banners — three tiers based on pot gap, any team can trigger.
+  // Knockout losses are unambiguous eliminations so we grade the shock here.
+  // Takes priority over the group-stage upset ladder below.
+  const knockoutExitLabel = (() => {
+    if (!fin || !isKnockout || !loserCode || !winnerCode) return null;
+    const gap = potOf(winnerCode) - potOf(loserCode);
+    if (gap === 3) return { icon:"🌋", label:"SEISMIC SHOCK" };
+    if (gap === 2) return { icon:"😱", label:"SHOCK EXIT" };
+    if (gap === 1) return { icon:"😮", label:"SURPRISE EXIT" };
+    return null;
+  })();
 
-  // Upset ladder — escalating banners by pot-gap and win/draw, ranked most-
-  // to-least amazing: a 3-pot win, a 2-pot win, a 3-pot draw, a 2-pot draw,
-  // then a plain 1-pot win. Win always outranks a draw at the same gap (a
-  // result you could lose for real beats merely denying a favourite), which
-  // is why the order isn't a strict "bigger gap wins" sort.
+  // Upset ladder — group stage only (knockouts handled above).
   const upsetLabel = (() => {
-    if (!fin || shockExitLabel) return null;
+    if (!fin || knockoutExitLabel) return null;
     if (winnerCode && loserCode) {
       const gap = potOf(winnerCode) - potOf(loserCode); // >0 if the weaker pot won
       if (gap === 3) return { icon:"🦄", label:"FAIRYTALE" };
@@ -788,7 +785,7 @@ function MatchCard({ m, ranked, upcoming = [], pts, onPlayerClick, onTeamClick, 
     return null;
   })();
 
-  const resultLabel = shockExitLabel || upsetLabel;
+  const resultLabel = knockoutExitLabel || upsetLabel;
 
   const rivalryBorder = (clashLabel || resultLabel)
     ? `2px solid ${C.gold}`
