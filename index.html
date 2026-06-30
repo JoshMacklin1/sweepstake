@@ -761,7 +761,7 @@ function MatchCard({ m, ranked, upcoming = [], pts, onPlayerClick, onTeamClick, 
     const gap = potOf(winnerCode) - potOf(loserCode);
     if (gap === 3) return { icon:"🌋", label:"SEISMIC SHOCK" };
     if (gap === 2) return { icon:"😱", label:"SHOCK EXIT" };
-    if (gap === 1) return { icon:"😮", label:"SURPRISE EXIT" };
+    if (gap === 1) return { icon:"⚠️", label:"UPSET ALERT" };
     return null;
   })();
 
