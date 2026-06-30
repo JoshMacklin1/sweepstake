@@ -2899,6 +2899,27 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onPlaye
   const hFamilyData = hFamilyDef && familyData ? familyData[hFamilyDef.name] : null;
   const aFamilyData = aFamilyDef && familyData ? familyData[aFamilyDef.name] : null;
   const showFamilyTab = !!(families && (hFamilyDef || aFamilyDef));
+  const familyTeamsOf = (fDef) => {
+    if (!fDef) return [];
+    const pMap = Object.fromEntries(ranked.map(p => [p.name, p]));
+    return fDef.members.flatMap(n => pMap[n]?.teams || []);
+  };
+  const hFamilyTeams = familyTeamsOf(hFamilyDef);
+  const aFamilyTeams = familyTeamsOf(aFamilyDef);
+  const hFamilyWon = hFamilyTeams.some(t => t.won);
+  const aFamilyWon = aFamilyTeams.some(t => t.won);
+  const hFamilyStillIn = hFamilyTeams.some(t => !t.eliminated);
+  const aFamilyStillIn = aFamilyTeams.some(t => !t.eliminated);
+  const hFamilyBestStage = hFamilyTeams.reduce((best, t) => {
+    const s = t.stage || "GROUP_STAGE";
+    return STAGE_ORD.indexOf(s) > STAGE_ORD.indexOf(best || "GROUP_STAGE") ? s : (best || "GROUP_STAGE");
+  }, null);
+  const aFamilyBestStage = aFamilyTeams.reduce((best, t) => {
+    const s = t.stage || "GROUP_STAGE";
+    return STAGE_ORD.indexOf(s) > STAGE_ORD.indexOf(best || "GROUP_STAGE") ? s : (best || "GROUP_STAGE");
+  }, null);
+  const hFamilyAlive = hFamilyTeams.filter(t => !t.eliminated).length;
+  const aFamilyAlive = aFamilyTeams.filter(t => !t.eliminated).length;
 
   const [view, setView] = React.useState(defaultView || "teams");
 
@@ -2986,7 +3007,7 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onPlaye
                 style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "14px 8px", cursor: fd && onFamilyClick ? "pointer" : "default", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, position: "relative" }}>
                 <span style={{ width: 36, height: 36, borderRadius: "50%", background: fd ? familyColor(fd.name) : C.border, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>{fd ? "👨‍👩‍👧" : "?"}</span>
                 <div style={{ fontSize: 13, fontWeight: 800, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>{fd ? fd.name : "No family"}</div>
-                {data && <div style={{ fontSize: 11, color: C.muted }}>{toOrdinal(data.rank)} family</div>}
+                {data && <div style={{ fontSize: 11, color: C.muted }}>{toOrdinal(data.rank)}</div>}
                 {fd && onFamilyClick && <span style={{ position: "absolute", top: 10, right: 10, fontSize: 14, color: C.muted, lineHeight: 1 }}>›</span>}
               </button>
             ))}
@@ -3098,14 +3119,24 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onPlaye
                 <div style={{ fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Family Stats</div>
                 <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "0 12px", marginBottom: 18 }}>
                   <StatRow
+                    label="Status"
+                    hVal={hFamilyDef ? <StatusPill won={hFamilyWon} eliminated={!hFamilyStillIn && !hFamilyWon} small /> : "—"}
+                    aVal={aFamilyDef ? <StatusPill won={aFamilyWon} eliminated={!aFamilyStillIn && !aFamilyWon} small /> : "—"}
+                  />
+                  <StatRow
+                    label="Stage"
+                    hVal={hFamilyDef ? (hFamilyBestStage ? (STAGE_LABEL[hFamilyBestStage] || "Groups") : "Groups") : "—"}
+                    aVal={aFamilyDef ? (aFamilyBestStage ? (STAGE_LABEL[aFamilyBestStage] || "Groups") : "Groups") : "—"}
+                  />
+                  <StatRow
                     label="Rank"
                     hVal={hFamilyData ? toOrdinal(hFamilyData.rank) : "—"}
                     aVal={aFamilyData ? toOrdinal(aFamilyData.rank) : "—"}
                   />
                   <StatRow
                     label="Avg Pts"
-                    hVal={hFamilyData ? hFamilyData.avg : "—"}
-                    aVal={aFamilyData ? aFamilyData.avg : "—"}
+                    hVal={hFamilyData ? `+${hFamilyData.avg}` : "—"}
+                    aVal={aFamilyData ? `+${aFamilyData.avg}` : "—"}
                     hColor={hFamilyData ? C.accent : C.muted}
                     aColor={aFamilyData ? C.accent : C.muted}
                   />
@@ -3113,6 +3144,11 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onPlaye
                     label="Total Pts"
                     hVal={hFamilyData ? hFamilyData.total : "—"}
                     aVal={aFamilyData ? aFamilyData.total : "—"}
+                  />
+                  <StatRow
+                    label="Teams Alive"
+                    hVal={hFamilyDef ? `${hFamilyAlive} / ${hFamilyTeams.length}` : "—"}
+                    aVal={aFamilyDef ? `${aFamilyAlive} / ${aFamilyTeams.length}` : "—"}
                   />
                   {hFamilyDef?.name === aFamilyDef?.name && hFamilyDef && (
                     <div style={{ fontSize: 11, color: C.muted, textAlign: "center", padding: "10px 0" }}>Both players are in the same family</div>
