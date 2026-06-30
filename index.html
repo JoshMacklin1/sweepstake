@@ -5337,7 +5337,6 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
   const [scrollPlayerToBadges, setScrollPlayerToBadges] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [selectedMatch, setSelectedMatch] = useState(null);
-  const [selectedMatchDefaultView, setSelectedMatchDefaultView] = useState("teams");
   const [selectedFamily, setSelectedFamily] = useState(null);
 
   // Wire app navigation into the browser History API so that the OS back
@@ -5356,7 +5355,6 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
       setScrollPlayerToBadges(false);
       setSelectedTeam(s.appTeam || null);
       setSelectedMatch(s.appMatch || null);
-      setSelectedMatchDefaultView(s.appMatchView || "teams");
       setSelectedFamily(s.appFamily || null);
     };
     window.addEventListener("popstate", handler);
@@ -5376,25 +5374,13 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
     setSelectedTeam(tla);
   };
   const openMatchModal = (matchId) => {
-    window.history.pushState({ appTab: tabRef.current, appModal: "match", appMatch: matchId, appMatchView: "teams" }, "");
-    setSelectedMatchDefaultView("teams");
+    window.history.pushState({ appTab: tabRef.current, appModal: "match", appMatch: matchId }, "");
     setSelectedMatch(matchId);
   };
-  const switchToMatchFromTeam = (matchId) => {
-    window.history.replaceState({ appTab: tabRef.current, appModal: "match", appMatch: matchId, appMatchView: "teams" }, "");
-    setSelectedMatchDefaultView("teams");
+  const switchToMatchFromCard = (matchId) => {
+    window.history.replaceState({ appTab: tabRef.current, appModal: "match", appMatch: matchId }, "");
     setSelectedTeam(null);
-    setSelectedMatch(matchId);
-  };
-  const switchToMatchFromPlayer = (matchId) => {
-    window.history.replaceState({ appTab: tabRef.current, appModal: "match", appMatch: matchId, appMatchView: "players" }, "");
-    setSelectedMatchDefaultView("players");
     setSelectedPlayer(null);
-    setSelectedMatch(matchId);
-  };
-  const switchToMatchFromFamily = (matchId) => {
-    window.history.replaceState({ appTab: tabRef.current, appModal: "match", appMatch: matchId, appMatchView: "family" }, "");
-    setSelectedMatchDefaultView("family");
     setSelectedFamily(null);
     setSelectedMatch(matchId);
   };
@@ -6187,18 +6173,18 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
           <SnapSheet onClose={closeCard} scrollBodyToBottom={!selectedTeam && !selectedMatch && !selectedFamily && scrollPlayerToBadges} initialSnap={snapFull ? "full" : "half"}>
             {(bodyRef, handleClose) => {
               if (selectedFamily) {
-                return <FamilyCardContent key={selectedFamily} bodyRef={bodyRef} familyName={selectedFamily} ranked={ranked} groupKey={groupKey} matches={matches} matchPtsById={matchPtsById} onPlayerClick={switchToPlayerFromFamily} onMatchClick={switchToMatchFromFamily} onClose={handleClose} />;
+                return <FamilyCardContent key={selectedFamily} bodyRef={bodyRef} familyName={selectedFamily} ranked={ranked} groupKey={groupKey} matches={matches} matchPtsById={matchPtsById} onPlayerClick={switchToPlayerFromFamily} onMatchClick={switchToMatchFromCard} onClose={handleClose} />;
               }
               // Team takes precedence: switching player -> team sets selectedTeam
               // and clears selectedPlayer, swapping the content of this same sheet
               // (so the height/snap state is preserved across the switch).
               if (selectedTeam) {
-                return <TeamCardContent key={selectedTeam} bodyRef={bodyRef} tla={selectedTeam} matches={matches} ranked={ranked} matchPtsById={matchPtsById} onTeamClick={switchToTeam} onOwnerClick={switchToPlayer} onMatchClick={switchToMatchFromTeam} onClose={handleClose} />;
+                return <TeamCardContent key={selectedTeam} bodyRef={bodyRef} tla={selectedTeam} matches={matches} ranked={ranked} matchPtsById={matchPtsById} onTeamClick={switchToTeam} onOwnerClick={switchToPlayer} onMatchClick={switchToMatchFromCard} onClose={handleClose} />;
               }
               if (selectedMatch) {
                 const matchObj = matches.find(m => String(m.id) === String(selectedMatch));
                 if (!matchObj) return null;
-                return <HeadToHeadCard key={selectedMatch} bodyRef={bodyRef} m={matchObj} ranked={ranked} matchPtsById={matchPtsById} onTeamClick={switchToTeamFromH2H} onPlayerClick={switchToPlayerFromH2H} onFamilyClick={switchToFamilyFromH2H} groupKey={groupKey} defaultView={selectedMatchDefaultView} onClose={handleClose} />;
+                return <HeadToHeadCard key={selectedMatch} bodyRef={bodyRef} m={matchObj} ranked={ranked} matchPtsById={matchPtsById} onTeamClick={switchToTeamFromH2H} onPlayerClick={switchToPlayerFromH2H} onFamilyClick={switchToFamilyFromH2H} groupKey={groupKey} onClose={handleClose} />;
               }
               const idx = ranked.findIndex(x => x.name === selectedPlayer);
               const p = ranked[idx];
@@ -6208,7 +6194,7 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
                 if (!fams) return null;
                 return fams.find(f => f.members.includes(selectedPlayer))?.name || null;
               })();
-              return <PlayerCardContent bodyRef={bodyRef} player={p} displayRank={p._displayRank || (idx + 1)} winPct={winPct.players ? winPct.players[selectedPlayer] : 0} winTeams={winPct.teams} badges={badges[selectedPlayer] || []} matches={matches} matchPtsById={matchPtsById} onTeamClick={switchToTeam} onMatchClick={switchToMatchFromPlayer} onFamilyClick={switchToFamily} playerFamily={playerFamily} onClose={handleClose} />;
+              return <PlayerCardContent bodyRef={bodyRef} player={p} displayRank={p._displayRank || (idx + 1)} winPct={winPct.players ? winPct.players[selectedPlayer] : 0} winTeams={winPct.teams} badges={badges[selectedPlayer] || []} matches={matches} matchPtsById={matchPtsById} onTeamClick={switchToTeam} onMatchClick={switchToMatchFromCard} onFamilyClick={switchToFamily} playerFamily={playerFamily} onClose={handleClose} />;
             }}
           </SnapSheet>
         )}
