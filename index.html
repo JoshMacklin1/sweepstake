@@ -3136,15 +3136,16 @@ function UpcomingMatchRow({ m, onMatchClick, isLast }) {
     <div
       className={onMatchClick ? "player-card" : undefined}
       onClick={onMatchClick ? () => onMatchClick(m.id) : undefined}
-      style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 0", borderBottom: isLast ? "none" : `1px solid ${C.border}`, cursor: onMatchClick ? "pointer" : "default" }}>
-      <div style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0, background: "rgba(148,163,184,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: C.muted }}>vs</div>
-      <Flag code={h} size={18} />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.homeTeam?.name || h} vs {m.awayTeam?.name || a}</div>
-        <div style={{ fontSize: 10, color: C.muted }}>{(m.stage || "").replace(/_/g, " ")} · {fmt(m.utcDate)}</div>
+      style={{ padding: "9px 0", borderBottom: isLast ? "none" : `1px solid ${C.border}`, cursor: onMatchClick ? "pointer" : "default" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <Flag code={h} size={18} />
+        <div style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.homeTeam?.name || h}</div>
+        <div style={{ flexShrink: 0, fontSize: 10, fontWeight: 700, color: C.muted, padding: "0 6px" }}>vs</div>
+        <div style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "right" }}>{m.awayTeam?.name || a}</div>
+        <Flag code={a} size={18} />
+        {onMatchClick && <span style={{ color: C.muted, fontSize: 18, lineHeight: 1, flexShrink: 0, marginLeft: 2 }}>›</span>}
       </div>
-      <Flag code={a} size={18} />
-      {onMatchClick && <span style={{ color: C.muted, fontSize: 18, lineHeight: 1, flexShrink: 0 }}>›</span>}
+      <div style={{ fontSize: 10, color: C.muted, marginTop: 3 }}>{(m.stage || "").replace(/_/g, " ")} · {fmt(m.utcDate)}</div>
     </div>
   );
 }
@@ -3335,18 +3336,19 @@ function FamilyCardContent({ bodyRef, familyName, ranked, groupKey, matches = []
             const totalPts = (hPts ?? 0) + (aPts ?? 0);
             return (
               <div key={m.id} className={onMatchClick ? "player-card" : undefined} onClick={onMatchClick ? () => onMatchClick(m.id) : undefined}
-                style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 0", borderBottom: i < settledFamilyMatches.length - 1 ? `1px solid ${C.border}` : "none", cursor: onMatchClick ? "pointer" : "default" }}>
-                <Flag code={h} size={18} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.homeTeam?.name || h} vs {m.awayTeam?.name || a}</div>
-                  <div style={{ fontSize: 10, color: C.muted }}>{isLive && <span style={{ color: "#f97316", fontWeight: 700 }}>LIVE · </span>}{(m.stage || "").replace(/_/g, " ")} · {fmt(m.utcDate)}</div>
+                style={{ padding: "9px 0", borderBottom: i < settledFamilyMatches.length - 1 ? `1px solid ${C.border}` : "none", cursor: onMatchClick ? "pointer" : "default" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <Flag code={h} size={18} />
+                  <div style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.homeTeam?.name || h}</div>
+                  <div style={{ flexShrink: 0, textAlign: "center", padding: "0 6px" }}>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: isLive ? "#f97316" : C.text, lineHeight: 1 }}>{hs}–{as_}{pen?.home != null ? <span style={{ fontSize: 10, color: C.muted }}> ({pen.home}–{pen.away}p)</span> : ""}</div>
+                    {totalPts > 0 && <div style={{ fontSize: 9, fontWeight: 800, color: isLive ? "#f97316" : C.accent, marginTop: 2 }}>+{totalPts} pts</div>}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "right" }}>{m.awayTeam?.name || a}</div>
+                  <Flag code={a} size={18} />
+                  {onMatchClick && <span style={{ color: C.muted, fontSize: 18, lineHeight: 1, flexShrink: 0, marginLeft: 2 }}>›</span>}
                 </div>
-                <div style={{ textAlign: "right", flexShrink: 0 }}>
-                  {totalPts > 0 && <div style={{ fontSize: 12, fontWeight: 800, color: isLive ? "#f97316" : C.text }}>+{totalPts} pts</div>}
-                  <div style={{ fontSize: 11, color: C.muted }}>{hs}–{as_}{pen?.home != null ? ` (${pen.home}–${pen.away}p)` : ""}</div>
-                </div>
-                <Flag code={a} size={18} />
-                {onMatchClick && <span style={{ color: C.muted, fontSize: 18, lineHeight: 1, flexShrink: 0 }}>›</span>}
+                <div style={{ fontSize: 10, color: C.muted, marginTop: 3 }}>{isLive && <span style={{ color: "#f97316", fontWeight: 700 }}>LIVE · </span>}{(m.stage || "").replace(/_/g, " ")} · {fmt(m.utcDate)}</div>
               </div>
             );
           })}
