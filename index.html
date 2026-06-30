@@ -5957,7 +5957,7 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
         {tab === "table" && !loading && !isDesktop && (
           <div className="sweeps-nav">
             <div className="sweeps-seg">
-              {[["league","Sweeps"],["groups","Groups"],["knockout","Knockouts"],...(GROUPS[groupKey]?.families ? [["families","Families"]] : [])].map(([id, label]) => (
+              {[["league","Players"],...(GROUPS[groupKey]?.families ? [["families","Families"]] : []),["groups","Groups"],["knockout","Knockouts"]].map(([id, label]) => (
                 <button key={id} onClick={() => setLeagueView(id)} style={{
                   background: leagueView === id ? C.accent : "transparent",
                   color: leagueView === id ? "#000" : C.muted,
@@ -6005,10 +6005,10 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
           ["home", "Home", navIconHome],
           // Desktop has room to flatten League's Sweeps/Groups/Knockouts
           // into three direct destinations instead of a tab + inline toggle.
-          ["table-sweeps",   "Sweeps",    navIconTable],
+          ["table-sweeps",   "Players",   navIconTable],
+          ...(GROUPS[groupKey]?.families ? [["table-families", "Families", navIconTable]] : []),
           ["table-groups",   "Groups",    navIconGroups],
           ["table-knockout", "Knockouts", navIconKnockout],
-          ...(GROUPS[groupKey]?.families ? [["table-families", "Families", navIconTable]] : []),
           ["scores", "Scores", navIconScores],
           ["race", "The Race", navIconRace],
           ["more", "More", navIconMore],
