@@ -1846,12 +1846,18 @@ function BumpChart({ history, allRanked, bucketLabels = [], raceHistory, colorFn
   const colorOf = name => (colorFn || playerColor)(name);
 
   const timePoints = Array.from({length: maxLen}, (_, t) => {
-    const scores = history.map(p => ({
-      name: p.name,
-      pts: p.hist[Math.min(t, p.hist.length - 1)],
-    })).sort((a, b) => b.pts - a.pts || a.name.localeCompare(b.name));
     const ranks = {};
-    scores.forEach((s, i) => { ranks[s.name] = i + 1; });
+    if (t === maxLen - 1 && allRanked && allRanked.length > 0) {
+      // Use actual ranked order so the "Now" column always matches the league table
+      allRanked.forEach((p, i) => { ranks[p.name] = i + 1; });
+      history.forEach((p, i) => { if (!(p.name in ranks)) ranks[p.name] = allRanked.length + i + 1; });
+    } else {
+      history.map(p => ({
+        name: p.name,
+        pts: p.hist[Math.min(t, p.hist.length - 1)],
+      })).sort((a, b) => b.pts - a.pts || a.name.localeCompare(b.name))
+        .forEach((s, i) => { ranks[s.name] = i + 1; });
+    }
     return ranks;
   });
 
