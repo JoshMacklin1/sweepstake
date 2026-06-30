@@ -3126,7 +3126,12 @@ function FamilyLeagueTab({ ranked, groupKey, onPlayerClick }) {
       .sort((a, b) => (b.p?.total ?? 0) - (a.p?.total ?? 0));
     const total = memberData.reduce((s, m) => s + (m.p?.total ?? 0), 0);
     const avg = Math.round(total / memberData.length);
-    return { name: f.name, memberData, total, avg };
+    const hists = memberData.map(m => m.p?.hist).filter(Boolean);
+    const len = hists.length ? Math.max(...hists.map(h => h.length)) : 0;
+    const combinedHist = len ? Array.from({ length: len }, (_, i) =>
+      hists.reduce((s, h) => s + (h[i] ?? h[h.length - 1] ?? 0), 0)
+    ) : [0];
+    return { name: f.name, memberData, total, avg, combinedHist };
   }).sort((a, b) => b.avg - a.avg);
   return (
     <div>
@@ -3140,7 +3145,8 @@ function FamilyLeagueTab({ ranked, groupKey, onPlayerClick }) {
               fontSize: 13, fontWeight: 800, color: i < 3 ? "#080c18" : C.dim,
             }}>{i + 1}</div>
             <div style={{ flex: 1, fontWeight: 700, fontSize: 15, color: C.text }}>{family.name}</div>
-            <div style={{ textAlign: "right", flexShrink: 0 }}>
+            <Sparkline data={family.combinedHist} width={90} height={44} color={C.accent} />
+            <div style={{ textAlign: "right", flexShrink: 0, minWidth: 56 }}>
               <div style={{ fontSize: 22, fontWeight: 800, color: C.text, lineHeight: 1 }}>{family.avg}</div>
               <div style={{ fontSize: 10, color: C.muted }}>avg pts</div>
             </div>
