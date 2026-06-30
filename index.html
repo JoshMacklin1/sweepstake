@@ -2829,7 +2829,7 @@ function StatRow({ label, hVal, aVal, hColor, aColor }) {
   );
 }
 
-function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onPlayerClick, onClose }) {
+function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onPlayerClick, onFamilyClick, groupKey, onClose }) {
   const h = m.homeTeam?.tla?.toUpperCase();
   const a = m.awayTeam?.tla?.toUpperCase();
   const fin = m.status === "FINISHED";
@@ -2867,6 +2867,24 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onPlaye
   const aWon    = (aPlayer?.teams || []).some(t => t.won);
   const hBestStage = playerBestStage(hPlayer);
   const aBestStage = playerBestStage(aPlayer);
+
+  const families = GROUPS[groupKey]?.families;
+  const familyData = families ? (() => {
+    const playerMap = Object.fromEntries(ranked.map(p => [p.name, p]));
+    const rows = families.map(f => {
+      const tots = f.members.map(n => playerMap[n]?.total ?? 0);
+      const total = tots.reduce((s, v) => s + v, 0);
+      const avg = Math.round(total / f.members.length);
+      return { name: f.name, total, avg };
+    }).sort((a, b) => b.avg - a.avg);
+    return Object.fromEntries(rows.map((f, i) => [f.name, { ...f, rank: i + 1 }]));
+  })() : null;
+  const findFamily = (playerName) => playerName ? (families?.find(f => f.members.includes(playerName)) || null) : null;
+  const hFamilyDef = findFamily(hOwner);
+  const aFamilyDef = findFamily(aOwner);
+  const hFamilyData = hFamilyDef && familyData ? familyData[hFamilyDef.name] : null;
+  const aFamilyData = aFamilyDef && familyData ? familyData[aFamilyDef.name] : null;
+  const showFamilyTab = !!(families && (hFamilyDef || aFamilyDef));
 
   const [view, setView] = React.useState("teams");
 
@@ -2908,7 +2926,7 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onPlaye
           <button onClick={onClose} aria-label="Close" style={{ background: "transparent", border: "none", color: C.muted, fontSize: 22, cursor: "pointer", lineHeight: 1 }}>✕</button>
         </div>
 
-        {/* Match block: teams view = single card with score; players view = two tappable player cards */}
+        {/* Match block: teams view = single card with score; players/family view = two tappable cards */}
         {view === "teams" ? (
           <div style={{ padding: "0 14px 12px" }}>
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "16px 12px" }}>
@@ -2933,7 +2951,7 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onPlaye
               </div>
             </div>
           </div>
-        ) : (
+        ) : view === "players" ? (
           <div style={{ display: "flex", gap: 10, padding: "0 14px 12px" }}>
             {[{ owner: hOwner, rank: hRank }, { owner: aOwner, rank: aRank }].map(({ owner, rank }, i) => (
               <button key={i} onClick={owner && onPlayerClick ? () => onPlayerClick(owner) : undefined}
@@ -2947,13 +2965,25 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onPlaye
               </button>
             ))}
           </div>
+        ) : (
+          <div style={{ display: "flex", gap: 10, padding: "0 14px 12px" }}>
+            {[{ fd: hFamilyDef, data: hFamilyData }, { fd: aFamilyDef, data: aFamilyData }].map(({ fd, data }, i) => (
+              <button key={i} onClick={fd && onFamilyClick ? () => onFamilyClick(fd.name) : undefined}
+                style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "14px 8px", cursor: fd && onFamilyClick ? "pointer" : "default", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, position: "relative" }}>
+                <span style={{ width: 36, height: 36, borderRadius: "50%", background: fd ? C.accent : C.border, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>{fd ? "👨‍👩‍👧" : "?"}</span>
+                <div style={{ fontSize: 13, fontWeight: 800, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>{fd ? fd.name : "No family"}</div>
+                {data && <div style={{ fontSize: 11, color: C.muted }}>{toOrdinal(data.rank)} family</div>}
+                {fd && onFamilyClick && <span style={{ position: "absolute", top: 10, right: 10, fontSize: 14, color: C.muted, lineHeight: 1 }}>›</span>}
+              </button>
+            ))}
+          </div>
         )}
 
-        {/* Teams / Players toggle */}
+        {/* Teams / Players / Family toggle */}
         <div style={{ display: "flex", gap: 8, padding: "0 14px 12px" }}>
-          {["teams", "players"].map(v => (
+          {["teams", "players", ...(showFamilyTab ? ["family"] : [])].map(v => (
             <button key={v} onClick={() => setView(v)} style={{ flex: 1, padding: "7px 0", background: view === v ? C.accent : C.card, color: view === v ? "#0d1117" : C.muted, border: `1px solid ${view === v ? C.accent : C.border}`, borderRadius: 10, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
-              {v === "teams" ? "Teams" : "Players"}
+              {v === "teams" ? "Teams" : v === "players" ? "Players" : "Family"}
             </button>
           ))}
         </div>
@@ -3010,7 +3040,7 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onPlaye
               )}
             </div>
           </>
-        ) : (
+        ) : view === "players" ? (
           <>
             {(hPlayer || aPlayer) ? (
               <>
@@ -3045,6 +3075,38 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onPlaye
               </>
             ) : (
               <div style={{ color: C.muted, fontSize: 13, textAlign: "center", padding: "20px 0" }}>No sweepstake owners for this match</div>
+            )}
+          </>
+        ) : (
+          <>
+            {(hFamilyData || aFamilyData) ? (
+              <>
+                <div style={{ fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Family Stats</div>
+                <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "0 12px", marginBottom: 18 }}>
+                  <StatRow
+                    label="Rank"
+                    hVal={hFamilyData ? toOrdinal(hFamilyData.rank) : "—"}
+                    aVal={aFamilyData ? toOrdinal(aFamilyData.rank) : "—"}
+                  />
+                  <StatRow
+                    label="Avg Pts"
+                    hVal={hFamilyData ? hFamilyData.avg : "—"}
+                    aVal={aFamilyData ? aFamilyData.avg : "—"}
+                    hColor={hFamilyData ? C.accent : C.muted}
+                    aColor={aFamilyData ? C.accent : C.muted}
+                  />
+                  <StatRow
+                    label="Total Pts"
+                    hVal={hFamilyData ? hFamilyData.total : "—"}
+                    aVal={aFamilyData ? aFamilyData.total : "—"}
+                  />
+                  {hFamilyDef?.name === aFamilyDef?.name && hFamilyDef && (
+                    <div style={{ fontSize: 11, color: C.muted, textAlign: "center", padding: "10px 0" }}>Both players are in the same family</div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div style={{ color: C.muted, fontSize: 13, textAlign: "center", padding: "20px 0" }}>No family data for this match</div>
             )}
           </>
         )}
@@ -5227,6 +5289,11 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
     setSelectedFamily(null);
     setSelectedPlayer(name);
   };
+  const switchToFamilyFromH2H = (familyName) => {
+    window.history.replaceState({ appTab: tabRef.current, appModal: "family", appFamily: familyName }, "");
+    setSelectedMatch(null);
+    setSelectedFamily(familyName);
+  };
   // Navigate from H2H card to a team card — replaces the match history entry.
   const switchToTeamFromH2H = (tla) => {
     window.history.replaceState({ appTab: tabRef.current, appModal: "team", appTeam: tla }, "");
@@ -6007,7 +6074,7 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
               if (selectedMatch) {
                 const matchObj = matches.find(m => String(m.id) === String(selectedMatch));
                 if (!matchObj) return null;
-                return <HeadToHeadCard key={selectedMatch} bodyRef={bodyRef} m={matchObj} ranked={ranked} matchPtsById={matchPtsById} onTeamClick={switchToTeamFromH2H} onPlayerClick={switchToPlayerFromH2H} onClose={handleClose} />;
+                return <HeadToHeadCard key={selectedMatch} bodyRef={bodyRef} m={matchObj} ranked={ranked} matchPtsById={matchPtsById} onTeamClick={switchToTeamFromH2H} onPlayerClick={switchToPlayerFromH2H} onFamilyClick={switchToFamilyFromH2H} groupKey={groupKey} onClose={handleClose} />;
               }
               const idx = ranked.findIndex(x => x.name === selectedPlayer);
               const p = ranked[idx];
