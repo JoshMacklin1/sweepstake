@@ -1188,12 +1188,17 @@ function stageBonusFor(tla, teamTotalPts, matches, matchPtsById) {
 function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, badges = [], matches = [], matchPtsById = {}, onTeamClick, onFamilyClick, playerFamily, onClose }) {
   if (!player) return null;
   const isReaper = player.grimReaper;
+  const playerWon = (player.teams || []).some(t => t.won);
+  const playerStillIn = (player.teams || []).some(t => !t.eliminated);
   return (<>
         <div className="sheet-handle"><span></span></div>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", padding:"14px 16px", borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
           <div>
             <div style={{ fontSize:18, fontWeight:900, color:C.text }}>{player.name}</div>
-            <div style={{ fontSize:11, color:C.muted, marginTop:2 }}>{isReaper ? "Grim Reaper" : `Rank ${displayRank} · ${player.total} pts`}</div>
+            <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:2 }}>
+              <span style={{ fontSize:11, color:C.muted }}>{isReaper ? "Grim Reaper" : `Rank ${displayRank} · ${player.total} pts`}</span>
+              {!isReaper && <StatusPill won={playerWon} eliminated={!playerStillIn && !playerWon} small />}
+            </div>
           </div>
           <button onClick={onClose} aria-label="Close" style={{ background:"transparent", border:"none", color:C.muted, fontSize:22, cursor:"pointer", lineHeight:1 }}>✕</button>
         </div>
@@ -3207,12 +3212,18 @@ function FamilyCardContent({ bodyRef, familyName, ranked, groupKey, onPlayerClic
     return { name: f.name, avg: Math.round(tots.reduce((s, v) => s + v, 0) / f.members.length) };
   }).sort((a, b) => b.avg - a.avg);
   const familyRank = allFamilyRows.findIndex(f => f.name === familyName) + 1;
+  const allMemberTeams = memberData.flatMap(({ p }) => p?.teams || []);
+  const familyWon = allMemberTeams.some(t => t.won);
+  const familyStillIn = allMemberTeams.some(t => !t.eliminated);
   return (<>
     <div className="sheet-handle"><span></span></div>
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "14px 16px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
       <div>
         <div style={{ fontSize: 18, fontWeight: 900, color: C.text }}>{familyName}</div>
-        <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Rank {familyRank} · {avg} avg pts · {memberData.length} members</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+          <span style={{ fontSize: 11, color: C.muted }}>Rank {familyRank} · {avg} avg pts · {memberData.length} members</span>
+          {allMemberTeams.length > 0 && <StatusPill won={familyWon} eliminated={!familyStillIn && !familyWon} small />}
+        </div>
       </div>
       <button onClick={onClose} aria-label="Close" style={{ background: "transparent", border: "none", color: C.muted, fontSize: 22, cursor: "pointer", lineHeight: 1 }}>✕</button>
     </div>
