@@ -3491,7 +3491,8 @@ function KnockoutBracket({ matches, onTeamClick, matchPtsById = {}, bracketRef: 
     return <div style={{ textAlign:"center", color:C.muted, fontSize:13, padding:"40px 20px" }}>Knockout stage hasn't started yet</div>;
   }
 
-  const BracketSlot = ({ tla, matchNum, side, score, isWinner, status, pts, slotH = 38 }) => {
+  const BracketSlot = ({ tla, matchNum, side, score, isWinner, status, pts }) => {
+    const slotH = 38;
     const name = tla ? (teamName(tla) || tla) : null;
     const owner = tla ? ownerOf[tla] : null;
     const pot = tla && POT[tla] ? `P${potOf(tla)}` : null;
@@ -3546,25 +3547,18 @@ function KnockoutBracket({ matches, onTeamClick, matchPtsById = {}, bracketRef: 
         </div>
       );
     }
-    const { id, home, away, homeScore, awayScore, status, winner, penHome, penAway } = match;
+    const { id, home, away, homeScore, awayScore, status, winner } = match;
     const hasScore = homeScore != null && awayScore != null;
     const isProjected = status === "PROJECTED";
     const mpts = id ? matchPtsById[id] : null;
-    const hasPen = penHome != null && penAway != null && status === "FINISHED";
-    const slotH = hasPen ? 33 : 38;
     return (
       <div style={{
         border: `1px ${isProjected ? "dashed" : "solid"} ${winner ? C.accent+"44" : (isProjected ? C.muted+"66" : C.border)}`,
         borderRadius:6, overflow:"hidden", ...sizeStyle, height:76, boxSizing:"border-box", background:C.card,
         opacity: isProjected ? 0.85 : 1,
       }}>
-        <BracketSlot tla={home} side="home" score={hasScore ? homeScore : null} isWinner={winner === home} status={status} pts={mpts?.home} slotH={slotH} />
-        <BracketSlot tla={away} side="away" score={hasScore ? awayScore : null} isWinner={winner === away} status={status} pts={mpts?.away} slotH={slotH} />
-        {hasPen && (
-          <div style={{ height:10, display:"flex", alignItems:"center", justifyContent:"center", borderTop:`1px solid ${C.border}`, fontSize:8, color:C.muted, letterSpacing:"0.04em" }}>
-            pens {penHome}–{penAway}
-          </div>
-        )}
+        <BracketSlot tla={home} side="home" score={hasScore ? homeScore : null} isWinner={winner === home} status={status} pts={mpts?.home} />
+        <BracketSlot tla={away} side="away" score={hasScore ? awayScore : null} isWinner={winner === away} status={status} pts={mpts?.away} />
       </div>
     );
   };
