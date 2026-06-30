@@ -1793,7 +1793,7 @@ function HScrollButtons({ targetRef, step = 200 }) {
   );
 }
 
-function BumpChart({ history, allRanked, bucketLabels = [], raceHistory }) {
+function BumpChart({ history, allRanked, bucketLabels = [], raceHistory, colorFn }) {
   const [selected, setSelected] = React.useState(null);
   const [atLeft, setAtLeft] = React.useState(false);
   const scrollRef = React.useRef(null);
@@ -1843,7 +1843,7 @@ function BumpChart({ history, allRanked, bucketLabels = [], raceHistory }) {
   const xScale = t => padL + t * COL_W;
   const yScale = r => padT + (r - 1) * rowH;
 
-  const colorOf = name => playerColor(name);
+  const colorOf = name => (colorFn || playerColor)(name);
 
   const timePoints = Array.from({length: maxLen}, (_, t) => {
     const scores = history.map(p => ({
@@ -1956,7 +1956,7 @@ function BumpChart({ history, allRanked, bucketLabels = [], raceHistory }) {
           return (
           <div key={p.name} onClick={() => setSelected(selected === p.name ? null : p.name)}
             style={{ display:"flex", alignItems:"center", gap:5, cursor:"pointer", opacity: dim ? 0.35 : 1 }}>
-            <div style={{ width:10, height:10, borderRadius:"50%", background:playerColor(p.name), flexShrink:0 }}/>
+            <div style={{ width:10, height:10, borderRadius:"50%", background:colorOf(p.name), flexShrink:0 }}/>
             <span style={{ fontSize:11, color:C.muted }}>{p.name} <span style={{ color:C.text, fontWeight:700 }}>{p.total}pts</span></span>
           </div>
           );
@@ -1966,7 +1966,7 @@ function BumpChart({ history, allRanked, bucketLabels = [], raceHistory }) {
   );
 }
 
-function BarRaceModal({ history, allRanked, bucketLabels = [], elimByFrame = [], stageByFrame = [], onClose }) {
+function BarRaceModal({ history, allRanked, bucketLabels = [], elimByFrame = [], stageByFrame = [], onClose, colorFn, isFamily = false }) {
   const maxLen = Math.max(...history.map(p => p.hist.length));
   const [frame, setFrame] = React.useState(0);
   const [playing, setPlaying] = React.useState(true);
@@ -1983,7 +1983,7 @@ function BarRaceModal({ history, allRanked, bucketLabels = [], elimByFrame = [],
     [frame, elimByFrame]
   );
 
-  const colorOf = name => playerColor(name);
+  const colorOf = name => (colorFn || playerColor)(name);
 
   const prevRanks = React.useRef({});
 
@@ -2050,7 +2050,7 @@ function BarRaceModal({ history, allRanked, bucketLabels = [], elimByFrame = [],
     <div style={{ position:"fixed", inset:0, zIndex:60, background:C.bg, display:"flex", flexDirection:"column" }}>
       {/* Header */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"12px 16px", borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
-        <div style={{ fontSize:15, fontWeight:800, color:C.text }}>🏁 The Race</div>
+        <div style={{ fontSize:15, fontWeight:800, color:C.text }}>🏁 {isFamily ? "Family Race" : "The Race"}</div>
         <button onClick={onClose} aria-label="Close" style={{ background:"transparent", border:"none", color:C.muted, fontSize:22, cursor:"pointer" }}>✕</button>
       </div>
 
@@ -2078,9 +2078,10 @@ function BarRaceModal({ history, allRanked, bucketLabels = [], elimByFrame = [],
                 <div style={{ width:18, textAlign:"right", fontSize:11, color:C.muted, flexShrink:0, fontWeight:700 }}>
                   {s.rank + 1}
                 </div>
-                <div style={{ width:66, textAlign:"right", fontSize:12, fontWeight:700, color:C.text, flexShrink:0, overflow:"hidden", whiteSpace:"nowrap" }}>
+                <div style={{ width: isFamily ? 100 : 66, textAlign:"right", fontSize:12, fontWeight:700, color:C.text, flexShrink:0, overflow:"hidden", whiteSpace:"nowrap" }}>
                   {s.name}
                 </div>
+                {!isFamily && (
                 <div style={{ display:"flex", flexDirection:"column", justifyContent:"center", gap:2, flexShrink:0, width:75 }}>
                   {(teamsByName[s.name] || []).length === 0 ? (
                     <span style={{ fontSize:16, lineHeight:1, marginLeft:2 }}>💀</span>
@@ -2106,6 +2107,7 @@ function BarRaceModal({ history, allRanked, bucketLabels = [], elimByFrame = [],
                     </div>
                   ))}
                 </div>
+                )}
                 <div style={{ flex:1, position:"relative", height:"55%", minHeight:18 }}>
                   <div style={{ position:"absolute", inset:0, background:C.border, borderRadius:"0 3px 3px 0" }}/>
                   <div style={{
@@ -4816,7 +4818,67 @@ function NotificationsDrawer({ matches, ranked, matchPtsById, onClose, onSeenUpd
     }
   }
 
-  const allItems = [...matchItems, ...qualItems, ...elimItems, ...leaderItems].sort((a, b) => b.date - a.date);
+  // Family elimination notifications — fire when every team across all family members is eliminated
+  const familyElimItems = [];
+  const familyLeaderItems = [];
+  const notifFamilies = GROUPS[groupKey]?.families;
+  if (notifFamilies) {
+    const playerMap = Object.fromEntries(ranked.map(p => [p.name, p]));
+    // Family eliminations
+    for (const f of notifFamilies) {
+      const memberTeams = f.members.flatMap(n => playerMap[n]?.teams || []);
+      if (!memberTeams.length) continue;
+      const allElim = memberTeams.every(t => t.eliminated);
+      const anyWon = memberTeams.some(t => t.won);
+      if (!allElim || anyWon) continue;
+      const tsCandidates = memberTeams.flatMap(t =>
+        matches.filter(m => {
+          const h = m.homeTeam?.tla?.toUpperCase();
+          const a = m.awayTeam?.tla?.toUpperCase();
+          return (h === t.code || a === t.code) && m.status === "FINISHED";
+        }).map(m => new Date(m.utcDate).getTime())
+      );
+      if (!tsCandidates.length) continue;
+      familyElimItems.push({ type:"familyElim", date: Math.max(...tsCandidates), familyName: f.name });
+    }
+    // Family leader notifications — track running avg pts per family
+    const teamToFamily = {};
+    for (const f of notifFamilies) {
+      const mCount = f.members.length;
+      for (const n of f.members) {
+        const p = playerMap[n];
+        if (!p || p.grimReaper) continue;
+        for (const t of (p.teams || [])) teamToFamily[t.code] = { name: f.name, mCount };
+      }
+    }
+    const familyTotals = Object.fromEntries(notifFamilies.map(f => [f.name, 0]));
+    const familyMCount = Object.fromEntries(notifFamilies.map(f => [f.name, f.members.length]));
+    const fEvents = [];
+    for (const m of matches) {
+      if (m.status !== "FINISHED" || !matchPtsById?.[m.id]) continue;
+      const h = m.homeTeam?.tla?.toUpperCase();
+      const a = m.awayTeam?.tla?.toUpperCase();
+      const pts = matchPtsById[m.id];
+      const date = new Date(m.utcDate).getTime();
+      if (h && teamToFamily[h] && pts?.home != null) fEvents.push({ date, family: teamToFamily[h].name, delta: pts.home });
+      if (a && teamToFamily[a] && pts?.away != null) fEvents.push({ date, family: teamToFamily[a].name, delta: pts.away });
+    }
+    const fByTs = {};
+    for (const ev of fEvents) (fByTs[ev.date] = fByTs[ev.date] || []).push(ev);
+    let currentFamilyLeader = null;
+    for (const ts of Object.keys(fByTs).map(Number).sort((a, b) => a - b)) {
+      for (const ev of fByTs[ts]) familyTotals[ev.family] = (familyTotals[ev.family] || 0) + ev.delta;
+      const avgs = Object.entries(familyTotals).map(([name, tot]) => ({ name, avg: tot / familyMCount[name] })).sort((a, b) => b.avg - a.avg);
+      const [topFamily, topAvg] = [avgs[0].name, avgs[0].avg];
+      const secondAvg = avgs.length > 1 ? avgs[1].avg : 0;
+      if (topAvg > 0 && topAvg > secondAvg && topFamily !== currentFamilyLeader) {
+        familyLeaderItems.push({ type:"familyLeader", date: ts, leader: topFamily, avg: Math.round(topAvg), ahead: Math.round(topAvg - secondAvg) });
+        currentFamilyLeader = topFamily;
+      }
+    }
+  }
+
+  const allItems = [...matchItems, ...qualItems, ...elimItems, ...leaderItems, ...familyElimItems, ...familyLeaderItems].sort((a, b) => b.date - a.date);
 
   const FILTERS = [
     { key:"all",     label:"All" },
@@ -4824,9 +4886,14 @@ function NotificationsDrawer({ matches, ranked, matchPtsById, onClose, onSeenUpd
     { key:"qualify", label:"Qualifications" },
     { key:"elim",    label:"Eliminations" },
     { key:"leader",  label:"Leaders" },
+    ...(notifFamilies ? [{ key:"family", label:"Families" }] : []),
   ];
   const [activeFilter, setActiveFilter] = useState("all");
-  const visibleItems = activeFilter === "all" ? allItems : allItems.filter(item => item.type === activeFilter);
+  const visibleItems = activeFilter === "all" ? allItems
+    : activeFilter === "elim" ? allItems.filter(item => item.type === "elim" || item.type === "familyElim")
+    : activeFilter === "leader" ? allItems.filter(item => item.type === "leader" || item.type === "familyLeader")
+    : activeFilter === "family" ? allItems.filter(item => item.type === "familyElim" || item.type === "familyLeader")
+    : allItems.filter(item => item.type === activeFilter);
 
   const unread = visibleItems.filter(item => item.date > lastSeen);
   const read   = visibleItems.filter(item => item.date <= lastSeen);
@@ -4934,10 +5001,28 @@ function NotificationsDrawer({ matches, ranked, matchPtsById, onClose, onSeenUpd
     </div>
   );
 
+  const renderFamilyElimCard = ({ familyName, date }, dimmed) => (
+    <div key={`fe-${familyName}`} style={{ padding:"10px 6px", borderBottom:`1px solid ${C.border}`, background: dimmed ? "transparent" : "rgba(34,197,94,0.07)" }}>
+      <div style={{ fontSize:10, color:C.muted, marginBottom:3 }}>WC Sweeps · {relTime(date)}</div>
+      <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:2 }}>💀 {familyName} family fully eliminated</div>
+      <div style={{ fontSize:12, color:C.dim }}>All teams knocked out</div>
+    </div>
+  );
+
+  const renderFamilyLeaderCard = ({ leader, avg, ahead, date }, dimmed) => (
+    <div key={`fl-${date}`} style={{ padding:"10px 6px", borderBottom:`1px solid ${C.border}`, background: dimmed ? "transparent" : "rgba(34,197,94,0.07)" }}>
+      <div style={{ fontSize:10, color:C.muted, marginBottom:3 }}>WC Sweeps · {relTime(date)}</div>
+      <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:2 }}>👑 New Family Leader: {leader}</div>
+      <div style={{ fontSize:12, color:C.dim }}>{avg} avg pts · {ahead} pt{ahead !== 1 ? "s" : ""} clear</div>
+    </div>
+  );
+
   const renderItem = (item, dimmed) =>
     item.type === "qualify" ? renderQualCard(item, dimmed)
     : item.type === "elim" ? renderElimCard(item, dimmed)
+    : item.type === "familyElim" ? renderFamilyElimCard(item, dimmed)
     : item.type === "leader" ? renderLeaderCard(item, dimmed)
+    : item.type === "familyLeader" ? renderFamilyLeaderCard(item, dimmed)
     : renderMatchCard(item.m, dimmed);
 
   return (
@@ -5351,6 +5436,7 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
   const [tab,         setTab]         = useState("home");
   const [leagueView,  setLeagueView]  = useState("league"); // "league" | "groups" | "knockout"
   const [showRace,    setShowRace]    = useState(false);
+  const [raceView,    setRaceView]    = useState("players"); // "players" | "family"
   const [showInfo,    setShowInfo]    = useState(false); // Rules & Info dialog (over current tab)
   const [showTour,    setShowTour]    = useState(false); // first-time app walkthrough, also replayable from the More menu
   const [showMore,         setShowMore]         = useState(false); // bottom-nav/sidebar "More" menu (was "Rules & Info")
@@ -5761,6 +5847,21 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
     () => (typeof deriveRaceStages === "function" ? deriveRaceStages(matches) : []),
     [matches]
   );
+  const familyRaceData = (() => {
+    const fams = GROUPS[groupKey]?.families;
+    if (!fams) return null;
+    const playerMap = Object.fromEntries(ranked.map(p => [p.name, p]));
+    return fams.map(f => {
+      const memberHists = f.members.map(n => bumpHistoryMap[n] || []).filter(h => h.length > 0);
+      const len = memberHists.length ? Math.max(...memberHists.map(h => h.length)) : 0;
+      const avgHist = len ? Array.from({ length: len }, (_, i) =>
+        Math.round(memberHists.reduce((s, h) => s + (h[i] ?? h[h.length - 1] ?? 0), 0) / f.members.length)
+      ) : [0];
+      const tots = f.members.map(n => playerMap[n]?.total ?? 0);
+      const avg = Math.round(tots.reduce((s, v) => s + v, 0) / f.members.length);
+      return { name: f.name, hist: avgHist, total: avg };
+    }).sort((a, b) => b.total - a.total);
+  })();
   const live     = matches.filter(m => m.status === "IN_PLAY" || m.status === "PAUSED" ||
     ((m.status === "SCHEDULED" || m.status === "TIMED") && new Date() > new Date(m.utcDate)));
   const upcoming = matches.filter(m => m.status === "SCHEDULED" || m.status === "TIMED");
@@ -6013,6 +6114,19 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
         )}
         {tab === "race" && !loading && (
           <div className="sweeps-nav">
+            {familyRaceData && (
+              <div style={{ display:"flex", gap:8, marginBottom:10 }}>
+                {["players","family"].map(v => (
+                  <button key={v} onClick={() => setRaceView(v)} style={{
+                    flex:1, padding:"7px 0",
+                    background: raceView === v ? C.accent : C.card,
+                    color: raceView === v ? "#0d1117" : C.muted,
+                    border: `1px solid ${raceView === v ? C.accent : C.border}`,
+                    borderRadius:10, fontWeight:700, fontSize:12, cursor:"pointer",
+                  }}>{v === "players" ? "Players" : "Family"}</button>
+                ))}
+              </div>
+            )}
             <button onClick={() => setShowRace(true)} style={{
               width:"100%", padding:"12px", borderRadius:10, border:"none", cursor:"pointer",
               background:"linear-gradient(135deg, #15803d, #22c55e)",
@@ -6020,7 +6134,7 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
               boxShadow:"0 2px 12px rgba(34,197,94,0.30)",
               display:"flex", alignItems:"center", justifyContent:"center", gap:8,
             }}>
-              🏁 Watch the Race
+              🏁 {raceView === "family" && familyRaceData ? "Watch the Family Race" : "Watch the Race"}
             </button>
           </div>
         )}
@@ -6178,10 +6292,16 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
 
         {/* ── THE RACE ── */}
         {tab === "race" && !loading && (
-          <BumpChart history={ranked.map(p => ({ name: p.name, hist: bumpHistoryMap[p.name] || [0], total: p.total }))} allRanked={ranked} bucketLabels={bucketLabels} raceHistory={ranked.map(p => ({ name: p.name, hist: p.hist, total: p.total }))} />
+          raceView === "family" && familyRaceData
+            ? <BumpChart history={familyRaceData} allRanked={familyRaceData} bucketLabels={bucketLabels} colorFn={familyColor} />
+            : <BumpChart history={ranked.map(p => ({ name: p.name, hist: bumpHistoryMap[p.name] || [0], total: p.total }))} allRanked={ranked} bucketLabels={bucketLabels} raceHistory={ranked.map(p => ({ name: p.name, hist: p.hist, total: p.total }))} />
         )}
 
-        {showRace && <BarRaceModal history={ranked.map(p => ({ name: p.name, hist: p.hist, total: p.total }))} allRanked={ranked} bucketLabels={bucketLabels} elimByFrame={raceElim} stageByFrame={raceStages} onClose={() => setShowRace(false)} />}
+        {showRace && (
+          raceView === "family" && familyRaceData
+            ? <BarRaceModal history={familyRaceData} allRanked={familyRaceData} bucketLabels={bucketLabels} colorFn={familyColor} isFamily={true} onClose={() => setShowRace(false)} />
+            : <BarRaceModal history={ranked.map(p => ({ name: p.name, hist: p.hist, total: p.total }))} allRanked={ranked} bucketLabels={bucketLabels} elimByFrame={raceElim} stageByFrame={raceStages} onClose={() => setShowRace(false)} />
+        )}
 
         {showSearch && (
           <SearchOverlay ranked={ranked} groupKey={groupKey} onClose={() => setShowSearch(false)}
