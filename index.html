@@ -3150,8 +3150,10 @@ function FamilyLeagueTab({ ranked, groupKey }) {
               <div key={name} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 14px 8px 54px", borderBottom: `1px solid ${C.border}` }}>
                 <div style={{ fontSize: 10, color: C.muted, fontWeight: 700, minWidth: 14, textAlign: "right" }}>{p?.overallRank ?? "—"}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: p && !p.grimReaper ? 3 : 0 }}>{name}</div>
-                  {p && !p.grimReaper && <FlagRow teams={p.teams} baseHeight={14} />}
+                  <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 3 }}>{name}</div>
+                  {p?.grimReaper
+                    ? <div style={{ fontSize: 10, color: C.dangerText, opacity: 0.8 }}>💀 Grim Reaper</div>
+                    : p && <FlagRow teams={p.teams} baseHeight={14} />}
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 800, color: C.text, flexShrink: 0 }}>
                   {p?.total ?? 0}<span style={{ fontSize: 9, color: C.muted, marginLeft: 2 }}>pts</span>
