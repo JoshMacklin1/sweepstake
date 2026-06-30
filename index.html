@@ -3118,27 +3118,42 @@ function HomeMatchRow({ m, ranked, pts, onTeamClick, onMatchClick, isLast, banne
 function FamilyLeagueTab({ ranked, groupKey }) {
   const families = GROUPS[groupKey]?.families;
   if (!families) return null;
-  const scoreMap = Object.fromEntries(ranked.map(p => [p.name, p.total]));
+  const rankColors = ["#84cc16","#94a3b8","#b45309"];
+  const playerMap = Object.fromEntries(ranked.map((p, i) => [p.name, { ...p, overallRank: i + 1 }]));
   const familyRows = families.map(f => {
-    const memberScores = f.members
-      .map(name => ({ name, total: scoreMap[name] ?? 0 }))
-      .sort((a, b) => b.total - a.total);
-    return { name: f.name, memberScores, total: memberScores.reduce((s, m) => s + m.total, 0) };
+    const memberData = f.members
+      .map(name => ({ name, p: playerMap[name] }))
+      .sort((a, b) => (b.p?.total ?? 0) - (a.p?.total ?? 0));
+    return { name: f.name, memberData, total: memberData.reduce((s, m) => s + (m.p?.total ?? 0), 0) };
   }).sort((a, b) => b.total - a.total);
   return (
     <div>
       {familyRows.map((family, i) => (
-        <div key={family.name} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, marginBottom: 10, overflow: "hidden" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px" }}>
-            <div style={{ fontSize: 20, fontWeight: 900, color: C.muted, minWidth: 24, textAlign: "center" }}>{i + 1}</div>
-            <div style={{ flex: 1, fontSize: 16, fontWeight: 800, color: C.text }}>{family.name}</div>
-            <div style={{ fontSize: 20, fontWeight: 900, color: C.accent }}>{family.total}<span style={{ fontSize: 11, fontWeight: 600, color: C.muted, marginLeft: 3 }}>pts</span></div>
+        <div key={family.name} style={{ ...s.card }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px" }}>
+            <div style={{
+              width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
+              background: i < 3 ? rankColors[i] : C.border,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 13, fontWeight: 800, color: i < 3 ? "#080c18" : C.dim,
+            }}>{i + 1}</div>
+            <div style={{ flex: 1, fontWeight: 700, fontSize: 15, color: C.text }}>{family.name}</div>
+            <div style={{ textAlign: "right", flexShrink: 0 }}>
+              <div style={{ fontSize: 22, fontWeight: 800, color: C.text, lineHeight: 1 }}>{family.total}</div>
+              <div style={{ fontSize: 10, color: C.muted }}>pts</div>
+            </div>
           </div>
           <div style={{ borderTop: `1px solid ${C.border}` }}>
-            {family.memberScores.map(({ name, total }, j) => (
-              <div key={name} style={{ display: "flex", alignItems: "center", padding: "8px 16px 8px 52px", borderBottom: j < family.memberScores.length - 1 ? `1px solid ${C.border}` : "none" }}>
-                <div style={{ flex: 1, fontSize: 13, color: C.dim, fontWeight: 600 }}>{name}</div>
-                <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{total}<span style={{ fontSize: 10, color: C.muted, marginLeft: 2 }}>pts</span></div>
+            {family.memberData.map(({ name, p }, j) => (
+              <div key={name} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 14px 8px 54px", borderBottom: j < family.memberData.length - 1 ? `1px solid ${C.border}` : "none" }}>
+                <div style={{ fontSize: 10, color: C.muted, fontWeight: 700, minWidth: 14, textAlign: "right" }}>{p?.overallRank ?? "—"}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: p && !p.grimReaper ? 3 : 0 }}>{name}</div>
+                  {p && !p.grimReaper && <FlagRow teams={p.teams} baseHeight={14} />}
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: C.text, flexShrink: 0 }}>
+                  {p?.total ?? 0}<span style={{ fontSize: 9, color: C.muted, marginLeft: 2 }}>pts</span>
+                </div>
               </div>
             ))}
           </div>
