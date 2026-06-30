@@ -3339,7 +3339,7 @@ function MatchFocusCard({ matches, ranked, matchPtsById = {}, onMatchClick }) {
 // next, mirroring the daily email's sections so the two feel like the same
 // product. Pure read-only summary view; "Open the full table" hands off to
 // the League tab for anything that needs deeper interaction.
-function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, matchPtsById, upcoming, setTab, setLeagueView, openPlayerModal, openTeamModal, openMatchModal }) {
+function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, matchPtsById, upcoming, setTab, setLeagueView, openPlayerModal, openTeamModal, openMatchModal, groupKey }) {
   const openPlayer = (name, scrollToBottom = false) => openPlayerModal(name, scrollToBottom);
   // Badges assigned in the last 24h (not "since you last looked" — same
   // rolling window as everything else on this tab). Single-holder badges
@@ -3388,11 +3388,27 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
 
   const rankColors = ["#84cc16","#94a3b8","#b45309"];
 
+  const families = GROUPS[groupKey]?.families;
+  const familyRows = families ? (() => {
+    const playerMap = Object.fromEntries(ranked.map((p, i) => [p.name, { ...p, overallRank: i + 1 }]));
+    return families.map(f => {
+      const memberData = f.members.map(name => ({ name, p: playerMap[name] })).sort((a, b) => (b.p?.total ?? 0) - (a.p?.total ?? 0));
+      const total = memberData.reduce((s, m) => s + (m.p?.total ?? 0), 0);
+      const avg = Math.round(total / memberData.length);
+      const hists = memberData.map(m => m.p?.hist).filter(Boolean);
+      const len = hists.length ? Math.max(...hists.map(h => h.length)) : 0;
+      const combinedHist = len ? Array.from({ length: len }, (_, i) => hists.reduce((s, h) => s + (h[i] ?? h[h.length - 1] ?? 0), 0)) : [0];
+      return { name: f.name, memberData, total, avg, combinedHist };
+    }).sort((a, b) => b.avg - a.avg);
+  })() : null;
+  const topFamily = familyRows?.[0] || null;
+  const topFamilyThree = familyRows?.slice(0, 3) || [];
+
   return (
     <div>
       <MatchFocusCard matches={matches} ranked={ranked} matchPtsById={matchPtsById} onMatchClick={openMatchModal} />
-      {/* Headline leader card */}
-      {topThree[0] && (
+      {/* Headline leader card(s) */}
+      {topThree[0] && !topFamily && (
         <div className="player-card" onClick={() => openPlayer(topThree[0].name)} style={{
           ...s.card, padding: "18px 16px", marginBottom: 16, textAlign: "center", cursor: "pointer",
           background: "linear-gradient(135deg, rgba(34,197,94,0.14), rgba(34,197,94,0.02))",
@@ -3406,12 +3422,32 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
           </div>
         </div>
       )}
+      {topThree[0] && topFamily && (
+        <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+          <div className="player-card" onClick={() => openPlayer(topThree[0].name)} style={{
+            flex: 1, ...s.card, padding: "14px 12px", marginBottom: 0, textAlign: "center", cursor: "pointer",
+            background: "linear-gradient(135deg, rgba(34,197,94,0.14), rgba(34,197,94,0.02))",
+          }}>
+            <div style={{ fontSize: 10, color: C.dim, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>Leading Player</div>
+            <div style={{ fontSize: 16, fontWeight: 900, color: C.text, marginBottom: 4 }}>{topThree[0].name}</div>
+            <div style={{ fontSize: 26, fontWeight: 900, color: C.accent, lineHeight: 1 }}>
+              {topThree[0].total}<span style={{ fontSize: 12, fontWeight: 700, color: C.muted }}> pts</span>
+            </div>
+          </div>
+          <div style={{
+            flex: 1, ...s.card, padding: "14px 12px", marginBottom: 0, textAlign: "center",
+            background: "linear-gradient(135deg, rgba(34,197,94,0.14), rgba(34,197,94,0.02))",
+          }}>
+            <div style={{ fontSize: 10, color: C.dim, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>Leading Family</div>
+            <div style={{ fontSize: 16, fontWeight: 900, color: C.text, marginBottom: 4 }}>{topFamily.name}</div>
+            <div style={{ fontSize: 26, fontWeight: 900, color: C.accent, lineHeight: 1 }}>
+              {topFamily.avg}<span style={{ fontSize: 12, fontWeight: 700, color: C.muted }}> avg</span>
+            </div>
+          </div>
+        </div>
+      )}
 
-      {/* Top of the Table reuses PlayerRow's rank-badge-circle + sparkline
-         treatment (not the plain text row this used to be) — same data,
-         dressed with the same visual language as the League tab so Home
-         doesn't look like a stripped-down report next to it. */}
-      <Section icon="🏆" title="Top of the Table" onOpen={() => { window.history.pushState({ appTab: "table", appModal: null }, ""); window.scrollTo(0, 0); setTab("table"); }} linkLabel="View league"
+      <Section icon="🏆" title="Top Players" onOpen={() => { window.history.pushState({ appTab: "table", appModal: null }, ""); window.scrollTo(0, 0); setTab("table"); }} linkLabel="View league"
         empty={topThree.length === 0 ? "No standings yet" : null}>
         {topThree.map((p, i) => {
           const delta = rank24hChange.get(p.name) || 0;
@@ -3439,6 +3475,27 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
           );
         })}
       </Section>
+
+      {topFamilyThree.length > 0 && (
+        <Section icon="👨‍👩‍👧‍👦" title="Top Families" onOpen={() => { window.history.pushState({ appTab: "table", appModal: null }, ""); window.scrollTo(0, 0); setTab("table"); setLeagueView("families"); }} linkLabel="View families"
+          empty={null}>
+          {topFamilyThree.map((family, i) => (
+            <div key={family.name} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: i < topFamilyThree.length - 1 ? `1px solid ${C.border}` : "none" }}>
+              <div style={{
+                width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
+                background: rankColors[i], display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 12, fontWeight: 800, color: "#080c18",
+              }}>{i + 1}</div>
+              <div style={{ flex: 1, fontSize: 13, fontWeight: 700, color: C.text }}>{family.name}</div>
+              <Sparkline data={family.combinedHist} width={64} height={28} color={C.accent} />
+              <div style={{ textAlign: "right", flexShrink: 0, minWidth: 50 }}>
+                <div style={{ fontSize: 16, fontWeight: 800, color: C.text, lineHeight: 1 }}>{family.avg}</div>
+                <div style={{ fontSize: 9, color: C.muted, marginTop: 2 }}>avg pts</div>
+              </div>
+            </div>
+          ))}
+        </Section>
+      )}
 
       <Section icon="🏅" title="New Accolades" onOpen={() => { window.history.pushState({ appTab: "table", appModal: null }, ""); window.scrollTo(0, 0); setTab("table"); }} linkLabel="View league"
         empty={newAccolades.length === 0 ? "No new accolades in the last 24h" : null}>
@@ -5776,7 +5833,7 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
         {/* ── TODAY (email-digest-style homepage) ── */}
         {tab === "home" && !loading && (
           <HomeTab matches={matches} ranked={ranked} badges={badges} rank24hChange={rank24hChange}
-            rank24hPtsChange={rank24hPtsChange} matchPtsById={matchPtsById} upcoming={upcoming} setTab={setTab} setLeagueView={setLeagueView} openPlayerModal={openPlayerModal} openTeamModal={openTeamModal} openMatchModal={openMatchModal} />
+            rank24hPtsChange={rank24hPtsChange} matchPtsById={matchPtsById} upcoming={upcoming} setTab={setTab} setLeagueView={setLeagueView} openPlayerModal={openPlayerModal} openTeamModal={openTeamModal} openMatchModal={openMatchModal} groupKey={groupKey} />
         )}
 
         {/* ── LEAGUE TABLE ── */}
