@@ -834,9 +834,16 @@ function MatchCard({ m, ranked, upcoming = [], pts, onPlayerClick, onTeamClick, 
           </div>
           <div style={{ minWidth:64, textAlign:"center" }}>
             {fin || live
-              ? <span style={{ fontSize:18, fontWeight:800, letterSpacing:2 }}>
-                  {m.score?.fullTime?.home ?? 0}–{m.score?.fullTime?.away ?? 0}
-                </span>
+              ? <>
+                  <span style={{ fontSize:18, fontWeight:800, letterSpacing:2 }}>
+                    {m.score?.fullTime?.home ?? 0}–{m.score?.fullTime?.away ?? 0}
+                  </span>
+                  {fin && m.score?.penalties?.home != null && (
+                    <div style={{ fontSize:10, color:C.muted, marginTop:2 }}>
+                      pens {m.score.penalties.home}–{m.score.penalties.away}
+                    </div>
+                  )}
+                </>
               : <div>
                   <div style={{ fontSize:12, color: C.muted, marginBottom:5 }}>vs</div>
                   <span style={{
@@ -3078,7 +3085,12 @@ function HomeMatchRow({ m, ranked, pts, onTeamClick, onMatchClick, isLast, banne
         </div>
         <div style={{ textAlign: "center", flexShrink: 0, minWidth: 44 }}>
           {fin || live
-            ? <span style={{ fontSize: 15, fontWeight: 800, color: live ? C.red : C.text, letterSpacing: 1 }}>{hs}–{as_}</span>
+            ? <>
+                <span style={{ fontSize: 15, fontWeight: 800, color: live ? C.red : C.text, letterSpacing: 1 }}>{hs}–{as_}</span>
+                {fin && m.score?.penalties?.home != null && (
+                  <div style={{ fontSize: 9, color: C.muted, marginTop: 1 }}>pens {m.score.penalties.home}–{m.score.penalties.away}</div>
+                )}
+              </>
             : <div>
                 <div style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>vs</div>
                 <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>{fmt(m.utcDate)}</div>
@@ -3436,7 +3448,7 @@ function KnockoutBracket({ matches, onTeamClick, matchPtsById = {}, bracketRef: 
       else if (as_ > hs) winner = a;
       else if (pen) winner = pen.home > pen.away ? h : a;
     }
-    koMatches[m.id] = { id: m.id, home: h, away: a, homeScore: hs, awayScore: as_, status: m.status, winner, stage: (m.stage||"").toUpperCase() };
+    koMatches[m.id] = { id: m.id, home: h, away: a, homeScore: hs, awayScore: as_, status: m.status, winner, stage: (m.stage||"").toUpperCase(), penHome: pen?.home ?? null, penAway: pen?.away ?? null };
   });
 
   const koByStage = {};
@@ -3479,7 +3491,7 @@ function KnockoutBracket({ matches, onTeamClick, matchPtsById = {}, bracketRef: 
     return <div style={{ textAlign:"center", color:C.muted, fontSize:13, padding:"40px 20px" }}>Knockout stage hasn't started yet</div>;
   }
 
-  const BracketSlot = ({ tla, matchNum, side, score, isWinner, status, pts }) => {
+  const BracketSlot = ({ tla, matchNum, side, score, isWinner, status, pts, slotH = 38 }) => {
     const name = tla ? (teamName(tla) || tla) : null;
     const owner = tla ? ownerOf[tla] : null;
     const pot = tla && POT[tla] ? `P${potOf(tla)}` : null;
@@ -3493,7 +3505,7 @@ function KnockoutBracket({ matches, onTeamClick, matchPtsById = {}, bracketRef: 
         onClick={clickable ? () => onTeamClick(tla) : undefined}
         style={{
           display:"flex", alignItems:"center", gap:7,
-          padding:"4px 8px", height:38, boxSizing:"border-box", minWidth:0, overflow:"hidden",
+          padding:"4px 8px", height:slotH, boxSizing:"border-box", minWidth:0, overflow:"hidden",
           borderBottom: side === "home" ? `1px solid ${C.border}` : "none",
           background: isWinner ? "rgba(34,197,94,0.08)" : "transparent",
           cursor: clickable ? "pointer" : "default",
@@ -3534,18 +3546,25 @@ function KnockoutBracket({ matches, onTeamClick, matchPtsById = {}, bracketRef: 
         </div>
       );
     }
-    const { id, home, away, homeScore, awayScore, status, winner } = match;
+    const { id, home, away, homeScore, awayScore, status, winner, penHome, penAway } = match;
     const hasScore = homeScore != null && awayScore != null;
     const isProjected = status === "PROJECTED";
     const mpts = id ? matchPtsById[id] : null;
+    const hasPen = penHome != null && penAway != null && status === "FINISHED";
+    const slotH = hasPen ? 33 : 38;
     return (
       <div style={{
         border: `1px ${isProjected ? "dashed" : "solid"} ${winner ? C.accent+"44" : (isProjected ? C.muted+"66" : C.border)}`,
         borderRadius:6, overflow:"hidden", ...sizeStyle, height:76, boxSizing:"border-box", background:C.card,
         opacity: isProjected ? 0.85 : 1,
       }}>
-        <BracketSlot tla={home} side="home" score={hasScore ? homeScore : null} isWinner={winner === home} status={status} pts={mpts?.home} />
-        <BracketSlot tla={away} side="away" score={hasScore ? awayScore : null} isWinner={winner === away} status={status} pts={mpts?.away} />
+        <BracketSlot tla={home} side="home" score={hasScore ? homeScore : null} isWinner={winner === home} status={status} pts={mpts?.home} slotH={slotH} />
+        <BracketSlot tla={away} side="away" score={hasScore ? awayScore : null} isWinner={winner === away} status={status} pts={mpts?.away} slotH={slotH} />
+        {hasPen && (
+          <div style={{ height:10, display:"flex", alignItems:"center", justifyContent:"center", borderTop:`1px solid ${C.border}`, fontSize:8, color:C.muted, letterSpacing:"0.04em" }}>
+            pens {penHome}–{penAway}
+          </div>
+        )}
       </div>
     );
   };
@@ -5102,13 +5121,27 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
       };
       const normalizedMatches = (data.matches || []).map(m => {
         let nm = { ...m, homeTeam: normalizeTla(m.homeTeam), awayTeam: normalizeTla(m.awayTeam) };
-        // football-data.org adds penalty-shootout goals to score.fullTime for
-        // matches decided on penalties (e.g. 1-1 aet + 4-5 pens → fullTime 5-6).
-        // Subtract them back so every downstream display shows the pre-penalty score.
-        const ft = m.score?.fullTime;
+        // football-data.org embeds penalty-shootout goals inside score.fullTime for
+        // penalty matches (1-1 regulation + 4-5 pens → fullTime 5-6). Normalise
+        // fullTime to show the pre-penalty score everywhere:
+        //   1. Use score.regularTime if the API provides it (true 90-min score).
+        //   2. Subtract score.penalties from fullTime only when both differences
+        //      are non-negative (guards against the inverse case where fullTime
+        //      is already correct and penalties is the shootout-only score).
+        const ft  = m.score?.fullTime;
         const pen = m.score?.penalties;
-        if (ft?.home != null && pen?.home != null) {
-          nm = { ...nm, score: { ...m.score, fullTime: { home: ft.home - pen.home, away: ft.away - pen.away } } };
+        const rt  = m.score?.regularTime;
+        if (pen?.home != null && ft?.home != null) {
+          let preHome, preAway;
+          if (rt?.home != null) {
+            preHome = rt.home; preAway = rt.away;
+          } else {
+            const h = ft.home - pen.home, a = ft.away - pen.away;
+            if (h >= 0 && a >= 0) { preHome = h; preAway = a; }
+          }
+          if (preHome != null) {
+            nm = { ...nm, score: { ...m.score, fullTime: { home: preHome, away: preAway } } };
+          }
         }
         return nm;
       });
