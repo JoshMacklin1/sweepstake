@@ -5906,10 +5906,15 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
       const avgHist = len ? Array.from({ length: len }, (_, i) =>
         Math.round(memberHists.reduce((s, h) => s + (h[i] ?? h[h.length - 1] ?? 0), 0) / f.members.length)
       ) : [0];
+      const raceHists = f.members.map(n => playerMap[n]?.hist || []).filter(h => h.length > 0);
+      const raceLen = raceHists.length ? Math.max(...raceHists.map(h => h.length)) : 0;
+      const raceHist = raceLen ? Array.from({ length: raceLen }, (_, i) =>
+        Math.round(raceHists.reduce((s, h) => s + (h[i] ?? h[h.length - 1] ?? 0), 0) / f.members.length)
+      ) : [0];
       const tots = f.members.map(n => playerMap[n]?.total ?? 0);
       const avg = Math.round(tots.reduce((s, v) => s + v, 0) / f.members.length);
       const teams = f.members.flatMap(n => playerMap[n]?.teams || []);
-      return { name: f.name, hist: avgHist, total: avg, teams };
+      return { name: f.name, hist: avgHist, raceHist, total: avg, teams };
     }).sort((a, b) => b.total - a.total);
   })();
   const live     = matches.filter(m => m.status === "IN_PLAY" || m.status === "PAUSED" ||
@@ -6374,7 +6379,7 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
 
         {showRace && (
           raceView === "family" && familyRaceData
-            ? <BarRaceModal history={familyRaceData} allRanked={familyRaceData} bucketLabels={bucketLabels} colorFn={familyColor} isFamily={true} elimByFrame={raceElim} stageByFrame={raceStages} onClose={() => setShowRace(false)} />
+            ? <BarRaceModal history={familyRaceData.map(f => ({ ...f, hist: f.raceHist }))} allRanked={familyRaceData} bucketLabels={bucketLabels} colorFn={familyColor} isFamily={true} elimByFrame={raceElim} stageByFrame={raceStages} onClose={() => setShowRace(false)} />
             : <BarRaceModal history={ranked.map(p => ({ name: p.name, hist: p.hist, total: p.total }))} allRanked={ranked} bucketLabels={bucketLabels} elimByFrame={raceElim} stageByFrame={raceStages} onClose={() => setShowRace(false)} />
         )}
 
