@@ -1185,7 +1185,7 @@ function stageBonusFor(tla, teamTotalPts, matches, matchPtsById) {
   return Math.round((teamTotalPts || 0) - attached);
 }
 
-function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, badges = [], matches = [], matchPtsById = {}, onTeamClick, onClose }) {
+function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, badges = [], matches = [], matchPtsById = {}, onTeamClick, onFamilyClick, playerFamily, onClose }) {
   if (!player) return null;
   const isReaper = player.grimReaper;
   return (<>
@@ -1198,6 +1198,17 @@ function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, bad
           <button onClick={onClose} aria-label="Close" style={{ background:"transparent", border:"none", color:C.muted, fontSize:22, cursor:"pointer", lineHeight:1 }}>✕</button>
         </div>
         <div ref={bodyRef} style={{ flex:1, overflowY:"auto", padding:"16px 14px 28px" }}>
+          {onFamilyClick && playerFamily && (
+            <div onClick={() => onFamilyClick(playerFamily)} className="player-card"
+              style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 12px", border: `1px solid ${C.border}`, borderRadius: s.card.borderRadius, background: C.card, marginBottom: 16, cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>
+              <span style={{ width: 30, height: 30, borderRadius: "50%", background: C.accent, color: "#0d1f12", fontWeight: 900, fontSize: 16, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>👨‍👩‍👧</span>
+              <div style={{ flex: 1, minWidth: 0, lineHeight: 1.25 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{playerFamily}</div>
+                <div style={{ fontSize: 11, color: C.muted }}>Family</div>
+              </div>
+              <span aria-hidden="true" style={{ color: C.muted, fontSize: 18, lineHeight: 1, flexShrink: 0 }}>›</span>
+            </div>
+          )}
           <div style={{ display:"flex", gap:10, marginBottom:18 }}>
             <div style={{ flex:1, background:C.card, border:`1px solid ${C.border}`, borderRadius:s.card.borderRadius, padding:"12px 8px", textAlign:"center" }}>
               <div style={{ fontSize:24, fontWeight:900, color: player.total < 0 ? C.red : C.text }}>{player.total}</div>
@@ -3115,7 +3126,75 @@ function HomeMatchRow({ m, ranked, pts, onTeamClick, onMatchClick, isLast, banne
   );
 }
 
-function FamilyLeagueTab({ ranked, groupKey, onPlayerClick }) {
+function FamilyCardContent({ bodyRef, familyName, ranked, groupKey, onPlayerClick, onClose }) {
+  const families = GROUPS[groupKey]?.families;
+  const family = families?.find(f => f.name === familyName);
+  if (!family) return null;
+  const rankColors = ["#84cc16","#94a3b8","#b45309"];
+  const playerMap = Object.fromEntries(ranked.map((p, i) => [p.name, { ...p, overallRank: i + 1 }]));
+  const memberData = family.members
+    .map(name => ({ name, p: playerMap[name] }))
+    .sort((a, b) => (b.p?.total ?? 0) - (a.p?.total ?? 0));
+  const total = memberData.reduce((s, m) => s + (m.p?.total ?? 0), 0);
+  const avg = Math.round(total / memberData.length);
+  const hists = memberData.map(m => m.p?.hist).filter(Boolean);
+  const len = hists.length ? Math.max(...hists.map(h => h.length)) : 0;
+  const combinedHist = len ? Array.from({ length: len }, (_, i) => hists.reduce((s, h) => s + (h[i] ?? h[h.length - 1] ?? 0), 0)) : [0];
+  const allFamilyRows = families.map(f => {
+    const tots = f.members.map(n => playerMap[n]?.total ?? 0);
+    return { name: f.name, avg: Math.round(tots.reduce((s, v) => s + v, 0) / f.members.length) };
+  }).sort((a, b) => b.avg - a.avg);
+  const familyRank = allFamilyRows.findIndex(f => f.name === familyName) + 1;
+  return (<>
+    <div className="sheet-handle"><span></span></div>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "14px 16px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+      <div>
+        <div style={{ fontSize: 18, fontWeight: 900, color: C.text }}>{familyName}</div>
+        <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Rank {familyRank} · {avg} avg pts · {memberData.length} members</div>
+      </div>
+      <button onClick={onClose} aria-label="Close" style={{ background: "transparent", border: "none", color: C.muted, fontSize: 22, cursor: "pointer", lineHeight: 1 }}>✕</button>
+    </div>
+    <div ref={bodyRef} style={{ flex: 1, overflowY: "auto", padding: "16px 14px 28px" }}>
+      <div style={{ display: "flex", gap: 10, marginBottom: 18 }}>
+        <div style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: s.card.borderRadius, padding: "12px 8px", textAlign: "center" }}>
+          <div style={{ fontSize: 24, fontWeight: 900, color: C.accent, lineHeight: 1 }}>{avg}</div>
+          <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 4 }}>Avg pts</div>
+        </div>
+        <div style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: s.card.borderRadius, padding: "12px 8px", textAlign: "center" }}>
+          <div style={{ fontSize: 24, fontWeight: 900, color: C.text, lineHeight: 1 }}>{total}</div>
+          <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 4 }}>Total pts</div>
+        </div>
+      </div>
+      <div style={{ fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Points over time</div>
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: s.card.borderRadius, padding: "12px 8px", marginBottom: 18, display: "flex", justifyContent: "center" }}>
+        <Sparkline data={combinedHist} width={300} height={72} color={C.accent} />
+      </div>
+      <div style={{ fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Members</div>
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: s.card.borderRadius, overflow: "hidden" }}>
+        {memberData.map(({ name, p }, j) => (
+          <div key={name}
+            className={onPlayerClick ? "player-card" : undefined}
+            onClick={onPlayerClick ? () => onPlayerClick(name) : undefined}
+            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: j < memberData.length - 1 ? `1px solid ${C.border}` : "none", cursor: onPlayerClick ? "pointer" : "default" }}>
+            <div style={{ fontSize: 10, color: C.muted, fontWeight: 700, minWidth: 14, textAlign: "right" }}>{p?.overallRank ?? "—"}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 3 }}>{name}</div>
+              {p?.grimReaper
+                ? <div style={{ fontSize: 10, color: C.dangerText, opacity: 0.8 }}>💀 Grim Reaper</div>
+                : p && <FlagRow teams={p.teams} baseHeight={14} />}
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: C.text, flexShrink: 0 }}>
+              {p?.total ?? 0}<span style={{ fontSize: 9, color: C.muted, marginLeft: 2 }}>pts</span>
+            </div>
+            {onPlayerClick && <span aria-hidden="true" style={{ color: C.muted, fontSize: 18, lineHeight: 1, flexShrink: 0 }}>›</span>}
+          </div>
+        ))}
+      </div>
+    </div>
+  </>);
+}
+
+function FamilyLeagueTab({ ranked, groupKey, onPlayerClick, onFamilyClick }) {
   const families = GROUPS[groupKey]?.families;
   if (!families) return null;
   const rankColors = ["#84cc16","#94a3b8","#b45309"];
@@ -3137,7 +3216,9 @@ function FamilyLeagueTab({ ranked, groupKey, onPlayerClick }) {
     <div>
       {familyRows.map((family, i) => (
         <div key={family.name} style={{ ...s.card }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px" }}>
+          <div className={onFamilyClick ? "player-card" : undefined}
+            onClick={onFamilyClick ? () => onFamilyClick(family.name) : undefined}
+            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", cursor: onFamilyClick ? "pointer" : "default" }}>
             <div style={{
               width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
               background: i < 3 ? rankColors[i] : C.border,
@@ -3150,6 +3231,7 @@ function FamilyLeagueTab({ ranked, groupKey, onPlayerClick }) {
               <div style={{ fontSize: 22, fontWeight: 800, color: C.text, lineHeight: 1 }}>{family.avg}</div>
               <div style={{ fontSize: 10, color: C.muted }}>avg pts</div>
             </div>
+            {onFamilyClick && <span aria-hidden="true" style={{ color: C.muted, fontSize: 18, lineHeight: 1, flexShrink: 0 }}>›</span>}
           </div>
           <div style={{ borderTop: `1px solid ${C.border}` }}>
             {family.memberData.map(({ name, p }, j) => (
@@ -3339,7 +3421,7 @@ function MatchFocusCard({ matches, ranked, matchPtsById = {}, onMatchClick }) {
 // next, mirroring the daily email's sections so the two feel like the same
 // product. Pure read-only summary view; "Open the full table" hands off to
 // the League tab for anything that needs deeper interaction.
-function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, matchPtsById, upcoming, setTab, setLeagueView, openPlayerModal, openTeamModal, openMatchModal, groupKey }) {
+function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, matchPtsById, upcoming, setTab, setLeagueView, openPlayerModal, openTeamModal, openMatchModal, openFamilyModal, groupKey }) {
   const openPlayer = (name, scrollToBottom = false) => openPlayerModal(name, scrollToBottom);
   // Badges assigned in the last 24h (not "since you last looked" — same
   // rolling window as everything else on this tab). Single-holder badges
@@ -3480,7 +3562,10 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
         <Section icon="👨‍👩‍👧‍👦" title="Top Families" onOpen={() => { window.history.pushState({ appTab: "table", appModal: null }, ""); window.scrollTo(0, 0); setTab("table"); setLeagueView("families"); }} linkLabel="View families"
           empty={null}>
           {topFamilyThree.map((family, i) => (
-            <div key={family.name} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: i < topFamilyThree.length - 1 ? `1px solid ${C.border}` : "none" }}>
+            <div key={family.name}
+              className={openFamilyModal ? "player-card" : undefined}
+              onClick={openFamilyModal ? () => openFamilyModal(family.name) : undefined}
+              style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: i < topFamilyThree.length - 1 ? `1px solid ${C.border}` : "none", cursor: openFamilyModal ? "pointer" : "default" }}>
               <div style={{
                 width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
                 background: rankColors[i], display: "flex", alignItems: "center", justifyContent: "center",
@@ -5122,6 +5207,7 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
   const [scrollPlayerToBadges, setScrollPlayerToBadges] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [selectedMatch, setSelectedMatch] = useState(null);
+  const [selectedFamily, setSelectedFamily] = useState(null);
 
   // Wire app navigation into the browser History API so that the OS back
   // gesture (swipe-left on iOS/Android) navigates within the app rather
@@ -5139,6 +5225,7 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
       setScrollPlayerToBadges(false);
       setSelectedTeam(s.appTeam || null);
       setSelectedMatch(s.appMatch || null);
+      setSelectedFamily(s.appFamily || null);
     };
     window.addEventListener("popstate", handler);
     return () => window.removeEventListener("popstate", handler);
@@ -5159,6 +5246,21 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
   const openMatchModal = (matchId) => {
     window.history.pushState({ appTab: tabRef.current, appModal: "match", appMatch: matchId }, "");
     setSelectedMatch(matchId);
+  };
+  const openFamilyModal = (familyName) => {
+    window.history.pushState({ appTab: tabRef.current, appModal: "family", appFamily: familyName }, "");
+    setSelectedFamily(familyName);
+  };
+  const switchToFamily = (familyName) => {
+    window.history.replaceState({ appTab: tabRef.current, appModal: "family", appFamily: familyName }, "");
+    setSelectedPlayer(null);
+    setSelectedTeam(null);
+    setSelectedFamily(familyName);
+  };
+  const switchToPlayerFromFamily = (name) => {
+    window.history.replaceState({ appTab: tabRef.current, appModal: "player", appPlayer: name }, "");
+    setSelectedFamily(null);
+    setSelectedPlayer(name);
   };
   // Navigate from H2H card to a team card — replaces the match history entry.
   const switchToTeamFromH2H = (tla) => {
@@ -5192,8 +5294,8 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
   const closeCard = () => {
     setSnapFull(false);
     const m = window.history.state?.appModal;
-    if (m === "player" || m === "team" || m === "match") window.history.back();
-    else { setSelectedPlayer(null); setSelectedTeam(null); setSelectedMatch(null); }
+    if (m === "player" || m === "team" || m === "match" || m === "family") window.history.back();
+    else { setSelectedPlayer(null); setSelectedTeam(null); setSelectedMatch(null); setSelectedFamily(null); }
   };
   const [refreshing,  setRefreshing]  = useState(false);
   const [devMode,     setDevMode]     = useState(DEV_MODE_DEFAULT);
@@ -5833,7 +5935,7 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
         {/* ── TODAY (email-digest-style homepage) ── */}
         {tab === "home" && !loading && (
           <HomeTab matches={matches} ranked={ranked} badges={badges} rank24hChange={rank24hChange}
-            rank24hPtsChange={rank24hPtsChange} matchPtsById={matchPtsById} upcoming={upcoming} setTab={setTab} setLeagueView={setLeagueView} openPlayerModal={openPlayerModal} openTeamModal={openTeamModal} openMatchModal={openMatchModal} groupKey={groupKey} />
+            rank24hPtsChange={rank24hPtsChange} matchPtsById={matchPtsById} upcoming={upcoming} setTab={setTab} setLeagueView={setLeagueView} openPlayerModal={openPlayerModal} openTeamModal={openTeamModal} openMatchModal={openMatchModal} openFamilyModal={openFamilyModal} groupKey={groupKey} />
         )}
 
         {/* ── LEAGUE TABLE ── */}
@@ -5868,7 +5970,7 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
             )}
 
             {leagueView === "families" && (
-              <FamilyLeagueTab ranked={ranked} groupKey={groupKey} onPlayerClick={openPlayerModal} />
+              <FamilyLeagueTab ranked={ranked} groupKey={groupKey} onPlayerClick={openPlayerModal} onFamilyClick={openFamilyModal} />
             )}
           </>
         )}
@@ -5925,9 +6027,12 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
           <NotificationsDrawer matches={matches} ranked={ranked} matchPtsById={matchPtsById} groupKey={groupKey} onClose={() => setShowNotifications(false)} onSeenUpdate={setNotifSeenTs} />
         )}
 
-        {(selectedPlayer || selectedTeam || selectedMatch) && (
-          <SnapSheet onClose={closeCard} scrollBodyToBottom={!selectedTeam && !selectedMatch && scrollPlayerToBadges} initialSnap={snapFull ? "full" : "half"}>
+        {(selectedPlayer || selectedTeam || selectedMatch || selectedFamily) && (
+          <SnapSheet onClose={closeCard} scrollBodyToBottom={!selectedTeam && !selectedMatch && !selectedFamily && scrollPlayerToBadges} initialSnap={snapFull ? "full" : "half"}>
             {(bodyRef, handleClose) => {
+              if (selectedFamily) {
+                return <FamilyCardContent key={selectedFamily} bodyRef={bodyRef} familyName={selectedFamily} ranked={ranked} groupKey={groupKey} onPlayerClick={switchToPlayerFromFamily} onClose={handleClose} />;
+              }
               // Team takes precedence: switching player -> team sets selectedTeam
               // and clears selectedPlayer, swapping the content of this same sheet
               // (so the height/snap state is preserved across the switch).
@@ -5942,7 +6047,12 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
               const idx = ranked.findIndex(x => x.name === selectedPlayer);
               const p = ranked[idx];
               if (!p) return null;
-              return <PlayerCardContent bodyRef={bodyRef} player={p} displayRank={p._displayRank || (idx + 1)} winPct={winPct.players ? winPct.players[selectedPlayer] : 0} winTeams={winPct.teams} badges={badges[selectedPlayer] || []} matches={matches} matchPtsById={matchPtsById} onTeamClick={switchToTeam} onClose={handleClose} />;
+              const playerFamily = (() => {
+                const fams = GROUPS[groupKey]?.families;
+                if (!fams) return null;
+                return fams.find(f => f.members.includes(selectedPlayer))?.name || null;
+              })();
+              return <PlayerCardContent bodyRef={bodyRef} player={p} displayRank={p._displayRank || (idx + 1)} winPct={winPct.players ? winPct.players[selectedPlayer] : 0} winTeams={winPct.teams} badges={badges[selectedPlayer] || []} matches={matches} matchPtsById={matchPtsById} onTeamClick={switchToTeam} onFamilyClick={switchToFamily} playerFamily={playerFamily} onClose={handleClose} />;
             }}
           </SnapSheet>
         )}
