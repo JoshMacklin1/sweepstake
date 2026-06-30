@@ -1185,7 +1185,7 @@ function stageBonusFor(tla, teamTotalPts, matches, matchPtsById) {
   return Math.round((teamTotalPts || 0) - attached);
 }
 
-function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, badges = [], matches = [], matchPtsById = {}, onTeamClick, onFamilyClick, playerFamily, onClose }) {
+function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, badges = [], matches = [], matchPtsById = {}, onTeamClick, onMatchClick, onFamilyClick, playerFamily, onClose }) {
   if (!player) return null;
   const isReaper = player.grimReaper;
   const playerWon = (player.teams || []).some(t => t.won);
@@ -1206,7 +1206,7 @@ function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, bad
           {onFamilyClick && playerFamily && (
             <div onClick={() => onFamilyClick(playerFamily)} className="player-card"
               style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 12px", border: `1px solid ${C.border}`, borderRadius: s.card.borderRadius, background: C.card, marginBottom: 16, cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>
-              <span style={{ width: 30, height: 30, borderRadius: "50%", background: C.accent, color: "#0d1f12", fontWeight: 900, fontSize: 16, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>👨‍👩‍👧</span>
+              <span style={{ width: 30, height: 30, borderRadius: "50%", background: familyColor(playerFamily), color: "#0d1f12", fontWeight: 900, fontSize: 16, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>👨‍👩‍👧</span>
               <div style={{ flex: 1, minWidth: 0, lineHeight: 1.25 }}>
                 <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{playerFamily}</div>
                 <div style={{ fontSize: 11, color: C.muted }}>Family</div>
@@ -1307,6 +1307,25 @@ function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, bad
               ))}
             </>
           )}
+          {!isReaper && (() => {
+            const playerCodes = (player.teams || []).map(t => t.code);
+            const upcomingPlayerMatches = matches
+              .filter(m => {
+                const h = m.homeTeam?.tla?.toUpperCase();
+                const a = m.awayTeam?.tla?.toUpperCase();
+                return (playerCodes.includes(h) || playerCodes.includes(a)) && !isSettled(m.status);
+              })
+              .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
+            if (upcomingPlayerMatches.length === 0) return null;
+            return (
+              <>
+                <div style={{ fontSize:11, color:C.text, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", margin:"22px 0 8px" }}>Upcoming</div>
+                {upcomingPlayerMatches.map((m, i) => (
+                  <UpcomingMatchRow key={m.id} m={m} onMatchClick={onMatchClick} isLast={i === upcomingPlayerMatches.length - 1} />
+                ))}
+              </>
+            );
+          })()}
           {!isReaper && (() => {
             // Unified events: match rows + Q/ELIM milestones across all teams, newest-first.
             const events = [];
@@ -1461,7 +1480,7 @@ function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, bad
 // ─────────────────────────────────────────────────────────────────────────────
 // TEAM MODAL — bottom sheet with a single team's full match history
 // ─────────────────────────────────────────────────────────────────────────────
-function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamClick, onOwnerClick, onClose }) {
+function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamClick, onOwnerClick, onMatchClick, onClose }) {
   const owner = ownerOf(tla, ranked);
   const pot = potOf(tla);
 
@@ -1546,6 +1565,14 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
               );
             })()}
           </div>
+
+          {upcomingMatches.length > 0 && (<>
+            <div style={{ fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Upcoming</div>
+            {upcomingMatches.map((m, i) => (
+              <UpcomingMatchRow key={m.id} m={m} onMatchClick={onMatchClick} isLast={i === upcomingMatches.length - 1} />
+            ))}
+            <div style={{ marginBottom: 20 }} />
+          </>)}
 
           <div style={{ fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Results</div>
           {(() => {
@@ -1681,30 +1708,6 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
               </>
             );
           })()}
-
-          {upcomingMatches.length > 0 && (<>
-            <div style={{ fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 20, marginBottom: 8 }}>Upcoming</div>
-            {upcomingMatches.map(m => {
-              const isHome = m.homeTeam?.tla?.toUpperCase() === tla;
-              const oppCode = isHome ? m.awayTeam?.tla?.toUpperCase() : m.homeTeam?.tla?.toUpperCase();
-              const oppName = isHome ? (m.awayTeam?.name || "TBD") : (m.homeTeam?.name || "TBD");
-              return (
-                <div key={m.id} className={onTeamClick && oppCode ? "player-card" : undefined} onClick={onTeamClick && oppCode ? () => onTeamClick(oppCode) : undefined} style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 0", borderBottom: `1px solid ${C.border}`, cursor: onTeamClick && oppCode ? "pointer" : "default" }}>
-                  <div style={{
-                    width: 22, height: 22, borderRadius: 4, flexShrink: 0,
-                    background: "rgba(148,163,184,0.12)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: 10, fontWeight: 800, color: C.muted,
-                  }}>vs</div>
-                  <Flag code={oppCode} size={18} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{oppName}</div>
-                    <div style={{ fontSize: 10, color: C.muted }}>{(m.stage || "").replace(/_/g, " ")} · {fmt(m.utcDate)}</div>
-                  </div>
-                </div>
-              );
-            })}
-          </>)}
         </div>
       </>
   );
@@ -1751,6 +1754,12 @@ var PLAYER_NAME_ORDER = PLAYERS.map(p => p.name);
 const playerColor = (name) => {
   const idx = PLAYER_NAME_ORDER.indexOf(name);
   return idx >= 0 ? PLAYER_COLORS[idx] : PLAYER_COLORS[PLAYER_NAME_ORDER.length % PLAYER_COLORS.length];
+};
+
+const FAMILY_COLORS = ["#f59e0b", "#60a5fa", "#f472b6", "#34d399", "#a78bfa", "#fb923c", "#38bdf8"];
+const familyColor = (name) => {
+  let h = 0; for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
+  return FAMILY_COLORS[h % FAMILY_COLORS.length];
 };
 
 const formatBucket = (b) => {
@@ -2834,7 +2843,7 @@ function StatRow({ label, hVal, aVal, hColor, aColor }) {
   );
 }
 
-function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onPlayerClick, onFamilyClick, groupKey, onClose }) {
+function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onPlayerClick, onFamilyClick, groupKey, defaultView, onClose }) {
   const h = m.homeTeam?.tla?.toUpperCase();
   const a = m.awayTeam?.tla?.toUpperCase();
   const fin = m.status === "FINISHED";
@@ -2891,7 +2900,7 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onPlaye
   const aFamilyData = aFamilyDef && familyData ? familyData[aFamilyDef.name] : null;
   const showFamilyTab = !!(families && (hFamilyDef || aFamilyDef));
 
-  const [view, setView] = React.useState("teams");
+  const [view, setView] = React.useState(defaultView || "teams");
 
   const contentRef = React.useRef(null);
   React.useEffect(() => {
@@ -2975,7 +2984,7 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onPlaye
             {[{ fd: hFamilyDef, data: hFamilyData }, { fd: aFamilyDef, data: aFamilyData }].map(({ fd, data }, i) => (
               <button key={i} onClick={fd && onFamilyClick ? () => onFamilyClick(fd.name) : undefined}
                 style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "14px 8px", cursor: fd && onFamilyClick ? "pointer" : "default", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, position: "relative" }}>
-                <span style={{ width: 36, height: 36, borderRadius: "50%", background: fd ? C.accent : C.border, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>{fd ? "👨‍👩‍👧" : "?"}</span>
+                <span style={{ width: 36, height: 36, borderRadius: "50%", background: fd ? familyColor(fd.name) : C.border, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>{fd ? "👨‍👩‍👧" : "?"}</span>
                 <div style={{ fontSize: 13, fontWeight: 800, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>{fd ? fd.name : "No family"}</div>
                 {data && <div style={{ fontSize: 11, color: C.muted }}>{toOrdinal(data.rank)} family</div>}
                 {fd && onFamilyClick && <span style={{ position: "absolute", top: 10, right: 10, fontSize: 14, color: C.muted, lineHeight: 1 }}>›</span>}
@@ -3120,6 +3129,26 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onPlaye
   );
 }
 
+function UpcomingMatchRow({ m, onMatchClick, isLast }) {
+  const h = m.homeTeam?.tla?.toUpperCase();
+  const a = m.awayTeam?.tla?.toUpperCase();
+  return (
+    <div
+      className={onMatchClick ? "player-card" : undefined}
+      onClick={onMatchClick ? () => onMatchClick(m.id) : undefined}
+      style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 0", borderBottom: isLast ? "none" : `1px solid ${C.border}`, cursor: onMatchClick ? "pointer" : "default" }}>
+      <div style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0, background: "rgba(148,163,184,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: C.muted }}>vs</div>
+      <Flag code={h} size={18} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.homeTeam?.name || h} vs {m.awayTeam?.name || a}</div>
+        <div style={{ fontSize: 10, color: C.muted }}>{(m.stage || "").replace(/_/g, " ")} · {fmt(m.utcDate)}</div>
+      </div>
+      <Flag code={a} size={18} />
+      {onMatchClick && <span style={{ color: C.muted, fontSize: 18, lineHeight: 1, flexShrink: 0 }}>›</span>}
+    </div>
+  );
+}
+
 function HomeMatchRow({ m, ranked, pts, onTeamClick, onMatchClick, isLast, banners = false }) {
   const h = m.homeTeam?.tla?.toUpperCase();
   const a = m.awayTeam?.tla?.toUpperCase();
@@ -3193,7 +3222,7 @@ function HomeMatchRow({ m, ranked, pts, onTeamClick, onMatchClick, isLast, banne
   );
 }
 
-function FamilyCardContent({ bodyRef, familyName, ranked, groupKey, onPlayerClick, onClose }) {
+function FamilyCardContent({ bodyRef, familyName, ranked, groupKey, matches = [], matchPtsById = {}, onPlayerClick, onMatchClick, onClose }) {
   const families = GROUPS[groupKey]?.families;
   const family = families?.find(f => f.name === familyName);
   if (!family) return null;
@@ -3243,7 +3272,7 @@ function FamilyCardContent({ bodyRef, familyName, ranked, groupKey, onPlayerClic
         <Sparkline data={combinedHist} width={300} height={72} color={C.accent} />
       </div>
       <div style={{ fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Members</div>
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: s.card.borderRadius, overflow: "hidden" }}>
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: s.card.borderRadius, overflow: "hidden", marginBottom: 18 }}>
         {memberData.map(({ name, p }, j) => (
           <div key={name}
             className={onPlayerClick ? "player-card" : undefined}
@@ -3263,6 +3292,66 @@ function FamilyCardContent({ bodyRef, familyName, ranked, groupKey, onPlayerClic
           </div>
         ))}
       </div>
+      {(() => {
+        const familyCodes = allMemberTeams.map(t => t.code);
+        const upcomingFamilyMatches = matches
+          .filter(m => {
+            const h = m.homeTeam?.tla?.toUpperCase();
+            const a = m.awayTeam?.tla?.toUpperCase();
+            return (familyCodes.includes(h) || familyCodes.includes(a)) && !isSettled(m.status);
+          })
+          .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
+        if (upcomingFamilyMatches.length === 0) return null;
+        return (<>
+          <div style={{ fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Upcoming</div>
+          {upcomingFamilyMatches.map((m, i) => (
+            <UpcomingMatchRow key={m.id} m={m} onMatchClick={onMatchClick} isLast={i === upcomingFamilyMatches.length - 1} />
+          ))}
+          <div style={{ marginBottom: 18 }} />
+        </>);
+      })()}
+      {(() => {
+        const familyCodes = allMemberTeams.map(t => t.code);
+        const settledFamilyMatches = matches
+          .filter(m => {
+            const h = m.homeTeam?.tla?.toUpperCase();
+            const a = m.awayTeam?.tla?.toUpperCase();
+            return (familyCodes.includes(h) || familyCodes.includes(a)) && isSettled(m.status);
+          })
+          .sort((a, b) => new Date(b.utcDate) - new Date(a.utcDate));
+        if (settledFamilyMatches.length === 0) return null;
+        return (<>
+          <div style={{ fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Results</div>
+          {settledFamilyMatches.map((m, i) => {
+            const h = m.homeTeam?.tla?.toUpperCase();
+            const a = m.awayTeam?.tla?.toUpperCase();
+            const isLive = m.status === "IN_PLAY" || m.status === "PAUSED";
+            const hs = m.score?.fullTime?.home ?? 0;
+            const as_ = m.score?.fullTime?.away ?? 0;
+            const pen = m.score?.penalties;
+            const mPts = matchPtsById[m.id];
+            const hPts = mPts?.home ?? null;
+            const aPts = mPts?.away ?? null;
+            const totalPts = (hPts ?? 0) + (aPts ?? 0);
+            return (
+              <div key={m.id} className={onMatchClick ? "player-card" : undefined} onClick={onMatchClick ? () => onMatchClick(m.id) : undefined}
+                style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 0", borderBottom: i < settledFamilyMatches.length - 1 ? `1px solid ${C.border}` : "none", cursor: onMatchClick ? "pointer" : "default" }}>
+                <Flag code={h} size={18} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.homeTeam?.name || h} vs {m.awayTeam?.name || a}</div>
+                  <div style={{ fontSize: 10, color: C.muted }}>{isLive && <span style={{ color: "#f97316", fontWeight: 700 }}>LIVE · </span>}{(m.stage || "").replace(/_/g, " ")} · {fmt(m.utcDate)}</div>
+                </div>
+                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                  {totalPts > 0 && <div style={{ fontSize: 12, fontWeight: 800, color: isLive ? "#f97316" : C.text }}>+{totalPts} pts</div>}
+                  <div style={{ fontSize: 11, color: C.muted }}>{hs}–{as_}{pen?.home != null ? ` (${pen.home}–${pen.away}p)` : ""}</div>
+                </div>
+                <Flag code={a} size={18} />
+                {onMatchClick && <span style={{ color: C.muted, fontSize: 18, lineHeight: 1, flexShrink: 0 }}>›</span>}
+              </div>
+            );
+          })}
+        </>);
+      })()}
     </div>
   </>);
 }
@@ -3554,7 +3643,7 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
         </div>
       )}
 
-      <Section icon="🏆" title="Top Players" onOpen={() => { window.history.pushState({ appTab: "table", appModal: null }, ""); window.scrollTo(0, 0); setTab("table"); setLeagueView("league"); }} linkLabel="View sweeps"
+      <Section icon="🏆" title="Top Players" onOpen={() => { window.history.pushState({ appTab: "table", appModal: null }, ""); window.scrollTo(0, 0); setTab("table"); setLeagueView("league"); }} linkLabel="View player league"
         empty={topThree.length === 0 ? "No standings yet" : null}>
         {topThree.map((p, i) => {
           const delta = rank24hChange.get(p.name) || 0;
@@ -3597,7 +3686,7 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
         </div>
       )}
       {topFamilyThree.length > 0 && (
-        <Section icon="👨‍👩‍👧‍👦" title="Top Families" onOpen={() => { window.history.pushState({ appTab: "table", appModal: null }, ""); window.scrollTo(0, 0); setTab("table"); setLeagueView("families"); }} linkLabel="View families"
+        <Section icon="👨‍👩‍👧‍👦" title="Top Families" onOpen={() => { window.history.pushState({ appTab: "table", appModal: null }, ""); window.scrollTo(0, 0); setTab("table"); setLeagueView("families"); }} linkLabel="View family league"
           empty={null}>
           {topFamilyThree.map((family, i) => (
             <div key={family.name}
@@ -5245,6 +5334,7 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
   const [scrollPlayerToBadges, setScrollPlayerToBadges] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [selectedMatch, setSelectedMatch] = useState(null);
+  const [selectedMatchDefaultView, setSelectedMatchDefaultView] = useState("teams");
   const [selectedFamily, setSelectedFamily] = useState(null);
 
   // Wire app navigation into the browser History API so that the OS back
@@ -5263,6 +5353,7 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
       setScrollPlayerToBadges(false);
       setSelectedTeam(s.appTeam || null);
       setSelectedMatch(s.appMatch || null);
+      setSelectedMatchDefaultView(s.appMatchView || "teams");
       setSelectedFamily(s.appFamily || null);
     };
     window.addEventListener("popstate", handler);
@@ -5282,7 +5373,26 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
     setSelectedTeam(tla);
   };
   const openMatchModal = (matchId) => {
-    window.history.pushState({ appTab: tabRef.current, appModal: "match", appMatch: matchId }, "");
+    window.history.pushState({ appTab: tabRef.current, appModal: "match", appMatch: matchId, appMatchView: "teams" }, "");
+    setSelectedMatchDefaultView("teams");
+    setSelectedMatch(matchId);
+  };
+  const switchToMatchFromTeam = (matchId) => {
+    window.history.replaceState({ appTab: tabRef.current, appModal: "match", appMatch: matchId, appMatchView: "teams" }, "");
+    setSelectedMatchDefaultView("teams");
+    setSelectedTeam(null);
+    setSelectedMatch(matchId);
+  };
+  const switchToMatchFromPlayer = (matchId) => {
+    window.history.replaceState({ appTab: tabRef.current, appModal: "match", appMatch: matchId, appMatchView: "players" }, "");
+    setSelectedMatchDefaultView("players");
+    setSelectedPlayer(null);
+    setSelectedMatch(matchId);
+  };
+  const switchToMatchFromFamily = (matchId) => {
+    window.history.replaceState({ appTab: tabRef.current, appModal: "match", appMatch: matchId, appMatchView: "family" }, "");
+    setSelectedMatchDefaultView("family");
+    setSelectedFamily(null);
     setSelectedMatch(matchId);
   };
   const openFamilyModal = (familyName) => {
@@ -6074,18 +6184,18 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
           <SnapSheet onClose={closeCard} scrollBodyToBottom={!selectedTeam && !selectedMatch && !selectedFamily && scrollPlayerToBadges} initialSnap={snapFull ? "full" : "half"}>
             {(bodyRef, handleClose) => {
               if (selectedFamily) {
-                return <FamilyCardContent key={selectedFamily} bodyRef={bodyRef} familyName={selectedFamily} ranked={ranked} groupKey={groupKey} onPlayerClick={switchToPlayerFromFamily} onClose={handleClose} />;
+                return <FamilyCardContent key={selectedFamily} bodyRef={bodyRef} familyName={selectedFamily} ranked={ranked} groupKey={groupKey} matches={matches} matchPtsById={matchPtsById} onPlayerClick={switchToPlayerFromFamily} onMatchClick={switchToMatchFromFamily} onClose={handleClose} />;
               }
               // Team takes precedence: switching player -> team sets selectedTeam
               // and clears selectedPlayer, swapping the content of this same sheet
               // (so the height/snap state is preserved across the switch).
               if (selectedTeam) {
-                return <TeamCardContent key={selectedTeam} bodyRef={bodyRef} tla={selectedTeam} matches={matches} ranked={ranked} matchPtsById={matchPtsById} onTeamClick={switchToTeam} onOwnerClick={switchToPlayer} onClose={handleClose} />;
+                return <TeamCardContent key={selectedTeam} bodyRef={bodyRef} tla={selectedTeam} matches={matches} ranked={ranked} matchPtsById={matchPtsById} onTeamClick={switchToTeam} onOwnerClick={switchToPlayer} onMatchClick={switchToMatchFromTeam} onClose={handleClose} />;
               }
               if (selectedMatch) {
                 const matchObj = matches.find(m => String(m.id) === String(selectedMatch));
                 if (!matchObj) return null;
-                return <HeadToHeadCard key={selectedMatch} bodyRef={bodyRef} m={matchObj} ranked={ranked} matchPtsById={matchPtsById} onTeamClick={switchToTeamFromH2H} onPlayerClick={switchToPlayerFromH2H} onFamilyClick={switchToFamilyFromH2H} groupKey={groupKey} onClose={handleClose} />;
+                return <HeadToHeadCard key={selectedMatch} bodyRef={bodyRef} m={matchObj} ranked={ranked} matchPtsById={matchPtsById} onTeamClick={switchToTeamFromH2H} onPlayerClick={switchToPlayerFromH2H} onFamilyClick={switchToFamilyFromH2H} groupKey={groupKey} defaultView={selectedMatchDefaultView} onClose={handleClose} />;
               }
               const idx = ranked.findIndex(x => x.name === selectedPlayer);
               const p = ranked[idx];
@@ -6095,7 +6205,7 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
                 if (!fams) return null;
                 return fams.find(f => f.members.includes(selectedPlayer))?.name || null;
               })();
-              return <PlayerCardContent bodyRef={bodyRef} player={p} displayRank={p._displayRank || (idx + 1)} winPct={winPct.players ? winPct.players[selectedPlayer] : 0} winTeams={winPct.teams} badges={badges[selectedPlayer] || []} matches={matches} matchPtsById={matchPtsById} onTeamClick={switchToTeam} onFamilyClick={switchToFamily} playerFamily={playerFamily} onClose={handleClose} />;
+              return <PlayerCardContent bodyRef={bodyRef} player={p} displayRank={p._displayRank || (idx + 1)} winPct={winPct.players ? winPct.players[selectedPlayer] : 0} winTeams={winPct.teams} badges={badges[selectedPlayer] || []} matches={matches} matchPtsById={matchPtsById} onTeamClick={switchToTeam} onMatchClick={switchToMatchFromPlayer} onFamilyClick={switchToFamily} playerFamily={playerFamily} onClose={handleClose} />;
             }}
           </SnapSheet>
         )}
