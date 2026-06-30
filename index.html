@@ -3124,8 +3124,10 @@ function FamilyLeagueTab({ ranked, groupKey }) {
     const memberData = f.members
       .map(name => ({ name, p: playerMap[name] }))
       .sort((a, b) => (b.p?.total ?? 0) - (a.p?.total ?? 0));
-    return { name: f.name, memberData, total: memberData.reduce((s, m) => s + (m.p?.total ?? 0), 0) };
-  }).sort((a, b) => b.total - a.total);
+    const total = memberData.reduce((s, m) => s + (m.p?.total ?? 0), 0);
+    const avg = Math.round(total / memberData.length);
+    return { name: f.name, memberData, total, avg };
+  }).sort((a, b) => b.avg - a.avg);
   return (
     <div>
       {familyRows.map((family, i) => (
@@ -3139,8 +3141,8 @@ function FamilyLeagueTab({ ranked, groupKey }) {
             }}>{i + 1}</div>
             <div style={{ flex: 1, fontWeight: 700, fontSize: 15, color: C.text }}>{family.name}</div>
             <div style={{ textAlign: "right", flexShrink: 0 }}>
-              <div style={{ fontSize: 22, fontWeight: 800, color: C.text, lineHeight: 1 }}>{family.total}</div>
-              <div style={{ fontSize: 10, color: C.muted }}>pts</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: C.text, lineHeight: 1 }}>{family.avg}</div>
+              <div style={{ fontSize: 10, color: C.muted }}>avg pts</div>
             </div>
           </div>
           <div style={{ borderTop: `1px solid ${C.border}` }}>
@@ -3157,9 +3159,9 @@ function FamilyLeagueTab({ ranked, groupKey }) {
               </div>
             ))}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 14px 7px 54px", background: C.surface }}>
-              <div style={{ fontSize: 10, color: C.muted, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>Avg per member</div>
+              <div style={{ fontSize: 10, color: C.muted, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>Total</div>
               <div style={{ fontSize: 13, fontWeight: 800, color: C.dim }}>
-                {Math.round(family.total / family.memberData.length)}<span style={{ fontSize: 9, color: C.muted, marginLeft: 2 }}>pts</span>
+                {family.total}<span style={{ fontSize: 9, color: C.muted, marginLeft: 2 }}>pts</span>
               </div>
             </div>
           </div>
