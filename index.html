@@ -3510,8 +3510,8 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
       </Section>
 
       {topFamily && (
-        <div style={{
-          ...s.card, padding: "18px 16px", marginBottom: 16, textAlign: "center",
+        <div className="player-card" onClick={() => openFamilyModal(topFamily.name)} style={{
+          ...s.card, padding: "18px 16px", marginBottom: 16, textAlign: "center", cursor: "pointer",
           background: "linear-gradient(135deg, rgba(34,197,94,0.14), rgba(34,197,94,0.02))",
         }}>
           <div style={{ fontSize: 11, color: C.dim, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Leading Family</div>
