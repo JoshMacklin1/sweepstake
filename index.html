@@ -1416,7 +1416,7 @@ function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, bad
                         <div style={{ width:22, height:22, borderRadius:4, flexShrink:0, background: badgeBg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:800, color:resultColor }}>{result}</div>
                         <Flag code={t.code} size={18} />
                         <div style={{ flex:1, minWidth:0 }}>
-                          <div style={{ fontSize:12, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}</div>
+                          <div style={{ fontSize:12, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}{t.pot ? <span style={{ fontSize:9, color:C.muted, fontWeight:400 }}> (P{t.pot})</span> : ""}</div>
                           <div style={{ fontSize:10, color:C.muted }}>{isLive && <span style={{ color:"#f97316", fontWeight:700 }}>LIVE · </span>}vs {oppName} · {fmt(m.utcDate)}</div>
                         </div>
                         <div style={{ textAlign:"right", flexShrink:0 }}>
@@ -1433,7 +1433,7 @@ function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, bad
                         <div style={{ width:22, height:22, borderRadius:4, flexShrink:0, background:C.posBg, border:`1px solid ${C.accent}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:900, color:C.accent }}>Q</div>
                         <Flag code={t.code} size={18} />
                         <div style={{ flex:1, minWidth:0 }}>
-                          <div style={{ fontSize:12, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}</div>
+                          <div style={{ fontSize:12, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}{t.pot ? <span style={{ fontSize:9, color:C.muted, fontWeight:400 }}> (P{t.pot})</span> : ""}</div>
                           <div style={{ fontSize:10, color:C.muted }}>Qualified for Knockouts · {dateStr}</div>
                         </div>
                         {pts != null && <div style={{ fontSize:12, fontWeight:800, color:C.text, flexShrink:0 }}>+{pts} pts</div>}
@@ -1447,7 +1447,7 @@ function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, bad
                         <div style={{ width:22, height:22, borderRadius:4, flexShrink:0, background:C.negBg, border:`1px solid ${C.red}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:900, color:C.red }}>E</div>
                         <Flag code={t.code} size={18} />
                         <div style={{ flex:1, minWidth:0 }}>
-                          <div style={{ fontSize:12, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}</div>
+                          <div style={{ fontSize:12, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}{t.pot ? <span style={{ fontSize:9, color:C.muted, fontWeight:400 }}> (P{t.pot})</span> : ""}</div>
                           <div style={{ fontSize:10, color:C.muted }}>Eliminated from groups · {dateStr}</div>
                         </div>
                         {pts != null && <div style={{ fontSize:12, fontWeight:800, color:C.text, flexShrink:0 }}>{pts} pts</div>}
@@ -1461,7 +1461,7 @@ function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, bad
                         <div style={{ width:22, height:22, borderRadius:4, flexShrink:0, background:C.negBg, border:`1px solid ${C.red}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:900, color:C.red }}>E</div>
                         <Flag code={t.code} size={18} />
                         <div style={{ flex:1, minWidth:0 }}>
-                          <div style={{ fontSize:12, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}</div>
+                          <div style={{ fontSize:12, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}{t.pot ? <span style={{ fontSize:9, color:C.muted, fontWeight:400 }}> (P{t.pot})</span> : ""}</div>
                           <div style={{ fontSize:10, color:C.muted }}>{stageLabel} · {dateStr}</div>
                         </div>
                       </div>
@@ -1603,7 +1603,7 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
                   <div style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0, background: badgeBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: resultColor }}>{result}</div>
                   <Flag code={oppCode} size={18} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{oppName}</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{oppName}{POT[oppCode] ? <span style={{ fontSize: 9, color: C.muted, fontWeight: 400 }}> (P{POT[oppCode]})</span> : ""}</div>
                     <div style={{ fontSize: 10, color: C.muted }}>{isLive && <span style={{ color: "#f97316", fontWeight: 700 }}>LIVE · </span>}{(m.stage || "").replace(/_/g, " ")} · {fmt(m.utcDate)}</div>
                   </div>
                   <div style={{ textAlign: "right", flexShrink: 0 }}>
@@ -3174,9 +3174,9 @@ function UpcomingMatchRow({ m, onMatchClick, isLast }) {
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <Flag code={h} size={18} />
-        <div style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.homeTeam?.name || h}</div>
+        <div style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.homeTeam?.name || h}{POT[h] ? <span style={{ fontSize: 9, color: C.muted, fontWeight: 400 }}> (P{POT[h]})</span> : ""}</div>
         <div style={{ flexShrink: 0, fontSize: 10, fontWeight: 700, color: C.muted, padding: "0 6px" }}>vs</div>
-        <div style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "right" }}>{m.awayTeam?.name || a}</div>
+        <div style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "right" }}>{m.awayTeam?.name || a}{POT[a] ? <span style={{ fontSize: 9, color: C.muted, fontWeight: 400 }}> (P{POT[a]})</span> : ""}</div>
         <Flag code={a} size={18} />
         {onMatchClick && <span style={{ color: C.muted, fontSize: 18, lineHeight: 1, flexShrink: 0, marginLeft: 2 }}>›</span>}
       </div>
@@ -3394,7 +3394,7 @@ function FamilyCardContent({ bodyRef, familyName, ranked, groupKey, matches = []
               <div style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0, background: badgeBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: resultColor }}>{result}</div>
               <Flag code={t.code} size={18} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}{t.pot ? <span style={{ fontSize: 9, color: C.muted, fontWeight: 400 }}> (P{t.pot})</span> : ""}</div>
                 <div style={{ fontSize: 10, color: C.muted }}>{isLive && <span style={{ color: "#f97316", fontWeight: 700 }}>LIVE · </span>}vs {oppName} · {fmt(m.utcDate)}</div>
               </div>
               <div style={{ textAlign: "right", flexShrink: 0 }}>
