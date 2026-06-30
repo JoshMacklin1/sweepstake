@@ -3806,6 +3806,9 @@ function KnockoutBracket({ matches, onTeamClick, matchPtsById = {}, bracketRef: 
   const r16 = (() => {
     const apiR16WithTeams = r16Raw.filter(m => m.home || m.away);
     if (apiR16WithTeams.length >= 8) return r16Raw;
+    // Teams already allocated in real API r16 matches — don't project them into a second slot
+    const allocatedInR16 = new Set();
+    r16Raw.forEach(m => { if (m.home) allocatedInR16.add(m.home); if (m.away) allocatedInR16.add(m.away); });
     const projected = [];
     for (let i = 0; i < 16; i += 2) {
       const m1 = r32[i] || null;
@@ -3815,8 +3818,8 @@ function KnockoutBracket({ matches, onTeamClick, matchPtsById = {}, bracketRef: 
       if (apiSlot && (apiSlot.home || apiSlot.away)) {
         projected.push(apiSlot);
       } else {
-        const home = m1?.winner || null;
-        const away = m2?.winner || null;
+        const home = (m1?.winner && !allocatedInR16.has(m1.winner)) ? m1.winner : null;
+        const away = (m2?.winner && !allocatedInR16.has(m2.winner)) ? m2.winner : null;
         projected.push((home || away) ? { home, away, homeScore: null, awayScore: null, status: "PROJECTED", winner: null } : null);
       }
     }
