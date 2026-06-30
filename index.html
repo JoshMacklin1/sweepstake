@@ -3145,7 +3145,7 @@ function FamilyLeagueTab({ ranked, groupKey }) {
           </div>
           <div style={{ borderTop: `1px solid ${C.border}` }}>
             {family.memberData.map(({ name, p }, j) => (
-              <div key={name} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 14px 8px 54px", borderBottom: j < family.memberData.length - 1 ? `1px solid ${C.border}` : "none" }}>
+              <div key={name} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 14px 8px 54px", borderBottom: `1px solid ${C.border}` }}>
                 <div style={{ fontSize: 10, color: C.muted, fontWeight: 700, minWidth: 14, textAlign: "right" }}>{p?.overallRank ?? "—"}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: p && !p.grimReaper ? 3 : 0 }}>{name}</div>
@@ -3156,6 +3156,12 @@ function FamilyLeagueTab({ ranked, groupKey }) {
                 </div>
               </div>
             ))}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 14px 7px 54px", background: C.surface }}>
+              <div style={{ fontSize: 10, color: C.muted, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>Avg per member</div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: C.dim }}>
+                {Math.round(family.total / family.memberData.length)}<span style={{ fontSize: 9, color: C.muted, marginLeft: 2 }}>pts</span>
+              </div>
+            </div>
           </div>
         </div>
       ))}
