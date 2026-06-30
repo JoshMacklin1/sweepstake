@@ -5428,6 +5428,39 @@ function SearchOverlay({ ranked, onClose, onSelectPlayer, onSelectTeam, groupKey
   );
 }
 
+const SIM_CHECKPOINTS = [
+  { key: "start",    label: "Start" },
+  { key: "group1",   label: "G.R1" },
+  { key: "group2",   label: "G.R2" },
+  { key: "group3",   label: "G.R3" },
+  { key: "last32",   label: "R32" },
+  { key: "last16",   label: "R16" },
+  { key: "quarters", label: "QF" },
+  { key: "semis",    label: "SF" },
+  { key: "end",      label: "Final" },
+];
+
+function applySimCheckpoint(matches, checkpoint) {
+  if (!checkpoint || checkpoint === "end") return matches;
+  if (checkpoint === "start") return [];
+  const KNOCKOUT_INCLUDE = {
+    last32:   ["GROUP_STAGE", "LAST_32"],
+    last16:   ["GROUP_STAGE", "LAST_32", "LAST_16"],
+    quarters: ["GROUP_STAGE", "LAST_32", "LAST_16", "QUARTER_FINALS"],
+    semis:    ["GROUP_STAGE", "LAST_32", "LAST_16", "QUARTER_FINALS", "SEMI_FINALS"],
+  };
+  if (KNOCKOUT_INCLUDE[checkpoint]) {
+    return matches.filter(m => KNOCKOUT_INCLUDE[checkpoint].includes(m.stage));
+  }
+  // Group stage splits — sort by date, take first N
+  const groupStage = matches.filter(m => m.stage === "GROUP_STAGE");
+  const sorted = [...groupStage].sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
+  const total = sorted.length;
+  const perMatchday = Math.round(total / 3);
+  const take = checkpoint === "group1" ? perMatchday : checkpoint === "group2" ? perMatchday * 2 : total;
+  return sorted.slice(0, take);
+}
+
 function App({ onSwitchGroup, groupKey, isAdmin = false }) {
   const [matches,     setMatches]     = useState([]);
   const [loading,     setLoading]     = useState(true);
@@ -5581,6 +5614,8 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
   const [refreshing,  setRefreshing]  = useState(false);
   const [devMode,     setDevMode]     = useState(DEV_MODE_DEFAULT);
   const devModeRef = React.useRef(DEV_MODE_DEFAULT);
+  const [simCheckpoint, setSimCheckpoint] = useState("end");
+  const simCheckpointRef = React.useRef("end");
   const [copied,      setCopied]      = useState(false);
   const [goalFlash,   setGoalFlash]   = useState(false);
   const [goalInfo,    setGoalInfo]    = useState(null);
@@ -5598,7 +5633,7 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
     if (isManual) setRefreshing(true);
     const useDev = forceDev !== null ? forceDev : devMode;
     if (useDev) {
-      setMatches(MOCK_MATCHES);
+      setMatches(applySimCheckpoint(MOCK_MATCHES, simCheckpointRef.current));
       setLastUpdated(new Date());
       setLoading(false);
       setRefreshing(false);
@@ -6110,6 +6145,31 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
         {tab === "scores" && !loading && scoreDays.length > 0 && (
           <div className="sweeps-nav">
             <DayPicker days={scoreDays} selected={effectiveScoreDay} onSelect={setSelectedDay} />
+          </div>
+        )}
+        {devMode && (
+          <div style={{ padding:"6px 14px 8px", borderTop:`1px solid rgba(251,191,36,0.25)`, background:"rgba(251,191,36,0.06)" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:5 }}>
+              <span style={{ fontSize:9, fontWeight:700, color:"#fbbf24", letterSpacing:"0.08em", textTransform:"uppercase", flexShrink:0 }}>🛠 Sim</span>
+              <div style={{ flex:1, overflowX:"auto", display:"flex", gap:5, scrollbarWidth:"none", msOverflowStyle:"none" }}>
+                {SIM_CHECKPOINTS.map(({ key, label }) => {
+                  const active = simCheckpoint === key;
+                  return (
+                    <button key={key} onClick={() => {
+                      simCheckpointRef.current = key;
+                      setSimCheckpoint(key);
+                      setMatches(applySimCheckpoint(MOCK_MATCHES, key));
+                    }} style={{
+                      flexShrink:0, padding:"3px 8px",
+                      background: active ? "#fbbf24" : "rgba(251,191,36,0.12)",
+                      color: active ? "#0d1117" : "#fbbf24",
+                      border: `1px solid ${active ? "#fbbf24" : "rgba(251,191,36,0.3)"}`,
+                      borderRadius:12, fontSize:10, fontWeight: active ? 800 : 600, cursor:"pointer",
+                    }}>{label}</button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
         {tab === "race" && !loading && (
