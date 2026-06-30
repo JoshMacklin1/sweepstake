@@ -3129,11 +3129,6 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onPlaye
                     aVal={aFamilyDef ? (aFamilyBestStage ? (STAGE_LABEL[aFamilyBestStage] || "Groups") : "Groups") : "—"}
                   />
                   <StatRow
-                    label="Rank"
-                    hVal={hFamilyData ? toOrdinal(hFamilyData.rank) : "—"}
-                    aVal={aFamilyData ? toOrdinal(aFamilyData.rank) : "—"}
-                  />
-                  <StatRow
                     label="Avg Pts"
                     hVal={hFamilyData ? `+${hFamilyData.avg}` : "—"}
                     aVal={aFamilyData ? `+${aFamilyData.avg}` : "—"}
