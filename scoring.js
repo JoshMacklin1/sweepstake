@@ -1453,18 +1453,18 @@ function computeBadges(ranked, matches, rank24hChange, winPctPlayers) {
   if (firstOne) add(firstOne.name, { icon:"🩸", label:"First Casualty", desc:`First to have a team eliminated (${teamNameOf(firstOne.code)})`, tone:"bad" });
   if (firstAll) add(firstAll.name, { icon:"⚰️", label:"Wiped Out", desc:`First to have all their teams eliminated (last: ${teamNameOf(firstAll.code)})`, tone:"bad" });
 
-  // 🤡 Big Flop — the FIRST Pot 1 favourite to crash out in the groups (single
-  // winner; earliest group elimination by date).
+  // 🤡 Big Flop — the FIRST Pot 1 favourite eliminated at ANY stage, group or
+  // knockout (single winner; earliest elimination by date).
   let bigFlop = null;
   real.forEach(p => {
     (p.teams || []).forEach(t => {
-      if (t.pot === 1 && t.stage === "GROUP_ELIM") {
+      if (t.pot === 1 && t.eliminated) {
         const d = elimDate[t.code] ? new Date(elimDate[t.code]).getTime() : Infinity;
         if (!bigFlop || d < bigFlop.d) bigFlop = { name: p.name, d, code: t.code };
       }
     });
   });
-  if (bigFlop) add(bigFlop.name, { icon:"🤡", label:"Big Flop", desc:`First Pot 1 favourite out in the groups (${teamNameOf(bigFlop.code)})`, tone:"bad" });
+  if (bigFlop) add(bigFlop.name, { icon:"🤡", label:"Big Flop", desc:`First Pot 1 favourite eliminated (${teamNameOf(bigFlop.code)})`, tone:"bad" });
 
   // Order each player's badges rarest-first so the row preview (which shows only
   // the first couple) highlights what's UNIQUE to them rather than common

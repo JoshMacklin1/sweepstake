@@ -298,7 +298,8 @@ Performance: 🏆 Top Dog · 🥄 Wooden Spoon (bottom real player) · 🔮 The 
 (highest win %) · 🚀 Climber / 📉 Sliding (24h table moves) · ⚡ On Fire (biggest
 pts last round) · 🔪 Giant Killer (single biggest group upset) · 🐶 Underdog
 (first Pot 4 team to reach the knockouts) · 🥚 Early Bird · 🤡 Big Flop (first
-Pot 1 out in groups) · 🦆 Still Quacking (last yet to score) · 🎸 One Man Band
+Pot 1 favourite eliminated, group **or** knockout) · 🦆 Still Quacking (last
+yet to score) · 🎸 One Man Band
 (biggest gap between own teams) · 💥 Firepower / 💨 Firing Blanks (most / fewest
 goals) · 🧱 Brick Wall / 🚰 Leaky (fewest / most conceded) · 🩸 First Casualty ·
 ⚰️ Wiped Out (first to have **all** their teams eliminated).
