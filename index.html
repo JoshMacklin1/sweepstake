@@ -5333,14 +5333,9 @@ function LiveBanner({ live, ranked, matchPtsById }) {
 // ─────────────────────────────────────────────────────────────────────────────
 const SEARCH_RECENT_BASE_KEY = "sw_search_recent";
 
-function SearchResultRow({ item, ranked, onClick }) {
-  const playerEntry = item.type === "player" ? ranked.find(p => p.name === item.id) : null;
+function SearchResultRow({ item, onClick }) {
   const isGrimReaper = item.grimReaper;
   const color = isGrimReaper ? C.reaperAccent : playerColor(item.id);
-  // playerEntry only exists when the result belongs to the group currently
-  // being viewed — cross-group results (admin search) carry their own
-  // `item.pts`, computed when the result was built, as a fallback.
-  const pts = item.type === "player" ? (playerEntry ? playerEntry.total : item.pts) : null;
 
   return (
     <div onClick={onClick} style={{ display:"flex", alignItems:"center", padding:"11px 16px", cursor:"pointer", gap:14, borderBottom:`1px solid ${C.border}` }}>
@@ -5361,23 +5356,13 @@ function SearchResultRow({ item, ranked, onClick }) {
         <div style={{ fontSize:15, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{item.label}</div>
         <div style={{ fontSize:12, color:C.muted, marginTop:2 }}>{item.sub}</div>
       </div>
-      {(item.groupLabel || (item.type === "player" && pts != null)) && (
-        <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4, flexShrink:0 }}>
-          {/* Group pill — only set on results from a group other than the one
-             on screen, so admin cross-group matches (e.g. duplicate team
-             names, every group owns all 48) are obvious at a glance. */}
-          {item.groupLabel && (
-            <span style={{ fontSize:9, fontWeight:800, padding:"2px 7px", borderRadius:99, background:"rgba(148,163,184,0.15)", color:C.dim, letterSpacing:"0.02em", whiteSpace:"nowrap" }}>
-              {item.groupLabel}
-            </span>
-          )}
-          {item.type === "player" && pts != null && (
-            <div style={{ textAlign:"right" }}>
-              <div style={{ fontSize:15, fontWeight:700, color: pts < 0 ? C.red : C.text }}>{pts}</div>
-              <div style={{ fontSize:10, color:C.muted }}>pts</div>
-            </div>
-          )}
-        </div>
+      {/* Group pill — only set on results from a group other than the one on
+         screen, so admin cross-group matches (e.g. duplicate team names,
+         every group owns all 48) are obvious at a glance. */}
+      {item.groupLabel && (
+        <span style={{ fontSize:9, fontWeight:800, padding:"2px 7px", borderRadius:99, background:"rgba(148,163,184,0.15)", color:C.dim, letterSpacing:"0.02em", whiteSpace:"nowrap", flexShrink:0 }}>
+          {item.groupLabel}
+        </span>
       )}
     </div>
   );
@@ -5441,7 +5426,7 @@ function SearchOverlay({ ranked, onClose, onSelectPlayer, onSelectTeam, onSelect
       groupRanked.forEach((p, i) => {
         if (p.name.toLowerCase().includes(q)) {
           out.push({
-            type:"player", id:p.name, label:p.name, pts:p.total, grimReaper:!!p.grimReaper,
+            type:"player", id:p.name, label:p.name, grimReaper:!!p.grimReaper,
             sub: `${ord(own ? (p._displayRank||i+1) : i+1)} · ${p.total} pts`,
             groupKey:key, groupLabel: own ? null : label,
           });
@@ -5454,7 +5439,7 @@ function SearchOverlay({ ranked, onClose, onSelectPlayer, onSelectTeam, onSelect
             seenTeams.add(t.code);
             out.push({
               type:"team", id:t.code, label:t.name||t.code,
-              sub: `Team · Pot ${POT[t.code] ? potOf(t.code) : "?"}`,
+              sub: `${p.name} · Pot ${POT[t.code] ? potOf(t.code) : "?"}`,
               groupKey:key, groupLabel: own ? null : label,
             });
           }
@@ -5523,7 +5508,7 @@ function SearchOverlay({ ranked, onClose, onSelectPlayer, onSelectTeam, onSelect
                 <span style={{ fontSize:11, fontWeight:700, color:C.muted, letterSpacing:"0.1em", textTransform:"uppercase" }}>Recent</span>
                 <button onClick={clearRecent} style={{ background:"none", border:"none", color:C.muted, fontSize:12, cursor:"pointer", padding:4 }}>Clear all</button>
               </div>
-              {recent.map((item, i) => <SearchResultRow key={i} item={item} ranked={ranked} onClick={() => handleSelect(item)} />)}
+              {recent.map((item, i) => <SearchResultRow key={i} item={item} onClick={() => handleSelect(item)} />)}
             </>
           ) : (
             <div style={{ color:C.muted, textAlign:"center", padding:"52px 24px", fontSize:14, lineHeight:1.6 }}>
@@ -5534,7 +5519,7 @@ function SearchOverlay({ ranked, onClose, onSelectPlayer, onSelectTeam, onSelect
         ) : results.length === 0 ? (
           <div style={{ color:C.muted, textAlign:"center", padding:"52px 24px", fontSize:14 }}>No results for "{query}"</div>
         ) : (
-          results.map((item, i) => <SearchResultRow key={i} item={item} ranked={ranked} onClick={() => handleSelect(item)} />)
+          results.map((item, i) => <SearchResultRow key={i} item={item} onClick={() => handleSelect(item)} />)
         )}
       </div>
     </div>
