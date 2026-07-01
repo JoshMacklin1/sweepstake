@@ -3415,9 +3415,14 @@ function FamilyCardContent({ bodyRef, familyName, ranked, groupKey, matches = []
   </>);
 }
 
-function FamilyLeagueTab({ ranked, groupKey, onPlayerClick, onFamilyClick }) {
+function FamilyLeagueTab({ ranked, matches, groupKey, onPlayerClick, onFamilyClick }) {
   const families = GROUPS[groupKey]?.families;
   if (!families) return null;
+  // Same rolling-24h rank-position pill PlayerRow shows, computed the same
+  // way (compare current family ranking to how it stood 24h ago) rather than
+  // a raw points delta, for consistency with the player league.
+  const familyRankChange = typeof compute24hFamilyRankChange === "function"
+    ? compute24hFamilyRankChange(matches, families) : new Map();
   const rankColors = ["#84cc16","#94a3b8","#b45309"];
   const playerMap = Object.fromEntries(ranked.map((p, i) => [p.name, { ...p, overallRank: i + 1 }]));
   const familyRows = families.map(f => {
@@ -3435,7 +3440,9 @@ function FamilyLeagueTab({ ranked, groupKey, onPlayerClick, onFamilyClick }) {
   }).sort((a, b) => b.avg - a.avg);
   return (
     <div>
-      {familyRows.map((family, i) => (
+      {familyRows.map((family, i) => {
+        const delta = familyRankChange.get(family.name) || 0;
+        return (
         <div key={family.name} className={onFamilyClick ? "player-card" : undefined}
           onClick={onFamilyClick ? () => onFamilyClick(family.name) : undefined}
           style={{ ...s.card, display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", cursor: onFamilyClick ? "pointer" : "default" }}>
@@ -3449,11 +3456,23 @@ function FamilyLeagueTab({ ranked, groupKey, onPlayerClick, onFamilyClick }) {
           <Sparkline data={family.combinedHist} width={90} height={44} color={C.accent} />
           <div style={{ textAlign: "right", flexShrink: 0, minWidth: 56 }}>
             <div style={{ fontSize: 22, fontWeight: 800, color: C.text, lineHeight: 1 }}>{family.avg}</div>
-            <div style={{ fontSize: 10, color: C.muted }}>avg pts</div>
+            <div style={{ fontSize: 10, color: C.muted, marginBottom: 4 }}>avg pts</div>
+            {delta !== 0 ? (
+              <div style={{
+                display:"inline-block", fontSize:10, fontWeight:700, padding:"1px 5px", borderRadius:3,
+                background: delta > 0 ? C.posBg : C.negBg, color: delta > 0 ? C.accent : C.red,
+              }}>{delta > 0 ? "▲" : "▼"} {Math.abs(delta)} pos</div>
+            ) : (
+              <div style={{
+                display:"inline-block", fontSize:10, fontWeight:700, padding:"1px 5px", borderRadius:3,
+                background:"rgba(148,163,184,0.12)", color:"#94a3b8",
+              }}>0 pos</div>
+            )}
           </div>
           {onFamilyClick && <span aria-hidden="true" style={{ color: C.muted, fontSize: 18, lineHeight: 1, flexShrink: 0 }}>›</span>}
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -4507,8 +4526,9 @@ function InfoContent() {
                 { icon:"⚡", label:"On Fire", desc:"Most points scored last round", tone:"good" },
                 { icon:"🔪", label:"Giant Killer", desc:"The biggest group-stage upset (largest pot gap)", tone:"good" },
                 { icon:"🐶", label:"Underdog", desc:"First Pot 4 team to reach the knockouts", tone:"good" },
+                { icon:"👠", label:"Cinderella", desc:"Owns the last Pot 4 team standing", tone:"good" },
                 { icon:"🥚", label:"Early Bird", desc:"First to get on the board", tone:"good" },
-                { icon:"🤡", label:"Big Flop", desc:"First Pot 1 favourite out in the groups", tone:"bad" },
+                { icon:"🤡", label:"Big Flop", desc:"First Pot 1 favourite eliminated", tone:"bad" },
                 { icon:"🦆", label:"Still Quacking", desc:"Last player yet to get on the board", tone:"bad" },
                 { icon:"🎸", label:"One Man Band", desc:"Biggest gap between a player's top and next-best team", tone:"good" },
                 { icon:"💥", label:"Firepower", desc:"Teams have scored the most goals", tone:"good" },
@@ -4517,6 +4537,8 @@ function InfoContent() {
                 { icon:"💨", label:"Firing Blanks", desc:"Teams have scored the fewest goals", tone:"bad" },
                 { icon:"🩸", label:"First Casualty", desc:"First to have a team eliminated", tone:"bad" },
                 { icon:"⚰️", label:"Wiped Out", desc:"First to lose all their teams", tone:"bad" },
+                { icon:"🍞", label:"Bread Winner", desc:"Carrying their family (highest share of its points) — family groups only", tone:"good" },
+                { icon:"🐑", label:"Black Sheep", desc:"Contributing the least to their family — family groups only", tone:"bad" },
               ].map((b, i) => (
                 <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0", borderBottom: i < 17 ? `1px solid ${C.border}` : "none" }}>
                   <span style={{ fontSize:20, flexShrink:0, width:24, textAlign:"center" }}>{b.icon}</span>
@@ -4733,6 +4755,14 @@ function PushSettingsModal({ onClose }) {
 // Last-seen timestamp stored per group in localStorage; updated on close so
 // the split reflects what the user hasn't opened the drawer since.
 const NOTIF_SEEN_BASE_KEY = "sw_notif_seen";
+
+// First-seen timestamps per (player, badge label), used to show the two MOST
+// RECENTLY achieved accolades (rather than rarest-first) in the collapsed
+// league row. There's no historical "achieved at" data for most badges (they're
+// just "is this true right now" checks), so this only starts recording from
+// whenever a badge is first observed after this feature shipped — see the
+// tracking effect in App for how it's kept up to date.
+const BADGE_ACHIEVED_BASE_KEY = "sw_badge_achieved";
 
 function NotificationsDrawer({ matches, ranked, matchPtsById, onClose, onSeenUpdate, groupKey }) {
   const seenKey = groupKey ? `${NOTIF_SEEN_BASE_KEY}_${groupKey}` : NOTIF_SEEN_BASE_KEY;
@@ -6143,6 +6173,37 @@ function App({ onSwitchGroup, onQuickSwitchGroup, groupKey, isAdmin = false, ini
   }, [matches]);
   // Must come AFTER winPct — computeBadges reads winPct.players (The Prophecy badge).
   const badges = React.useMemo(() => computeBadges(ranked, matches, rank24hChange, winPct.players), [matches]);
+
+  // Achieved-at tracking for "most recently earned" badge ordering (see
+  // BADGE_ACHIEVED_BASE_KEY above). `achievedTs` maps "name|label" -> epoch ms;
+  // `lastKeys` is the key set as of the previous computation, so a badge that
+  // was lost and later re-earned gets a fresh timestamp rather than keeping
+  // its original one.
+  const badgeAchievedKey = groupKey ? `${BADGE_ACHIEVED_BASE_KEY}_${groupKey}` : BADGE_ACHIEVED_BASE_KEY;
+  const badgeAchievedRef = React.useRef(null);
+  if (badgeAchievedRef.current === null) {
+    let cached = {};
+    try { cached = JSON.parse(localStorage.getItem(badgeAchievedKey) || "{}"); } catch {}
+    badgeAchievedRef.current = { ts: cached.ts || {}, lastKeys: new Set(cached.lastKeys || []) };
+  }
+  React.useEffect(() => {
+    const state = badgeAchievedRef.current;
+    const currentKeys = new Set();
+    Object.entries(badges).forEach(([name, list]) => {
+      (list || []).forEach(b => currentKeys.add(`${name}|${b.label}`));
+    });
+    currentKeys.forEach(key => { if (!state.lastKeys.has(key)) state.ts[key] = Date.now(); });
+    state.lastKeys = currentKeys;
+    localStorage.setItem(badgeAchievedKey, JSON.stringify({ ts: state.ts, lastKeys: [...currentKeys] }));
+  }, [badges, badgeAchievedKey]);
+  // Two most recently achieved badges for a player's collapsed league row —
+  // falls back to badges' existing rarest-first order for anything not yet
+  // individually timestamped (stable sort keeps ties in that original order).
+  const mostRecentBadges = (list, name) => {
+    const ts = badgeAchievedRef.current.ts;
+    return [...list].sort((a, b) => (ts[`${name}|${b.label}`] || 0) - (ts[`${name}|${a.label}`] || 0)).slice(0, 2);
+  };
+
   const isDesktop = window.innerWidth >= 768;
 
   // Main-nav icons — defined once here so desktop (flat Sweeps/Groups/
@@ -6516,7 +6577,7 @@ function App({ onSwitchGroup, onQuickSwitchGroup, groupKey, isAdmin = false, ini
                       rank={i}
                       displayRank={displayRank}
                       onOpen={() => openPlayerModal(player.name)}
-                      badges={badges[player.name] || []}
+                      badges={mostRecentBadges(badges[player.name] || [], player.name)}
                       rank24hChange={rank24hChange.get(player.name)}
                     />
                   );
@@ -6529,7 +6590,7 @@ function App({ onSwitchGroup, onQuickSwitchGroup, groupKey, isAdmin = false, ini
             )}
 
             {leagueView === "families" && (
-              <FamilyLeagueTab ranked={ranked} groupKey={groupKey} onPlayerClick={openPlayerModal} onFamilyClick={openFamilyModal} />
+              <FamilyLeagueTab ranked={ranked} matches={matches} groupKey={groupKey} onPlayerClick={openPlayerModal} onFamilyClick={openFamilyModal} />
             )}
           </>
         )}
@@ -6702,6 +6763,7 @@ function GroupGate() {
     PLAYER_NAME_ORDER = PLAYERS.map(p => p.name);
     KNOCKOUT_ONLY = !!(GROUPS[simGroup].knockoutOnly);
     POT_OVERRIDES = GROUPS[simGroup].potOverrides || {};
+    FAMILIES = GROUPS[simGroup].families || null;
     const onSwitchGroup = () => {
       localStorage.removeItem(ADMIN_SIM_KEY);
       setSimGroup(null);
@@ -6734,6 +6796,7 @@ function GroupGate() {
     PLAYER_NAME_ORDER = PLAYERS.map(p => p.name);
     KNOCKOUT_ONLY = !!(GROUPS[groupKey].knockoutOnly);
     POT_OVERRIDES = GROUPS[groupKey].potOverrides || {};
+    FAMILIES = GROUPS[groupKey].families || null;
     const onSwitchGroup = () => {
       localStorage.removeItem(GROUP_STORAGE_KEY);
       setGroupKey(null);

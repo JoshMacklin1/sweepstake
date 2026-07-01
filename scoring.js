@@ -395,6 +395,11 @@ var POT = {
 // in index.html before the app renders. Default empty = use global POT table.
 var POT_OVERRIDES = {};
 
+// Active group's families roster (only Caversham-style groups have one) —
+// set from GROUPS[activeKey].families by GroupGate, same pattern as
+// POT_OVERRIDES/KNOCKOUT_ONLY above. null for groups with no family feature.
+var FAMILIES = null;
+
 // Pot lookup: check active group's overrides first, fall back to global POT.
 function potOf(code) {
   return (code && POT_OVERRIDES[code]) || POT[code] || 4;
@@ -1049,6 +1054,39 @@ function compute24hPtsChange(matches, currentRanked) {
   return result;
 }
 
+// compute24hFamilyRankChange(matches, families) — family-league equivalent of
+// compute24hRankChange: ranks families by average member points (same
+// formula FamilyLeagueTab uses) both now and 24h ago, then returns each
+// family's rank-position delta (positive = moved up), same sign convention
+// and Map<name, number> shape as the player version above.
+function compute24hFamilyRankChange(matches, families) {
+  if (!families) return new Map();
+  const cutoffMs = Date.now() - 24 * 60 * 60 * 1000;
+  const matches24hAgo = matches.filter(m => new Date(m.utcDate).getTime() <= cutoffMs);
+  const totalNowByName = {};
+  scorePlayers(matches).forEach(p => { totalNowByName[p.name] = p.total; });
+  const total24hAgoByName = {};
+  scorePlayers(matches24hAgo).forEach(p => { total24hAgoByName[p.name] = p.total; });
+
+  const familyAvg = (totalsByName) => families.map(f => {
+    const totals = f.members.map(name => totalsByName[name] ?? 0);
+    return { name: f.name, avg: totals.reduce((s, t) => s + t, 0) / totals.length };
+  }).sort((a, b) => b.avg - a.avg);
+
+  const rankNowByName = {};
+  familyAvg(totalNowByName).forEach((f, i) => { rankNowByName[f.name] = i; });
+  const rank24hAgoByName = {};
+  familyAvg(total24hAgoByName).forEach((f, i) => { rank24hAgoByName[f.name] = i; });
+
+  const result = new Map();
+  families.forEach(f => {
+    const nowRank = rankNowByName[f.name];
+    const prevRank = rank24hAgoByName[f.name];
+    result.set(f.name, (prevRank !== undefined && nowRank !== undefined) ? prevRank - nowRank : 0);
+  });
+  return result;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // MONTE CARLO WIN PROBABILITY SIMULATION
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1453,18 +1491,53 @@ function computeBadges(ranked, matches, rank24hChange, winPctPlayers) {
   if (firstOne) add(firstOne.name, { icon:"🩸", label:"First Casualty", desc:`First to have a team eliminated (${teamNameOf(firstOne.code)})`, tone:"bad" });
   if (firstAll) add(firstAll.name, { icon:"⚰️", label:"Wiped Out", desc:`First to have all their teams eliminated (last: ${teamNameOf(firstAll.code)})`, tone:"bad" });
 
-  // 🤡 Big Flop — the FIRST Pot 1 favourite to crash out in the groups (single
-  // winner; earliest group elimination by date).
+  // 🤡 Big Flop — the FIRST Pot 1 favourite eliminated at ANY stage, group or
+  // knockout (single winner; earliest elimination by date).
   let bigFlop = null;
   real.forEach(p => {
     (p.teams || []).forEach(t => {
-      if (t.pot === 1 && t.stage === "GROUP_ELIM") {
+      if (t.pot === 1 && t.eliminated) {
         const d = elimDate[t.code] ? new Date(elimDate[t.code]).getTime() : Infinity;
         if (!bigFlop || d < bigFlop.d) bigFlop = { name: p.name, d, code: t.code };
       }
     });
   });
-  if (bigFlop) add(bigFlop.name, { icon:"🤡", label:"Big Flop", desc:`First Pot 1 favourite out in the groups (${teamNameOf(bigFlop.code)})`, tone:"bad" });
+  if (bigFlop) add(bigFlop.name, { icon:"🤡", label:"Big Flop", desc:`First Pot 1 favourite eliminated (${teamNameOf(bigFlop.code)})`, tone:"bad" });
+
+  // 👠 Cinderella — owns the LAST Pot 4 team still alive in the whole
+  // competition. Unlike Big Flop/Underdog above, this is a live, current
+  // state (like Top Dog/Wooden Spoon), not a "first to..." achievement — it
+  // only exists while exactly one Pot 4 team remains un-eliminated, moves to
+  // whoever else is left if that changes, and disappears entirely once the
+  // very last Pot 4 team is itself knocked out (no fairy tale ending to award).
+  const pot4Teams = [];
+  real.forEach(p => (p.teams || []).forEach(t => { if (t.pot === 4) pot4Teams.push({ code: t.code, eliminated: t.eliminated, owner: p.name }); }));
+  const alivePot4 = pot4Teams.filter(t => !t.eliminated);
+  if (alivePot4.length === 1) {
+    add(alivePot4[0].owner, { icon:"👠", label:"Cinderella", desc:`Owns the last Pot 4 team standing (${teamNameOf(alivePot4[0].code)})`, tone:"good" });
+  }
+
+  // 🍞 Bread Winner / 🐑 Black Sheep — family-groups only (FAMILIES is null for
+  // groups without the family feature). Per family, not group-wide: whoever
+  // contributes the largest SHARE of their family's combined points is
+  // carrying it; whoever contributes the smallest share is the black sheep.
+  // Skips a family if its total is exactly 0 (a share of zero points is
+  // undefined, not "equal"), or if every member ties (top === bottom) —
+  // no one is meaningfully carrying or dragging in either case.
+  if (FAMILIES) {
+    FAMILIES.forEach(f => {
+      const members = f.members.map(name => real.find(p => p.name === name)).filter(Boolean);
+      if (members.length < 2) return;
+      const familyTotal = members.reduce((s, p) => s + p.total, 0);
+      if (familyTotal === 0) return;
+      const withShare = members.map(p => ({ name: p.name, share: p.total / familyTotal }));
+      const top = withShare.reduce((m, x) => x.share > m.share ? x : m);
+      const bottom = withShare.reduce((m, x) => x.share < m.share ? x : m);
+      if (top.name === bottom.name) return;
+      add(top.name, { icon:"🍞", label:"Bread Winner", desc:`Carrying the ${f.name} family (${Math.round(top.share * 100)}% of their points)`, tone:"good" });
+      add(bottom.name, { icon:"🐑", label:"Black Sheep", desc:`Contributing the least to the ${f.name} family (${Math.round(bottom.share * 100)}% of their points)`, tone:"bad" });
+    });
+  }
 
   // Order each player's badges rarest-first so the row preview (which shows only
   // the first couple) highlights what's UNIQUE to them rather than common
