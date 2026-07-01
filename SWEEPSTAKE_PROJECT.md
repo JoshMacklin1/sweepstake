@@ -305,11 +305,26 @@ Pot 1 favourite eliminated, group **or** knockout) · 🦆 Still Quacking (last
 yet to score) · 🎸 One Man Band
 (biggest gap between own teams) · 💥 Firepower / 💨 Firing Blanks (most / fewest
 goals) · 🧱 Brick Wall / 🚰 Leaky (fewest / most conceded) · 🩸 First Casualty ·
-⚰️ Wiped Out (first to have **all** their teams eliminated).
+⚰️ Wiped Out (first to have **all** their teams eliminated) · 🍞 Bread Winner /
+🐑 Black Sheep — **family groups only** (`FAMILIES` global, set by GroupGate
+like `POT_OVERRIDES`/`KNOCKOUT_ONLY`, null otherwise). Per family, not
+group-wide: whoever contributes the largest/smallest SHARE of their own
+family's combined points (Grim Reaper excluded from the family total, same
+as every other performance badge).
 
-Most performance badges are **single-winner** (exactly one holder). Badges are
-sorted **rarest-first** so the row preview shows what's unique to a player.
+Most performance badges are **single-winner** (exactly one holder). The full
+badge list is sorted **rarest-first**, but the collapsed league row instead
+shows the player's two most RECENTLY achieved badges (see "recent badge
+ordering" below) — the two aren't the same thing any more.
 *(Old `Clean Sheet`/`Rough Night` are gone — Clean Sheet → Brick Wall; 💎 → 🐶.)*
+
+**Recent badge ordering:** most badges have no historical "achieved at" date
+— they're just "is this true right now" checks (Top Dog, Firepower, etc.).
+`App` tracks first-seen timestamps per `(player, badge label)` in
+`localStorage["sw_badge_achieved_<groupKey>"]`, starting from whenever this
+shipped — a badge lost and later re-earned gets a fresh timestamp. The
+collapsed row (`PlayerRow`) is given the top 2 by that timestamp
+(`mostRecentBadges` in `App`) instead of the full rarest-first list.
 
 ---
 

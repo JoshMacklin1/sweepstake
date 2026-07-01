@@ -395,6 +395,11 @@ var POT = {
 // in index.html before the app renders. Default empty = use global POT table.
 var POT_OVERRIDES = {};
 
+// Active group's families roster (only Caversham-style groups have one) —
+// set from GROUPS[activeKey].families by GroupGate, same pattern as
+// POT_OVERRIDES/KNOCKOUT_ONLY above. null for groups with no family feature.
+var FAMILIES = null;
+
 // Pot lookup: check active group's overrides first, fall back to global POT.
 function potOf(code) {
   return (code && POT_OVERRIDES[code]) || POT[code] || 4;
@@ -1477,6 +1482,28 @@ function computeBadges(ranked, matches, rank24hChange, winPctPlayers) {
   const alivePot4 = pot4Teams.filter(t => !t.eliminated);
   if (alivePot4.length === 1) {
     add(alivePot4[0].owner, { icon:"👠", label:"Cinderella", desc:`Owns the last Pot 4 team standing (${teamNameOf(alivePot4[0].code)})`, tone:"good" });
+  }
+
+  // 🍞 Bread Winner / 🐑 Black Sheep — family-groups only (FAMILIES is null for
+  // groups without the family feature). Per family, not group-wide: whoever
+  // contributes the largest SHARE of their family's combined points is
+  // carrying it; whoever contributes the smallest share is the black sheep.
+  // Skips a family if its total is exactly 0 (a share of zero points is
+  // undefined, not "equal"), or if every member ties (top === bottom) —
+  // no one is meaningfully carrying or dragging in either case.
+  if (FAMILIES) {
+    FAMILIES.forEach(f => {
+      const members = f.members.map(name => real.find(p => p.name === name)).filter(Boolean);
+      if (members.length < 2) return;
+      const familyTotal = members.reduce((s, p) => s + p.total, 0);
+      if (familyTotal === 0) return;
+      const withShare = members.map(p => ({ name: p.name, share: p.total / familyTotal }));
+      const top = withShare.reduce((m, x) => x.share > m.share ? x : m);
+      const bottom = withShare.reduce((m, x) => x.share < m.share ? x : m);
+      if (top.name === bottom.name) return;
+      add(top.name, { icon:"🍞", label:"Bread Winner", desc:`Carrying the ${f.name} family (${Math.round(top.share * 100)}% of their points)`, tone:"good" });
+      add(bottom.name, { icon:"🐑", label:"Black Sheep", desc:`Contributing the least to the ${f.name} family (${Math.round(bottom.share * 100)}% of their points)`, tone:"bad" });
+    });
   }
 
   // Order each player's badges rarest-first so the row preview (which shows only
