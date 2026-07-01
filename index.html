@@ -5361,10 +5361,22 @@ function SearchResultRow({ item, ranked, onClick }) {
         <div style={{ fontSize:15, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{item.label}</div>
         <div style={{ fontSize:12, color:C.muted, marginTop:2 }}>{item.sub}</div>
       </div>
-      {item.type === "player" && pts != null && (
-        <div style={{ textAlign:"right", flexShrink:0 }}>
-          <div style={{ fontSize:15, fontWeight:700, color: pts < 0 ? C.red : C.text }}>{pts}</div>
-          <div style={{ fontSize:10, color:C.muted }}>pts</div>
+      {(item.groupLabel || (item.type === "player" && pts != null)) && (
+        <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4, flexShrink:0 }}>
+          {/* Group pill — only set on results from a group other than the one
+             on screen, so admin cross-group matches (e.g. duplicate team
+             names, every group owns all 48) are obvious at a glance. */}
+          {item.groupLabel && (
+            <span style={{ fontSize:9, fontWeight:800, padding:"2px 7px", borderRadius:99, background:"rgba(148,163,184,0.15)", color:C.dim, letterSpacing:"0.02em", whiteSpace:"nowrap" }}>
+              {item.groupLabel}
+            </span>
+          )}
+          {item.type === "player" && pts != null && (
+            <div style={{ textAlign:"right" }}>
+              <div style={{ fontSize:15, fontWeight:700, color: pts < 0 ? C.red : C.text }}>{pts}</div>
+              <div style={{ fontSize:10, color:C.muted }}>pts</div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -5420,17 +5432,18 @@ function SearchOverlay({ ranked, onClose, onSelectPlayer, onSelectTeam, onSelect
     const out = [];
 
     // Players + teams (+ families, admin-only) for one group's roster. `own`
-    // groups get the terse label already used before this search grew a
-    // cross-group mode; other groups get their name prefixed so duplicates
-    // (every group owns all 48 teams, just split differently) are tellable
-    // apart — see admin cross-group search below.
+    // group results carry no `groupLabel` (nothing to disambiguate — it's
+    // whichever group is on screen); other groups' results do, so
+    // SearchResultRow can render it as a pill — duplicates are otherwise
+    // indistinguishable, since every group owns all 48 teams, just split
+    // differently — see admin cross-group search below.
     const addForGroup = (key, groupRanked, label, own) => {
       groupRanked.forEach((p, i) => {
         if (p.name.toLowerCase().includes(q)) {
           out.push({
             type:"player", id:p.name, label:p.name, pts:p.total, grimReaper:!!p.grimReaper,
-            sub: own ? `${ord(p._displayRank||i+1)} · ${p.total} pts` : `${label} · ${ord(i+1)} · ${p.total} pts`,
-            groupKey:key, groupLabel:label,
+            sub: `${ord(own ? (p._displayRank||i+1) : i+1)} · ${p.total} pts`,
+            groupKey:key, groupLabel: own ? null : label,
           });
         }
       });
@@ -5441,8 +5454,8 @@ function SearchOverlay({ ranked, onClose, onSelectPlayer, onSelectTeam, onSelect
             seenTeams.add(t.code);
             out.push({
               type:"team", id:t.code, label:t.name||t.code,
-              sub: own ? `Team · Pot ${POT[t.code] ? potOf(t.code) : "?"}` : `${label} · Team · Pot ${POT[t.code] ? potOf(t.code) : "?"}`,
-              groupKey:key, groupLabel:label,
+              sub: `Team · Pot ${POT[t.code] ? potOf(t.code) : "?"}`,
+              groupKey:key, groupLabel: own ? null : label,
             });
           }
         });
@@ -5452,8 +5465,8 @@ function SearchOverlay({ ranked, onClose, onSelectPlayer, onSelectTeam, onSelect
           if (f.name.toLowerCase().includes(q) || f.members.some(m => m.toLowerCase().includes(q))) {
             out.push({
               type:"family", id:f.name, label:f.name,
-              sub: own ? `Family · ${f.members.length} members` : `${label} · Family · ${f.members.length} members`,
-              groupKey:key, groupLabel:label,
+              sub: `Family · ${f.members.length} members`,
+              groupKey:key, groupLabel: own ? null : label,
             });
           }
         });
