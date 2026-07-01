@@ -1415,10 +1415,11 @@ function computeBadges(ranked, matches, rank24hChange, winPctPlayers) {
   const elimDate = {};
   const groupOf = {};
   Object.entries(GROUP_ASSIGNMENTS).forEach(([g, codes]) => codes.forEach(c => { groupOf[c] = g; }));
-  const gpts = {}, gplayed = {}, ggf = {}, gga = {};
-  Object.keys(groupOf).forEach(c => { gpts[c] = 0; gplayed[c] = 0; ggf[c] = 0; gga[c] = 0; });
+  const gpts = {}, gplayed = {}, ggf = {}, gga = {}, gplayedFinished = {};
+  Object.keys(groupOf).forEach(c => { gpts[c] = 0; gplayed[c] = 0; ggf[c] = 0; gga[c] = 0; gplayedFinished[c] = 0; });
   const pairKey = (x, y) => [x, y].sort().join("-");
   const h2hWinner = {}; // pairKey → winning code, or "DRAW"
+  let lastGroupMatchDate = null;
   [...done].sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate)).forEach(m => {
     const stage = (m.stage || "").toUpperCase();
     const h = m.homeTeam?.tla?.toUpperCase();
@@ -1427,6 +1428,11 @@ function computeBadges(ranked, matches, rank24hChange, winPctPlayers) {
     const as_ = m.score?.fullTime?.away ?? 0;
     const pen = m.score?.penalties;
     if (stage.includes("GROUP")) {
+      lastGroupMatchDate = m.utcDate;
+      if (m.status === "FINISHED") {
+        if (h) gplayedFinished[h] = (gplayedFinished[h] || 0) + 1;
+        if (a) gplayedFinished[a] = (gplayedFinished[a] || 0) + 1;
+      }
       if (h) { gplayed[h] = (gplayed[h] || 0) + 1; ggf[h] = (ggf[h] || 0) + hs; gga[h] = (gga[h] || 0) + as_; }
       if (a) { gplayed[a] = (gplayed[a] || 0) + 1; ggf[a] = (ggf[a] || 0) + as_; gga[a] = (gga[a] || 0) + hs; }
       if (hs > as_) gpts[h] = (gpts[h] || 0) + 3;
@@ -1465,6 +1471,36 @@ function computeBadges(ranked, matches, rank24hChange, winPctPlayers) {
       if (loser && !elimDate[loser]) elimDate[loser] = m.utcDate;
     }
   });
+  // Once EVERY group has played all 3 games, the best-8-of-12 third-place
+  // cutoff is knowable — a team that finishes 3rd in its own group but
+  // doesn't make that cutoff is eliminated too, same as a straight 4th
+  // place, but this can only be determined tournament-wide (a 3rd place
+  // finish alone doesn't say whether it's good enough). Mirrors
+  // deriveStages' own bottom-4-thirds handling; dated to the last
+  // group-stage match played anywhere, since that's the moment this becomes
+  // knowable. Without this, a "3rd but didn't qualify" team never gets an
+  // elimDate at all — First Casualty/Wiped Out can misattribute to a later
+  // player, or never fire for someone genuinely (and visibly, everywhere
+  // else in the app) knocked out this way.
+  // Must match qualifiedThirdPlacers' own FINISHED-only definition of
+  // "complete" (it ignores IN_PLAY/PAUSED) — otherwise a group with its last
+  // game still live would look "complete" here (isSettled includes live
+  // matches) while qualifiedThirdPlacers correctly still calls it
+  // incomplete, and a team could get prematurely marked eliminated before
+  // the wildcard cutoff is actually final.
+  const allGroupsComplete = Object.values(GROUP_ASSIGNMENTS).every(teams => teams.every(c => (gplayedFinished[c] || 0) >= 3));
+  if (allGroupsComplete && lastGroupMatchDate) {
+    const top8thirds = new Set(qualifiedThirdPlacers(matches));
+    const grpCmp = (x, y) => {
+      const pd = (gpts[y] || 0) - (gpts[x] || 0); if (pd !== 0) return pd;
+      const gdd = ((ggf[y] || 0) - (gga[y] || 0)) - ((ggf[x] || 0) - (gga[x] || 0)); if (gdd !== 0) return gdd;
+      return (ggf[y] || 0) - (ggf[x] || 0);
+    };
+    Object.values(GROUP_ASSIGNMENTS).forEach(teams => {
+      const third = [...teams].sort(grpCmp)[2];
+      if (third && !top8thirds.has(third) && !elimDate[third]) elimDate[third] = lastGroupMatchDate;
+    });
+  }
   // 🩸 First Casualty — first player to lose a team / ⚰️ Wiped Out — first to lose ALL teams
   let firstOne = null, firstAll = null;
   real.forEach(p => {
