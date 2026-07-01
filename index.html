@@ -5337,12 +5337,20 @@ function SearchResultRow({ item, ranked, onClick }) {
   const playerEntry = item.type === "player" ? ranked.find(p => p.name === item.id) : null;
   const isGrimReaper = item.grimReaper;
   const color = isGrimReaper ? C.reaperAccent : playerColor(item.id);
+  // playerEntry only exists when the result belongs to the group currently
+  // being viewed — cross-group results (admin search) carry their own
+  // `item.pts`, computed when the result was built, as a fallback.
+  const pts = item.type === "player" ? (playerEntry ? playerEntry.total : item.pts) : null;
 
   return (
     <div onClick={onClick} style={{ display:"flex", alignItems:"center", padding:"11px 16px", cursor:"pointer", gap:14, borderBottom:`1px solid ${C.border}` }}>
       {item.type === "player" ? (
         <div style={{ width:42, height:42, borderRadius:"50%", flexShrink:0, background:color, display:"flex", alignItems:"center", justifyContent:"center", fontSize:isGrimReaper?20:17, fontWeight:700, color: isGrimReaper ? C.dangerTextBright : "#080c18" }}>
           {isGrimReaper ? "💀" : item.label[0]}
+        </div>
+      ) : item.type === "family" ? (
+        <div style={{ width:42, height:42, borderRadius:"50%", flexShrink:0, background:C.card, border:`1px solid ${C.border}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>
+          👨‍👩‍👧‍👦
         </div>
       ) : (
         <div style={{ width:42, height:42, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center" }}>
@@ -5353,9 +5361,9 @@ function SearchResultRow({ item, ranked, onClick }) {
         <div style={{ fontSize:15, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{item.label}</div>
         <div style={{ fontSize:12, color:C.muted, marginTop:2 }}>{item.sub}</div>
       </div>
-      {item.type === "player" && playerEntry && (
+      {item.type === "player" && pts != null && (
         <div style={{ textAlign:"right", flexShrink:0 }}>
-          <div style={{ fontSize:15, fontWeight:700, color: playerEntry.total < 0 ? C.red : C.text }}>{playerEntry.total}</div>
+          <div style={{ fontSize:15, fontWeight:700, color: pts < 0 ? C.red : C.text }}>{pts}</div>
           <div style={{ fontSize:10, color:C.muted }}>pts</div>
         </div>
       )}
@@ -5363,7 +5371,7 @@ function SearchResultRow({ item, ranked, onClick }) {
   );
 }
 
-function SearchOverlay({ ranked, onClose, onSelectPlayer, onSelectTeam, groupKey }) {
+function SearchOverlay({ ranked, onClose, onSelectPlayer, onSelectTeam, onSelectFamily, onSwitchGroupAndOpen, groupKey, isAdmin = false, crossGroupRanked = null }) {
   const recentKey = groupKey ? `${SEARCH_RECENT_BASE_KEY}_${groupKey}` : SEARCH_RECENT_BASE_KEY;
   const [query, setQuery] = React.useState("");
   const inputRef = React.useRef(null);
@@ -5388,7 +5396,15 @@ function SearchOverlay({ ranked, onClose, onSelectPlayer, onSelectTeam, groupKey
   const handleSelect = (item) => {
     saveRecent(item);
     onClose();
+    // Result from another group (admin cross-group search) — switch group
+    // first; the newly-mounted App opens this item itself (see App's
+    // `initialOpen` handling), since switching group forces a remount.
+    if (item.groupKey && item.groupKey !== groupKey && onSwitchGroupAndOpen) {
+      onSwitchGroupAndOpen(item);
+      return;
+    }
     if (item.type === "player") onSelectPlayer(item.id);
+    else if (item.type === "family") onSelectFamily(item.id);
     else onSelectTeam(item.id);
   };
 
@@ -5402,21 +5418,61 @@ function SearchOverlay({ ranked, onClose, onSelectPlayer, onSelectTeam, groupKey
     if (!q) return [];
     const ord = (n) => { const s=["th","st","nd","rd"],v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); };
     const out = [];
-    ranked.forEach((p, i) => {
-      if (p.name.toLowerCase().includes(q))
-        out.push({ type:"player", id:p.name, label:p.name, sub:`${ord(p._displayRank||i+1)} · ${p.total} pts`, grimReaper:!!p.grimReaper });
-    });
-    const seen = new Set();
-    ranked.forEach(p => {
-      (p.teams||[]).forEach(t => {
-        if (!seen.has(t.code) && ((t.name||"").toLowerCase().includes(q)||(t.code||"").toLowerCase().includes(q))) {
-          seen.add(t.code);
-          out.push({ type:"team", id:t.code, label:t.name||t.code, sub:`Team · Pot ${POT[t.code] ? potOf(t.code) : "?"}` });
+
+    // Players + teams (+ families, admin-only) for one group's roster. `own`
+    // groups get the terse label already used before this search grew a
+    // cross-group mode; other groups get their name prefixed so duplicates
+    // (every group owns all 48 teams, just split differently) are tellable
+    // apart — see admin cross-group search below.
+    const addForGroup = (key, groupRanked, label, own) => {
+      groupRanked.forEach((p, i) => {
+        if (p.name.toLowerCase().includes(q)) {
+          out.push({
+            type:"player", id:p.name, label:p.name, pts:p.total, grimReaper:!!p.grimReaper,
+            sub: own ? `${ord(p._displayRank||i+1)} · ${p.total} pts` : `${label} · ${ord(i+1)} · ${p.total} pts`,
+            groupKey:key, groupLabel:label,
+          });
         }
       });
-    });
+      const seenTeams = new Set();
+      groupRanked.forEach(p => {
+        (p.teams||[]).forEach(t => {
+          if (!seenTeams.has(t.code) && ((t.name||"").toLowerCase().includes(q)||(t.code||"").toLowerCase().includes(q))) {
+            seenTeams.add(t.code);
+            out.push({
+              type:"team", id:t.code, label:t.name||t.code,
+              sub: own ? `Team · Pot ${POT[t.code] ? potOf(t.code) : "?"}` : `${label} · Team · Pot ${POT[t.code] ? potOf(t.code) : "?"}`,
+              groupKey:key, groupLabel:label,
+            });
+          }
+        });
+      });
+      if (isAdmin) {
+        (GROUPS[key]?.families || []).forEach(f => {
+          if (f.name.toLowerCase().includes(q) || f.members.some(m => m.toLowerCase().includes(q))) {
+            out.push({
+              type:"family", id:f.name, label:f.name,
+              sub: own ? `Family · ${f.members.length} members` : `${label} · Family · ${f.members.length} members`,
+              groupKey:key, groupLabel:label,
+            });
+          }
+        });
+      }
+    };
+
+    addForGroup(groupKey, ranked, GROUPS[groupKey]?.label || groupKey, true);
+
+    // Admin-only: every other group's players/teams/families, tagged with
+    // their group so an admin can jump straight to any group's data —
+    // selecting one switches the active group (see handleSelect above).
+    if (isAdmin && crossGroupRanked) {
+      Object.keys(crossGroupRanked).filter(key => key !== groupKey).forEach(key => {
+        addForGroup(key, crossGroupRanked[key], GROUPS[key]?.label || key, false);
+      });
+    }
+
     return out;
-  }, [q, ranked]);
+  }, [q, ranked, isAdmin, crossGroupRanked, groupKey]);
 
   return (
     <div style={{ position:"fixed", inset:0, zIndex:50, background:C.bg, display:"flex", flexDirection:"column" }}>
@@ -5505,7 +5561,7 @@ function applySimCheckpoint(matches, checkpoint) {
   return sorted.slice(0, take);
 }
 
-function App({ onSwitchGroup, onQuickSwitchGroup, groupKey, isAdmin = false }) {
+function App({ onSwitchGroup, onQuickSwitchGroup, groupKey, isAdmin = false, initialOpen = null, onInitialOpenHandled }) {
   const [matches,     setMatches]     = useState([]);
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState(null);
@@ -5605,6 +5661,21 @@ function App({ onSwitchGroup, onQuickSwitchGroup, groupKey, isAdmin = false }) {
     window.history.pushState({ appTab: tabRef.current, appModal: "family", appFamily: familyName }, "");
     setSelectedFamily(familyName);
   };
+
+  // Admin cross-group search jump: GroupGate hands the target item to reopen
+  // via `initialOpen` because switching group forces a full remount of this
+  // component (see `key={simGroup}` in GroupGate) — any local state/closures
+  // from before the switch are gone, so the NEW instance has to open the
+  // modal itself once, on mount.
+  React.useEffect(() => {
+    if (!initialOpen) return;
+    setSnapFull(true);
+    if (initialOpen.type === "player") openPlayerModal(initialOpen.id);
+    else if (initialOpen.type === "team") openTeamModal(initialOpen.id);
+    else if (initialOpen.type === "family") openFamilyModal(initialOpen.id);
+    onInitialOpenHandled && onInitialOpenHandled();
+  }, []);
+
   const switchToFamily = (familyName) => {
     window.history.replaceState({ appTab: tabRef.current, appModal: "family", appFamily: familyName }, "");
     setSelectedPlayer(null);
@@ -5869,6 +5940,11 @@ function App({ onSwitchGroup, onQuickSwitchGroup, groupKey, isAdmin = false }) {
   }, []);
 
   const ranked   = scorePlayers(matches);
+  // Admin-only: every group's standings, keyed by GROUPS key, so search can
+  // surface players/teams outside the group currently being viewed. Cheap
+  // enough (a handful of groups, a few dozen players each) to recompute
+  // straight from `matches` on every render rather than useMemo it.
+  const crossGroupRanked = (isAdmin && typeof scoreAllGroups === "function") ? scoreAllGroups(matches) : null;
   const rank24hChange = compute24hRankChange(matches, ranked);
   const rank24hPtsChange = typeof compute24hPtsChange === "function" ? compute24hPtsChange(matches, ranked) : new Map();
   const prevRankedRef = React.useRef({});
@@ -6423,9 +6499,11 @@ function App({ onSwitchGroup, onQuickSwitchGroup, groupKey, isAdmin = false }) {
         )}
 
         {showSearch && (
-          <SearchOverlay ranked={ranked} groupKey={groupKey} onClose={() => setShowSearch(false)}
+          <SearchOverlay ranked={ranked} groupKey={groupKey} isAdmin={isAdmin} crossGroupRanked={crossGroupRanked} onClose={() => setShowSearch(false)}
             onSelectPlayer={(name) => { setSnapFull(true); openPlayerModal(name); }}
-            onSelectTeam={(tla)  => { setSnapFull(true); openTeamModal(tla); }} />
+            onSelectTeam={(tla)  => { setSnapFull(true); openTeamModal(tla); }}
+            onSelectFamily={(name) => { setSnapFull(true); openFamilyModal(name); }}
+            onSwitchGroupAndOpen={(item) => onQuickSwitchGroup(item.groupKey, { type: item.type, id: item.id })} />
         )}
 
         {/* ── RULES & INFO — same pop-over on mobile and desktop now that the
@@ -6557,6 +6635,11 @@ function GroupGate() {
   });
   const [codeInput, setCodeInput] = useState("");
   const [error, setError] = useState("");
+  // What to open once a cross-group switch (from the header logo or the
+  // admin cross-group search) lands on the new group — App itself is about
+  // to remount (see key={simGroup} below), so this has to live up here in
+  // GroupGate, which doesn't remount, rather than in any App-local state.
+  const [pendingOpen, setPendingOpen] = useState(null);
 
   // Admin logged in + group chosen → render App with isAdmin flag
   if (groupKey === "ADMIN" && simGroup) {
@@ -6568,15 +6651,18 @@ function GroupGate() {
       localStorage.removeItem(ADMIN_SIM_KEY);
       setSimGroup(null);
     };
-    const onQuickSwitchGroup = (key) => {
+    const onQuickSwitchGroup = (key, openTarget) => {
       if (!GROUPS[key] || key === simGroup) return;
       localStorage.setItem(ADMIN_SIM_KEY, key);
+      setPendingOpen(openTarget || null);
       setSimGroup(key);
     };
     // key={simGroup} forces a full remount on quick-switch, same as the
     // AdminGroupSelector round-trip does — avoids stale memoized standings
     // for the previous group.
-    return <App key={simGroup} onSwitchGroup={onSwitchGroup} onQuickSwitchGroup={onQuickSwitchGroup} groupKey={simGroup} isAdmin={true} />;
+    return <App key={simGroup} onSwitchGroup={onSwitchGroup} onQuickSwitchGroup={onQuickSwitchGroup}
+      initialOpen={pendingOpen} onInitialOpenHandled={() => setPendingOpen(null)}
+      groupKey={simGroup} isAdmin={true} />;
   }
 
   // Admin logged in but no group chosen yet → show group picker
