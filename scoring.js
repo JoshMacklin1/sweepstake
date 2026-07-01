@@ -1054,6 +1054,39 @@ function compute24hPtsChange(matches, currentRanked) {
   return result;
 }
 
+// compute24hFamilyRankChange(matches, families) — family-league equivalent of
+// compute24hRankChange: ranks families by average member points (same
+// formula FamilyLeagueTab uses) both now and 24h ago, then returns each
+// family's rank-position delta (positive = moved up), same sign convention
+// and Map<name, number> shape as the player version above.
+function compute24hFamilyRankChange(matches, families) {
+  if (!families) return new Map();
+  const cutoffMs = Date.now() - 24 * 60 * 60 * 1000;
+  const matches24hAgo = matches.filter(m => new Date(m.utcDate).getTime() <= cutoffMs);
+  const totalNowByName = {};
+  scorePlayers(matches).forEach(p => { totalNowByName[p.name] = p.total; });
+  const total24hAgoByName = {};
+  scorePlayers(matches24hAgo).forEach(p => { total24hAgoByName[p.name] = p.total; });
+
+  const familyAvg = (totalsByName) => families.map(f => {
+    const totals = f.members.map(name => totalsByName[name] ?? 0);
+    return { name: f.name, avg: totals.reduce((s, t) => s + t, 0) / totals.length };
+  }).sort((a, b) => b.avg - a.avg);
+
+  const rankNowByName = {};
+  familyAvg(totalNowByName).forEach((f, i) => { rankNowByName[f.name] = i; });
+  const rank24hAgoByName = {};
+  familyAvg(total24hAgoByName).forEach((f, i) => { rank24hAgoByName[f.name] = i; });
+
+  const result = new Map();
+  families.forEach(f => {
+    const nowRank = rankNowByName[f.name];
+    const prevRank = rank24hAgoByName[f.name];
+    result.set(f.name, (prevRank !== undefined && nowRank !== undefined) ? prevRank - nowRank : 0);
+  });
+  return result;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // MONTE CARLO WIN PROBABILITY SIMULATION
 // ─────────────────────────────────────────────────────────────────────────────
