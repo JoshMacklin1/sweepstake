@@ -1351,22 +1351,32 @@ function computeBadges(ranked, matches, rank24hChange, winPctPlayers) {
 
   // Elimination dates — replay finished matches chronologically to find WHEN each
   // team went OUT (used by the First Casualty / Wiped Out badges).
-  //   Group: the match after which the team is mathematically locked into 4th of
-  //   its group — i.e. ≥3 teams are guaranteed above it. A rival counts as
-  //   guaranteed above if either (a) their CURRENT points already exceed the
-  //   team's MAX possible (points-only, no game data needed), or (b) their
-  //   current points exactly equal the team's MAX *and* the two have already
-  //   played each other in the group with a decisive (non-draw) result — per
-  //   FIFA's 2026 tiebreak order, head-to-head outranks overall goal difference,
-  //   and a played head-to-head result can't change, so this stays gapless
-  //   (never false-flags) without needing to bound future goal difference.
+  //   Group, while still in progress: the match after which the team is
+  //   mathematically locked into 4th of its group — i.e. ≥3 teams are
+  //   guaranteed above it. A rival counts as guaranteed above if either (a)
+  //   their CURRENT points already exceed the team's MAX possible
+  //   (points-only, no game data needed), or (b) their current points
+  //   exactly equal the team's MAX *and* the two have already played each
+  //   other in the group with a decisive (non-draw) result — per FIFA's 2026
+  //   tiebreak order, head-to-head outranks overall goal difference, and a
+  //   played head-to-head result can't change, so this stays gapless (never
+  //   false-flags) without needing to bound future goal difference.
   //   4th can't be top-2 or a best-third, so the team is genuinely out.
+  //   Group, once complete (all 4 teams have played all 3 games): there's no
+  //   more future to bound, so fall back to the same GD/GF-tiebreak-aware
+  //   isDefinitelyFourth() the main scoring engine (deriveStages) uses. The
+  //   points+h2h check above is a strict subset of this — some 4th places
+  //   are only decided by goal difference (no head-to-head, or a drawn one),
+  //   which it can never resolve, leaving the team with no elimDate at all
+  //   and the Wiped Out badge permanently unable to fire for them even
+  //   though they're genuinely, visibly eliminated everywhere else in the
+  //   app. This closes that gap without touching the in-progress heuristic.
   //   Knockout: the match they lost.
   const elimDate = {};
   const groupOf = {};
   Object.entries(GROUP_ASSIGNMENTS).forEach(([g, codes]) => codes.forEach(c => { groupOf[c] = g; }));
-  const gpts = {}, gplayed = {};
-  Object.keys(groupOf).forEach(c => { gpts[c] = 0; gplayed[c] = 0; });
+  const gpts = {}, gplayed = {}, ggf = {}, gga = {};
+  Object.keys(groupOf).forEach(c => { gpts[c] = 0; gplayed[c] = 0; ggf[c] = 0; gga[c] = 0; });
   const pairKey = (x, y) => [x, y].sort().join("-");
   const h2hWinner = {}; // pairKey → winning code, or "DRAW"
   [...done].sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate)).forEach(m => {
@@ -1377,8 +1387,8 @@ function computeBadges(ranked, matches, rank24hChange, winPctPlayers) {
     const as_ = m.score?.fullTime?.away ?? 0;
     const pen = m.score?.penalties;
     if (stage.includes("GROUP")) {
-      if (h) gplayed[h] = (gplayed[h] || 0) + 1;
-      if (a) gplayed[a] = (gplayed[a] || 0) + 1;
+      if (h) { gplayed[h] = (gplayed[h] || 0) + 1; ggf[h] = (ggf[h] || 0) + hs; gga[h] = (gga[h] || 0) + as_; }
+      if (a) { gplayed[a] = (gplayed[a] || 0) + 1; ggf[a] = (ggf[a] || 0) + as_; gga[a] = (gga[a] || 0) + hs; }
       if (hs > as_) gpts[h] = (gpts[h] || 0) + 3;
       else if (as_ > hs) gpts[a] = (gpts[a] || 0) + 3;
       else { gpts[h] = (gpts[h] || 0) + 1; gpts[a] = (gpts[a] || 0) + 1; }
@@ -1401,6 +1411,14 @@ function computeBadges(ranked, matches, rank24hChange, winPctPlayers) {
         }).length;
         if (guaranteedAbove >= 3) elimDate[t] = m.utcDate; // locked into 4th → out
       });
+      // Group just finished (this was the last of its 12 games) — resolve
+      // any remaining team via the full tiebreak-aware check above instead
+      // of leaving it stuck with no elimDate.
+      if (g && GROUP_ASSIGNMENTS[g].every(x => (gplayed[x] || 0) >= 3)) {
+        GROUP_ASSIGNMENTS[g].forEach(t => {
+          if (!elimDate[t] && isDefinitelyFourth(t, gpts, ggf, gga)) elimDate[t] = m.utcDate;
+        });
+      }
     } else {
       let loser = null;
       if (hs > as_) loser = a; else if (as_ > hs) loser = h; else if (pen) loser = pen.home > pen.away ? a : h;

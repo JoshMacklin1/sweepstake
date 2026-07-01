@@ -5333,6 +5333,35 @@ function LiveBanner({ live, ranked, matchPtsById }) {
 // ─────────────────────────────────────────────────────────────────────────────
 const SEARCH_RECENT_BASE_KEY = "sw_search_recent";
 
+const searchOrdinal = (n) => { const s=["th","st","nd","rd"],v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); };
+
+// Shared row formatters — used both for live query results AND for
+// re-formatting "Recent" entries pulled back out of localStorage, so recents
+// always render with whatever the current search formatting rules are
+// rather than whatever shape happened to be cached when they were saved.
+// `own` = this group is the one currently on screen (no group pill needed).
+function formatPlayerResult(p, idx, key, label, own) {
+  return {
+    type:"player", id:p.name, label:p.name, grimReaper:!!p.grimReaper,
+    sub: `${searchOrdinal(own ? (p._displayRank||idx+1) : idx+1)} · ${p.total} pts`,
+    groupKey:key, groupLabel: own ? null : label,
+  };
+}
+function formatTeamResult(p, t, key, label, own) {
+  return {
+    type:"team", id:t.code, label:t.name||t.code,
+    sub: `${p.name} · Pot ${POT[t.code] ? potOf(t.code) : "?"}`,
+    groupKey:key, groupLabel: own ? null : label,
+  };
+}
+function formatFamilyResult(f, key, label, own) {
+  return {
+    type:"family", id:f.name, label:f.name,
+    sub: `Family · ${f.members.length} members`,
+    groupKey:key, groupLabel: own ? null : label,
+  };
+}
+
 function SearchResultRow({ item, onClick }) {
   const isGrimReaper = item.grimReaper;
   const color = isGrimReaper ? C.reaperAccent : playerColor(item.id);
@@ -5384,8 +5413,12 @@ function SearchOverlay({ ranked, onClose, onSelectPlayer, onSelectTeam, onSelect
     return () => { document.body.style.overflow = prev; };
   }, []);
 
+  // type+id alone isn't a unique key any more — a lateB co-owned team (e.g.
+  // Ghana A/Ghana B) shares a code, and admin cross-group search can surface
+  // the same id from more than one group — so dedupe on label+groupKey too.
+  const recentEquals = (a, b) => a.type === b.type && a.id === b.id && a.label === b.label && a.groupKey === b.groupKey;
   const saveRecent = (item) => {
-    const updated = [item, ...recent.filter(r => !(r.type === item.type && r.id === item.id))].slice(0, 10);
+    const updated = [item, ...recent.filter(r => !recentEquals(r, item))].slice(0, 10);
     setRecent(updated);
     localStorage.setItem(recentKey, JSON.stringify(updated));
   };
@@ -5413,7 +5446,6 @@ function SearchOverlay({ ranked, onClose, onSelectPlayer, onSelectTeam, onSelect
   const q = query.trim().toLowerCase();
   const results = React.useMemo(() => {
     if (!q) return [];
-    const ord = (n) => { const s=["th","st","nd","rd"],v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); };
     const out = [];
 
     // Players + teams (+ families, admin-only) for one group's roster. `own`
@@ -5424,13 +5456,7 @@ function SearchOverlay({ ranked, onClose, onSelectPlayer, onSelectTeam, onSelect
     // differently — see admin cross-group search below.
     const addForGroup = (key, groupRanked, label, own) => {
       groupRanked.forEach((p, i) => {
-        if (p.name.toLowerCase().includes(q)) {
-          out.push({
-            type:"player", id:p.name, label:p.name, grimReaper:!!p.grimReaper,
-            sub: `${ord(own ? (p._displayRank||i+1) : i+1)} · ${p.total} pts`,
-            groupKey:key, groupLabel: own ? null : label,
-          });
-        }
+        if (p.name.toLowerCase().includes(q)) out.push(formatPlayerResult(p, i, key, label, own));
       });
       // Dedupe on code+name, not code alone — a lateB co-owned team (e.g.
       // Silverstream's "Ghana A"/"Ghana B", same GHA code split between two
@@ -5441,22 +5467,14 @@ function SearchOverlay({ ranked, onClose, onSelectPlayer, onSelectTeam, onSelect
           const dedupeKey = `${t.code}|${t.name}`;
           if (!seenTeams.has(dedupeKey) && ((t.name||"").toLowerCase().includes(q)||(t.code||"").toLowerCase().includes(q))) {
             seenTeams.add(dedupeKey);
-            out.push({
-              type:"team", id:t.code, label:t.name||t.code,
-              sub: `${p.name} · Pot ${POT[t.code] ? potOf(t.code) : "?"}`,
-              groupKey:key, groupLabel: own ? null : label,
-            });
+            out.push(formatTeamResult(p, t, key, label, own));
           }
         });
       });
       if (isAdmin) {
         (GROUPS[key]?.families || []).forEach(f => {
           if (f.name.toLowerCase().includes(q) || f.members.some(m => m.toLowerCase().includes(q))) {
-            out.push({
-              type:"family", id:f.name, label:f.name,
-              sub: `Family · ${f.members.length} members`,
-              groupKey:key, groupLabel: own ? null : label,
-            });
+            out.push(formatFamilyResult(f, key, label, own));
           }
         });
       }
@@ -5475,6 +5493,41 @@ function SearchOverlay({ ranked, onClose, onSelectPlayer, onSelectTeam, onSelect
 
     return out;
   }, [q, ranked, isAdmin, crossGroupRanked, groupKey]);
+
+  // Recents are cached in localStorage from whenever they were picked, so a
+  // stale entry might still carry an older formatting shape (or stats that
+  // have since moved on). Re-run each through the same formatters used for
+  // live results before rendering, rather than trusting the cached copy —
+  // falls back to the cached item only if its group's data isn't available
+  // (e.g. a group that no longer exists).
+  const displayedRecent = React.useMemo(() => {
+    return recent.map(stored => {
+      // Recents saved before cross-group search existed have no `groupKey`
+      // at all — back then everything was same-group, so treat missing as
+      // "own" rather than failing to match anything.
+      const itemKey = stored.groupKey || groupKey;
+      const own = itemKey === groupKey;
+      const groupRanked = own ? ranked : crossGroupRanked?.[itemKey];
+      if (!groupRanked) return stored;
+      const label = GROUPS[itemKey]?.label || itemKey;
+      if (stored.type === "player") {
+        const idx = groupRanked.findIndex(p => p.name === stored.id);
+        return idx === -1 ? stored : formatPlayerResult(groupRanked[idx], idx, itemKey, label, own);
+      }
+      if (stored.type === "team") {
+        for (const p of groupRanked) {
+          const t = (p.teams||[]).find(t => t.code === stored.id && (t.name||t.code) === stored.label);
+          if (t) return formatTeamResult(p, t, itemKey, label, own);
+        }
+        return stored;
+      }
+      if (stored.type === "family") {
+        const fam = GROUPS[itemKey]?.families?.find(f => f.name === stored.id);
+        return fam ? formatFamilyResult(fam, itemKey, label, own) : stored;
+      }
+      return stored;
+    });
+  }, [recent, ranked, crossGroupRanked, groupKey]);
 
   return (
     <div style={{ position:"fixed", inset:0, zIndex:50, background:C.bg, display:"flex", flexDirection:"column" }}>
@@ -5506,13 +5559,13 @@ function SearchOverlay({ ranked, onClose, onSelectPlayer, onSelectTeam, onSelect
 
       <div style={{ flex:1, overflowY:"auto", WebkitOverflowScrolling:"touch" }}>
         {!q ? (
-          recent.length > 0 ? (
+          displayedRecent.length > 0 ? (
             <>
               <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 16px 6px" }}>
                 <span style={{ fontSize:11, fontWeight:700, color:C.muted, letterSpacing:"0.1em", textTransform:"uppercase" }}>Recent</span>
                 <button onClick={clearRecent} style={{ background:"none", border:"none", color:C.muted, fontSize:12, cursor:"pointer", padding:4 }}>Clear all</button>
               </div>
-              {recent.map((item, i) => <SearchResultRow key={i} item={item} onClick={() => handleSelect(item)} />)}
+              {displayedRecent.map((item, i) => <SearchResultRow key={i} item={item} onClick={() => handleSelect(item)} />)}
             </>
           ) : (
             <div style={{ color:C.muted, textAlign:"center", padding:"52px 24px", fontSize:14, lineHeight:1.6 }}>
