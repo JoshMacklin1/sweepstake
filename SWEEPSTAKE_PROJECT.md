@@ -439,6 +439,17 @@ which is server-driven via the Worker + `sw.js`.)
 - **Group-stage elimination** needs 3 games played, not in any knockout fixture,
   **and** unambiguous 4th (`isDefinitelyFourth` / `elimDate` h2h logic) — avoids
   false-flagging when a group finishes before the knockouts begin.
+- **A group-stage exit isn't always literal 4th place.** A team finishing 3rd
+  is only actually out if it misses the best-8-of-12 wildcard cutoff
+  (`qualifiedThirdPlacers`) — that can only be known once **every** group has
+  played all 3 games (FINISHED, not just `isSettled`/live), since it ranks
+  3rd-placed teams against each other across all 12 groups. `computeBadges`'s
+  local `elimDate` tracking (for First Casualty/Wiped Out) mirrors
+  `deriveStages`'s own bottom-4-thirds pass for this — missing it meant a
+  non-qualifying-3rd team (e.g. Uzbekistan finishing 3rd in Group K without
+  making the wildcard cutoff) never got an `elimDate` at all, so Wiped Out
+  could never fire for whoever owned it, and First Casualty could
+  misattribute to a later, unrelated elimination instead.
 - **Bar race / race eliminations must stay frame-aligned** — keep the
   frame-advance conditions in `deriveRaceEliminations` (and `deriveRaceStages`)
   in sync with `deriveSparklineHistory`. The clinch bonus is awarded *silently*
