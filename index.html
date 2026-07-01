@@ -5432,11 +5432,15 @@ function SearchOverlay({ ranked, onClose, onSelectPlayer, onSelectTeam, onSelect
           });
         }
       });
+      // Dedupe on code+name, not code alone — a lateB co-owned team (e.g.
+      // Silverstream's "Ghana A"/"Ghana B", same GHA code split between two
+      // owners) has two distinct names and should show as two results.
       const seenTeams = new Set();
       groupRanked.forEach(p => {
         (p.teams||[]).forEach(t => {
-          if (!seenTeams.has(t.code) && ((t.name||"").toLowerCase().includes(q)||(t.code||"").toLowerCase().includes(q))) {
-            seenTeams.add(t.code);
+          const dedupeKey = `${t.code}|${t.name}`;
+          if (!seenTeams.has(dedupeKey) && ((t.name||"").toLowerCase().includes(q)||(t.code||"").toLowerCase().includes(q))) {
+            seenTeams.add(dedupeKey);
             out.push({
               type:"team", id:t.code, label:t.name||t.code,
               sub: `${p.name} · Pot ${POT[t.code] ? potOf(t.code) : "?"}`,
