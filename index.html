@@ -3701,6 +3701,8 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
   })() : null;
   const topFamily = familyRows?.[0] || null;
   const topFamilyThree = familyRows?.slice(0, 3) || [];
+  const familyRankChange = (families && typeof compute24hFamilyRankChange === "function")
+    ? compute24hFamilyRankChange(matches, families) : new Map();
 
   return (
     <div>
@@ -3767,7 +3769,9 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
       {topFamilyThree.length > 0 && (
         <Section icon="👨‍👩‍👧‍👦" title="Top Families" onOpen={() => { window.history.pushState({ appTab: "table", appModal: null }, ""); window.scrollTo(0, 0); setTab("table"); setLeagueView("families"); }} linkLabel="View family league"
           empty={null}>
-          {topFamilyThree.map((family, i) => (
+          {topFamilyThree.map((family, i) => {
+            const delta = familyRankChange.get(family.name) || 0;
+            return (
             <div key={family.name}
               className={openFamilyModal ? "player-card" : undefined}
               onClick={openFamilyModal ? () => openFamilyModal(family.name) : undefined}
@@ -3781,10 +3785,15 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
               <Sparkline data={family.combinedHist} width={64} height={28} color={C.accent} />
               <div style={{ textAlign: "right", flexShrink: 0, minWidth: 50 }}>
                 <div style={{ fontSize: 16, fontWeight: 800, color: C.text, lineHeight: 1 }}>{family.avg}</div>
-                <div style={{ fontSize: 9, color: C.muted, marginTop: 2 }}>avg pts</div>
+                <div style={{
+                  display: "inline-block", fontSize: 9, fontWeight: 700, padding: "1px 4px", borderRadius: 3, marginTop: 3,
+                  background: delta === 0 ? "rgba(148,163,184,0.12)" : delta > 0 ? C.posBg : C.negBg,
+                  color: delta === 0 ? "#94a3b8" : delta > 0 ? C.accent : C.red,
+                }}>{delta === 0 ? "0 pos" : `${delta > 0 ? "▲" : "▼"} ${Math.abs(delta)} pos`}</div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </Section>
       )}
 
