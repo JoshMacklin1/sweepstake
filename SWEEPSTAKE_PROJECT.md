@@ -230,7 +230,7 @@ future upside once the group stage is done).
 ### Pure derive / score functions
 | Name | Returns / role |
 |------|----------------|
-| `deriveStages(matches)` | `{ eliminated, winners, stageReached }` — highest stage per team, who's out, who won. Group-elim only flags **unambiguous 4th** (`isDefinitelyFourth`). Also credits teams that have **clinched** a top-2 group spot (`clinchedR32`) as having reached `LAST_32` *before* the real R32 fixtures exist (definite-only) |
+| `deriveStages(matches)` | `{ eliminated, winners, stageReached }` — highest stage per team, who's out, who won. Group-elim only flags **unambiguous 4th** (`isDefinitelyFourth`, FINISHED group games only). Also credits teams that have **clinched** a top-2 group spot (`clinchedR32`) as having reached `LAST_32` *before* the real R32 fixtures exist (definite-only). **Knockout rounds (Last 32 → Semis) are live-projected**: whoever's currently ahead in an `IN_PLAY`/`PAUSED` match provisionally advances/is eliminated, same as `deriveMatchPts`'s live "+Npts" and how group matches already score live — self-corrects instantly if the live score (or final result) changes, since this recomputes from scratch every call. The FINAL is the one exception: only `winner && fin` crowns the actual World Cup champion; a live final's loser is still marked `FINALIST`/eliminated in real time, just not "champion" |
 | `clinchedR32(matches)` | Set of team codes that have **mathematically** clinched top-2 in their group. Per-group brute force over every remaining-result combo (≤ 3⁶); a team clinches only if top-2 in **every** scenario, ties broken pessimistically. Best-3rd qualifiers deliberately not inferred (credited when real fixtures publish) |
 | `deriveWDL(matches)` | Per-team `{w,d,l}` across all settled games |
 | `deriveGroupPts(matches)` | Per-team group W/D/L points |
@@ -354,7 +354,9 @@ Cards: 14px radius, 10px bottom margin, no special 1st-place treatment.
 
 ```
 football-data.org  → Cloudflare Worker (CORS proxy)
-  → fetchMatches()  GET /competitions/WC/matches?season=2026   (every 60s; skipped in devMode)
+  → fetchMatches()  GET /competitions/WC/matches?season=2026   (every 60s, 20s while any match is
+     IN_PLAY/PAUSED — self-rescheduling setTimeout, not setInterval, so the cadence can change
+     between polls; skipped in devMode)
      ├─ normalize COD → DRC at ingest (single choke point)
      └─ MERGE with existing state (API intermittently drops finished matches → flicker)
   → setMatches()

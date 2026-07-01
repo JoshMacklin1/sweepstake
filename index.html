@@ -5978,10 +5978,27 @@ function App({ onSwitchGroup, onQuickSwitchGroup, groupKey, isAdmin = false, ini
     }
   }, []);
 
+  // Polls every 60s normally, but drops to every 20s whenever a match is
+  // live (IN_PLAY/PAUSED) — so points/positions in the league and family
+  // tables (both driven straight off `matches` via scorePlayers, which
+  // already scores IN_PLAY the same as FINISHED) catch up to an in-game
+  // goal much sooner than a full minute. Self-rescheduling setTimeout
+  // rather than setInterval so the cadence can change between polls
+  // without tearing down and rebuilding the whole timer.
   useEffect(() => {
+    let timeoutId;
+    const LIVE_POLL_MS = 20_000;
+    const IDLE_POLL_MS = 60_000;
+    const scheduleNext = () => {
+      const hasLive = (matchesRef.current || []).some(m => m.status === "IN_PLAY" || m.status === "PAUSED");
+      timeoutId = setTimeout(async () => {
+        if (!devModeRef.current) await fetchMatches();
+        scheduleNext();
+      }, hasLive ? LIVE_POLL_MS : IDLE_POLL_MS);
+    };
     fetchMatches();
-    const id = setInterval(() => { if (!devModeRef.current) fetchMatches(); }, 60_000);
-    return () => clearInterval(id);
+    scheduleNext();
+    return () => clearTimeout(timeoutId);
   }, [fetchMatches]);
 
   useEffect(() => {
