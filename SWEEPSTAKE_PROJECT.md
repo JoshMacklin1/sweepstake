@@ -104,13 +104,27 @@ GroupGate
   wiring needed.
 - **Admin quick-switch** (`isAdmin` only): tapping the header logo opens
   `GroupSwitcherMenu`, a popover listing every `GROUPS` key. Picking one calls
-  `onQuickSwitchGroup(key)`, which updates `localStorage["sw_admin_sim"]`
-  (`ADMIN_SIM_KEY`) and `simGroup` directly — no detour through
-  `AdminGroupSelector`. `<App>` is given `key={simGroup}` so React fully
-  remounts it on switch (fresh fetch, no stale memoized standings from the
-  previous group). The full-screen `AdminGroupSelector` (and MoreMenu →
-  "Switch group", which returns to it) still exist as the sign-out-capable
-  entry point.
+  `onQuickSwitchGroup(key, openTarget?)`, which updates
+  `localStorage["sw_admin_sim"]` (`ADMIN_SIM_KEY`) and `simGroup` directly —
+  no detour through `AdminGroupSelector`. `<App>` is given `key={simGroup}`
+  so React fully remounts it on switch (fresh fetch, no stale memoized
+  standings from the previous group). The full-screen `AdminGroupSelector`
+  (and MoreMenu → "Switch group", which returns to it) still exist as the
+  sign-out-capable entry point.
+- **Admin cross-group search**: `SearchOverlay` normally only searches the
+  active group's `ranked` players/teams. When `isAdmin`, `App` also computes
+  `crossGroupRanked` via `scoreAllGroups(matches)` (scoring.js — temporarily
+  swaps `PLAYERS`/`POT_OVERRIDES`/`KNOCKOUT_ONLY` per group and restores them
+  before returning) and passes it down, so results from every group are
+  listed too — tagged with their group name since teams/names duplicate
+  across groups — plus family results (any group's `GROUPS[key].families`).
+  Picking a result from a **different** group than the one currently active
+  calls `onQuickSwitchGroup(key, {type, id})` — the `openTarget` param
+  mentioned above. Since the switch remounts `<App>`, GroupGate holds the
+  pending target in its own `pendingOpen` state (survives the remount) and
+  passes it in as `initialOpen`; the freshly-mounted `App` opens that
+  player/team/family modal itself in a mount-only effect, then clears it via
+  `onInitialOpenHandled`.
 
 ### Player object shape
 

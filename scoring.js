@@ -948,6 +948,30 @@ function scorePlayers(matches) {
   }).sort((a, b) => b.total - a.total || (a.grimReaper ? 1 : 0) - (b.grimReaper ? 1 : 0) || b.tiebreak - a.tiebreak);
 }
 
+// Ranked standings for EVERY group at once, keyed by GROUPS key — used by the
+// admin cross-group search so it can list/rank players outside the group the
+// admin currently has active. Temporarily swaps the active-group globals
+// (PLAYERS/POT_OVERRIDES/KNOCKOUT_ONLY) per group and restores them
+// synchronously before returning, so the caller's own active group is
+// unaffected.
+function scoreAllGroups(matches) {
+  const savedPlayers = PLAYERS, savedOverrides = POT_OVERRIDES, savedKnockoutOnly = KNOCKOUT_ONLY;
+  const out = {};
+  try {
+    Object.keys(GROUPS).forEach(key => {
+      PLAYERS = GROUPS[key].players;
+      POT_OVERRIDES = GROUPS[key].potOverrides || {};
+      KNOCKOUT_ONLY = !!GROUPS[key].knockoutOnly;
+      out[key] = scorePlayers(matches);
+    });
+  } finally {
+    PLAYERS = savedPlayers;
+    POT_OVERRIDES = savedOverrides;
+    KNOCKOUT_ONLY = savedKnockoutOnly;
+  }
+  return out;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // compute24hRankChange(matches) — table POSITION movement over a true rolling
 // 24-hour window, replacing the old "% change in points" indicator.
