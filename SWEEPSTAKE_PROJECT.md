@@ -102,6 +102,15 @@ GroupGate
   (reachable from the **More** menu → "Switch group").
 - Adding a group = add a `GROUPS` entry by hand with a unique `code`. No other
   wiring needed.
+- **Admin quick-switch** (`isAdmin` only): tapping the header logo opens
+  `GroupSwitcherMenu`, a popover listing every `GROUPS` key. Picking one calls
+  `onQuickSwitchGroup(key)`, which updates `localStorage["sw_admin_sim"]`
+  (`ADMIN_SIM_KEY`) and `simGroup` directly — no detour through
+  `AdminGroupSelector`. `<App>` is given `key={simGroup}` so React fully
+  remounts it on switch (fresh fetch, no stale memoized standings from the
+  previous group). The full-screen `AdminGroupSelector` (and MoreMenu →
+  "Switch group", which returns to it) still exist as the sign-out-capable
+  entry point.
 
 ### Player object shape
 
@@ -247,6 +256,7 @@ State: `tab` (`home`·`table`·`scores`·`race`) and `leagueView`
 - **Scores** (`DayPicker`) — combined day-by-day schedule **+** results, BBC-style day strip.
 - **The Race** (`BarRaceModal`) — full-screen animated bar race.
 - **More** (`MoreMenu`) — dev toggle, take the tour, view rules, subscribe to notifications, switch group.
+- **Header logo** — admin-only: tap opens `GroupSwitcherMenu` to jump directly to another group (see GroupGate section above).
 
 Desktop vs mobile is responsive (`isDesktop`): on desktop, Rules/Info is a tab and nav is a sidebar; on mobile they're bottom sheets.
 

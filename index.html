@@ -4673,6 +4673,35 @@ function MoreMenu({ devMode, onToggleDevMode, onTakeTour, onViewRules, onSwitchG
   );
 }
 
+// Admin-only quick group switcher, opened by tapping the logo in the header.
+// Jumps straight to another group's data without detouring through the
+// full-screen AdminGroupSelector.
+function GroupSwitcherMenu({ currentKey, onSelect, onClose }) {
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:26 }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{
+        position:"absolute", top:54, left:14, minWidth:210, maxWidth:260,
+        background:C.card, border:`1px solid ${C.border}`, borderRadius:12,
+        boxShadow:"0 24px 48px rgba(0,0,0,0.5)", overflow:"hidden",
+      }}>
+        <div style={{ padding:"10px 14px", fontSize:11, fontWeight:700, color:C.muted, textTransform:"uppercase", letterSpacing:"0.08em", borderBottom:`1px solid ${C.border}` }}>
+          Switch group
+        </div>
+        {Object.entries(GROUPS).map(([key, g]) => (
+          <button key={key} onClick={() => onSelect(key)} style={{
+            display:"flex", alignItems:"center", justifyContent:"space-between",
+            width:"100%", padding:"12px 14px", background: key === currentKey ? "rgba(255,255,255,0.06)" : "transparent",
+            border:"none", borderBottom:`1px solid ${C.border}`, cursor:"pointer", textAlign:"left",
+          }}>
+            <span style={{ fontSize:14, fontWeight:600, color:C.text }}>{g.label}</span>
+            {key === currentKey && <span style={{ color:C.accent, fontSize:13 }}>✓</span>}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // Push-notification settings, opened from the More menu. Reuses the same
 // .info-backdrop/.info-card shell as the Rules & Info pop-over — just wraps
 // the unmodified PushNotificationsSection (see its own definition above for
@@ -5475,7 +5504,7 @@ function applySimCheckpoint(matches, checkpoint) {
   return sorted.slice(0, take);
 }
 
-function App({ onSwitchGroup, groupKey, isAdmin = false }) {
+function App({ onSwitchGroup, onQuickSwitchGroup, groupKey, isAdmin = false }) {
   const [matches,     setMatches]     = useState([]);
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState(null);
@@ -5487,6 +5516,7 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
   const [showInfo,    setShowInfo]    = useState(false); // Rules & Info dialog (over current tab)
   const [showTour,    setShowTour]    = useState(false); // first-time app walkthrough, also replayable from the More menu
   const [showMore,         setShowMore]         = useState(false); // bottom-nav/sidebar "More" menu (was "Rules & Info")
+  const [showGroupSwitcher, setShowGroupSwitcher] = useState(false); // admin-only: quick group switcher opened from the logo
   const [showNotifications, setShowNotifications] = useState(false); // bell — recent match events drawer
   const [showPushSettings, setShowPushSettings] = useState(false);
   const notifSeenKey = groupKey ? `${NOTIF_SEEN_BASE_KEY}_${groupKey}` : NOTIF_SEEN_BASE_KEY;
@@ -6111,7 +6141,15 @@ function App({ onSwitchGroup, groupKey, isAdmin = false }) {
           overflow:"hidden",
         }}>
           <div style={{ display:"flex", alignItems:"center", padding:"10px 14px", gap:10 }}>
-            <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjYuNDEgMy42NiAyMDIuMTcgMjAwLjY1Ij48Y2lyY2xlIGN4PSIxMzMuNjgiIGN5PSIxOTQuODUiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTA3LjUwIiBjeT0iMTk0Ljg1IiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjgxLjMyIiBjeT0iMTk0Ljg1IiByPSI5LjQ1IiBmaWxsPSIjMEI2RTJDIi8+PGNpcmNsZSBjeD0iMTcyLjk1IiBjeT0iMTcyLjE0IiByPSI5LjQ1IiBmaWxsPSIjRDUyQjFFIi8+PGNpcmNsZSBjeD0iMTQ2Ljc3IiBjeT0iMTcyLjE0IiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjEyMC41OSIgY3k9IjE3Mi4xNCIgcj0iOS40NSIgZmlsbD0iIzBCNkUyQyIvPjxjaXJjbGUgY3g9Ijk0LjQxIiBjeT0iMTcyLjE0IiByPSI5LjQ1IiBmaWxsPSIjMEI2RTJDIi8+PGNpcmNsZSBjeD0iNjguMjMiIGN5PSIxNzIuMTQiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iNDIuMDUiIGN5PSIxNzIuMTQiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTg2LjA0IiBjeT0iMTQ5LjQyIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjE1OS44NiIgY3k9IjE0OS40MiIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxMzMuNjgiIGN5PSIxNDkuNDIiIHI9IjkuNDUiIGZpbGw9IiMwQjZFMkMiLz48Y2lyY2xlIGN4PSIxMDcuNTAiIGN5PSIxNDkuNDIiIHI9IjkuNDUiIGZpbGw9IiMwQjZFMkMiLz48Y2lyY2xlIGN4PSI4MS4zMiIgY3k9IjE0OS40MiIgcj0iOS40NSIgZmlsbD0iIzBCNkUyQyIvPjxjaXJjbGUgY3g9IjU1LjE0IiBjeT0iMTQ5LjQyIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjI4Ljk2IiBjeT0iMTQ5LjQyIiByPSI5LjQ1IiBmaWxsPSIjMUEzRkEwIi8+PGNpcmNsZSBjeD0iMTk5LjEzIiBjeT0iMTI2LjcwIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjE3Mi45NSIgY3k9IjEyNi43MCIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxNDYuNzciIGN5PSIxMjYuNzAiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTIwLjU5IiBjeT0iMTI2LjcwIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9Ijk0LjQxIiBjeT0iMTI2LjcwIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjY4LjIzIiBjeT0iMTI2LjcwIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjQyLjA1IiBjeT0iMTI2LjcwIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjE1Ljg3IiBjeT0iMTI2LjcwIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjE4Ni4wNCIgY3k9IjEwMy45OCIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxNTkuODYiIGN5PSIxMDMuOTgiIHI9IjkuNDUiIGZpbGw9IiMxQTNGQTAiLz48Y2lyY2xlIGN4PSIxMzMuNjgiIGN5PSIxMDMuOTgiIHI9IjkuNDUiIGZpbGw9IiMxQTNGQTAiLz48Y2lyY2xlIGN4PSIxMDcuNTAiIGN5PSIxMDMuOTgiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iODEuMzIiIGN5PSIxMDMuOTgiIHI9IjkuNDUiIGZpbGw9IiNENTJCMUUiLz48Y2lyY2xlIGN4PSI1NS4xNCIgY3k9IjEwMy45OCIgcj0iOS40NSIgZmlsbD0iI0Q1MkIxRSIvPjxjaXJjbGUgY3g9IjI4Ljk2IiBjeT0iMTAzLjk4IiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjE5OS4xMyIgY3k9IjgxLjI3IiByPSI5LjQ1IiBmaWxsPSIjMUEzRkEwIi8+PGNpcmNsZSBjeD0iMTcyLjk1IiBjeT0iODEuMjciIHI9IjkuNDUiIGZpbGw9IiMxQTNGQTAiLz48Y2lyY2xlIGN4PSIxNDYuNzciIGN5PSI4MS4yNyIgcj0iOS40NSIgZmlsbD0iIzFBM0ZBMCIvPjxjaXJjbGUgY3g9IjEyMC41OSIgY3k9IjgxLjI3IiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9Ijk0LjQxIiBjeT0iODEuMjciIHI9IjkuNDUiIGZpbGw9IiNENTJCMUUiLz48Y2lyY2xlIGN4PSI2OC4yMyIgY3k9IjgxLjI3IiByPSI5LjQ1IiBmaWxsPSIjRDUyQjFFIi8+PGNpcmNsZSBjeD0iNDIuMDUiIGN5PSI4MS4yNyIgcj0iOS40NSIgZmlsbD0iI0Q1MkIxRSIvPjxjaXJjbGUgY3g9IjE1Ljg3IiBjeT0iODEuMjciIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTg2LjA0IiBjeT0iNTguNTUiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTU5Ljg2IiBjeT0iNTguNTUiIHI9IjkuNDUiIGZpbGw9IiMxQTNGQTAiLz48Y2lyY2xlIGN4PSIxMzMuNjgiIGN5PSI1OC41NSIgcj0iOS40NSIgZmlsbD0iIzFBM0ZBMCIvPjxjaXJjbGUgY3g9IjEwNy41MCIgY3k9IjU4LjU1IiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjgxLjMyIiBjeT0iNTguNTUiIHI9IjkuNDUiIGZpbGw9IiNENTJCMUUiLz48Y2lyY2xlIGN4PSI1NS4xNCIgY3k9IjU4LjU1IiByPSI5LjQ1IiBmaWxsPSIjRDUyQjFFIi8+PGNpcmNsZSBjeD0iMjguOTYiIGN5PSI1OC41NSIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxNzIuOTUiIGN5PSIzNS44MyIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxNDYuNzciIGN5PSIzNS44MyIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxMjAuNTkiIGN5PSIzNS44MyIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSI5NC40MSIgY3k9IjM1LjgzIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjY4LjIzIiBjeT0iMzUuODMiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iNDIuMDUiIGN5PSIzNS44MyIgcj0iOS40NSIgZmlsbD0iI0Q1MkIxRSIvPjxjaXJjbGUgY3g9IjEzMy42OCIgY3k9IjEzLjEyIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjEwNy41MCIgY3k9IjEzLjEyIiByPSI5LjQ1IiBmaWxsPSIjMEI2RTJDIi8+PGNpcmNsZSBjeD0iODEuMzIiIGN5PSIxMy4xMiIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48L3N2Zz4=" style={{ width:30, height:30, display:"block", flexShrink:0 }} alt="logo" />
+            <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjYuNDEgMy42NiAyMDIuMTcgMjAwLjY1Ij48Y2lyY2xlIGN4PSIxMzMuNjgiIGN5PSIxOTQuODUiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTA3LjUwIiBjeT0iMTk0Ljg1IiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjgxLjMyIiBjeT0iMTk0Ljg1IiByPSI5LjQ1IiBmaWxsPSIjMEI2RTJDIi8+PGNpcmNsZSBjeD0iMTcyLjk1IiBjeT0iMTcyLjE0IiByPSI5LjQ1IiBmaWxsPSIjRDUyQjFFIi8+PGNpcmNsZSBjeD0iMTQ2Ljc3IiBjeT0iMTcyLjE0IiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjEyMC41OSIgY3k9IjE3Mi4xNCIgcj0iOS40NSIgZmlsbD0iIzBCNkUyQyIvPjxjaXJjbGUgY3g9Ijk0LjQxIiBjeT0iMTcyLjE0IiByPSI5LjQ1IiBmaWxsPSIjMEI2RTJDIi8+PGNpcmNsZSBjeD0iNjguMjMiIGN5PSIxNzIuMTQiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iNDIuMDUiIGN5PSIxNzIuMTQiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTg2LjA0IiBjeT0iMTQ5LjQyIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjE1OS44NiIgY3k9IjE0OS40MiIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxMzMuNjgiIGN5PSIxNDkuNDIiIHI9IjkuNDUiIGZpbGw9IiMwQjZFMkMiLz48Y2lyY2xlIGN4PSIxMDcuNTAiIGN5PSIxNDkuNDIiIHI9IjkuNDUiIGZpbGw9IiMwQjZFMkMiLz48Y2lyY2xlIGN4PSI4MS4zMiIgY3k9IjE0OS40MiIgcj0iOS40NSIgZmlsbD0iIzBCNkUyQyIvPjxjaXJjbGUgY3g9IjU1LjE0IiBjeT0iMTQ5LjQyIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjI4Ljk2IiBjeT0iMTQ5LjQyIiByPSI5LjQ1IiBmaWxsPSIjMUEzRkEwIi8+PGNpcmNsZSBjeD0iMTk5LjEzIiBjeT0iMTI2LjcwIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjE3Mi45NSIgY3k9IjEyNi43MCIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxNDYuNzciIGN5PSIxMjYuNzAiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTIwLjU5IiBjeT0iMTI2LjcwIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9Ijk0LjQxIiBjeT0iMTI2LjcwIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjY4LjIzIiBjeT0iMTI2LjcwIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjQyLjA1IiBjeT0iMTI2LjcwIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjE1Ljg3IiBjeT0iMTI2LjcwIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjE4Ni4wNCIgY3k9IjEwMy45OCIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxNTkuODYiIGN5PSIxMDMuOTgiIHI9IjkuNDUiIGZpbGw9IiMxQTNGQTAiLz48Y2lyY2xlIGN4PSIxMzMuNjgiIGN5PSIxMDMuOTgiIHI9IjkuNDUiIGZpbGw9IiMxQTNGQTAiLz48Y2lyY2xlIGN4PSIxMDcuNTAiIGN5PSIxMDMuOTgiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iODEuMzIiIGN5PSIxMDMuOTgiIHI9IjkuNDUiIGZpbGw9IiNENTJCMUUiLz48Y2lyY2xlIGN4PSI1NS4xNCIgY3k9IjEwMy45OCIgcj0iOS40NSIgZmlsbD0iI0Q1MkIxRSIvPjxjaXJjbGUgY3g9IjI4Ljk2IiBjeT0iMTAzLjk4IiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjE5OS4xMyIgY3k9IjgxLjI3IiByPSI5LjQ1IiBmaWxsPSIjMUEzRkEwIi8+PGNpcmNsZSBjeD0iMTcyLjk1IiBjeT0iODEuMjciIHI9IjkuNDUiIGZpbGw9IiMxQTNGQTAiLz48Y2lyY2xlIGN4PSIxNDYuNzciIGN5PSI4MS4yNyIgcj0iOS40NSIgZmlsbD0iIzFBM0ZBMCIvPjxjaXJjbGUgY3g9IjEyMC41OSIgY3k9IjgxLjI3IiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9Ijk0LjQxIiBjeT0iODEuMjciIHI9IjkuNDUiIGZpbGw9IiNENTJCMUUiLz48Y2lyY2xlIGN4PSI2OC4yMyIgY3k9IjgxLjI3IiByPSI5LjQ1IiBmaWxsPSIjRDUyQjFFIi8+PGNpcmNsZSBjeD0iNDIuMDUiIGN5PSI4MS4yNyIgcj0iOS40NSIgZmlsbD0iI0Q1MkIxRSIvPjxjaXJjbGUgY3g9IjE1Ljg3IiBjeT0iODEuMjciIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTg2LjA0IiBjeT0iNTguNTUiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTU5Ljg2IiBjeT0iNTguNTUiIHI9IjkuNDUiIGZpbGw9IiMxQTNGQTAiLz48Y2lyY2xlIGN4PSIxMzMuNjgiIGN5PSI1OC41NSIgcj0iOS40NSIgZmlsbD0iIzFBM0ZBMCIvPjxjaXJjbGUgY3g9IjEwNy41MCIgY3k9IjU4LjU1IiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjgxLjMyIiBjeT0iNTguNTUiIHI9IjkuNDUiIGZpbGw9IiNENTJCMUUiLz48Y2lyY2xlIGN4PSI1NS4xNCIgY3k9IjU4LjU1IiByPSI5LjQ1IiBmaWxsPSIjRDUyQjFFIi8+PGNpcmNsZSBjeD0iMjguOTYiIGN5PSI1OC41NSIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxNzIuOTUiIGN5PSIzNS44MyIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxNDYuNzciIGN5PSIzNS44MyIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxMjAuNTkiIGN5PSIzNS44MyIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSI5NC40MSIgY3k9IjM1LjgzIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjY4LjIzIiBjeT0iMzUuODMiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iNDIuMDUiIGN5PSIzNS44MyIgcj0iOS40NSIgZmlsbD0iI0Q1MkIxRSIvPjxjaXJjbGUgY3g9IjEzMy42OCIgY3k9IjEzLjEyIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjEwNy41MCIgY3k9IjEzLjEyIiByPSI5LjQ1IiBmaWxsPSIjMEI2RTJDIi8+PGNpcmNsZSBjeD0iODEuMzIiIGN5PSIxMy4xMiIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48L3N2Zz4=" style={{ width:30, height:30, display:"block", flexShrink:0, cursor: isAdmin ? "pointer" : "default" }} alt="logo"
+              onClick={isAdmin ? () => setShowGroupSwitcher(v => !v) : undefined} />
+            {showGroupSwitcher && (
+              <GroupSwitcherMenu
+                currentKey={groupKey}
+                onSelect={(key) => { onQuickSwitchGroup(key); setShowGroupSwitcher(false); }}
+                onClose={() => setShowGroupSwitcher(false)}
+              />
+            )}
             <div onClick={() => setShowSearch(true)} role="button" style={{
               flex:1, display:"flex", alignItems:"center", gap:8,
               background:"rgba(255,255,255,0.1)", border:"1px solid rgba(255,255,255,0.2)",
@@ -6529,7 +6567,15 @@ function GroupGate() {
       localStorage.removeItem(ADMIN_SIM_KEY);
       setSimGroup(null);
     };
-    return <App onSwitchGroup={onSwitchGroup} groupKey={simGroup} isAdmin={true} />;
+    const onQuickSwitchGroup = (key) => {
+      if (!GROUPS[key] || key === simGroup) return;
+      localStorage.setItem(ADMIN_SIM_KEY, key);
+      setSimGroup(key);
+    };
+    // key={simGroup} forces a full remount on quick-switch, same as the
+    // AdminGroupSelector round-trip does — avoids stale memoized standings
+    // for the previous group.
+    return <App key={simGroup} onSwitchGroup={onSwitchGroup} onQuickSwitchGroup={onQuickSwitchGroup} groupKey={simGroup} isAdmin={true} />;
   }
 
   // Admin logged in but no group chosen yet → show group picker
