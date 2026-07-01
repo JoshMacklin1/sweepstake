@@ -3714,7 +3714,8 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
                 fontSize: 12, fontWeight: 800, color: "#080c18",
               }}>{i + 1}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: C.text, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.text, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: families ? 0 : 4 }}>{p.name}</div>
+                {!families && <FlagRow teams={p.teams} baseHeight={14} />}
               </div>
               <Sparkline data={p.hist} width={64} height={28} color={p.total < 0 ? C.red : p.total === 0 ? C.neutral : C.accent} />
               <div style={{ textAlign: "right", flexShrink: 0, minWidth: 50 }}>
