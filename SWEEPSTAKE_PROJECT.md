@@ -307,10 +307,12 @@ yet to score) · 🎸 One Man Band
 goals) · 🧱 Brick Wall / 🚰 Leaky (fewest / most conceded) · 🩸 First Casualty ·
 ⚰️ Wiped Out (first to have **all** their teams eliminated) · 🍞 Bread Winner /
 🐑 Black Sheep — **family groups only** (`FAMILIES` global, set by GroupGate
-like `POT_OVERRIDES`/`KNOCKOUT_ONLY`, null otherwise). Per family, not
-group-wide: whoever contributes the largest/smallest SHARE of their own
-family's combined points (Grim Reaper excluded from the family total, same
-as every other performance badge).
+like `POT_OVERRIDES`/`KNOCKOUT_ONLY`, null otherwise). Single-winner across
+the whole group, like every other performance badge: each family's
+top/bottom contributor by SHARE of their own family's combined points is a
+candidate, but only the single highest share (Bread Winner) and single
+lowest share (Black Sheep) across ALL families actually gets the badge
+(Grim Reaper excluded from family totals).
 
 Most performance badges are **single-winner** (exactly one holder). The full
 badge list is sorted **rarest-first**, but the collapsed league row instead

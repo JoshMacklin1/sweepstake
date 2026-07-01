@@ -1518,25 +1518,31 @@ function computeBadges(ranked, matches, rank24hChange, winPctPlayers) {
   }
 
   // 🍞 Bread Winner / 🐑 Black Sheep — family-groups only (FAMILIES is null for
-  // groups without the family feature). Per family, not group-wide: whoever
-  // contributes the largest SHARE of their family's combined points is
-  // carrying it; whoever contributes the smallest share is the black sheep.
-  // Skips a family if its total is exactly 0 (a share of zero points is
-  // undefined, not "equal"), or if every member ties (top === bottom) —
-  // no one is meaningfully carrying or dragging in either case.
+  // groups without the family feature). Each family's top/bottom contributor
+  // (by SHARE of their family's combined points) is a candidate, but the
+  // badges themselves are single-winner across the WHOLE group, same as
+  // every other performance badge — the single highest share of all
+  // families' top candidates gets Bread Winner, the single lowest share of
+  // all families' bottom candidates gets Black Sheep. A family is skipped if
+  // its total is exactly 0 (a share of zero points is undefined, not
+  // "equal"), or if every member ties (top === bottom) — no one is
+  // meaningfully carrying or dragging in either case.
   if (FAMILIES) {
+    let breadWinner = null, blackSheep = null;
     FAMILIES.forEach(f => {
       const members = f.members.map(name => real.find(p => p.name === name)).filter(Boolean);
       if (members.length < 2) return;
       const familyTotal = members.reduce((s, p) => s + p.total, 0);
       if (familyTotal === 0) return;
-      const withShare = members.map(p => ({ name: p.name, share: p.total / familyTotal }));
+      const withShare = members.map(p => ({ name: p.name, family: f.name, share: p.total / familyTotal }));
       const top = withShare.reduce((m, x) => x.share > m.share ? x : m);
       const bottom = withShare.reduce((m, x) => x.share < m.share ? x : m);
       if (top.name === bottom.name) return;
-      add(top.name, { icon:"🍞", label:"Bread Winner", desc:`Carrying the ${f.name} family (${Math.round(top.share * 100)}% of their points)`, tone:"good" });
-      add(bottom.name, { icon:"🐑", label:"Black Sheep", desc:`Contributing the least to the ${f.name} family (${Math.round(bottom.share * 100)}% of their points)`, tone:"bad" });
+      if (!breadWinner || top.share > breadWinner.share) breadWinner = top;
+      if (!blackSheep || bottom.share < blackSheep.share) blackSheep = bottom;
     });
+    if (breadWinner) add(breadWinner.name, { icon:"🍞", label:"Bread Winner", desc:`Carrying the ${breadWinner.family} family (${Math.round(breadWinner.share * 100)}% of their points)`, tone:"good" });
+    if (blackSheep) add(blackSheep.name, { icon:"🐑", label:"Black Sheep", desc:`Contributing the least to the ${blackSheep.family} family (${Math.round(blackSheep.share * 100)}% of their points)`, tone:"bad" });
   }
 
   // Order each player's badges rarest-first so the row preview (which shows only
