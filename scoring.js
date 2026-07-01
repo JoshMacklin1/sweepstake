@@ -1527,18 +1527,25 @@ function computeBadges(ranked, matches, rank24hChange, winPctPlayers) {
   // families' top candidates gets Bread Winner, the single lowest share of
   // all families' bottom candidates gets Black Sheep. A family is skipped if
   // its total is exactly 0 (a share of zero points is undefined, not
-  // "equal"), or if every member ties (top === bottom) — no one is
-  // meaningfully carrying or dragging in either case.
+  // "equal"), or if fewer than 2 REAL members remain to compare.
+  //
+  // The Grim Reaper's own points DO count toward the family total when he's
+  // listed as a family member (e.g. Caversham's Macklin family includes
+  // "Josh", who's also that group's Reaper) — leaving his points out shrinks
+  // the total and inflates everyone else's share (a 2-real-member family
+  // reading as e.g. 90/10 when it should be closer to even once his points
+  // are counted). He just isn't himself eligible to WIN either badge, same
+  // as every other performance badge in this function.
   if (FAMILIES) {
     let breadWinner = null, blackSheep = null;
     FAMILIES.forEach(f => {
-      const members = f.members.map(name => real.find(p => p.name === name)).filter(Boolean);
-      if (members.length < 2) return;
+      const members = f.members.map(name => ranked.find(p => p.name === name)).filter(Boolean);
       const familyTotal = members.reduce((s, p) => s + p.total, 0);
       if (familyTotal === 0) return;
-      const withShare = members.map(p => ({ name: p.name, family: f.name, share: p.total / familyTotal }));
-      const top = withShare.reduce((m, x) => x.share > m.share ? x : m);
-      const bottom = withShare.reduce((m, x) => x.share < m.share ? x : m);
+      const candidates = members.filter(p => !p.grimReaper).map(p => ({ name: p.name, family: f.name, share: p.total / familyTotal }));
+      if (candidates.length < 2) return;
+      const top = candidates.reduce((m, x) => x.share > m.share ? x : m);
+      const bottom = candidates.reduce((m, x) => x.share < m.share ? x : m);
       if (top.name === bottom.name) return;
       if (!breadWinner || top.share > breadWinner.share) breadWinner = top;
       if (!blackSheep || bottom.share < blackSheep.share) blackSheep = bottom;
