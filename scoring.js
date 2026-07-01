@@ -710,37 +710,39 @@ function deriveStages(matches) {
     }
 
     if (stage === "FINAL") {
+      // Crowning the actual champion stays FINISHED-only — everything else
+      // below is a real-time projection (see deriveMatchPts, which already
+      // does this for the Scores tab's live "+Npts"), but declaring a
+      // provisional World Cup winner mid-match is a step further than
+      // provisionally advancing a round, so it waits for the final whistle.
       if (winner && fin) { winners[winner] = true; markStage(winner, "WINNER"); }
-      if (loser)  { markStage(loser, "FINALIST"); if (fin) eliminated[loser] = "FINALIST"; }
+      if (loser)  { markStage(loser, "FINALIST"); eliminated[loser] = "FINALIST"; }
     } else if (stage.includes("SEMI")) {
-      // Both teams confirmed at semi-finals; only advance winner / eliminate loser when done
+      // Both teams confirmed at semi-finals regardless; winner/loser (who's
+      // CURRENTLY ahead, live or finished) provisionally advance/are
+      // eliminated in real time — consistent with deriveMatchPts and with
+      // how group-stage matches already score live via deriveGroupPts/WDL.
+      // Recomputed fresh from `matches` every call, so this self-corrects
+      // the moment the live score (or final result) changes.
       if (h) markStage(h, "SEMI_FINALS");
       if (a) markStage(a, "SEMI_FINALS");
-      if (fin) {
-        if (winner) markStage(winner, "FINALIST");
-        if (loser)  eliminated[loser] = "SEMI_FINALS";
-      }
+      if (winner) markStage(winner, "FINALIST");
+      if (loser)  eliminated[loser] = "SEMI_FINALS";
     } else if (stage.includes("QUARTER")) {
       if (h) markStage(h, "QUARTER_FINALS");
       if (a) markStage(a, "QUARTER_FINALS");
-      if (fin) {
-        if (winner) markStage(winner, "SEMI_FINALS");
-        if (loser)  eliminated[loser] = "QUARTER_FINALS";
-      }
+      if (winner) markStage(winner, "SEMI_FINALS");
+      if (loser)  eliminated[loser] = "QUARTER_FINALS";
     } else if (stage.includes("LAST_16") || stage.includes("16")) {
       if (h) markStage(h, "LAST_16");
       if (a) markStage(a, "LAST_16");
-      if (fin) {
-        if (winner) markStage(winner, "QUARTER_FINALS");
-        if (loser)  eliminated[loser] = "LAST_16";
-      }
+      if (winner) markStage(winner, "QUARTER_FINALS");
+      if (loser)  eliminated[loser] = "LAST_16";
     } else if (stage.includes("LAST_32") || stage.includes("32")) {
       if (h) markStage(h, "LAST_32");
       if (a) markStage(a, "LAST_32");
-      if (fin) {
-        if (winner) markStage(winner, "LAST_16");
-        if (loser)  eliminated[loser] = "LAST_32";
-      }
+      if (winner) markStage(winner, "LAST_16");
+      if (loser)  eliminated[loser] = "LAST_32";
     }
   });
 
