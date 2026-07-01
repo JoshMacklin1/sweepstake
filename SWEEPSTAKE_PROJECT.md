@@ -311,8 +311,11 @@ like `POT_OVERRIDES`/`KNOCKOUT_ONLY`, null otherwise). Single-winner across
 the whole group, like every other performance badge: each family's
 top/bottom contributor by SHARE of their own family's combined points is a
 candidate, but only the single highest share (Bread Winner) and single
-lowest share (Black Sheep) across ALL families actually gets the badge
-(Grim Reaper excluded from family totals).
+lowest share (Black Sheep) across ALL families actually gets the badge. The
+Grim Reaper's points DO count toward the family total when he's listed as a
+member (e.g. Caversham's Macklin family includes "Josh") — excluding them
+shrinks the total and inflates everyone else's share — but he isn't himself
+eligible to win either badge.
 
 Most performance badges are **single-winner** (exactly one holder). The full
 badge list is sorted **rarest-first**, but the collapsed league row instead
