@@ -1466,6 +1466,19 @@ function computeBadges(ranked, matches, rank24hChange, winPctPlayers) {
   });
   if (bigFlop) add(bigFlop.name, { icon:"🤡", label:"Big Flop", desc:`First Pot 1 favourite eliminated (${teamNameOf(bigFlop.code)})`, tone:"bad" });
 
+  // 👠 Cinderella — owns the LAST Pot 4 team still alive in the whole
+  // competition. Unlike Big Flop/Underdog above, this is a live, current
+  // state (like Top Dog/Wooden Spoon), not a "first to..." achievement — it
+  // only exists while exactly one Pot 4 team remains un-eliminated, moves to
+  // whoever else is left if that changes, and disappears entirely once the
+  // very last Pot 4 team is itself knocked out (no fairy tale ending to award).
+  const pot4Teams = [];
+  real.forEach(p => (p.teams || []).forEach(t => { if (t.pot === 4) pot4Teams.push({ code: t.code, eliminated: t.eliminated, owner: p.name }); }));
+  const alivePot4 = pot4Teams.filter(t => !t.eliminated);
+  if (alivePot4.length === 1) {
+    add(alivePot4[0].owner, { icon:"👠", label:"Cinderella", desc:`Owns the last Pot 4 team standing (${teamNameOf(alivePot4[0].code)})`, tone:"good" });
+  }
+
   // Order each player's badges rarest-first so the row preview (which shows only
   // the first couple) highlights what's UNIQUE to them rather than common
   // accolades (e.g. Underdog) that lots of players share. Stable sort keeps

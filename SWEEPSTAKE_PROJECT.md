@@ -297,7 +297,10 @@ Always-on flavour: 💀 **Grim Reaper**, 🤖 **Definitely Not Human** (MACK-BOT
 Performance: 🏆 Top Dog · 🥄 Wooden Spoon (bottom real player) · 🔮 The Prophecy
 (highest win %) · 🚀 Climber / 📉 Sliding (24h table moves) · ⚡ On Fire (biggest
 pts last round) · 🔪 Giant Killer (single biggest group upset) · 🐶 Underdog
-(first Pot 4 team to reach the knockouts) · 🥚 Early Bird · 🤡 Big Flop (first
+(first Pot 4 team to reach the knockouts) · 👠 Cinderella (owns the **last**
+Pot 4 team still alive — a live current-state badge like Top Dog, not a
+"first to..." one; disappears once the last Pot 4 team is itself knocked
+out) · 🥚 Early Bird · 🤡 Big Flop (first
 Pot 1 favourite eliminated, group **or** knockout) · 🦆 Still Quacking (last
 yet to score) · 🎸 One Man Band
 (biggest gap between own teams) · 💥 Firepower / 💨 Firing Blanks (most / fewest
