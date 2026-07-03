@@ -3960,13 +3960,6 @@ function KnockoutBracket({ matches, onTeamClick, matchPtsById = {}, bracketRef: 
   const r16 = (() => {
     const apiR16WithTeams = r16Raw.filter(m => m.home || m.away);
     if (apiR16WithTeams.length >= 8) return r16Raw;
-    // Build map: r32 winner TLA → the r16 slot index they should feed into (from sequential bracket pairing)
-    const r32WinnerToSlot = {};
-    for (let i = 0; i < r32.length; i += 2) {
-      const slotIdx = i / 2;
-      if (r32[i]?.winner) r32WinnerToSlot[r32[i].winner] = slotIdx;
-      if (r32[i + 1]?.winner) r32WinnerToSlot[r32[i + 1].winner] = slotIdx;
-    }
     const projected = [];
     for (let i = 0; i < 16; i += 2) {
       const m1 = r32[i] || null;
@@ -3974,8 +3967,11 @@ function KnockoutBracket({ matches, onTeamClick, matchPtsById = {}, bracketRef: 
       const slotIdx = i / 2;
       const apiSlot = r16Raw[slotIdx] || null;
       if (apiSlot && (apiSlot.home || apiSlot.away)) {
-        // Suppress any team that R32 results say belongs in a different slot (stale pre-scheduling)
-        const keep = (tla) => !tla || r32WinnerToSlot[tla] === undefined || r32WinnerToSlot[tla] === slotIdx;
+        // Trust the API's real slot data over our own guessed R32 pairing —
+        // only drop a team if they're actually eliminated already (a genuine
+        // stale pre-scheduling placeholder), not just because our sequential
+        // i/i+1 pairing guess disagrees with where the API put them.
+        const keep = (tla) => !tla || !eliminated[tla];
         const home = keep(apiSlot.home) ? apiSlot.home : null;
         const away = keep(apiSlot.away) ? apiSlot.away : null;
         projected.push(home !== apiSlot.home || away !== apiSlot.away
