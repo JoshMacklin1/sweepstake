@@ -2203,7 +2203,7 @@ function BarRaceModal({ history, allRanked, bucketLabels = [], elimByFrame = [],
 // headline; pot + owning player sit underneath for context. Tapping a row opens
 // that team's card.
 // ─────────────────────────────────────────────────────────────────────────────
-function TeamLeagueRow({ row, rank, onOpen }) {
+function TeamLeagueRow({ row, rank, onOpen, rank24hChange = 0 }) {
   const { tla, owner, name, pot, swPts, hist, isElim } = row;
   const flagUrl = flag(tla);
   const lineColor = swPts < 0 ? C.red : swPts === 0 ? C.neutral : C.accent;
@@ -2241,10 +2241,24 @@ function TeamLeagueRow({ row, rank, onOpen }) {
           <Sparkline data={hist} width={90} height={48} color={lineColor} />
         </div>
 
-        {/* Points */}
-        <div style={{ textAlign:"right", flexShrink:0, minWidth:48 }}>
+        {/* Points + 24h position change */}
+        <div style={{ textAlign:"right", flexShrink:0, minWidth:56 }}>
           <div style={{ fontSize:22, fontWeight:800, color: swPts < 0 ? C.red : C.text, lineHeight:1 }}>{swPts}</div>
-          <div style={{ fontSize:10, color:C.muted }}>pts</div>
+          <div style={{ fontSize:10, color:C.muted, marginBottom:4 }}>pts</div>
+          {rank24hChange !== 0 ? (
+            <div style={{
+              display:"inline-block", fontSize:10, fontWeight:700, padding:"1px 5px", borderRadius:3,
+              background: rank24hChange > 0 ? C.posBg : C.negBg,
+              color: rank24hChange > 0 ? C.accent : C.red,
+            }}>
+              {rank24hChange > 0 ? "▲" : "▼"} {Math.abs(rank24hChange)} pos
+            </div>
+          ) : (
+            <div style={{
+              display:"inline-block", fontSize:10, fontWeight:700, padding:"1px 5px", borderRadius:3,
+              background:"rgba(148,163,184,0.12)", color:"#94a3b8",
+            }}>0 pos</div>
+          )}
         </div>
 
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink:0, transform:"rotate(-90deg)" }}>
@@ -2257,8 +2271,6 @@ function TeamLeagueRow({ row, rank, onOpen }) {
 
 function TeamsLeagueTab({ matches, onTeamClick }) {
   const teamHist = typeof deriveTeamHistory === "function" ? deriveTeamHistory(matches) : {};
-  const grpPts = deriveGroupPts(matches);
-  const { stageReached, eliminated } = deriveStages(matches);
 
   const ownerOf = {};
   PLAYERS.forEach(p => { if (!p.grimReaper) p.codes.forEach(c => { ownerOf[c] = p.name; }); });
@@ -2269,52 +2281,69 @@ function TeamsLeagueTab({ matches, onTeamClick }) {
     return (m.homeTeam?.tla?.toUpperCase() === tla ? m.homeTeam.name : m.awayTeam.name) || tla;
   };
 
-  // Group W/D/L + GD for tiebreaks (sweepstake pts first, then league form).
-  const groupStats = {};
-  matches.filter(m =>
-    (m.stage||"").toUpperCase().includes("GROUP") &&
-    (m.status === "FINISHED" || m.status === "IN_PLAY" || m.status === "PAUSED") &&
-    m.score?.fullTime?.home != null
-  ).forEach(m => {
-    const h = m.homeTeam?.tla?.toUpperCase();
-    const a = m.awayTeam?.tla?.toUpperCase();
-    const hs = m.score.fullTime.home, as_ = m.score.fullTime.away;
-    if (!h || !a) return;
-    if (!groupStats[h]) groupStats[h] = { w:0, d:0, l:0, gf:0, ga:0 };
-    if (!groupStats[a]) groupStats[a] = { w:0, d:0, l:0, gf:0, ga:0 };
-    groupStats[h].gf += hs; groupStats[h].ga += as_;
-    groupStats[a].gf += as_; groupStats[a].ga += hs;
-    if (hs > as_)      { groupStats[h].w++; groupStats[a].l++; }
-    else if (as_ > hs) { groupStats[a].w++; groupStats[h].l++; }
-    else               { groupStats[h].d++; groupStats[a].d++; }
-  });
+  // Rank every team by sweepstake points (tiebreak: group league pts, then GD,
+  // then name) for a given match set. Reused for the current table and the
+  // 24h-ago baseline that drives the position-change pill.
+  const rankTeams = (ms) => {
+    const grpPts = deriveGroupPts(ms);
+    const { stageReached, eliminated } = deriveStages(ms);
+    const groupStats = {};
+    ms.filter(m =>
+      (m.stage||"").toUpperCase().includes("GROUP") &&
+      (m.status === "FINISHED" || m.status === "IN_PLAY" || m.status === "PAUSED") &&
+      m.score?.fullTime?.home != null
+    ).forEach(m => {
+      const h = m.homeTeam?.tla?.toUpperCase();
+      const a = m.awayTeam?.tla?.toUpperCase();
+      const hs = m.score.fullTime.home, as_ = m.score.fullTime.away;
+      if (!h || !a) return;
+      if (!groupStats[h]) groupStats[h] = { w:0, d:0, l:0, gf:0, ga:0 };
+      if (!groupStats[a]) groupStats[a] = { w:0, d:0, l:0, gf:0, ga:0 };
+      groupStats[h].gf += hs; groupStats[h].ga += as_;
+      groupStats[a].gf += as_; groupStats[a].ga += hs;
+      if (hs > as_)      { groupStats[h].w++; groupStats[a].l++; }
+      else if (as_ > hs) { groupStats[a].w++; groupStats[h].l++; }
+      else               { groupStats[h].d++; groupStats[a].d++; }
+    });
+    const swPtsOf = (tla) => (grpPts[tla] || 0)
+      + (stageReached[tla] && stageReached[tla] !== "GROUP_ELIM" ? ptsTotal(tla, stageReached[tla]) : 0)
+      + (eliminated[tla] === "GROUP_ELIM" ? ptsTotal(tla, "GROUP_ELIM") : 0);
+    return Object.values(GROUP_ASSIGNMENTS).flat().map(tla => {
+      const gs = groupStats[tla] || { w:0, d:0, l:0, gf:0, ga:0 };
+      return {
+        tla,
+        owner: ownerOf[tla] || null,
+        name: teamName(tla) || tla,
+        pot: potOf(tla),
+        swPts: swPtsOf(tla),
+        hist: teamHist[tla] || [0],
+        isElim: !!eliminated[tla],
+        leaguePts: gs.w * 3 + gs.d,
+        gd: gs.gf - gs.ga,
+      };
+    }).sort((a, b) =>
+      (b.swPts - a.swPts) || (b.leaguePts - a.leaguePts) || (b.gd - a.gd) || a.name.localeCompare(b.name)
+    );
+  };
 
-  const swPtsOf = (tla) => (grpPts[tla] || 0)
-    + (stageReached[tla] && stageReached[tla] !== "GROUP_ELIM" ? ptsTotal(tla, stageReached[tla]) : 0)
-    + (eliminated[tla] === "GROUP_ELIM" ? ptsTotal(tla, "GROUP_ELIM") : 0);
+  const rows = rankTeams(matches);
 
-  const rows = Object.values(GROUP_ASSIGNMENTS).flat().map(tla => {
-    const gs = groupStats[tla] || { w:0, d:0, l:0, gf:0, ga:0 };
-    return {
-      tla,
-      owner: ownerOf[tla] || null,
-      name: teamName(tla) || tla,
-      pot: potOf(tla),
-      swPts: swPtsOf(tla),
-      hist: teamHist[tla] || [0],
-      isElim: !!eliminated[tla],
-      leaguePts: gs.w * 3 + gs.d,
-      gd: gs.gf - gs.ga,
-    };
-  }).sort((a, b) =>
-    (b.swPts - a.swPts) || (b.leaguePts - a.leaguePts) || (b.gd - a.gd) || a.name.localeCompare(b.name)
-  );
+  // 24h-ago ordering for the position-change pill — baseline excludes matches
+  // that kicked off in the last 24h, mirroring compute24hRankChange for players.
+  const cutoffMs = Date.now() - 24 * 60 * 60 * 1000;
+  const rank24hAgoByTla = {};
+  rankTeams(matches.filter(m => new Date(m.utcDate).getTime() <= cutoffMs))
+    .forEach((r, i) => { rank24hAgoByTla[r.tla] = i; });
 
   return (
     <div className="league-grid">
-      {rows.map((r, i) => (
-        <TeamLeagueRow key={r.tla} row={r} rank={i + 1} onOpen={() => onTeamClick && onTeamClick(r.tla)} />
-      ))}
+      {rows.map((r, i) => {
+        const prev = rank24hAgoByTla[r.tla];
+        const change = prev !== undefined ? prev - i : 0;
+        return (
+          <TeamLeagueRow key={r.tla} row={r} rank={i + 1} rank24hChange={change} onOpen={() => onTeamClick && onTeamClick(r.tla)} />
+        );
+      })}
     </div>
   );
 }
