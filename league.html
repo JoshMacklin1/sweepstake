@@ -1,0 +1,1428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>League Sweeps — 2026/27</title>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="League Sweeps"/>
+  <meta name="theme-color" content="#0d1f12"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0d1f12;
+      color: #f0faf3;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+    }
+    #root { max-width: 480px; margin: 0 auto; min-height: 100vh; }
+    button { font-family: inherit; -webkit-tap-highlight-color: transparent; }
+    input[type="range"] { width: 100%; accent-color: #22c55e; }
+    .tab-seg { display: flex; border: 1px solid #1e3d28; border-radius: 10px; overflow: hidden; }
+    .tab-seg button {
+      flex: 1; padding: 10px 0; border: none; border-radius: 0; cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+    /* ── WC-app pop-up card treatment (keep in sync with index.html) ── */
+    .detail-backdrop {
+      position: fixed; inset: 0; z-index: 35;
+      display: flex; align-items: flex-end; justify-content: center;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    }
+    .detail-sheet {
+      width: 100%; max-width: 480px; max-height: 92vh;
+      border-radius: 20px 20px 0 0; overflow: hidden;
+    }
+    .sheet-handle { display: flex; justify-content: center; padding: 8px 0 0; flex-shrink: 0; }
+    .sheet-handle span { width: 36px; height: 4px; border-radius: 2px; background: rgba(143,186,154,0.35); }
+    .info-backdrop {
+      position: fixed; inset: 0; z-index: 25;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.55);
+      padding: 24px 18px 88px; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    }
+    .info-card { width: 100%; max-width: 460px; max-height: 68vh; border-radius: 16px; overflow: hidden; }
+    @media (min-width: 768px) {
+      .detail-backdrop { align-items: center; }
+      .detail-sheet { max-width: 520px; max-height: 80vh; border-radius: 16px; }
+      .sheet-handle { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <!-- Coupled: every league-scoring.js change must bump ?v=N (see SWEEPSTAKE_PROJECT.md cache-bust rule) -->
+  <script src="league-scoring.js?v=4"></script>
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+    // Full WC-app token set (keep in sync with index.html's C object) so the
+    // two apps share one visual language.
+    const C = {
+      bg: "#0d1f12", surface: "#122018", card: "#162a1c", border: "#1e3d28",
+      muted: "#6b9e7a", dim: "#8fba9a", text: "#f0faf3",
+      accent: "#22c55e", red: "#f15a5a", gold: "#f59e0b",
+      posBg: "#104224", negBg: "#450a0a", neutral: "#334155",
+      dangerText: "#f87171", dangerTextBright: "#fca5a5",
+      reaperAccent: "#3f1212", reaperBg: "#1a1210",
+    };
+    const s = {
+      card: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, marginBottom: 10, overflow: "hidden" },
+      label: { fontSize: 11, color: C.dim, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10, marginTop: 4 },
+    };
+    const POT_COLORS = { 1: C.gold, 2: C.accent, 3: C.dim, 4: C.dangerText };
+    // Same fixed palette as the WC app's PLAYER_COLORS, indexed by roster order.
+    const PLAYER_COLORS = ["#f59e0b", "#60a5fa", "#f472b6", "#34d399", "#fb923c", "#818cf8", "#f87171", "#a78bfa", "#2dd4bf", "#facc15", "#c084fc", "#4ade80"];
+    const playerColor = (name) => {
+      const i = (typeof LEAGUE_PLAYERS !== "undefined" ? LEAGUE_PLAYERS : []).findIndex(p => p.name === name);
+      return i >= 0 ? PLAYER_COLORS[i % PLAYER_COLORS.length] : C.accent;
+    };
+    const GROUP_STORAGE_KEY = "lsw_group";
+    const REPLAY_START = "2025-08-01T00:00:00Z";
+    const REPLAY_END   = "2026-06-05T00:00:00Z";
+    const compLabel = (code) => code === "PL" ? "Premier League" : "Championship";
+    const ord = (n) => { const t = ["th", "st", "nd", "rd"], v = n % 100; return n + (t[(v - 20) % 10] || t[v] || t[0]); };
+
+    // ── tiny shared bits ────────────────────────────────────────────────────
+    // Sparkline — verbatim from the WC app (index.html) so the line/area/dot
+    // treatment matches exactly.
+    function Sparkline({ data, width = 90, height = 28, color = C.accent }) {
+      if (!data || data.length < 2) {
+        return (
+          <svg width={width} height={height} style={{ display: "block" }}>
+            <line x1={0} y1={height * 0.6} x2={width} y2={height * 0.6} stroke={color} strokeWidth={1} strokeOpacity={0.3} />
+          </svg>
+        );
+      }
+      const min = Math.min(...data);
+      const max = Math.max(...data);
+      const range = max - min || 1;
+      const pad = 3;
+      const points = data.map((v, i) => {
+        const x = pad + (i / (data.length - 1)) * (width - pad * 2);
+        const y = pad + (1 - (v - min) / range) * (height - pad * 2);
+        return [x, y];
+      });
+      const linePath = points.map((p, i) => `${i === 0 ? "M" : "L"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
+      const areaPath = `${linePath} L${points[points.length - 1][0].toFixed(1)},${height} L${points[0][0].toFixed(1)},${height} Z`;
+      const uid = `sp${data.length}x${data[data.length - 1]}`;
+      return (
+        <svg width={width} height={height} style={{ display: "block", overflow: "visible" }}>
+          <defs>
+            <linearGradient id={uid} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity="0.25" />
+              <stop offset="100%" stopColor={color} stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <path d={areaPath} fill={`url(#${uid})`} />
+          <path d={linePath} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+          <circle cx={points[points.length - 1][0]} cy={points[points.length - 1][1]} r={3.5} fill={color} />
+        </svg>
+      );
+    }
+
+    const Crest = ({ teamId, size = 20 }) => (
+      <img src={typeof leagueCrest === "function" ? leagueCrest(teamId) : ""}
+        alt="" width={size} height={size} loading="lazy"
+        style={{ objectFit: "contain", verticalAlign: "middle", flexShrink: 0 }}
+        onError={e => { e.target.style.visibility = "hidden"; }} />
+    );
+
+    // CrestRow — the league's FlagRow: best-news-first ordering (champions/
+    // promoted → in play → relegated), gold outline for a settled title/
+    // promotion, dimmed + ✕ for relegation.
+    function CrestRow({ teams, outcomes, baseHeight = 20 }) {
+      if (!teams || teams.length === 0) return null;
+      const state = (t) => {
+        const o = outcomes[t.teamId] && outcomes[t.teamId].outcome;
+        if (o === "WINNER" || o === "PROMOTED") return "won";
+        if (o === "RELEGATED") return "dead";
+        return "alive";
+      };
+      const ordered = [...teams.filter(t => state(t) === "won"), ...teams.filter(t => state(t) === "alive"), ...teams.filter(t => state(t) === "dead")];
+      const n = ordered.length;
+      const scale = n <= 3 ? 1 : n === 4 ? 0.94 : n === 5 ? 0.83 : 0.72;
+      const h = Math.round(baseHeight * scale);
+      const gap = n <= 3 ? 4 : n === 4 ? 3 : 2;
+      return (
+        <div style={{ display: "flex", gap, alignItems: "center", flexWrap: "nowrap", overflow: "hidden" }}>
+          {ordered.map(t => {
+            const st = state(t);
+            return (
+              <div key={t.teamId} title={`${t.name} (Pot ${t.pot})`} style={{ position: "relative", display: "inline-block", height: h, flexShrink: 0 }}>
+                <img src={typeof leagueCrest === "function" ? leagueCrest(t.teamId) : ""} alt={t.name}
+                  width={h} height={h}
+                  style={{ objectFit: "contain", display: "block", opacity: st === "dead" ? 0.25 : 1,
+                    outline: st === "won" ? "2px solid #f59e0b" : "none", borderRadius: 2 }}
+                  onError={e => { e.target.style.visibility = "hidden"; }} />
+                {st === "dead" && (
+                  <span style={{ position: "absolute", top: 0, right: 0, fontSize: Math.max(7, Math.round(9 * scale)), fontWeight: 900, color: C.red, textShadow: "0 0 2px rgba(0,0,0,0.9)", lineHeight: 1, pointerEvents: "none" }}>✕</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    const Chip = ({ children, color, title }) => (
+      <span title={title} style={{
+        fontSize: 10, fontWeight: 700, color, border: `1px solid ${color}`,
+        borderRadius: 6, padding: "1px 5px", whiteSpace: "nowrap",
+      }}>{children}</span>
+    );
+
+    const outcomeChip = (outcome) => {
+      if (!outcome) return null;
+      const label = (typeof LEAGUE_OUTCOME_LABEL !== "undefined" && LEAGUE_OUTCOME_LABEL[outcome]) || outcome;
+      const color = outcome === "RELEGATED" ? C.dangerText : C.gold;
+      return <Chip color={color}>{label}</Chip>;
+    };
+
+    const fmtDay = (iso) => new Date(iso).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+    const fmtTime = (iso) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+
+    // Result from a team's perspective + earned pts, shared by the card lists.
+    function matchRowData(m, teamId, matchPtsById) {
+      const isHome = m.homeTeam.id === teamId;
+      const hs = (m.score && m.score.fullTime && m.score.fullTime.home) || 0;
+      const as_ = (m.score && m.score.fullTime && m.score.fullTime.away) || 0;
+      const myGoals = isHome ? hs : as_;
+      const oppGoals = isHome ? as_ : hs;
+      const result = myGoals > oppGoals ? "W" : myGoals < oppGoals ? "L" : "D";
+      const mPts = matchPtsById[m.id];
+      const earnedPts = mPts ? (isHome ? mPts.home : mPts.away) : null;
+      const opp = isHome ? m.awayTeam : m.homeTeam;
+      return { isHome, myGoals, oppGoals, result, earnedPts, opp };
+    }
+
+    const resultChipStyle = (result) => ({
+      width: 22, height: 22, borderRadius: 4, flexShrink: 0,
+      background: result === "W" ? C.posBg : result === "L" ? C.negBg : "rgba(148,163,184,0.12)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      fontSize: 10, fontWeight: 800,
+      color: result === "W" ? C.accent : result === "L" ? C.red : C.muted,
+    });
+
+    // ── SnapSheet — ported from the WC app: bottom sheet with two snap
+    //    points on mobile (50vh ↔ 92vh, flick to expand/dismiss), centred
+    //    windowed card on desktop ─────────────────────────────────────────
+    function SnapSheet({ onClose, children }) {
+      useEffect(() => {
+        const prev = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+        return () => { document.body.style.overflow = prev; };
+      }, []);
+      const [snapState, setSnapState] = useState("half");
+      const snapStateRef = useRef("half");
+      useEffect(() => { snapStateRef.current = snapState; }, [snapState]);
+      const sheetRef = useRef(null);
+      const bodyRef = useRef(null);
+      const dragInfo = useRef({ startY: 0, startTime: 0, active: false, dragY: 0 });
+      const [dragY, setDragY] = useState(0);
+      const [dragging, setDragging] = useState(false);
+
+      useEffect(() => {
+        const el = sheetRef.current;
+        if (!el) return;
+        const onStart = (e) => {
+          dragInfo.current = { startY: e.touches[0].clientY, startTime: Date.now(), active: true, dragY: 0 };
+        };
+        const onMove = (e) => {
+          if (!dragInfo.current.active) return;
+          const delta = e.touches[0].clientY - dragInfo.current.startY;
+          const atTop = !bodyRef.current || bodyRef.current.scrollTop <= 0;
+          if (delta > 0 && atTop) {
+            e.preventDefault();
+            dragInfo.current.dragY = delta;
+            setDragging(true);
+            setDragY(delta);
+          } else if (delta < 0 && atTop && snapStateRef.current === "half") {
+            e.preventDefault();
+            dragInfo.current.dragY = delta;
+            setDragging(true);
+            setDragY(delta);
+          } else if (dragInfo.current.dragY !== 0 && Math.sign(delta) !== Math.sign(dragInfo.current.dragY)) {
+            dragInfo.current.dragY = 0;
+            setDragY(0);
+          }
+        };
+        const onEnd = () => {
+          if (!dragInfo.current.active) return;
+          dragInfo.current.active = false;
+          setDragging(false);
+          const { dragY: finalDragY, startTime } = dragInfo.current;
+          if (finalDragY === 0) return;
+          const elapsed = Date.now() - startTime;
+          const velocity = finalDragY / Math.max(elapsed, 1);
+          const snap = snapStateRef.current;
+          if (snap === "half") {
+            if (finalDragY < 0) {
+              if (finalDragY < -40 || velocity < -0.25) { setSnapState("full"); snapStateRef.current = "full"; }
+              setDragY(0);
+            } else {
+              if (finalDragY > el.offsetHeight * 0.25 || velocity > 0.5) onClose();
+              else setDragY(0);
+            }
+          } else {
+            if (finalDragY > 60 || velocity > 0.3) { setSnapState("half"); snapStateRef.current = "half"; }
+            setDragY(0);
+          }
+        };
+        el.addEventListener("touchstart", onStart, { passive: true });
+        el.addEventListener("touchmove", onMove, { passive: false });
+        el.addEventListener("touchend", onEnd, { passive: true });
+        return () => {
+          el.removeEventListener("touchstart", onStart);
+          el.removeEventListener("touchmove", onMove);
+          el.removeEventListener("touchend", onEnd);
+        };
+      }, []);
+
+      const isMobile = window.innerWidth < 768;
+      return (
+        <div className="detail-backdrop" onClick={onClose}>
+          <div className="detail-sheet" ref={sheetRef} onClick={(e) => e.stopPropagation()}
+            style={{
+              background: C.bg, display: "flex", flexDirection: "column",
+              border: `1px solid ${C.border}`, boxShadow: "0 24px 64px rgba(0,0,0,0.55)",
+              height: isMobile
+                ? snapState === "full" ? "92vh"
+                  : dragging && dragY < 0 ? `calc(50vh - ${dragY}px)` : "50vh"
+                : undefined,
+              transform: dragging && dragY < 0 && snapState === "half" ? "none" : `translateY(${dragY}px)`,
+              transition: dragging ? "none" : "transform 0.25s ease, height 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
+            }}>
+            {children(bodyRef)}
+          </div>
+        </div>
+      );
+    }
+
+    // ── PLAYER CARD — pop-up card mirroring the WC PlayerCardContent ───────
+    function PlayerCardContent({ bodyRef, player, displayRank, badges = [], matches = [], matchPtsById = {}, hist = [], week, outcomes = {}, onTeamClick, onClose }) {
+      if (!player) return null;
+      const isReaper = player.grimReaper;
+      const sect = { fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 };
+      const statBox = { flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "12px 8px", textAlign: "center" };
+      return (<>
+        <div className="sheet-handle"><span></span></div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "14px 16px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+          <div>
+            <div style={{ fontSize: 18, fontWeight: 900, color: C.text }}>{player.name}</div>
+            <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{isReaper ? "Grim Reaper" : `Rank ${displayRank} · ${player.total} pts`}</div>
+          </div>
+          <button onClick={onClose} aria-label="Close" style={{ background: "transparent", border: "none", color: C.muted, fontSize: 22, cursor: "pointer", lineHeight: 1 }}>✕</button>
+        </div>
+        <div ref={bodyRef} style={{ flex: 1, overflowY: "auto", padding: "16px 14px 28px" }}>
+          <div style={{ display: "flex", gap: 10, marginBottom: 18 }}>
+            <div style={statBox}>
+              <div style={{ fontSize: 24, fontWeight: 900, color: player.total < 0 ? C.red : C.text }}>{player.total}</div>
+              <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>Points</div>
+            </div>
+            <div style={statBox}>
+              <div style={{ fontSize: 24, fontWeight: 900, color: isReaper ? C.dangerText : (week && week.pts > 0) ? C.accent : C.muted }}>
+                {week ? `${week.pts > 0 ? "+" : ""}${week.pts}` : "—"}
+              </div>
+              <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>Pts this week</div>
+            </div>
+          </div>
+
+          <div style={sect}>Points over time</div>
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "12px 8px", marginBottom: 18, display: "flex", justifyContent: "center" }}>
+            <Sparkline data={hist} width={300} height={72} color={isReaper ? C.red : player.total < 0 ? C.red : player.total === 0 ? C.neutral : C.accent} />
+          </div>
+
+          {isReaper ? (
+            <>
+              <div style={{ ...sect, color: C.dangerText, fontWeight: 700, letterSpacing: "0.08em" }}>Bounty Board</div>
+              {[1, 2].map(pot => {
+                const victims = Object.keys(typeof LEAGUE_TEAMS !== "undefined" ? LEAGUE_TEAMS : {})
+                  .map(Number)
+                  .filter(id => LEAGUE_TEAMS[id].pot === pot && outcomes[id] && outcomes[id].outcome === "RELEGATED");
+                const total = victims.reduce((sum, id) => sum + (typeof lgReaperBounty === "function" ? lgReaperBounty(id, outcomes) : 0), 0);
+                return (
+                  <div key={pot} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${C.reaperAccent}` }}>
+                    <div>
+                      <div style={{ fontSize: 12, color: total > 0 ? C.text : C.dangerText, opacity: total > 0 ? 1 : 0.5 }}>Pot {pot} relegation</div>
+                      <div style={{ fontSize: 10, color: C.dangerText, opacity: 0.6 }}>{victims.length > 0 ? victims.map(id => LEAGUE_TEAMS[id].name).join(", ") : "bounty per relegated team"}</div>
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: total > 0 ? C.red : C.dangerText }}>{total > 0 ? `+${total}pts` : "—"}</div>
+                  </div>
+                );
+              })}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0" }}>
+                <div>
+                  <div style={{ fontSize: 12, color: player.droughtPts > 0 ? C.text : C.dangerText, opacity: player.droughtPts > 0 ? 1 : 0.5 }}>Goal drought curse</div>
+                  <div style={{ fontSize: 10, color: C.dangerText, opacity: 0.6 }}>2pts per owned 0-0</div>
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: player.droughtPts > 0 ? C.red : C.dangerText }}>{player.droughtPts > 0 ? `+${player.droughtPts}pts` : "—"}</div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={sect}>Teams</div>
+              {player.teams.map(t => {
+                const dead = t.outcome === "RELEGATED";
+                return (
+                  <div key={t.teamId} onClick={onTeamClick ? () => onTeamClick(t.teamId) : undefined}
+                    role={onTeamClick ? "button" : undefined} tabIndex={onTeamClick ? 0 : undefined}
+                    style={{ display: "flex", alignItems: "center", padding: "9px 0", borderBottom: `1px solid ${C.border}`, opacity: dead ? 0.6 : 1, cursor: onTeamClick ? "pointer" : "default", WebkitTapHighlightColor: "transparent" }}>
+                    <div style={{ marginRight: 10, flexShrink: 0 }}><Crest teamId={t.teamId} size={20} /></div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{t.name} <span style={{ fontSize: 10, color: C.muted, fontWeight: 400 }}>(P{t.pot} · {t.league})</span></div>
+                      <div style={{ fontSize: 11, color: C.muted }}>{t.w}W {t.d}D {t.l}L{t.outcome ? ` · ${(LEAGUE_OUTCOME_LABEL[t.outcome] || t.outcome)}` : ""}</div>
+                    </div>
+                    <div style={{ textAlign: "right", flexShrink: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: t.total < 0 ? C.red : t.total > 0 ? C.text : C.muted }}>{t.total > 0 ? "+" : ""}{t.total}pts</div>
+                      {t.bonusPts !== 0 && <div style={{ fontSize: 10, color: t.bonusPts > 0 ? C.gold : C.red }}>{t.bonusPts > 0 ? "+" : ""}{t.bonusPts} bonus</div>}
+                    </div>
+                    {onTeamClick && <span aria-hidden="true" style={{ marginLeft: 8, color: C.muted, fontSize: 18, lineHeight: 1, flexShrink: 0 }}>›</span>}
+                  </div>
+                );
+              })}
+            </>
+          )}
+
+          {badges.length > 0 && (
+            <>
+              <div style={{ ...sect, margin: "22px 0 8px" }}>Accolades</div>
+              {badges.map((b, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: `1px solid ${C.border}` }}>
+                  <span style={{ fontSize: 20, flexShrink: 0, width: 24, textAlign: "center" }}>{b.icon}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: C.accent }}>{b.label}</div>
+                    <div style={{ fontSize: 11, color: C.muted }}>{b.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+
+          {!isReaper && (() => {
+            // Bonus milestones + all results + upcoming across the player's
+            // teams, mirroring the WC player card's Results section.
+            const settled = [], upcoming = [];
+            (player.teams || []).forEach(t => {
+              matches.forEach(m => {
+                if (m.homeTeam.id !== t.teamId && m.awayTeam.id !== t.teamId) return;
+                if (m.stage !== "REGULAR_SEASON") return;
+                if (typeof lgIsSettled === "function" && lgIsSettled(m)) settled.push({ m, t });
+                else if (m.status === "SCHEDULED" || m.status === "TIMED") upcoming.push({ m, t });
+              });
+            });
+            settled.sort((x, y) => y.m.utcDate.localeCompare(x.m.utcDate));
+            upcoming.sort((x, y) => x.m.utcDate.localeCompare(y.m.utcDate));
+            const bonusTeams = (player.teams || []).filter(t => t.bonusPts !== 0);
+            if (settled.length === 0 && upcoming.length === 0 && bonusTeams.length === 0) return null;
+            const rowClick = (teamId) => ({
+              onClick: onTeamClick ? () => onTeamClick(teamId) : undefined,
+              style: { display: "flex", alignItems: "center", gap: 8, padding: "9px 0", borderBottom: `1px solid ${C.border}`, cursor: onTeamClick ? "pointer" : "default" },
+            });
+            return (
+              <>
+                {(settled.length > 0 || bonusTeams.length > 0) && <div style={{ ...sect, margin: "22px 0 8px" }}>Results</div>}
+                {bonusTeams.map(t => (
+                  <div key={"b" + t.teamId} onClick={onTeamClick ? () => onTeamClick(t.teamId) : undefined}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 8, padding: "9px 10px", marginBottom: 8, borderRadius: 8,
+                      border: `1px solid ${t.bonusPts > 0 ? "rgba(34,197,94,0.25)" : "rgba(241,90,90,0.25)"}`,
+                      background: t.bonusPts > 0 ? "rgba(34,197,94,0.07)" : "rgba(241,90,90,0.06)",
+                      cursor: onTeamClick ? "pointer" : "default",
+                    }}>
+                    <div style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0, background: t.bonusPts > 0 ? C.posBg : C.negBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>{t.bonusPts > 0 ? "🏅" : "⚠️"}</div>
+                    <Crest teamId={t.teamId} size={18} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}</div>
+                      <div style={{ fontSize: 10, color: C.muted }}>{LEAGUE_OUTCOME_LABEL[t.outcome] || t.outcome} · season bonus</div>
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: t.bonusPts > 0 ? C.accent : C.red, flexShrink: 0 }}>{t.bonusPts > 0 ? "+" : ""}{t.bonusPts} pts</div>
+                  </div>
+                ))}
+                {settled.slice(0, 30).map(({ m, t }) => {
+                  const r = matchRowData(m, t.teamId, matchPtsById);
+                  return (
+                    <div key={"r" + t.teamId + m.id} {...rowClick(t.teamId)}>
+                      <div style={resultChipStyle(r.result)}>{r.result}</div>
+                      <Crest teamId={t.teamId} size={18} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}</div>
+                        <div style={{ fontSize: 10, color: C.muted }}>vs {(typeof LEAGUE_TEAMS !== "undefined" && LEAGUE_TEAMS[r.opp.id]) ? LEAGUE_TEAMS[r.opp.id].name : (r.opp.shortName || "TBD")} · {fmtDay(m.utcDate)}</div>
+                      </div>
+                      <div style={{ textAlign: "right", flexShrink: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{r.myGoals}–{r.oppGoals}</div>
+                        {r.earnedPts != null && r.earnedPts > 0 && (
+                          <div style={{ fontSize: 10, fontWeight: 700, color: C.accent }}>+{r.earnedPts} pts</div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                {upcoming.length > 0 && <div style={{ ...sect, margin: "22px 0 8px" }}>Upcoming</div>}
+                {upcoming.slice(0, 8).map(({ m, t }) => {
+                  const opp = m.homeTeam.id === t.teamId ? m.awayTeam : m.homeTeam;
+                  return (
+                    <div key={"u" + t.teamId + m.id} {...rowClick(t.teamId)}>
+                      <div style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0, background: "rgba(148,163,184,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: C.muted }}>vs</div>
+                      <Crest teamId={t.teamId} size={18} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}</div>
+                        <div style={{ fontSize: 10, color: C.muted }}>vs {(typeof LEAGUE_TEAMS !== "undefined" && LEAGUE_TEAMS[opp.id]) ? LEAGUE_TEAMS[opp.id].name : (opp.shortName || "TBD")} · {fmtDay(m.utcDate)} {fmtTime(m.utcDate)}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+            );
+          })()}
+        </div>
+      </>);
+    }
+
+    // ── TEAM CARD — pop-up card mirroring the WC TeamCardContent ───────────
+    function TeamCardContent({ bodyRef, teamId, matches, ranked, matchPtsById, outcomes, tables, onTeamClick, onOwnerClick, onClose }) {
+      const team = typeof LEAGUE_TEAMS !== "undefined" ? LEAGUE_TEAMS[teamId] : null;
+      const owner = typeof leagueOwnerOfTeamId === "function" ? leagueOwnerOfTeamId(teamId) : null;
+      let teamEntry = null;
+      for (const p of ranked) {
+        const t = (p.teams || []).find(t => t.teamId === teamId);
+        if (t) { teamEntry = t; break; }
+      }
+      const wdl = teamEntry || (typeof deriveLeagueWDL === "function" ? deriveLeagueWDL(matches, teamId) : { w: 0, d: 0, l: 0 });
+      const matchPts = teamEntry ? teamEntry.matchPts : (typeof lgTeamMatchPts === "function" ? lgTeamMatchPts(matches, teamId) : 0);
+      const bonusPts = teamEntry ? teamEntry.bonusPts : (typeof leagueBonusPts === "function" ? leagueBonusPts(teamId, outcomes) : 0);
+      const totalPts = matchPts + bonusPts;
+      const outcome = outcomes[teamId] ? outcomes[teamId].outcome : null;
+      const table = team ? tables[team.league] || [] : [];
+      const posIdx = table.findIndex(r => r.teamId === teamId);
+      const sect = { fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 };
+      const teamMatches = matches
+        .filter(m => (m.homeTeam.id === teamId || m.awayTeam.id === teamId) && typeof lgIsSettled === "function" && lgIsSettled(m))
+        .sort((a, b) => b.utcDate.localeCompare(a.utcDate));
+      const upcomingMatches = matches
+        .filter(m => (m.homeTeam.id === teamId || m.awayTeam.id === teamId) && (m.status === "SCHEDULED" || m.status === "TIMED"))
+        .sort((a, b) => a.utcDate.localeCompare(b.utcDate));
+      const name = team ? team.name : "Unknown";
+      const ownerRank = owner ? ranked.findIndex(p => p.name === owner.name) + 1 : null;
+      return (<>
+        <div className="sheet-handle"><span></span></div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "14px 16px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <Crest teamId={teamId} size={28} />
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 900, color: C.text }}>{name}</div>
+              <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
+                {team ? `Pot ${team.pot} · ${compLabel(team.league)}` : ""}{owner ? "" : " · Unowned"}
+              </div>
+            </div>
+          </div>
+          <button onClick={onClose} aria-label="Close" style={{ background: "transparent", border: "none", color: C.muted, fontSize: 22, cursor: "pointer", lineHeight: 1 }}>✕</button>
+        </div>
+        <div ref={bodyRef} style={{ flex: 1, overflowY: "auto", padding: "16px 14px 28px" }}>
+          {owner && (
+            <div onClick={onOwnerClick ? () => onOwnerClick(owner.name) : undefined}
+              role={onOwnerClick ? "button" : undefined} tabIndex={onOwnerClick ? 0 : undefined}
+              style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 12px", border: `1px solid ${C.border}`, borderRadius: 14, background: C.card, marginBottom: 16, cursor: onOwnerClick ? "pointer" : "default", WebkitTapHighlightColor: "transparent" }}>
+              <span style={{ width: 30, height: 30, borderRadius: "50%", background: playerColor(owner.name), color: "#0d1f12", fontWeight: 900, fontSize: 14, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{owner.name[0]}</span>
+              <div style={{ flex: 1, minWidth: 0, lineHeight: 1.25 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{owner.name}</div>
+                <div style={{ fontSize: 11, color: C.muted }}>Owner{ownerRank ? ` · ${ord(ownerRank)} in the sweepstake` : ""}</div>
+              </div>
+              {onOwnerClick && <span aria-hidden="true" style={{ color: C.muted, fontSize: 18, lineHeight: 1, flexShrink: 0 }}>›</span>}
+            </div>
+          )}
+          <div style={{ display: "flex", gap: 10, marginBottom: 18 }}>
+            <div style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "12px 8px", textAlign: "center" }}>
+              <div style={{ fontSize: 24, fontWeight: 900, color: totalPts < 0 ? C.red : C.text }}>{totalPts > 0 ? `+${totalPts}` : totalPts}</div>
+              <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>Points</div>
+            </div>
+            <div style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "12px 8px", textAlign: "center" }}>
+              <div style={{ fontSize: 14, fontWeight: 900, lineHeight: 1.4, color: outcome === "RELEGATED" ? C.red : outcome ? C.gold : C.accent }}>
+                {outcome ? (LEAGUE_OUTCOME_LABEL[outcome] || outcome) : posIdx >= 0 ? ord(posIdx + 1) : "—"}
+              </div>
+              <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>{outcome ? "Season" : "League position"}</div>
+            </div>
+          </div>
+
+          <div style={sect}>Results</div>
+          {bonusPts !== 0 && (
+            <div style={{
+              display: "flex", alignItems: "center", gap: 8, padding: "9px 10px", marginBottom: 8, borderRadius: 8,
+              border: `1px solid ${bonusPts > 0 ? "rgba(34,197,94,0.25)" : "rgba(241,90,90,0.25)"}`,
+              background: bonusPts > 0 ? "rgba(34,197,94,0.07)" : "rgba(241,90,90,0.06)",
+            }}>
+              <div style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0, background: bonusPts > 0 ? C.posBg : C.negBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>{bonusPts > 0 ? "🏅" : "⚠️"}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{LEAGUE_OUTCOME_LABEL[outcome] || outcome}</div>
+                <div style={{ fontSize: 10, color: C.muted }}>Season bonus · not tied to one game</div>
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: bonusPts > 0 ? C.accent : C.red, flexShrink: 0 }}>{bonusPts > 0 ? "+" : ""}{bonusPts} pts</div>
+            </div>
+          )}
+          {teamMatches.length === 0 ? (
+            <div style={{ fontSize: 12, color: C.muted, padding: "8px 0" }}>No results yet</div>
+          ) : teamMatches.map(m => {
+            const r = matchRowData(m, teamId, matchPtsById);
+            const oppKnown = typeof LEAGUE_TEAMS !== "undefined" && LEAGUE_TEAMS[r.opp.id];
+            return (
+              <div key={m.id} onClick={onTeamClick && oppKnown ? () => onTeamClick(r.opp.id) : undefined}
+                style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 0", borderBottom: `1px solid ${C.border}`, cursor: onTeamClick && oppKnown ? "pointer" : "default" }}>
+                <div style={resultChipStyle(r.result)}>{r.result}</div>
+                <Crest teamId={r.opp.id} size={18} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{oppKnown ? oppKnown.name : (r.opp.shortName || "TBD")}</div>
+                  <div style={{ fontSize: 10, color: C.muted }}>{fmtDay(m.utcDate)} · {r.isHome ? "home" : "away"}{m.stage !== "REGULAR_SEASON" ? " · playoffs" : ""}</div>
+                </div>
+                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{r.myGoals}–{r.oppGoals}</div>
+                  {r.earnedPts != null && r.earnedPts > 0 && (
+                    <div style={{ fontSize: 10, fontWeight: 700, color: C.accent }}>+{r.earnedPts} pts</div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+          {upcomingMatches.length > 0 && <div style={{ ...sect, margin: "22px 0 8px" }}>Upcoming</div>}
+          {upcomingMatches.slice(0, 6).map(m => {
+            const opp = m.homeTeam.id === teamId ? m.awayTeam : m.homeTeam;
+            const oppKnown = typeof LEAGUE_TEAMS !== "undefined" && LEAGUE_TEAMS[opp.id];
+            return (
+              <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 0", borderBottom: `1px solid ${C.border}` }}>
+                <div style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0, background: "rgba(148,163,184,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: C.muted }}>vs</div>
+                <Crest teamId={opp.id} size={18} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{oppKnown ? oppKnown.name : (opp.shortName || "TBD")}</div>
+                  <div style={{ fontSize: 10, color: C.muted }}>{fmtDay(m.utcDate)} {fmtTime(m.utcDate)} · {m.homeTeam.id === teamId ? "home" : "away"}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </>);
+    }
+
+    // ── PlayerRow — same anatomy as the WC app's PlayerRow ─────────────────
+    function PlayerRow({ p, rank, badges, hist, weekMove, outcomes, onOpen }) {
+      const reaper = p.grimReaper;
+      const rankColors = ["#84cc16", "#94a3b8", "#b45309"];
+      const isTop = rank <= 3;
+      return (
+        <div style={{
+          background: reaper ? C.reaperBg : C.card,
+          border: `1px solid ${reaper ? C.reaperAccent : C.border}`,
+          borderRadius: 14, marginBottom: 10, overflow: "hidden",
+        }}>
+          <div onClick={onOpen} style={{ display: "flex", alignItems: "center", padding: "10px 14px", cursor: "pointer", gap: 10 }}>
+            <div style={{
+              width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
+              background: reaper ? C.reaperAccent : isTop ? rankColors[rank - 1] : C.border,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 13, fontWeight: 800, color: reaper ? C.dangerTextBright : isTop ? "#080c18" : C.dim,
+            }}>{rank}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, marginBottom: 5 }}>
+                <div style={{ fontWeight: 700, fontSize: 15, color: C.text, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {p.name}
+                </div>
+                <div style={{ display: "flex", gap: 3, flexShrink: 0 }}>
+                  {badges.slice(0, 2).map((b, i) => (
+                    <span key={i} title={`${b.label} — ${b.desc}`} style={{ fontSize: 13, lineHeight: 1 }}>{b.icon}</span>
+                  ))}
+                </div>
+              </div>
+              {reaper ? (
+                <div style={{ fontSize: 10, color: C.dangerText, lineHeight: 1.5, opacity: 0.7 }}>
+                  Grim Reaper — earns on boring football &amp; relegations
+                </div>
+              ) : (
+                <CrestRow teams={p.teams} outcomes={outcomes} />
+              )}
+            </div>
+            <div style={{ flexShrink: 0 }}>
+              <Sparkline data={hist} width={100} height={56}
+                color={reaper ? C.red : p.total < 0 ? C.red : p.total === 0 ? C.neutral : C.accent} />
+            </div>
+            <div style={{ textAlign: "right", flexShrink: 0, minWidth: 56 }}>
+              <div style={{ fontSize: 22, fontWeight: 800, color: p.total < 0 ? C.red : C.text, lineHeight: 1 }}>
+                {p.total}
+              </div>
+              <div style={{ fontSize: 10, color: reaper ? C.dangerText : C.muted, marginBottom: 4 }}>pts</div>
+              {weekMove !== 0 ? (
+                <div style={{
+                  display: "inline-block", fontSize: 10, fontWeight: 700, padding: "1px 5px", borderRadius: 3,
+                  background: reaper ? C.negBg : weekMove > 0 ? C.posBg : C.negBg,
+                  color: reaper ? C.red : weekMove > 0 ? C.accent : C.red,
+                }}>
+                  {weekMove > 0 ? "▲" : "▼"} {Math.abs(weekMove)} pos
+                </div>
+              ) : (
+                <div style={{
+                  display: "inline-block", fontSize: 10, fontWeight: 700, padding: "1px 5px", borderRadius: 3,
+                  background: "rgba(148,163,184,0.12)", color: "#94a3b8",
+                }}>0 pos</div>
+              )}
+            </div>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, transform: "rotate(-90deg)" }}>
+              <path d="M6 9l6 6 6-6" stroke={reaper ? C.dangerText : C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+        </div>
+      );
+    }
+
+    function SweepsTab({ ranked, badges, hist, weekMove, outcomes, displayRanks, onOpenPlayer }) {
+      return (
+        <div style={{ padding: "0 14px" }}>
+          {ranked.map((p, i) => (
+            <PlayerRow key={p.name} p={p} rank={displayRanks[i]} badges={badges[p.name] || []}
+              hist={hist[p.name] || []} weekMove={weekMove[p.name] || 0} outcomes={outcomes}
+              onOpen={() => onOpenPlayer(p.name)} />
+          ))}
+        </div>
+      );
+    }
+
+    // ── HomeMatchRow — WC HomeMatchRow, player-first (owner bold, club as
+    //    context beneath), crest per side, "+N pts" chips ───────────────────
+    function HomeMatchRow({ m, matchPtsById, onTeamClick, isLast, banners = false }) {
+      const fin = m.status === "FINISHED";
+      const live = m.status === "IN_PLAY" || m.status === "PAUSED";
+      const hs = (m.score && m.score.fullTime && m.score.fullTime.home) ?? 0;
+      const as_ = (m.score && m.score.fullTime && m.score.fullTime.away) ?? 0;
+      const pts = matchPtsById[m.id];
+      const Side = ({ t, right, earned }) => {
+        const o = typeof leagueOwnerOfTeamId === "function" ? leagueOwnerOfTeamId(t.id) : null;
+        const known = typeof LEAGUE_TEAMS !== "undefined" && LEAGUE_TEAMS[t.id];
+        const clubName = known ? known.name : (t.shortName || "TBD");
+        return (
+          <div onClick={onTeamClick && known ? () => onTeamClick(t.id) : undefined}
+            style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, cursor: onTeamClick && known ? "pointer" : "default", minWidth: 0, flexDirection: right ? "row-reverse" : "row" }}>
+            <Crest teamId={t.id} size={20} />
+            <div style={{ minWidth: 0, textAlign: right ? "right" : "left" }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: o ? C.text : C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o ? o.name : clubName}</div>
+              {o && <div style={{ fontSize: 10, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{clubName}</div>}
+              {earned > 0 && <div style={{ fontSize: 10, fontWeight: 800, color: C.accent, marginTop: 1 }}>+{earned}pts</div>}
+            </div>
+          </div>
+        );
+      };
+      return (
+        <div style={{ padding: "10px 14px", borderBottom: isLast ? "none" : `1px solid ${C.border}` }}>
+          {banners && (
+            <div style={{ display: "flex", alignItems: "center", marginBottom: 7 }}>
+              <span style={{ fontSize: 9, color: live ? C.red : C.dim, fontWeight: 700, letterSpacing: "0.08em", flex: 1, textTransform: "uppercase" }}>
+                {live ? "⚡ LIVE" : compLabel(m.competition ? m.competition.code : "")}
+              </span>
+              <span style={{ fontSize: 9, color: C.muted, flex: 1, textAlign: "right" }}>{fmtDay(m.utcDate)}</span>
+            </div>
+          )}
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <Side t={m.homeTeam} right earned={pts ? pts.home : 0} />
+            <div style={{ textAlign: "center", flexShrink: 0, minWidth: 44 }}>
+              {fin || live
+                ? <span style={{ fontSize: 15, fontWeight: 800, color: live ? C.red : C.text, letterSpacing: 1 }}>{hs}–{as_}</span>
+                : <div>
+                    <div style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>vs</div>
+                    <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>{fmtDay(m.utcDate)} {fmtTime(m.utcDate)}</div>
+                  </div>}
+            </div>
+            <Side t={m.awayTeam} earned={pts ? pts.away : 0} />
+          </div>
+        </div>
+      );
+    }
+
+    // ── HOME — dashboard mirroring the WC HomeTab section by section, on
+    //    the league's 7-day rhythm instead of the WC's rolling 24h ──────────
+    function HomeTab({ matches, ranked, badges, weekWindow, matchPtsById, hist, outcomes, anchorIso, setTab, openPlayerModal, openTeamModal }) {
+      const real = ranked.filter(p => !p.grimReaper);
+      const newAccolades = useMemo(
+        () => (typeof computeNewLeagueBadges === "function" ? computeNewLeagueBadges(badges, matches, anchorIso) : []),
+        [badges, matches, anchorIso]
+      );
+      const cutoff = new Date(new Date(anchorIso).getTime() - 7 * 24 * 3600 * 1000).toISOString();
+      const recentResults = matches
+        .filter(m => m.status === "FINISHED" && m.utcDate >= cutoff && m.utcDate <= anchorIso)
+        .sort((a, b) => b.utcDate.localeCompare(a.utcDate))
+        .slice(0, 8);
+      const risers = real.filter(p => (weekWindow[p.name] || {}).move > 0)
+        .sort((a, b) => weekWindow[b.name].move - weekWindow[a.name].move).slice(0, 5);
+      const fallers = real.filter(p => (weekWindow[p.name] || {}).move < 0)
+        .sort((a, b) => weekWindow[a.name].move - weekWindow[b.name].move).slice(0, 5);
+      const topThree = real.slice(0, 3);
+      const upNext = matches
+        .filter(m => (m.status === "SCHEDULED" || m.status === "TIMED") && m.utcDate > anchorIso)
+        .sort((a, b) => a.utcDate.localeCompare(b.utcDate)).slice(0, 6);
+      const rankColors = ["#84cc16", "#94a3b8", "#b45309"];
+
+      const Section = ({ icon, title, onOpen, linkLabel, empty, children }) => (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ ...s.label, display: "flex", alignItems: "center", gap: 6 }}><span>{icon}</span>{title}</div>
+          <div style={s.card}>
+            {empty ? <div style={{ padding: "14px", fontSize: 12, color: C.muted }}>{empty}</div> : children}
+            {onOpen && (
+              <button onClick={onOpen} style={{
+                width: "100%", padding: "10px 14px", background: "transparent", border: "none",
+                borderTop: `1px solid ${C.border}`, color: C.accent, fontSize: 12, fontWeight: 700,
+                cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
+              }}>
+                {linkLabel} <span style={{ fontSize: 14, lineHeight: 1 }}>›</span>
+              </button>
+            )}
+          </div>
+        </div>
+      );
+
+      return (
+        <div style={{ padding: "0 14px" }}>
+          {topThree[0] && (
+            <div onClick={() => openPlayerModal(topThree[0].name)} style={{
+              ...s.card, padding: "18px 16px", marginBottom: 16, textAlign: "center", cursor: "pointer",
+              background: "linear-gradient(135deg, rgba(34,197,94,0.14), rgba(34,197,94,0.02))",
+            }}>
+              <div style={{ fontSize: 11, color: C.dim, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Currently Leading</div>
+              <div style={{ marginBottom: 6 }}>
+                <span style={{ fontSize: 20, fontWeight: 900, color: C.text }}>{topThree[0].name}</span>
+              </div>
+              <div style={{ fontSize: 30, fontWeight: 900, color: C.accent, lineHeight: 1 }}>
+                {topThree[0].total}<span style={{ fontSize: 14, fontWeight: 700, color: C.muted }}> pts</span>
+              </div>
+            </div>
+          )}
+
+          <Section icon="🏆" title="Top of the Table" onOpen={() => { window.scrollTo(0, 0); setTab("sweeps"); }} linkLabel="View the sweepstake"
+            empty={topThree.length === 0 ? "No standings yet" : null}>
+            {topThree.map((p, i) => {
+              const delta = (weekWindow[p.name] || {}).move || 0;
+              return (
+                <div key={p.name} onClick={() => openPlayerModal(p.name)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", cursor: "pointer", borderBottom: i < topThree.length - 1 ? `1px solid ${C.border}` : "none" }}>
+                  <div style={{
+                    width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
+                    background: rankColors[i], display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 12, fontWeight: 800, color: "#080c18",
+                  }}>{i + 1}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: C.text, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 4 }}>{p.name}</div>
+                    <CrestRow teams={p.teams} outcomes={outcomes} baseHeight={15} />
+                  </div>
+                  <Sparkline data={hist[p.name] || []} width={64} height={28} color={p.total < 0 ? C.red : p.total === 0 ? C.neutral : C.accent} />
+                  <div style={{ textAlign: "right", flexShrink: 0, minWidth: 50 }}>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: C.text, lineHeight: 1 }}>{p.total}</div>
+                    <div style={{
+                      display: "inline-block", fontSize: 9, fontWeight: 700, padding: "1px 4px", borderRadius: 3, marginTop: 3,
+                      background: delta === 0 ? "rgba(148,163,184,0.12)" : delta > 0 ? C.posBg : C.negBg,
+                      color: delta === 0 ? "#94a3b8" : delta > 0 ? C.accent : C.red,
+                    }}>{delta === 0 ? "0 pos" : `${delta > 0 ? "▲" : "▼"} ${Math.abs(delta)} pos`}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </Section>
+
+          <Section icon="🌐" title="Recent Results" onOpen={() => { window.scrollTo(0, 0); setTab("scores"); }} linkLabel="View all scores"
+            empty={recentResults.length === 0 ? "No matches in the last 7 days" : null}>
+            {recentResults.map((m, i) => (
+              <HomeMatchRow key={m.id} m={m} matchPtsById={matchPtsById} onTeamClick={openTeamModal} isLast={i === recentResults.length - 1} banners />
+            ))}
+          </Section>
+
+          <Section icon="📊" title="Risers & Fallers" onOpen={() => { window.scrollTo(0, 0); setTab("sweeps"); }} linkLabel="View the sweepstake"
+            empty={risers.length === 0 && fallers.length === 0 ? "No position changes in the last 7 days" : null}>
+            {risers.length > 0 && <div style={{ fontSize: 10, fontWeight: 700, color: C.accent, letterSpacing: "0.06em", padding: "10px 14px 4px" }}>RISERS</div>}
+            {risers.map((p, i) => (
+              <div key={p.name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "6px 14px", borderBottom: (i < risers.length - 1 || fallers.length > 0) ? `1px solid ${C.border}` : "none" }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: C.text, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: C.accent, flexShrink: 0, whiteSpace: "nowrap" }}>
+                  ▲ {weekWindow[p.name].move} place{weekWindow[p.name].move === 1 ? "" : "s"}
+                  {weekWindow[p.name].pts > 0 ? ` (+${weekWindow[p.name].pts}pts)` : ""}
+                </span>
+              </div>
+            ))}
+            {fallers.length > 0 && <div style={{ fontSize: 10, fontWeight: 700, color: C.red, letterSpacing: "0.06em", padding: "10px 14px 4px" }}>FALLERS</div>}
+            {fallers.map((p, i) => (
+              <div key={p.name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "6px 14px", borderBottom: i < fallers.length - 1 ? `1px solid ${C.border}` : "none" }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: C.text, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: C.red, flexShrink: 0, whiteSpace: "nowrap" }}>
+                  ▼ {Math.abs(weekWindow[p.name].move)} place{Math.abs(weekWindow[p.name].move) === 1 ? "" : "s"}
+                </span>
+              </div>
+            ))}
+          </Section>
+
+          <Section icon="🏅" title="New Accolades"
+            empty={newAccolades.length === 0 ? "No new accolades in the last 7 days" : null}>
+            {newAccolades.map((b, i) => (
+              <div key={i} onClick={() => openPlayerModal(b.name)} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 14px", cursor: "pointer", borderBottom: i < newAccolades.length - 1 ? `1px solid ${C.border}` : "none" }}>
+                <span style={{ fontSize: 18, lineHeight: 1.3 }}>{b.icon}</span>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>
+                    {b.name} — <span style={{ color: C.accent }}>{b.label}</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{b.desc}</div>
+                </div>
+              </div>
+            ))}
+          </Section>
+
+          <Section icon="📅" title="Up Next" onOpen={() => { window.scrollTo(0, 0); setTab("scores"); }} linkLabel="View all scores"
+            empty={upNext.length === 0 ? "No upcoming fixtures" : null}>
+            {upNext.map((m, i) => (
+              <HomeMatchRow key={m.id} m={m} matchPtsById={matchPtsById} onTeamClick={openTeamModal} isLast={i === upNext.length - 1} />
+            ))}
+          </Section>
+        </div>
+      );
+    }
+
+    // ── Tables tab ──────────────────────────────────────────────────────────
+    function TablesTab({ matches, tables, outcomes, onTeamClick }) {
+      const [comp, setComp] = useState("PL");
+      const table = tables[comp] || [];
+      const teamName = (id) => {
+        const t = typeof LEAGUE_TEAMS !== "undefined" && LEAGUE_TEAMS[id];
+        if (t) return t.name;
+        const m = matches.find(m => m.homeTeam.id === id || m.awayTeam.id === id);
+        if (!m) return "#" + id;
+        return m.homeTeam.id === id ? (m.homeTeam.shortName || m.homeTeam.tla) : (m.awayTeam.shortName || m.awayTeam.tla);
+      };
+      const owner = (id) => {
+        const o = typeof leagueOwnerOfTeamId === "function" ? leagueOwnerOfTeamId(id) : null;
+        return o ? o.name : null;
+      };
+      const th = { fontSize: 10, color: C.muted, fontWeight: 600, textAlign: "right", padding: "2px 4px" };
+      const td = { fontSize: 12, textAlign: "right", padding: "5px 4px", whiteSpace: "nowrap" };
+      return (
+        <div style={{ padding: "0 14px" }}>
+          <div className="tab-seg" style={{ marginBottom: 10 }}>
+            {["PL", "ELC"].map(c => (
+              <button key={c} onClick={() => setComp(c)} style={{
+                background: comp === c ? C.accent : C.surface,
+                color: comp === c ? C.bg : C.dim, fontWeight: 700, fontSize: 13,
+              }}>{compLabel(c)}</button>
+            ))}
+          </div>
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "8px 10px", overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead><tr>
+                <th style={{ ...th, textAlign: "left" }} colSpan={2}>Team</th>
+                <th style={th}>P</th><th style={th}>W</th><th style={th}>D</th><th style={th}>L</th>
+                <th style={th}>GD</th><th style={th}>Pts</th>
+              </tr></thead>
+              <tbody>
+                {table.map((r, i) => {
+                  const o = outcomes[r.teamId];
+                  const own = owner(r.teamId);
+                  const known = typeof LEAGUE_TEAMS !== "undefined" && LEAGUE_TEAMS[r.teamId];
+                  return (
+                    <tr key={r.teamId} onClick={onTeamClick && known ? () => onTeamClick(r.teamId) : undefined}
+                      style={{ borderTop: `1px solid ${C.border}`, cursor: onTeamClick && known ? "pointer" : "default" }}>
+                      <td style={{ ...td, textAlign: "left", color: C.muted, width: 18 }}>{i + 1}</td>
+                      <td style={{ ...td, textAlign: "left" }}>
+                        {/* Player-first: the owner IS the row; the club is context */}
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          <Crest teamId={r.teamId} size={16} />
+                          {own
+                            ? <span><span style={{ fontWeight: 700 }}>{own}</span> <span style={{ fontSize: 10, color: C.muted }}>{teamName(r.teamId)}</span></span>
+                            : <span style={{ fontSize: 11, color: C.muted }}>{teamName(r.teamId)}</span>}
+                          {o && outcomeChip(o.outcome)}
+                        </span>
+                      </td>
+                      <td style={td}>{r.played}</td><td style={td}>{r.w}</td>
+                      <td style={td}>{r.d}</td><td style={td}>{r.l}</td>
+                      <td style={td}>{r.gd > 0 ? "+" + r.gd : r.gd}</td>
+                      <td style={{ ...td, fontWeight: 800 }}>{r.pts}</td>
+                    </tr>
+                  );
+                })}
+                {table.length === 0 && <tr><td style={{ ...td, textAlign: "left" }} colSpan={8}>No matches yet.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+
+    // ── Scores tab ──────────────────────────────────────────────────────────
+    function ScoresTab({ matches, matchPtsById, anchorIso, onTeamClick }) {
+      const days = useMemo(() => {
+        const byDay = {};
+        matches.forEach(m => {
+          const day = m.utcDate.slice(0, 10);
+          (byDay[day] = byDay[day] || []).push(m);
+        });
+        const anchor = anchorIso.slice(0, 10);
+        return Object.keys(byDay)
+          .sort((a, b) => Math.abs(new Date(a) - new Date(anchor)) - Math.abs(new Date(b) - new Date(anchor)))
+          .slice(0, 10)
+          .sort((a, b) => b.localeCompare(a))
+          .map(d => ({ day: d, games: byDay[d].sort((x, y) => x.utcDate.localeCompare(y.utcDate)) }));
+      }, [matches, anchorIso]);
+      return (
+        <div style={{ padding: "0 14px" }}>
+          {days.map(({ day, games }) => (
+            <div key={day} style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: C.dim, margin: "0 0 6px 2px" }}>{fmtDay(day)}</div>
+              <div style={s.card}>
+                {games.map((m, i) => (
+                  <HomeMatchRow key={m.id} m={m} matchPtsById={matchPtsById} onTeamClick={onTeamClick} isLast={i === games.length - 1} banners />
+                ))}
+              </div>
+            </div>
+          ))}
+          {days.length === 0 && <div style={{ color: C.muted, fontSize: 13, padding: 20, textAlign: "center" }}>No fixtures loaded yet.</div>}
+        </div>
+      );
+    }
+
+    // ── Rules content (shown in the WC-style pop-over card via More menu) ──
+    function RulesContent() {
+      const teams = typeof LEAGUE_TEAMS !== "undefined" ? Object.values(LEAGUE_TEAMS) : [];
+      const matchPts = typeof LEAGUE_MATCH_PTS !== "undefined" ? LEAGUE_MATCH_PTS : null;
+      const bonus = typeof LEAGUE_BONUS !== "undefined" ? LEAGUE_BONUS : null;
+      const section = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 12, marginBottom: 12 };
+      const h = { fontSize: 14, fontWeight: 800, marginBottom: 8 };
+      const th = { fontSize: 10, color: C.muted, textAlign: "right", padding: "2px 6px" };
+      const td = { fontSize: 12, textAlign: "right", padding: "3px 6px" };
+      const potTable = (league, label) => (
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: C.dim, marginBottom: 4 }}>{label}</div>
+          {[1, 2, 3, 4].map(pot => (
+            <div key={pot} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 3, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 10, fontWeight: 800, color: POT_COLORS[pot], width: 24 }}>P{pot}</span>
+              {teams.filter(t => t.league === league && t.pot === pot).map(t => (
+                <span key={t.id} title={t.name}><Crest teamId={t.id} size={18} /></span>
+              ))}
+            </div>
+          ))}
+        </div>
+      );
+      return (
+        <div>
+          <div style={section}>
+            <div style={h}>How it works</div>
+            <div style={{ fontSize: 12, color: C.dim, lineHeight: 1.5 }}>
+              Every player owns an equal number of Premier League and Championship
+              teams. Wins and draws earn points by pot, and each team banks one
+              flat bonus for the best thing it achieves all season — title, top 4,
+              promotion, playoffs — or a penalty for relegation, awarded the moment
+              it's mathematically certain. Values are calibrated so no pot is a
+              better deal than any other: underdogs pay more per win, favourites
+              chase the big season bonuses.
+            </div>
+          </div>
+          <div style={section}>
+            <div style={h}>The pots</div>
+            {potTable("PL", "Premier League")}
+            {potTable("ELC", "Championship")}
+          </div>
+          {matchPts && (
+            <div style={section}>
+              <div style={h}>Match points</div>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead><tr><th style={{ ...th, textAlign: "left" }}></th>{[1, 2, 3, 4].map(p => <th key={p} style={{ ...th, color: POT_COLORS[p] }}>P{p}</th>)}</tr></thead>
+                <tbody>
+                  {["PL", "ELC"].map(lg => ["win", "draw"].map(kind => (
+                    <tr key={lg + kind} style={{ borderTop: `1px solid ${C.border}` }}>
+                      <td style={{ ...td, textAlign: "left", color: C.dim }}>{lg} {kind}</td>
+                      {matchPts[lg][kind].map((v, i) => <td key={i} style={td}>{v}</td>)}
+                    </tr>
+                  )))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {bonus && ["PL", "ELC"].map(lg => (
+            <div key={lg} style={section}>
+              <div style={h}>{compLabel(lg)} season bonuses</div>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead><tr><th style={{ ...th, textAlign: "left" }}></th>{[1, 2, 3, 4].map(p => <th key={p} style={{ ...th, color: POT_COLORS[p] }}>P{p}</th>)}</tr></thead>
+                <tbody>
+                  {Object.entries(bonus[lg]).map(([k, vals]) => (
+                    <tr key={k} style={{ borderTop: `1px solid ${C.border}` }}>
+                      <td style={{ ...td, textAlign: "left", color: C.dim }}>{(typeof LEAGUE_OUTCOME_LABEL !== "undefined" && LEAGUE_OUTCOME_LABEL[k]) || k}</td>
+                      {vals.map((v, i) => <td key={i} style={{ ...td, color: v < 0 ? C.dangerText : C.text }}>{v}</td>)}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+          <div style={section}>
+            <div style={h}>💀 The Grim Reaper</div>
+            <div style={{ fontSize: 12, color: C.dim, lineHeight: 1.5 }}>
+              Owns no teams. Earns the owner's penalty as a bounty whenever a Pot
+              1/2 team is relegated, plus 2pts for every 0-0 involving an owned
+              team. Calibrated to lurk mid-table — never to win.
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ── More menu — WC-style bottom sheet menu ──────────────────────────────
+    function MoreMenu({ replayOn, onToggleReplay, onViewRules, onSwitchGroup, onClose }) {
+      const row = { display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "14px 16px", background: "transparent", border: "none", borderBottom: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 600, cursor: "pointer", textAlign: "left" };
+      return (
+        <div className="detail-backdrop" onClick={onClose} style={{ zIndex: 40 }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            width: "100%", maxWidth: 480, background: C.bg, border: `1px solid ${C.border}`,
+            borderRadius: "20px 20px 0 0", overflow: "hidden", boxShadow: "0 24px 64px rgba(0,0,0,0.55)",
+            paddingBottom: "env(safe-area-inset-bottom)",
+          }}>
+            <div className="sheet-handle"><span></span></div>
+            <button style={row} onClick={() => { onClose(); onViewRules(); }}>
+              <span style={{ fontSize: 18 }}>📖</span> Rules &amp; Info
+            </button>
+            <button style={row} onClick={() => { onClose(); onToggleReplay(); }}>
+              <span style={{ fontSize: 18 }}>🔁</span> Replay 2025-26 season
+              <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, color: replayOn ? C.accent : C.muted }}>{replayOn ? "ON" : "OFF"}</span>
+            </button>
+            <button style={{ ...row, borderBottom: "none" }} onClick={() => { onClose(); onSwitchGroup(); }}>
+              <span style={{ fontSize: 18 }}>👥</span> Switch group
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // ── Bottom nav — same fixed pill-highlight bar as the WC app ───────────
+    const navIcons = {
+      home: <path d="M3 10.5L12 3l9 7.5V21a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1v-10.5z" strokeWidth="1.8" strokeLinejoin="round" />,
+      sweeps: <><path d="M8 21h8M12 17v4M6 3h12v5a6 6 0 0 1-12 0V3z" strokeWidth="1.8" strokeLinejoin="round" /><path d="M6 5H3v2a4 4 0 0 0 3 3.87M18 5h3v2a4 4 0 0 1-3 3.87" strokeWidth="1.8" strokeLinejoin="round" /></>,
+      tables: <><rect x="3" y="4" width="18" height="16" rx="2" strokeWidth="1.8" /><path d="M3 9h18M9 9v11" strokeWidth="1.8" /></>,
+      scores: <><rect x="3" y="5" width="18" height="16" rx="2" strokeWidth="1.8" /><path d="M8 3v4M16 3v4M3 11h18" strokeWidth="1.8" strokeLinecap="round" /></>,
+      more: <><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></>,
+    };
+    function BottomNav({ tab, showMore, onNav, onMore }) {
+      const items = [
+        ["home", "Home"], ["sweeps", "Sweeps"], ["tables", "Tables"], ["scores", "Scores"], ["more", "More"],
+      ];
+      return (
+        <div style={{
+          position: "fixed", bottom: 0, left: 0, right: 0,
+          background: C.bg, borderTop: `1px solid ${C.border}`,
+          display: "flex", zIndex: 30,
+          paddingBottom: "env(safe-area-inset-bottom)",
+          maxWidth: 480, margin: "0 auto",
+        }}>
+          {items.map(([id, label]) => {
+            const active = id === "more" ? showMore : (tab === id && !showMore);
+            const fill = id === "more";
+            return (
+              <button key={id} onClick={() => id === "more" ? onMore() : onNav(id)}
+                style={{ flex: 1, padding: "10px 4px 8px", background: "transparent", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, WebkitTapHighlightColor: "transparent" }}>
+                <div style={{ padding: "6px 16px", borderRadius: 20, background: active ? C.accent : "transparent", display: "flex" }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill={fill ? (active ? C.bg : C.muted) : "none"} stroke={fill ? "none" : (active ? C.bg : C.muted)}>
+                    {navIcons[id]}
+                  </svg>
+                </div>
+                <span style={{ fontSize: 10, fontWeight: 700, color: active ? C.accent : C.muted }}>{label}</span>
+              </button>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // ── header + replay scrubber ────────────────────────────────────────────
+    function Header({ group, lastUpdated, refreshing, onRefresh, replay, onReplayDate }) {
+      const replayPct = replay.on
+        ? (new Date(replay.date) - new Date(REPLAY_START)) / (new Date(REPLAY_END) - new Date(REPLAY_START)) * 100
+        : 0;
+      return (
+        <div style={{ padding: "14px 14px 6px" }}>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+            <div>
+              <div style={{ fontSize: 20, fontWeight: 800 }}>League Sweeps <span style={{ color: C.accent }}>26/27</span></div>
+              <div style={{ fontSize: 12, color: C.muted }}>{group.label}</div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <button onClick={onRefresh} disabled={replay.on} style={{
+                background: C.card, color: replay.on ? C.muted : C.text, border: `1px solid ${C.border}`,
+                borderRadius: 8, padding: "6px 10px", cursor: replay.on ? "default" : "pointer", fontSize: 12,
+              }}>{refreshing ? "…" : "↻ refresh"}</button>
+              <div style={{ fontSize: 10, color: C.muted, marginTop: 4 }}>
+                {replay.on ? "replay mode" : lastUpdated ? `updated ${fmtTime(lastUpdated.toISOString())}` : ""}
+              </div>
+            </div>
+          </div>
+          {replay.on && (
+            <div style={{ marginTop: 10, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 10px" }}>
+              {replay.loading ? (
+                <div style={{ fontSize: 11, color: C.muted }}>Loading replay data…</div>
+              ) : (
+                <>
+                  <input type="range" min={0} max={1000} value={replayPct * 10}
+                    onChange={e => {
+                      const t = new Date(REPLAY_START).getTime() + (e.target.value / 1000) * (new Date(REPLAY_END) - new Date(REPLAY_START));
+                      onReplayDate(new Date(t).toISOString());
+                    }} />
+                  <div style={{ fontSize: 11, color: C.gold, textAlign: "center" }}>🔁 Replaying 2025-26 · as of {fmtDay(replay.date)}</div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ── app shell ───────────────────────────────────────────────────────────
+    function App({ group, onSwitchGroup }) {
+      const [tab, setTab] = useState("home");
+      const [liveMatches, setLiveMatches] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [error, setError] = useState(null);
+      const [lastUpdated, setLastUpdated] = useState(null);
+      const [refreshing, setRefreshing] = useState(false);
+      const [replay, setReplay] = useState({ on: false, loading: false, date: REPLAY_END });
+      const [selectedPlayer, setSelectedPlayer] = useState(null);
+      const [selectedTeam, setSelectedTeam] = useState(null);
+      const [showMore, setShowMore] = useState(false);
+      const [showRules, setShowRules] = useState(false);
+      const matchesRef = useRef([]);
+      const replayRef = useRef(replay);
+      replayRef.current = replay;
+      const tabRef = useRef(tab);
+      tabRef.current = tab;
+
+      const fetchMatches = useCallback(async (isManual) => {
+        if (replayRef.current.on) return;
+        if (isManual) setRefreshing(true);
+        try {
+          const results = await Promise.all(["PL", "ELC"].map(async code => {
+            const res = await fetch(`${LEAGUE_WORKER_URL}/competitions/${code}/matches?season=${LEAGUE_SEASON}`);
+            if (!res.ok) throw new Error(`API returned ${res.status} for ${code}`);
+            return (await res.json()).matches || [];
+          }));
+          // Merge with existing state (same partial-response guard as the WC
+          // app): a FINISHED match we've seen is never silently dropped.
+          const merged = {};
+          matchesRef.current.forEach(m => { merged[m.id] = m; });
+          results.flat().forEach(m => { merged[m.id] = m; });
+          matchesRef.current = Object.values(merged);
+          setLiveMatches(matchesRef.current);
+          setLastUpdated(new Date());
+          setError(null);
+        } catch (e) {
+          setError(e.message);
+        } finally {
+          setLoading(false);
+          setRefreshing(false);
+        }
+      }, []);
+
+      useEffect(() => {
+        fetchMatches();
+        const id = setInterval(() => fetchMatches(), 60_000);
+        return () => clearInterval(id);
+      }, [fetchMatches]);
+
+      // Replay data loads on demand via <script> injection (works on file://
+      // where fetch()ing a local JSON would not).
+      const toggleReplay = () => {
+        if (replay.on) { setReplay({ on: false, loading: false, date: REPLAY_END }); setLoading(matchesRef.current.length === 0); return; }
+        if (typeof LEAGUE_REPLAY_DATA !== "undefined") {
+          setReplay({ on: true, loading: false, date: REPLAY_END });
+          return;
+        }
+        setReplay({ on: true, loading: true, date: REPLAY_END });
+        const sc = document.createElement("script");
+        sc.src = "league-data-2025.js";
+        sc.onload = () => setReplay(r => ({ ...r, loading: false }));
+        sc.onerror = () => setReplay({ on: false, loading: false, date: REPLAY_END });
+        document.body.appendChild(sc);
+      };
+
+      const matches = useMemo(() => {
+        if (replay.on && !replay.loading && typeof LEAGUE_REPLAY_DATA !== "undefined" && typeof leagueMatchesUpTo === "function") {
+          return leagueMatchesUpTo(LEAGUE_REPLAY_DATA.matches, replay.date);
+        }
+        return liveMatches;
+      }, [replay, liveMatches]);
+
+      const anchorIso = replay.on ? replay.date : (lastUpdated ? lastUpdated.toISOString() : new Date().toISOString());
+
+      // ── shared derived data (guarded per the coupling pattern) ──
+      const ranked = useMemo(() => (typeof scoreLeaguePlayers === "function" ? scoreLeaguePlayers(matches) : []), [matches]);
+      const outcomes = useMemo(() => (typeof deriveSeasonOutcomes === "function" ? deriveSeasonOutcomes(matches) : {}), [matches]);
+      const badges = useMemo(() => (typeof computeLeagueBadges === "function" ? computeLeagueBadges(ranked, matches, anchorIso) : {}), [ranked, matches, anchorIso]);
+      const hist = useMemo(() => (typeof deriveLeagueHistory === "function" ? deriveLeagueHistory(matches).history : {}), [matches]);
+      const weekWindow = useMemo(() => (typeof lgWeekWindow === "function" ? lgWeekWindow(ranked, matches, anchorIso) : {}), [ranked, matches, anchorIso]);
+      const matchPtsById = useMemo(() => (typeof deriveLeagueMatchPts === "function" ? deriveLeagueMatchPts(matches) : {}), [matches]);
+      const tables = useMemo(() => (typeof deriveLeagueTable === "function"
+        ? { PL: deriveLeagueTable(matches, "PL"), ELC: deriveLeagueTable(matches, "ELC") } : {}), [matches]);
+      const weekMove = useMemo(() => {
+        const out = {};
+        Object.keys(weekWindow).forEach(n => { out[n] = weekWindow[n].move; });
+        return out;
+      }, [weekWindow]);
+      const displayRanks = useMemo(() => {
+        const out = [];
+        ranked.forEach((p, i) => {
+          out[i] = (i > 0 && ranked[i - 1].total === p.total && ranked[i - 1].tiebreak === p.tiebreak) ? out[i - 1] : i + 1;
+        });
+        return out;
+      }, [ranked]);
+
+      // ── modal open/close with browser-history integration (device back
+      //    button closes the card, same as the WC app) ──
+      const openPlayerModal = (name) => {
+        window.history.pushState({ lgModal: "player", name }, "");
+        setSelectedTeam(null); setSelectedPlayer(name);
+      };
+      const openTeamModal = (teamId) => {
+        window.history.pushState({ lgModal: "team", teamId }, "");
+        setSelectedPlayer(null); setSelectedTeam(teamId);
+      };
+      const switchToTeam = (teamId) => {
+        window.history.replaceState({ lgModal: "team", teamId }, "");
+        setSelectedPlayer(null); setSelectedTeam(teamId);
+      };
+      const switchToPlayer = (name) => {
+        window.history.replaceState({ lgModal: "player", name }, "");
+        setSelectedTeam(null); setSelectedPlayer(name);
+      };
+      const closeCard = () => {
+        const st = window.history.state;
+        if (st && st.lgModal) window.history.back();
+        else { setSelectedPlayer(null); setSelectedTeam(null); }
+      };
+      useEffect(() => {
+        const onPop = (e) => {
+          const st = e.state || {};
+          if (st.lgModal === "player") { setSelectedTeam(null); setSelectedPlayer(st.name); }
+          else if (st.lgModal === "team") { setSelectedPlayer(null); setSelectedTeam(st.teamId); }
+          else { setSelectedPlayer(null); setSelectedTeam(null); setShowMore(false); setShowRules(false); }
+        };
+        const onKey = (e) => {
+          if (e.key !== "Escape") return;
+          if (selectedPlayer || selectedTeam) closeCard();
+          else if (showRules) setShowRules(false);
+          else if (showMore) setShowMore(false);
+        };
+        window.addEventListener("popstate", onPop);
+        window.addEventListener("keydown", onKey);
+        return () => { window.removeEventListener("popstate", onPop); window.removeEventListener("keydown", onKey); };
+      });
+
+      const navTo = (id) => {
+        window.scrollTo(0, 0);
+        setShowMore(false); setShowRules(false);
+        setSelectedPlayer(null); setSelectedTeam(null);
+        setTab(id);
+      };
+
+      return (
+        <div style={{ paddingBottom: 84 }}>
+          <Header group={group} lastUpdated={lastUpdated} refreshing={refreshing}
+            onRefresh={() => fetchMatches(true)} replay={replay}
+            onReplayDate={(d) => setReplay(r => ({ ...r, date: d }))} />
+          {error && !replay.on && (
+            <div style={{ margin: "6px 14px 10px", padding: 10, background: "#2a1616", border: "1px solid #5b2121", borderRadius: 10, color: C.dangerTextBright, fontSize: 12 }}>
+              Couldn't reach the match feed ({error}) — showing last known data.
+            </div>
+          )}
+          <div style={{ height: 8 }} />
+          {loading && !replay.on
+            ? <div style={{ color: C.muted, textAlign: "center", padding: 40 }}>Loading fixtures…</div>
+            : tab === "home" ? <HomeTab matches={matches} ranked={ranked} badges={badges} weekWindow={weekWindow} matchPtsById={matchPtsById} hist={hist} outcomes={outcomes} anchorIso={anchorIso} setTab={navTo} openPlayerModal={openPlayerModal} openTeamModal={openTeamModal} />
+            : tab === "sweeps" ? <SweepsTab ranked={ranked} badges={badges} hist={hist} weekMove={weekMove} outcomes={outcomes} displayRanks={displayRanks} onOpenPlayer={openPlayerModal} />
+            : tab === "tables" ? <TablesTab matches={matches} tables={tables} outcomes={outcomes} onTeamClick={openTeamModal} />
+            : <ScoresTab matches={matches} matchPtsById={matchPtsById} anchorIso={anchorIso} onTeamClick={openTeamModal} />}
+
+          {(selectedPlayer || selectedTeam) && (
+            <SnapSheet onClose={closeCard}>
+              {(bodyRef) => {
+                if (selectedTeam) {
+                  return <TeamCardContent key={selectedTeam} bodyRef={bodyRef} teamId={selectedTeam} matches={matches} ranked={ranked} matchPtsById={matchPtsById} outcomes={outcomes} tables={tables} onTeamClick={switchToTeam} onOwnerClick={switchToPlayer} onClose={closeCard} />;
+                }
+                const idx = ranked.findIndex(x => x.name === selectedPlayer);
+                const p = ranked[idx];
+                if (!p) return null;
+                return <PlayerCardContent key={selectedPlayer} bodyRef={bodyRef} player={p} displayRank={displayRanks[idx]} badges={badges[selectedPlayer] || []} matches={matches} matchPtsById={matchPtsById} hist={hist[selectedPlayer] || []} week={weekWindow[selectedPlayer]} outcomes={outcomes} onTeamClick={switchToTeam} onClose={closeCard} />;
+              }}
+            </SnapSheet>
+          )}
+
+          {showRules && (
+            <div className="info-backdrop" onClick={() => setShowRules(false)}>
+              <div className="info-card" onClick={(e) => e.stopPropagation()} style={{ background: C.bg, display: "flex", flexDirection: "column", border: `1px solid ${C.border}`, boxShadow: "0 24px 64px rgba(0,0,0,0.55)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: C.text }}>Rules &amp; Info</div>
+                  <button onClick={() => setShowRules(false)} aria-label="Close" style={{ background: "transparent", border: "none", color: C.muted, fontSize: 22, cursor: "pointer", lineHeight: 1 }}>✕</button>
+                </div>
+                <div style={{ flex: 1, overflowY: "auto", padding: "16px 12px 24px" }}>
+                  <RulesContent />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showMore && (
+            <MoreMenu replayOn={replay.on} onToggleReplay={toggleReplay}
+              onViewRules={() => setShowRules(true)} onSwitchGroup={onSwitchGroup}
+              onClose={() => setShowMore(false)} />
+          )}
+
+          <BottomNav tab={tab} showMore={showMore} onNav={navTo} onMore={() => setShowMore(true)} />
+        </div>
+      );
+    }
+
+    // ── group gate (same pattern as the WC app: reassign the roster global
+    //    BEFORE App's first render, so every scoring call reads it live) ────
+    function GroupGate() {
+      const [groupKey, setGroupKey] = useState(() => {
+        const k = localStorage.getItem(GROUP_STORAGE_KEY);
+        return (k && typeof LEAGUE_GROUPS !== "undefined" && LEAGUE_GROUPS[k]) ? k : null;
+      });
+      const [input, setInput] = useState("");
+      const [bad, setBad] = useState(false);
+
+      if (groupKey && typeof LEAGUE_GROUPS !== "undefined" && LEAGUE_GROUPS[groupKey]) {
+        LEAGUE_PLAYERS = LEAGUE_GROUPS[groupKey].players;
+        return <App group={LEAGUE_GROUPS[groupKey]} onSwitchGroup={() => {
+          localStorage.removeItem(GROUP_STORAGE_KEY);
+          setGroupKey(null);
+        }} />;
+      }
+      const submit = (e) => {
+        e.preventDefault();
+        const k = typeof leagueMatchGroupCode === "function" ? leagueMatchGroupCode(input) : null;
+        if (k) { localStorage.setItem(GROUP_STORAGE_KEY, k); setGroupKey(k); }
+        else setBad(true);
+      };
+      return (
+        <div style={{ padding: "80px 24px", textAlign: "center" }}>
+          <div style={{ fontSize: 24, fontWeight: 800, marginBottom: 6 }}>League Sweeps <span style={{ color: C.accent }}>26/27</span></div>
+          <div style={{ color: C.muted, fontSize: 13, marginBottom: 24 }}>Enter your group code to see your sweepstake.</div>
+          <form onSubmit={submit}>
+            <input value={input} onChange={e => { setInput(e.target.value); setBad(false); }}
+              placeholder="GROUP CODE" autoFocus
+              style={{
+                width: "100%", maxWidth: 280, padding: "12px 14px", fontSize: 16,
+                background: C.surface, color: C.text, border: `1px solid ${bad ? C.red : C.border}`,
+                borderRadius: 10, textAlign: "center", textTransform: "uppercase", outline: "none",
+              }} />
+            <div style={{ marginTop: 12 }}>
+              <button type="submit" style={{
+                background: C.accent, color: C.bg, fontWeight: 800, fontSize: 14,
+                border: "none", borderRadius: 10, padding: "10px 28px", cursor: "pointer",
+              }}>Enter</button>
+            </div>
+            {bad && <div style={{ color: C.dangerTextBright, fontSize: 12, marginTop: 10 }}>Unknown code — check with whoever runs your group.</div>}
+          </form>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<GroupGate />);
+  </script>
+</body>
+</html>

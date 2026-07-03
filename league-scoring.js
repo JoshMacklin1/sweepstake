@@ -171,31 +171,32 @@ var LEAGUE_OUTCOME_LABEL = {
 // the Championship's 46 games vs the PL's 38 would otherwise skew match
 // points toward Championship-heavy rosters.
 //
-// TEST group: 10 players × 4 teams (2 PL + 2 ELC), pot-balanced so everyone
-// holds exactly one team from each pot (a P1+P4 pair in one league, P2+P3 in
-// the other), snake-paired best-with-worst within the composite ranking.
-// Unowned: Middlesbrough, Preston, Derby, Portsmouth (one per ELC pot).
+// RODENTS: same crew as the WC app's Rodents group (8 players, Josh as the
+// Grim Reaper). 4 teams each (2 PL + 2 ELC), pot-balanced so everyone holds
+// exactly one team from each pot (a P1+P4 pair in one league, P2+P3 in the
+// other), snake-paired best-with-worst within the composite ranking. This is
+// a PLACEHOLDER draw for testing — the real draw happens before kickoff.
+// Unowned: PL Chelsea/Sunderland/Brentford/Fulham; ELC Millwall/Boro/
+// Wrexham/Portsmouth/West Brom/Preston/Watford/Derby.
 // ─────────────────────────────────────────────────────────────────────────────
 var LEAGUE_GROUPS = {
-  TEST: {
-    code: "TEST", label: "Test League",
+  RODENTS: {
+    code: "RODENTS", label: "Rodents",
     players: [
-      { name: "Ali",  teamIds: [57, 322, 356, 332] },   // ARS HUL | SHU BIR
-      { name: "Ben",  teamIds: [65, 1076, 68, 70] },    // MCI COV | NOR STK
-      { name: "Cara", teamIds: [64, 349, 387, 59] },    // LIV IPS | BRC BLA
-      { name: "Dan",  teamIds: [58, 341, 72, 69] },     // AVL LEE | SWA QPR
-      { name: "Ella", teamIds: [61, 71, 74, 346] },     // CHE SUN | WBA WAT
-      { name: "Finn", teamIds: [66, 73, 563, 1126] },   // MUN TOT | WHU LIN
-      { name: "Gus",  teamIds: [1044, 351, 76, 60] },   // BOU NOT | WOL BOL
-      { name: "Hana", teamIds: [397, 354, 328, 348] },  // BHA CRY | BUR CHA
-      { name: "Iris", teamIds: [67, 62, 340, 715] },    // NEW EVE | SOU CAR
-      { name: "Jack", teamIds: [402, 63, 384, 404] },   // BRE FUL | MIL WRE
-      { name: "Grim Reaper", teamIds: [], grimReaper: true },
+      { name: "George",    teamIds: [57, 322, 356, 332] },   // ARS HUL | SHU BIR
+      { name: "Christoph", teamIds: [65, 1076, 68, 70] },    // MCI COV | NOR STK
+      { name: "Sam",       teamIds: [64, 349, 387, 59] },    // LIV IPS | BRC BLA
+      { name: "Toby",      teamIds: [58, 341, 72, 69] },     // AVL LEE | SWA QPR
+      { name: "Dollie",    teamIds: [66, 73, 563, 1126] },   // MUN TOT | WHU LIN
+      { name: "Elliott",   teamIds: [1044, 351, 76, 60] },   // BOU NOT | WOL BOL
+      { name: "Paul",      teamIds: [397, 354, 328, 348] },  // BHA CRY | BUR CHA
+      { name: "Auz",       teamIds: [67, 62, 340, 715] },    // NEW EVE | SOU CAR
+      { name: "Josh", teamIds: [], grimReaper: true },
     ],
   },
 };
 
-var LEAGUE_PLAYERS = LEAGUE_GROUPS.TEST.players; // reassigned at runtime by the group gate
+var LEAGUE_PLAYERS = LEAGUE_GROUPS.RODENTS.players; // reassigned at runtime by the group gate
 
 function leagueMatchGroupCode(input) {
   var q = String(input || "").trim().toUpperCase();
@@ -481,4 +482,261 @@ function scoreLeaguePlayers(matches) {
     return b.tiebreak - a.tiebreak;
   });
   return ranked;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// deriveLeagueHistory(matches) → { frames: [YYYY-MM-DD], history: { name: [totals] } }
+//
+// Cumulative player totals at the end of every day that had at least one
+// settled match — the league equivalent of the WC app's per-match sparkline
+// history (per-day, because a league season has ~950 matches across ~150
+// playing days; per-match frames would be noise). Includes season bonuses
+// as they clinch, so the final frame always equals the live total.
+// ─────────────────────────────────────────────────────────────────────────────
+function deriveLeagueHistory(matches) {
+  // Single incremental pass (match points and reaper droughts accumulate
+  // per game; only the season-outcome step rescans, per frame) — the naive
+  // score-everything-per-frame version took >1s for a full season, which is
+  // too slow for something recomputed on every fetch. Invariant, checked by
+  // the test harness: the final frame must equal scoreLeaguePlayers' totals.
+  var settled = matches.filter(lgIsSettled).slice()
+    .sort(function (a, b) { return a.utcDate.localeCompare(b.utcDate); });
+  var history = {};
+  LEAGUE_PLAYERS.forEach(function (p) { history[p.name] = []; });
+  var frames = [];
+  var matchPts = {};   // teamId → accumulated W/D points
+  var drought = 0;     // reaper 0-0 curse, accumulated
+  var current = [], idx = 0;
+  var days = [];
+  settled.forEach(function (m) {
+    var d = m.utcDate.slice(0, 10);
+    if (days[days.length - 1] !== d) days.push(d);
+  });
+  days.forEach(function (day) {
+    while (idx < settled.length && settled[idx].utcDate.slice(0, 10) <= day) {
+      var m = settled[idx++];
+      current.push(m);
+      if (m.stage === "REGULAR_SEASON") {
+        [m.homeTeam.id, m.awayTeam.id].forEach(function (id) {
+          var t = LEAGUE_TEAMS[id];
+          if (!t) return;
+          var r = lgResultFor(m, id);
+          var pts = LEAGUE_MATCH_PTS[t.league];
+          if (r === "W") matchPts[id] = (matchPts[id] || 0) + pts.win[t.pot - 1];
+          else if (r === "D") matchPts[id] = (matchPts[id] || 0) + pts.draw[t.pot - 1];
+        });
+        drought += lgGoalDroughtPts(m, LEAGUE_PLAYERS);
+      }
+    }
+    var outcomes = deriveSeasonOutcomes(current);
+    frames.push(day);
+    LEAGUE_PLAYERS.forEach(function (p) {
+      if (p.grimReaper) {
+        var bounty = 0;
+        Object.keys(outcomes).forEach(function (id) { bounty += lgReaperBounty(Number(id), outcomes); });
+        history[p.name].push(bounty + drought);
+        return;
+      }
+      var total = 0;
+      (p.teamIds || []).forEach(function (id) {
+        total += (matchPts[id] || 0) + leagueBonusPts(id, outcomes);
+      });
+      history[p.name].push(total);
+    });
+  });
+  return { frames: frames, history: history };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 7-day window: points gained + table movement per player. The league's
+// answer to the WC app's rolling 24h window — a league weekend is the
+// natural rhythm, and `anchorIso` keeps it working in replay mode.
+// ─────────────────────────────────────────────────────────────────────────────
+function lgWeekWindow(ranked, matches, anchorIso) {
+  var weekAgo = new Date(new Date(anchorIso).getTime() - 7 * 24 * 3600 * 1000).toISOString();
+  var before = scoreLeaguePlayers(leagueMatchesUpTo(matches, weekAgo));
+  var beforeRank = {}, beforeTotal = {};
+  before.forEach(function (p, i) { beforeRank[p.name] = i; beforeTotal[p.name] = p.total; });
+  var out = {};
+  ranked.forEach(function (p, i) {
+    out[p.name] = {
+      pts: p.total - (beforeTotal[p.name] || 0),
+      move: (beforeRank[p.name] !== undefined ? beforeRank[p.name] : i) - i,
+    };
+  });
+  return out;
+}
+
+// { name: positions moved in the last 7 days } — positive = up the table.
+function computeWeekRankChange(matches, ranked, anchorIso) {
+  var win = lgWeekWindow(ranked, matches, anchorIso);
+  var out = {};
+  Object.keys(win).forEach(function (name) { out[name] = win[name].move; });
+  return out;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// deriveLeagueMatchPts(matches) → { matchId: { home, away } }
+// Sweepstake points each side earned from that game (W/D by the team's own
+// pot/league; 0 for losses and for clubs nobody could own). The league
+// cousin of the WC app's deriveMatchPts — feeds the per-match "+Npts" chips
+// on Home rows, score cards and the team/player pop-up cards.
+// ─────────────────────────────────────────────────────────────────────────────
+function deriveLeagueMatchPts(matches) {
+  var out = {};
+  matches.forEach(function (m) {
+    if (m.stage !== "REGULAR_SEASON" || !lgIsSettled(m)) return;
+    var row = { home: 0, away: 0 };
+    [["home", m.homeTeam.id], ["away", m.awayTeam.id]].forEach(function (side) {
+      var t = LEAGUE_TEAMS[side[1]];
+      if (!t) return;
+      var r = lgResultFor(m, side[1]);
+      var pts = LEAGUE_MATCH_PTS[t.league];
+      if (r === "W") row[side[0]] = pts.win[t.pot - 1];
+      else if (r === "D") row[side[0]] = pts.draw[t.pot - 1];
+    });
+    out[m.id] = row;
+  });
+  return out;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// computeNewLeagueBadges(badgesNow, matches, anchorIso) → [{name, ...badge}]
+// Badges assigned within the last 7 days: diff current holders against the
+// holders as of a week before the anchor (same rolling window as the pills).
+// Mirrors the WC app's computeNewBadges24h.
+// ─────────────────────────────────────────────────────────────────────────────
+function computeNewLeagueBadges(badgesNow, matches, anchorIso) {
+  var weekAgo = new Date(new Date(anchorIso).getTime() - 7 * 24 * 3600 * 1000).toISOString();
+  var beforeMatches = leagueMatchesUpTo(matches, weekAgo);
+  var beforeRanked = scoreLeaguePlayers(beforeMatches);
+  var beforeBadges = computeLeagueBadges(beforeRanked, beforeMatches, weekAgo);
+  var had = {};
+  Object.keys(beforeBadges).forEach(function (name) {
+    beforeBadges[name].forEach(function (b) { had[name + "|" + b.label] = true; });
+  });
+  var fresh = [];
+  Object.keys(badgesNow).forEach(function (name) {
+    badgesNow[name].forEach(function (b) {
+      if (!had[name + "|" + b.label]) fresh.push({ name: name, icon: b.icon, label: b.label, desc: b.desc });
+    });
+  });
+  return fresh;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// computeLeagueBadges(ranked, matches, anchorIso) → { playerName: [badges] }
+//
+// The league cousin of the WC app's computeBadges. `anchorIso` is "now" —
+// live mode passes the current time, replay mode passes the scrubber date,
+// so movement badges (7-day window) work identically in both. Most badges
+// are single-winner; each player's list is sorted rarest-first (fewest
+// holders across the group), same as the WC app, so a row preview shows
+// what's unique to a player. Badge: { icon, label, desc }.
+// ─────────────────────────────────────────────────────────────────────────────
+function computeLeagueBadges(ranked, matches, anchorIso) {
+  var badges = {};
+  function give(name, icon, label, desc) {
+    (badges[name] = badges[name] || []).push({ icon: icon, label: label, desc: desc });
+  }
+  var real = ranked.filter(function (p) { return !p.grimReaper; });
+  var reaper = ranked.filter(function (p) { return p.grimReaper; })[0];
+  if (reaper) give(reaper.name, "💀", "Grim Reaper", "Feeds on relegations and 0-0 draws. Cannot be reasoned with.");
+  if (real.length === 0) return badges;
+
+  var played = matches.some(function (m) { return lgIsSettled(m) && m.stage === "REGULAR_SEASON"; });
+  if (played) {
+    give(real[0].name, "🏆", "Top Dog", "Top of the table. For now.");
+    give(real[real.length - 1].name, "🥄", "Wooden Spoon", "Somebody has to hold it.");
+  }
+
+  // ── 7-day window: points gained + table movement ──
+  var win = lgWeekWindow(ranked, matches, anchorIso);
+  var window7 = real.map(function (p) {
+    return { name: p.name, pts: win[p.name].pts, move: win[p.name].move };
+  });
+  var hot = window7.slice().sort(function (a, b) { return b.pts - a.pts; });
+  if (hot[0].pts > hot[hot.length - 1].pts) {
+    give(hot[0].name, "⚡", "On Fire", "Most points in the last 7 days (+" + hot[0].pts + ").");
+    give(hot[hot.length - 1].name, "🥶", "Ice Cold", "Fewest points in the last 7 days (" + (hot[hot.length - 1].pts > 0 ? "+" : "") + hot[hot.length - 1].pts + ").");
+  }
+  var movers = window7.slice().sort(function (a, b) { return b.move - a.move; });
+  if (movers[0].move > 0) give(movers[0].name, "🚀", "Climber", "Biggest table climb of the week (up " + movers[0].move + ").");
+  if (movers[movers.length - 1].move < 0) give(movers[movers.length - 1].name, "📉", "Sliding", "Biggest table fall of the week (down " + (-movers[movers.length - 1].move) + ").");
+
+  // ── per-owned-team aggregates: goals, streaks, upsets ──
+  var ownedIds = {};
+  real.forEach(function (p) { p.teams.forEach(function (t) { ownedIds[t.teamId] = p.name; }); });
+  var gf = {}, ga = {};                    // per player
+  var streaks = {};                        // per owned team: current W/unbeaten/loss runs
+  var bestUpset = null;                    // biggest pot-gap win by a weaker-pot team
+  var chrono = matches.slice().sort(function (a, b) { return a.utcDate.localeCompare(b.utcDate); });
+  chrono.forEach(function (m) {
+    if (m.stage !== "REGULAR_SEASON" || !lgIsSettled(m)) return;
+    var hs = (m.score && m.score.fullTime && m.score.fullTime.home) || 0;
+    var as = (m.score && m.score.fullTime && m.score.fullTime.away) || 0;
+    [[m.homeTeam.id, hs, as], [m.awayTeam.id, as, hs]].forEach(function (side) {
+      var id = side[0], f = side[1], a = side[2];
+      var owner = ownedIds[id];
+      if (owner) { gf[owner] = (gf[owner] || 0) + f; ga[owner] = (ga[owner] || 0) + a; }
+      var s = streaks[id] = streaks[id] || { win: 0, unbeaten: 0, loss: 0 };
+      if (f > a)      { s.win++; s.unbeaten++; s.loss = 0; }
+      else if (f < a) { s.win = 0; s.unbeaten = 0; s.loss++; }
+      else            { s.win = 0; s.unbeaten++; s.loss = 0; }
+    });
+    var hT = LEAGUE_TEAMS[m.homeTeam.id], aT = LEAGUE_TEAMS[m.awayTeam.id];
+    if (hT && aT && hs !== as) {
+      var winner = hs > as ? hT : aT, loser = hs > as ? aT : hT;
+      var gap = winner.pot - loser.pot; // positive = weaker pot beat stronger pot
+      if (gap > 0 && ownedIds[winner.id] && (!bestUpset || gap >= bestUpset.gap)) {
+        bestUpset = { gap: gap, owner: ownedIds[winner.id], team: winner.name, victim: loser.name };
+      }
+    }
+  });
+  if (bestUpset) give(bestUpset.owner, "🔪", "Giant Killer", bestUpset.team + " toppled " + bestUpset.victim + " (Pot " + bestUpset.gap + " gap).");
+
+  var byGf = real.filter(function (p) { return gf[p.name] !== undefined; });
+  if (byGf.length > 1) {
+    var most = byGf.slice().sort(function (a, b) { return gf[b.name] - gf[a.name]; });
+    if (gf[most[0].name] > gf[most[most.length - 1].name]) {
+      give(most[0].name, "💥", "Firepower", "Most goals scored by their teams (" + gf[most[0].name] + ").");
+      give(most[most.length - 1].name, "💨", "Firing Blanks", "Fewest goals scored by their teams (" + gf[most[most.length - 1].name] + ").");
+    }
+    var tight = byGf.slice().sort(function (a, b) { return ga[a.name] - ga[b.name]; });
+    if (ga[tight[0].name] < ga[tight[tight.length - 1].name]) {
+      give(tight[0].name, "🧱", "Brick Wall", "Fewest goals conceded by their teams (" + ga[tight[0].name] + ").");
+      give(tight[tight.length - 1].name, "🚰", "Leaky", "Most goals conceded by their teams (" + ga[tight[tight.length - 1].name] + ").");
+    }
+  }
+
+  // ── current streaks (need a run of 3+ to be worth bragging about) ──
+  var bestRun = null, worstRun = null;
+  Object.keys(streaks).forEach(function (id) {
+    if (!ownedIds[id]) return;
+    var s = streaks[id], t = LEAGUE_TEAMS[id];
+    if (s.unbeaten >= 3 && (!bestRun || s.unbeaten > bestRun.n)) bestRun = { n: s.unbeaten, owner: ownedIds[id], team: t.name };
+    if (s.loss >= 3 && (!worstRun || s.loss > worstRun.n)) worstRun = { n: s.loss, owner: ownedIds[id], team: t.name };
+  });
+  if (bestRun) give(bestRun.owner, "🛡️", "Unbreakable", bestRun.team + " are " + bestRun.n + " games unbeaten.");
+  if (worstRun) give(worstRun.owner, "🚑", "Crisis Club", worstRun.team + " have lost " + worstRun.n + " on the bounce.");
+
+  // ── misc flavour ──
+  if (played) {
+    real.forEach(function (p) { if (p.w === 0) give(p.name, "🦆", "Still Quacking", "Yet to see a single win."); });
+    var gaps = real.map(function (p) {
+      var totals = p.teams.map(function (t) { return t.total; });
+      return { name: p.name, gap: Math.max.apply(null, totals) - Math.min.apply(null, totals) };
+    }).sort(function (a, b) { return b.gap - a.gap; });
+    if (gaps[0].gap > 0) give(gaps[0].name, "🎸", "One Man Band", "One team doing all the work (" + gaps[0].gap + " pt gap to their worst).");
+  }
+
+  // rarest-first within each player, mirroring the WC app
+  var holders = {};
+  Object.keys(badges).forEach(function (name) {
+    badges[name].forEach(function (b) { holders[b.label] = (holders[b.label] || 0) + 1; });
+  });
+  Object.keys(badges).forEach(function (name) {
+    badges[name].sort(function (a, b) { return holders[a.label] - holders[b.label]; });
+  });
+  return badges;
 }

@@ -20,12 +20,17 @@ service worker, so none of them can ever disagree on anyone's points.
 ## League Season Sweepstake (in progress)
 
 A second sweepstake covering the **2026-27 Premier League + Championship**
-season is being built alongside the WC app. Data layer only so far:
+season is being built alongside the WC app.
 
 | File | Purpose |
 |------|---------|
-| `league-scoring.js` | Teams (44, keyed by **numeric API id**, not TLA), pots (3-season weighted composite seeding), points matrices, `deriveLeagueTable` / `deriveSeasonOutcomes` / `scoreLeaguePlayers`. Prefixed `LEAGUE_`/`league`/`lg` — no globals shared with `scoring.js` |
-| `league-data-2025.js` | Trimmed real 2025-26 PL+ELC results (937 matches) as a `LEAGUE_REPLAY_DATA` global, injected on demand for dev/replay mode (a .js global, not .json, so it works on file:// previews) |
+| `league.html` | The league app shell — **a structural clone of the WC app's UI**, adapted to the league format. **Bottom nav** (Home · Sweeps · Tables · Scores · More, WC pill-highlight style). **Home** mirrors the WC HomeTab section-for-section on a 7-day rhythm: Currently Leading hero, Top of the Table (mini rows + sparklines + pills), Recent Results, Risers & Fallers, New Accolades (`computeNewLeagueBadges` diff), Up Next. **Pop-up cards**: `SnapSheet` (ported drag/snap bottom sheet, 50vh↔92vh, desktop windowed card) hosting `PlayerCardContent` (stat boxes, points-over-time sparkline, teams, accolades, results with 🏅/⚠️ season-bonus milestone rows, upcoming) and `TeamCardContent` (owner card with `playerColor` initial circle, points + season/position boxes, results with per-match pts). Cards swap in place (team↔owner) with **browser-history integration** (back button closes, Escape too). **Sweeps rows = WC PlayerRow anatomy** (rank circle, badges, crest row, sparkline, weekly pill); tapping opens the player card (no inline expansion). Rules & Info is a **pop-over via the More menu** (like the WC app), which also holds the replay toggle and group switch. **Player-first display rule** everywhere: owner name emphasised, club as muted context. Replay scrubber sits under the header when active. Loads `league-scoring.js?v=N` — same cache-bust rule as the WC pair (currently `?v=4`) |
+| `league-scoring.js` | Teams (44, keyed by **numeric API id**, not TLA), pots (3-season weighted composite seeding), points matrices, `deriveLeagueTable` / `deriveSeasonOutcomes` / `scoreLeaguePlayers` / `computeLeagueBadges` / `deriveLeagueHistory` (per-day cumulative totals for sparklines, incremental — invariant: final frame == live totals) / `computeWeekRankChange` + `lgWeekWindow` (7-day movement, `anchorIso`-aware so replay works) / `deriveLeagueMatchPts` (per-match points attribution for +pts chips and cards) / `computeNewLeagueBadges` (7-day badge diff for Home). Prefixed `LEAGUE_`/`league`/`lg` — no globals shared with `scoring.js`. `LEAGUE_SEASON` is **2025 for testing; flip to 2026 at launch**. Group: `RODENTS` — same crew as the WC Rodents (8 players + Josh as reaper), 2 PL + 2 ELC teams each covering all four pots; **placeholder draw** until the real one |
+| `league-data-2025.js` | Trimmed real 2025-26 PL+ELC results (937 matches) as a `LEAGUE_REPLAY_DATA` global, injected on demand by replay mode (a .js global, not .json, so it works on file:// previews) |
+
+Club **crests** come from `crests.football-data.org/<id>.png` (public, no
+auth) in place of the WC app's flagcdn flags. Teams use the WC visual
+language otherwise (same `C` palette).
 
 **Scoring is empirically calibrated, not copied from the WC app.** Match
 points (win/draw by pot, per league: `LEAGUE_MATCH_PTS`) and season-outcome
