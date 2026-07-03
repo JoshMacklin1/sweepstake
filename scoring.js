@@ -2142,15 +2142,32 @@ function deriveRaceEliminations(matches) {
         else if (as_ > hs) grpPts[a] += 3;
         else { grpPts[h]++; grpPts[a]++; }
       }
-      [h, a].forEach(code => {
-        if (code) groupGames[code] = (groupGames[code]||0) + 1;
-        if (code && groupGames[code] >= 3 && !knockoutTeams.has(code) && !eliminated[code]) {
-          if (isDefinitelyFourth(code, grpPts, grpGF, grpGA)) {
-            eliminated[code] = "GROUP_ELIM";
-            if (owned(code) || reaperBountyForCode(code) > 0) changed = true;
+      [h, a].forEach(code => { if (code) groupGames[code] = (groupGames[code]||0) + 1; });
+      const _grpLetter = h ? Object.keys(GROUP_ASSIGNMENTS).find(g => GROUP_ASSIGNMENTS[g].includes(h)) : null;
+      if (_grpLetter) {
+        const _grpTeams = GROUP_ASSIGNMENTS[_grpLetter];
+        const _grpCmp = (x, y) => {
+          const pd = (grpPts[y]||0)-(grpPts[x]||0); if (pd) return pd;
+          const gd = ((grpGF[y]||0)-(grpGA[y]||0))-((grpGF[x]||0)-(grpGA[x]||0)); if (gd) return gd;
+          return (grpGF[y]||0)-(grpGF[x]||0);
+        };
+        const _groupComplete = _grpTeams.every(c => (groupGames[c]||0) >= 3);
+        if (_groupComplete) {
+          const fourth = [..._grpTeams].sort(_grpCmp)[3];
+          if (fourth && !eliminated[fourth] && !knockoutTeams.has(fourth)) {
+            eliminated[fourth] = "GROUP_ELIM";
+            if (owned(fourth) || reaperBountyForCode(fourth) > 0) changed = true;
           }
+        } else {
+          [h, a].forEach(code => {
+            if (!code || eliminated[code] || knockoutTeams.has(code)) return;
+            if ((groupGames[code]||0) >= 3 && isDefinitelyFourth(code, grpPts, grpGF, grpGA)) {
+              eliminated[code] = "GROUP_ELIM";
+              if (owned(code) || reaperBountyForCode(code) > 0) changed = true;
+            }
+          });
         }
-      });
+      }
     }
     if (changed) frames.push(Object.keys(eliminated));
   });
@@ -2247,15 +2264,32 @@ function deriveRaceStages(matches) {
         else if (as_ > hs) grpPts[a] += 3;
         else { grpPts[h]++; grpPts[a]++; }
       }
-      [h, a].forEach(code => {
-        if (code) groupGames[code] = (groupGames[code]||0) + 1;
-        if (code && groupGames[code] >= 3 && !knockoutTeams.has(code) && !eliminated[code]) {
-          if (isDefinitelyFourth(code, grpPts, grpGF, grpGA)) {
-            eliminated[code] = "GROUP_ELIM";
-            if (owned(code) || reaperBountyForCode(code) > 0) changed = true;
+      [h, a].forEach(code => { if (code) groupGames[code] = (groupGames[code]||0) + 1; });
+      const _grpLetter2 = h ? Object.keys(GROUP_ASSIGNMENTS).find(g => GROUP_ASSIGNMENTS[g].includes(h)) : null;
+      if (_grpLetter2) {
+        const _grpTeams2 = GROUP_ASSIGNMENTS[_grpLetter2];
+        const _grpCmp2 = (x, y) => {
+          const pd = (grpPts[y]||0)-(grpPts[x]||0); if (pd) return pd;
+          const gd = ((grpGF[y]||0)-(grpGA[y]||0))-((grpGF[x]||0)-(grpGA[x]||0)); if (gd) return gd;
+          return (grpGF[y]||0)-(grpGF[x]||0);
+        };
+        const _groupComplete2 = _grpTeams2.every(c => (groupGames[c]||0) >= 3);
+        if (_groupComplete2) {
+          const fourth2 = [..._grpTeams2].sort(_grpCmp2)[3];
+          if (fourth2 && !eliminated[fourth2] && !knockoutTeams.has(fourth2)) {
+            eliminated[fourth2] = "GROUP_ELIM";
+            if (owned(fourth2) || reaperBountyForCode(fourth2) > 0) changed = true;
           }
+        } else {
+          [h, a].forEach(code => {
+            if (!code || eliminated[code] || knockoutTeams.has(code)) return;
+            if ((groupGames[code]||0) >= 3 && isDefinitelyFourth(code, grpPts, grpGF, grpGA)) {
+              eliminated[code] = "GROUP_ELIM";
+              if (owned(code) || reaperBountyForCode(code) > 0) changed = true;
+            }
+          });
         }
-      });
+      }
       gameNo = Math.max(groupGames[h] || 0, groupGames[a] || 0);
     }
     if (changed) { lastLabel = stageLabel(stage, gameNo); stages.push(lastLabel); }
