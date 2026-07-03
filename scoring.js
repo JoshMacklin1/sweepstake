@@ -2081,6 +2081,88 @@ function deriveMatchPts(matches) {
   return result;
 }
 
+// Per-team cumulative sweepstake-points history for the Teams-table sparklines.
+// Chronological replay of settled matches banks each team's group W/D points and
+// highest knockout/final stage bonus (same stage-delta model as deriveMatchPts),
+// pushing a new point whenever that team's running total changes. A final
+// reconciliation pass forces each team's last point to the exact swPts the Teams
+// table shows (group pts + highest-stage bonus + any GROUP_ELIM penalty), so the
+// sparkline endpoint always equals the number displayed beside it. Keyed by
+// team code → array of running totals (leading 0).
+function deriveTeamHistory(matches) {
+  const done = matches.filter(m => isSettled(m.status))
+    .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
+  const running = {};      // code -> running total (drives the line shape)
+  const stageBanked = {};  // code -> pts already banked for highest stage reached
+  const history = {};      // code -> [0, ...]
+  const ensure = (code) => {
+    if (code && !(code in running)) { running[code] = 0; stageBanked[code] = 0; history[code] = [0]; }
+  };
+  const bankStage = (code, stageKey) => {
+    const newPts = ptsTotal(code, stageKey);
+    const delta = newPts - (stageBanked[code] || 0);
+    stageBanked[code] = newPts;
+    return delta;
+  };
+
+  done.forEach(m => {
+    const stage = (m.stage || "").toUpperCase();
+    const h = m.homeTeam?.tla?.toUpperCase();
+    const a = m.awayTeam?.tla?.toUpperCase();
+    ensure(h); ensure(a);
+    const hs = m.score?.fullTime?.home ?? 0;
+    const as_ = m.score?.fullTime?.away ?? 0;
+    const pen = m.score?.penalties;
+    let loser = null, winner = null;
+    if (hs > as_)      { loser = a; winner = h; }
+    else if (as_ > hs) { loser = h; winner = a; }
+    else if (pen)      { if (pen.home > pen.away) { loser = a; winner = h; } else { loser = h; winner = a; } }
+
+    const changed = new Set();
+    const add = (code, delta) => { if (code && delta) { running[code] += delta; changed.add(code); } };
+
+    if (stage.includes("GROUP")) {
+      let hResult, aResult;
+      if (hs > as_)      { hResult = "W"; aResult = "L"; }
+      else if (as_ > hs) { hResult = "L"; aResult = "W"; }
+      else               { hResult = "D"; aResult = "D"; }
+      add(h, groupGamePts(h, hResult));
+      add(a, groupGamePts(a, aResult));
+    } else if (stage === "FINAL") {
+      if (winner) add(winner, bankStage(winner, "WINNER"));
+      if (loser)  add(loser,  bankStage(loser,  "FINALIST"));
+    } else {
+      let stageKey = null, nextStageKey = null;
+      if (stage.includes("SEMI"))                                 { stageKey = "SEMI_FINALS";    nextStageKey = "FINALIST"; }
+      else if (stage.includes("QUARTER"))                         { stageKey = "QUARTER_FINALS"; nextStageKey = "SEMI_FINALS"; }
+      else if (stage.includes("LAST_16") || stage.includes("16")) { stageKey = "LAST_16";        nextStageKey = "QUARTER_FINALS"; }
+      else if (stage.includes("LAST_32") || stage.includes("32")) { stageKey = "LAST_32";        nextStageKey = "LAST_16"; }
+      if (stageKey) {
+        if (loser)  add(loser,  bankStage(loser,  stageKey));
+        if (winner) add(winner, bankStage(winner, nextStageKey));
+      }
+    }
+    changed.forEach(code => history[code].push(running[code]));
+  });
+
+  // Reconcile each team's final point to the exact Teams-table swPts.
+  const grpPts = deriveGroupPts(matches);
+  const { stageReached, eliminated } = deriveStages(matches);
+  const allCodes = new Set(Object.keys(history));
+  Object.keys(grpPts).forEach(c => allCodes.add(c));
+  Object.keys(stageReached).forEach(c => allCodes.add(c));
+  allCodes.forEach(code => {
+    if (!(code in history)) history[code] = [0];
+    const stageR = stageReached[code];
+    const swPts = (grpPts[code] || 0)
+      + (stageR && stageR !== "GROUP_ELIM" ? ptsTotal(code, stageR) : 0)
+      + (eliminated[code] === "GROUP_ELIM" ? ptsTotal(code, "GROUP_ELIM") : 0);
+    if (history[code][history[code].length - 1] !== swPts) history[code].push(swPts);
+  });
+
+  return history;
+}
+
 // Per-frame elimination snapshots for the bar race. Mirrors the chronological
 // replay + frame-advance gating of deriveSparklineHistory so elimByFrame[i]
 // aligns 1:1 with that function's history frames. elimByFrame[i] = array of team
