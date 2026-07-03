@@ -2198,6 +2198,128 @@ function BarRaceModal({ history, allRanked, bucketLabels = [], elimByFrame = [],
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────────────
+// TEAMS LEAGUE TABLE — every team in one list, ranked by sweepstake points,
+// styled like the Players table (flag + sparkline + points). Team name is the
+// headline; pot + owning player sit underneath for context. Tapping a row opens
+// that team's card.
+// ─────────────────────────────────────────────────────────────────────────────
+function TeamLeagueRow({ row, rank, onOpen }) {
+  const { tla, owner, name, pot, swPts, hist, isElim } = row;
+  const flagUrl = flag(tla);
+  const lineColor = swPts < 0 ? C.red : swPts === 0 ? C.neutral : C.accent;
+  return (
+    <div style={{ ...s.card, border:`1px solid ${C.border}`, background:C.card }}>
+      <div className="player-card" onClick={onOpen} style={{ display:"flex", alignItems:"center", padding:"10px 14px", cursor:"pointer", gap:10 }}>
+
+        {/* Rank */}
+        <div style={{
+          width:26, textAlign:"center", flexShrink:0,
+          fontSize:14, fontWeight:800, color: isElim ? C.muted : C.dim,
+          opacity: isElim ? 0.55 : 1,
+        }}>{rank}</div>
+
+        {/* Flag */}
+        <div style={{ position:"relative", flexShrink:0, lineHeight:0 }}>
+          {flagUrl
+            ? <img src={flagUrl} alt={tla} {...flagHandlers(tla, 24)} style={{ width:36, height:24, objectFit:"cover", borderRadius:3, display:"block", opacity: isElim ? 0.4 : 1 }} />
+            : <span style={{ fontSize:14, opacity: isElim ? 0.4 : 1 }}>{tla}</span>}
+          {isElim && <span style={{ position:"absolute", top:-2, right:-2, fontSize:11, fontWeight:900, color:C.red, textShadow:"0 0 2px rgba(0,0,0,0.9)", lineHeight:1, zIndex:1, pointerEvents:"none" }}>✕</span>}
+        </div>
+
+        {/* Team name + pot/owner context */}
+        <div style={{ flex:1, minWidth:0, opacity: isElim ? 0.55 : 1 }}>
+          <div style={{ fontWeight:700, fontSize:15, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", marginBottom:3 }}>
+            {name}
+          </div>
+          <div style={{ fontSize:11, color:C.muted, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+            P{pot}{owner ? ` · ${owner}` : ""}
+          </div>
+        </div>
+
+        {/* Sparkline */}
+        <div style={{ flexShrink:0 }}>
+          <Sparkline data={hist} width={90} height={48} color={lineColor} />
+        </div>
+
+        {/* Points */}
+        <div style={{ textAlign:"right", flexShrink:0, minWidth:48 }}>
+          <div style={{ fontSize:22, fontWeight:800, color: swPts < 0 ? C.red : C.text, lineHeight:1 }}>{swPts}</div>
+          <div style={{ fontSize:10, color:C.muted }}>pts</div>
+        </div>
+
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink:0, transform:"rotate(-90deg)" }}>
+          <path d="M6 9l6 6 6-6" stroke={C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+function TeamsLeagueTab({ matches, onTeamClick }) {
+  const teamHist = typeof deriveTeamHistory === "function" ? deriveTeamHistory(matches) : {};
+  const grpPts = deriveGroupPts(matches);
+  const { stageReached, eliminated } = deriveStages(matches);
+
+  const ownerOf = {};
+  PLAYERS.forEach(p => { if (!p.grimReaper) p.codes.forEach(c => { ownerOf[c] = p.name; }); });
+
+  const teamName = (tla) => {
+    const m = matches.find(m => m.homeTeam?.tla?.toUpperCase() === tla || m.awayTeam?.tla?.toUpperCase() === tla);
+    if (!m) return tla;
+    return (m.homeTeam?.tla?.toUpperCase() === tla ? m.homeTeam.name : m.awayTeam.name) || tla;
+  };
+
+  // Group W/D/L + GD for tiebreaks (sweepstake pts first, then league form).
+  const groupStats = {};
+  matches.filter(m =>
+    (m.stage||"").toUpperCase().includes("GROUP") &&
+    (m.status === "FINISHED" || m.status === "IN_PLAY" || m.status === "PAUSED") &&
+    m.score?.fullTime?.home != null
+  ).forEach(m => {
+    const h = m.homeTeam?.tla?.toUpperCase();
+    const a = m.awayTeam?.tla?.toUpperCase();
+    const hs = m.score.fullTime.home, as_ = m.score.fullTime.away;
+    if (!h || !a) return;
+    if (!groupStats[h]) groupStats[h] = { w:0, d:0, l:0, gf:0, ga:0 };
+    if (!groupStats[a]) groupStats[a] = { w:0, d:0, l:0, gf:0, ga:0 };
+    groupStats[h].gf += hs; groupStats[h].ga += as_;
+    groupStats[a].gf += as_; groupStats[a].ga += hs;
+    if (hs > as_)      { groupStats[h].w++; groupStats[a].l++; }
+    else if (as_ > hs) { groupStats[a].w++; groupStats[h].l++; }
+    else               { groupStats[h].d++; groupStats[a].d++; }
+  });
+
+  const swPtsOf = (tla) => (grpPts[tla] || 0)
+    + (stageReached[tla] && stageReached[tla] !== "GROUP_ELIM" ? ptsTotal(tla, stageReached[tla]) : 0)
+    + (eliminated[tla] === "GROUP_ELIM" ? ptsTotal(tla, "GROUP_ELIM") : 0);
+
+  const rows = Object.values(GROUP_ASSIGNMENTS).flat().map(tla => {
+    const gs = groupStats[tla] || { w:0, d:0, l:0, gf:0, ga:0 };
+    return {
+      tla,
+      owner: ownerOf[tla] || null,
+      name: teamName(tla) || tla,
+      pot: potOf(tla),
+      swPts: swPtsOf(tla),
+      hist: teamHist[tla] || [0],
+      isElim: !!eliminated[tla],
+      leaguePts: gs.w * 3 + gs.d,
+      gd: gs.gf - gs.ga,
+    };
+  }).sort((a, b) =>
+    (b.swPts - a.swPts) || (b.leaguePts - a.leaguePts) || (b.gd - a.gd) || a.name.localeCompare(b.name)
+  );
+
+  return (
+    <div className="league-grid">
+      {rows.map((r, i) => (
+        <TeamLeagueRow key={r.tla} row={r} rank={i + 1} onOpen={() => onTeamClick && onTeamClick(r.tla)} />
+      ))}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // TEAMS TAB — Groups + Bracket
 // ─────────────────────────────────────────────────────────────────────────────
 // FIFA Annex C — all 495 valid combinations of 8 qualifying third-place groups,
@@ -6476,7 +6598,7 @@ function App({ onSwitchGroup, onQuickSwitchGroup, groupKey, isAdmin = false, ini
         {tab === "table" && !loading && !isDesktop && (
           <div className="sweeps-nav">
             <div className="sweeps-seg">
-              {[["league","Players"],...(GROUPS[groupKey]?.families ? [["families","Families"]] : []),["groups","Groups"],["knockout","Knockouts"]].map(([id, label]) => (
+              {[["league","Players"],...(GROUPS[groupKey]?.families ? [["families","Families"]] : []),["teams","Teams"],["knockout","Knockouts"]].map(([id, label]) => (
                 <button key={id} onClick={() => setLeagueView(id)} style={{
                   background: leagueView === id ? C.accent : "transparent",
                   color: leagueView === id ? "#000" : C.muted,
@@ -6560,11 +6682,11 @@ function App({ onSwitchGroup, onQuickSwitchGroup, groupKey, isAdmin = false, ini
       }}>
         {(isDesktop ? [
           ["home", "Home", navIconHome],
-          // Desktop has room to flatten League's Sweeps/Groups/Knockouts
+          // Desktop has room to flatten League's Players/Teams/Knockouts
           // into three direct destinations instead of a tab + inline toggle.
           ["table-sweeps",   "Players",   navIconTable],
           ...(GROUPS[groupKey]?.families ? [["table-families", "Families", navIconTable]] : []),
-          ["table-groups",   "Groups",    navIconGroups],
+          ["table-teams",    "Teams",     navIconGroups],
           ["table-knockout", "Knockouts", navIconKnockout],
           ["scores", "Scores", navIconScores],
           ["race", "The Race", navIconRace],
@@ -6587,8 +6709,8 @@ function App({ onSwitchGroup, onQuickSwitchGroup, groupKey, isAdmin = false, ini
           if (id === "more") {
             active = showMore;
             onNav = () => setShowMore(true);
-          } else if (id === "table-sweeps" || id === "table-groups" || id === "table-knockout" || id === "table-families") {
-            const view = id === "table-sweeps" ? "league" : id === "table-groups" ? "groups" : id === "table-knockout" ? "knockout" : "families";
+          } else if (id === "table-sweeps" || id === "table-teams" || id === "table-knockout" || id === "table-families") {
+            const view = id === "table-sweeps" ? "league" : id === "table-teams" ? "teams" : id === "table-knockout" ? "knockout" : "families";
             active = tab === "table" && leagueView === view;
             onNav = () => {
               window.history.pushState({ appTab: "table", appModal: null }, "");
@@ -6678,7 +6800,11 @@ function App({ onSwitchGroup, onQuickSwitchGroup, groupKey, isAdmin = false, ini
               </>
             )}
 
-            {(leagueView === "groups" || leagueView === "knockout") && (
+            {leagueView === "teams" && (
+              <TeamsLeagueTab matches={matches} onTeamClick={openTeamModal} />
+            )}
+
+            {leagueView === "knockout" && (
               <TeamsTab matches={matches} view={leagueView} setView={setLeagueView} onTeamClick={openTeamModal} matchPtsById={matchPtsById} />
             )}
 

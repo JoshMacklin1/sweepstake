@@ -280,6 +280,7 @@ future upside once the group stage is done).
 | `deriveHistory(matches)` | **Bucketed** (MD1/MD2/MD3 then stage names) → `{ history, bucketLabels }`. BumpChart only |
 | `deriveSparklineHistory(matches)` | **Per-match** (one frame per scoring event). Sparklines + bar race. Credits the **Last 32 clinch bonus** at the frame a team mathematically clinches (computed as-of-that-frame, awarded *silently* so it rides an existing frame and never spawns a new one — keeps overlays frame-aligned). Final frame therefore matches the live total exactly |
 | `deriveMatchPts(matches)` | Points attributable to each match id (TeamModal / match detail) |
+| `deriveTeamHistory(matches)` | **Per-team** cumulative sweepstake-points history (Teams-table sparklines). Chronological stage-banking for the line shape; final point reconciled to the exact swPts shown (group pts + highest-stage bonus + any GROUP_ELIM penalty). Keyed by team code |
 | `deriveRaceEliminations(matches)` | Per-frame elimination snapshots aligned 1:1 with `deriveSparklineHistory` frames (bar-race crosses). **Keep frame-advance gating in sync with that function** |
 | `deriveRaceStages(matches)` | Per-frame **tournament-stage label** (Group Stage Game 1–3, Last 32/16, Quarter/Semi Finals, Finals), aligned 1:1 with `deriveSparklineHistory` frames (same change-trigger as `deriveRaceEliminations`). Drives the bar-race stage overlay. **Keep frame-aligned** |
 | `goalDroughtPts(m)` | 3 if a finished match is 0-0, else 0 (reaper) |
@@ -293,16 +294,17 @@ future upside once the group stage is done).
 ### Navigation & tabs
 
 State: `tab` (`home`·`table`·`scores`·`race`) and `leagueView`
-(`league`·`groups`·`knockout`). Bottom nav hides on scroll down.
+(`league`·`teams`·`knockout`). Bottom nav hides on scroll down.
 
 | | Mobile nav (5) | Desktop nav (7) |
 |---|---|---|
-| Tabs | Home · League · Scores · The Race · More | Home · Sweeps · Groups · Knockouts · Scores · The Race · More |
-| League | one tab, inline Sweeps/Groups/Knockouts toggle | flattened into 3 direct destinations |
+| Tabs | Home · League · Scores · The Race · More | Home · Players · Teams · Knockouts · Scores · The Race · More |
+| League | one tab, inline Players/Teams/Knockouts toggle | flattened into 3 direct destinations |
 
 - **Home** (`HomeTab`/`HomeMatchRow`) — dashboard: Top of the Table, Recent Results, Risers & Fallers, Up Next, each linking into the relevant tab.
-- **League → Sweeps** (`leagueView==="league"`) — the `PlayerRow` standings.
-- **League → Groups / Knockouts** — `TeamsTab` (WC group tables / knockout **bracket** via `BracketSlot`/`BracketMatch`/`BracketRound`).
+- **League → Players** (`leagueView==="league"`) — the `PlayerRow` standings.
+- **League → Teams** (`leagueView==="teams"`) — `TeamsLeagueTab`: every team in one list ranked by sweepstake points, styled like the Players table (flag + `Sparkline` + points; pot + owning player as subtitle). Row → team card. Sparkline history from `deriveTeamHistory` (per-team cumulative sweepstake points, endpoint reconciled to the displayed swPts).
+- **League → Knockouts** — `TeamsTab` (knockout **bracket** via `BracketSlot`/`BracketMatch`/`BracketRound`). `TeamsTab` still contains a dormant `view==="groups"` group-tables block, no longer surfaced by the nav.
 - **Scores** (`DayPicker`) — combined day-by-day schedule **+** results, BBC-style day strip.
 - **The Race** (`BarRaceModal`) — full-screen animated bar race.
 - **More** (`MoreMenu`) — dev toggle, take the tour, view rules, subscribe to notifications, switch group.
@@ -417,7 +419,7 @@ directly); the heavier `winPct`, `badges`, `raceElim`, `matchPtsById` are
 ## App State (selected)
 ```javascript
 matches, loading, error, lastUpdated, refreshing
-tab ("home"|"table"|"scores"|"race")        leagueView ("league"|"groups"|"knockout")
+tab ("home"|"table"|"scores"|"race")        leagueView ("league"|"teams"|"knockout")
 selectedPlayer, selectedTeam, scrollPlayerToBadges
 showRace, showInfo, showTour, showMore, showNotifications, showPushSettings
 devMode (+ devModeRef), copied, goalFlash, goalInfo (+ prevScoresRef)
