@@ -17,6 +17,37 @@ service worker, so none of them can ever disagree on anyone's points.
 
 ---
 
+## League Season Sweepstake (in progress)
+
+A second sweepstake covering the **2026-27 Premier League + Championship**
+season is being built alongside the WC app. Data layer only so far:
+
+| File | Purpose |
+|------|---------|
+| `league-scoring.js` | Teams (44, keyed by **numeric API id**, not TLA), pots (3-season weighted composite seeding), points matrices, `deriveLeagueTable` / `deriveSeasonOutcomes` / `scoreLeaguePlayers`. Prefixed `LEAGUE_`/`league`/`lg` — no globals shared with `scoring.js` |
+| `league-data-2025.js` | Trimmed real 2025-26 PL+ELC results (937 matches) as a `LEAGUE_REPLAY_DATA` global, injected on demand for dev/replay mode (a .js global, not .json, so it works on file:// previews) |
+
+**Scoring is empirically calibrated, not copied from the WC app.** Match
+points (win/draw by pot, per league: `LEAGUE_MATCH_PTS`) and season-outcome
+bonus values (`LEAGUE_BONUS`) were fitted to the last three seasons' actual
+per-pot W/D/L rates and outcome frequencies so the expected season total is
+flat across pots (PL within 2.8%, ELC within 4.9%) — WC group-stage
+multipliers would have let Pot 4 dominate over 38/46 games. Jackpot values
+survive only for outcomes with zero cases in three seasons (e.g. P4 league
+title). See the calibration comment block in `league-scoring.js`.
+
+Key facts: football-data.org free tier covers PL + ELC (incl. playoff
+fixtures) but **not the FA Cup** — season-outcome bonuses (title / top 4 /
+promotion / playoffs / relegation) are the flat "knockout drama" layer
+instead. The existing CORS Worker forwards PL/ELC requests unchanged.
+Free tier reaches back 3 seasons (2023–2025). Playoff stage labels vary by
+season ("SEMI_FINALS"/"FINAL" vs flat "PLAYOFFS"), so the final is identified
+structurally. Bonuses award only when **mathematically settled**
+(conservative pairwise clinch maths — validated drift-free against daily
+replay snapshots of 2025-26). UI (`league.html`) not started yet.
+
+---
+
 ## Infrastructure
 
 | Item | Value |
