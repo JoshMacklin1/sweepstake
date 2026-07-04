@@ -2248,34 +2248,35 @@ function deriveMatchPts(matches) {
 }
 
 // Per-team cumulative sweepstake-points history for the Teams-table sparklines.
-// Chronological replay of settled matches banks each team's group W/D points and
-// highest knockout/final stage bonus (same stage-delta model as deriveMatchPts),
-// pushing a new point whenever that team's running total changes. A final
-// reconciliation pass forces each team's last point to the exact swPts the Teams
-// table shows (group pts + highest-stage bonus + any GROUP_ELIM penalty), so the
-// sparkline endpoint always equals the number displayed beside it. Keyed by
-// team code → array of running totals (leading 0).
+// Mirrors deriveSparklineHistory's SHARED-timeline model: every team gets a frame
+// pushed on every scoring event (not just its own), so all 48 teams share one
+// tournament-wide x-axis and their lines are directly comparable — flat where a
+// team didn't score, stepping up where it did — exactly like the Players table.
+// (Pushing only on a team's own events gave each team a short independent axis,
+// which rendered as near-identical straight diagonals.) Group W/D points and the
+// highest knockout/final stage bonus are banked chronologically (same delta model
+// as deriveMatchPts); a final reconciliation aligns every team's endpoint to the
+// exact swPts shown (incl. GROUP_ELIM penalties). Keyed by team code.
 function deriveTeamHistory(matches) {
   const done = matches.filter(m => isSettled(m.status))
     .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
-  const running = {};      // code -> running total (drives the line shape)
+  const allCodes = Object.values(GROUP_ASSIGNMENTS).flat();
+  const running = {};      // code -> running total
   const stageBanked = {};  // code -> pts already banked for highest stage reached
-  const history = {};      // code -> [0, ...]
-  const ensure = (code) => {
-    if (code && !(code in running)) { running[code] = 0; stageBanked[code] = 0; history[code] = [0]; }
-  };
+  const history = {};      // code -> [0, ...]  (all same length — shared timeline)
+  allCodes.forEach(c => { running[c] = 0; stageBanked[c] = 0; history[c] = [0]; });
   const bankStage = (code, stageKey) => {
     const newPts = ptsTotal(code, stageKey);
     const delta = newPts - (stageBanked[code] || 0);
     stageBanked[code] = newPts;
     return delta;
   };
+  const pushAll = () => allCodes.forEach(c => history[c].push(running[c]));
 
   done.forEach(m => {
     const stage = (m.stage || "").toUpperCase();
     const h = m.homeTeam?.tla?.toUpperCase();
     const a = m.awayTeam?.tla?.toUpperCase();
-    ensure(h); ensure(a);
     const hs = m.score?.fullTime?.home ?? 0;
     const as_ = m.score?.fullTime?.away ?? 0;
     const pen = m.score?.penalties;
@@ -2284,8 +2285,8 @@ function deriveTeamHistory(matches) {
     else if (as_ > hs) { loser = h; winner = a; }
     else if (pen)      { if (pen.home > pen.away) { loser = a; winner = h; } else { loser = h; winner = a; } }
 
-    const changed = new Set();
-    const add = (code, delta) => { if (code && delta) { running[code] += delta; changed.add(code); } };
+    let changed = false;
+    const add = (code, delta) => { if (code && (code in running) && delta) { running[code] += delta; changed = true; } };
 
     if (stage.includes("GROUP")) {
       let hResult, aResult;
@@ -2308,23 +2309,23 @@ function deriveTeamHistory(matches) {
         if (winner) add(winner, bankStage(winner, nextStageKey));
       }
     }
-    changed.forEach(code => history[code].push(running[code]));
+    if (changed) pushAll();
   });
 
-  // Reconcile each team's final point to the exact Teams-table swPts.
+  // Reconcile every team's final total to the exact Teams-table swPts (adds any
+  // GROUP_ELIM penalty and catches stage bonuses the chronological replay missed),
+  // then push one final synced frame so all series stay the same length.
   const grpPts = deriveGroupPts(matches);
   const { stageReached, eliminated } = deriveStages(matches);
-  const allCodes = new Set(Object.keys(history));
-  Object.keys(grpPts).forEach(c => allCodes.add(c));
-  Object.keys(stageReached).forEach(c => allCodes.add(c));
+  let reconChanged = false;
   allCodes.forEach(code => {
-    if (!(code in history)) history[code] = [0];
     const stageR = stageReached[code];
     const swPts = (grpPts[code] || 0)
       + (stageR && stageR !== "GROUP_ELIM" ? ptsTotal(code, stageR) : 0)
       + (eliminated[code] === "GROUP_ELIM" ? ptsTotal(code, "GROUP_ELIM") : 0);
-    if (history[code][history[code].length - 1] !== swPts) history[code].push(swPts);
+    if (running[code] !== swPts) { running[code] = swPts; reconChanged = true; }
   });
+  if (reconChanged) pushAll();
 
   return history;
 }
