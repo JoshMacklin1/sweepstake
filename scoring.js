@@ -1959,6 +1959,48 @@ function deriveSparklineHistory(matches) {
     });
   };
 
+  // Best-3rd-place resolution: the top 8 of the 12 third-placed teams reach the
+  // Last 32; the other 4 take the GROUP_ELIM penalty. This isn't tied to a single
+  // match, so it's resolved once, the instant every group has finished — which
+  // (group games always precede knockouts) lands it chronologically at the end of
+  // the group stage, NOT deferred to a post-loop frame at the very end of the
+  // timeline. Adds every affected owner to `changed` so it rides the last group
+  // match's frame. Idempotent via teamPts deltas.
+  let thirdsResolved = false;
+  const resolveThirds = (changed) => {
+    const top8 = new Set(qualifiedThirdPlacers(matches));
+    top8.forEach(code => {
+      if (eliminated[code]) return;
+      const newPts = ptsTotal(code, "LAST_32");
+      (teamPlayer[code] || []).forEach(pl => {
+        const key = pl + ":" + code;
+        const delta = newPts - (teamPts[key] || 0);
+        if (delta > 0) { running[pl] += delta; teamPts[key] = newPts; changed.add(pl); }
+      });
+    });
+    const cmp = (x, y) => {
+      const pd = (grpPts[y]||0)-(grpPts[x]||0); if (pd) return pd;
+      const gd = ((grpGF[y]||0)-(grpGA[y]||0))-((grpGF[x]||0)-(grpGA[x]||0)); if (gd) return gd;
+      return (grpGF[y]||0)-(grpGF[x]||0);
+    };
+    Object.values(GROUP_ASSIGNMENTS).forEach(teams => {
+      const third = [...teams].sort(cmp)[2];
+      if (!third || top8.has(third) || eliminated[third] || knockoutTeams.has(third)) return;
+      eliminated[third] = "GROUP_ELIM";
+      const newPts = ptsTotal(third, "GROUP_ELIM");
+      (teamPlayer[third] || []).forEach(pl => {
+        const key = pl + ":" + third;
+        running[pl] += (newPts - (teamPts[key] || 0));
+        teamPts[key] = newPts;
+        changed.add(pl);
+      });
+      const bounty = reaperBountyForCode(third);
+      if (bounty > 0 && reaperName) { running[reaperName] += bounty; changed.add(reaperName); }
+    });
+  };
+  const allGroupsComplete = () => Object.values(GROUP_ASSIGNMENTS).every(teams =>
+    teams.every(c => (groupGames[c]||0) >= 3));
+
   done.forEach(m => {
     const stage = (m.stage || "").toUpperCase();
     const h = m.homeTeam?.tla?.toUpperCase();
@@ -2066,57 +2108,23 @@ function deriveSparklineHistory(matches) {
       clinchedR32(clinchView).forEach(code => {
         if (!clinchAwarded.has(code) && !eliminated[code]) { clinchAwarded.add(code); awardSilent(code, "LAST_32"); }
       });
+      // The moment the final group finishes, settle the best-3rd qualifiers and
+      // the 4 non-qualifying thirds (their GROUP_ELIM penalty) here — so it lands
+      // at the group stage, not at the end of the timeline.
+      if (!thirdsResolved && allGroupsComplete()) { thirdsResolved = true; resolveThirds(changedPlayers); }
     }
 
     if (changedPlayers.size > 0) PLAYERS.forEach(p => history[p.name].push(running[p.name]));
   });
 
-  // Award 3rd-place qualification bonuses at end of group-stage replay.
-  // qualifiedThirdPlacers isn't tied to a single match event, so it can only
-  // be computed once all FINISHED group games are replayed. teamPts delta logic
-  // prevents double-counting for teams already covered by clinchedR32.
-  const thirdPlaceChanged = new Set();
-  qualifiedThirdPlacers(matches).forEach(code => {
-    if (eliminated[code]) return;
-    const pls = teamPlayer[code] || [];
-    const newPts = ptsTotal(code, "LAST_32");
-    pls.forEach(pl => {
-      const key = pl + ":" + code;
-      const delta = newPts - (teamPts[key] || 0);
-      if (delta > 0) { running[pl] += delta; teamPts[key] = newPts; thirdPlaceChanged.add(pl); }
-    });
-  });
-  if (thirdPlaceChanged.size > 0) PLAYERS.forEach(p => history[p.name].push(running[p.name]));
-
-  // Eliminate the bottom-4 third-placers (non-qualifying thirds) once all
-  // groups are done — they miss the top-8 cutoff and take the GROUP_ELIM penalty.
-  const _allGroupsDone = Object.values(GROUP_ASSIGNMENTS).every(teams =>
-    teams.every(c => (groupGames[c]||0) >= 3)
-  );
-  if (_allGroupsDone) {
-    const _top8thirds = new Set(qualifiedThirdPlacers(matches));
-    const _grpCmpFinal = (x, y) => {
-      const pd = (grpPts[y]||0)-(grpPts[x]||0); if (pd) return pd;
-      const gd = ((grpGF[y]||0)-(grpGA[y]||0))-((grpGF[x]||0)-(grpGA[x]||0)); if (gd) return gd;
-      return (grpGF[y]||0)-(grpGF[x]||0);
-    };
-    const elimThirdChanged = new Set();
-    Object.values(GROUP_ASSIGNMENTS).forEach(teams => {
-      const third = [...teams].sort(_grpCmpFinal)[2];
-      if (!third || _top8thirds.has(third) || eliminated[third] || knockoutTeams.has(third)) return;
-      eliminated[third] = "GROUP_ELIM";
-      const pls = teamPlayer[third] || [];
-      const newPts = ptsTotal(third, "GROUP_ELIM");
-      pls.forEach(pl => {
-        const key = pl + ":" + third;
-        running[pl] += (newPts - (teamPts[key] || 0));
-        teamPts[key] = newPts;
-        elimThirdChanged.add(pl);
-      });
-      const bounty = reaperBountyForCode(third);
-      if (bounty > 0 && reaperName) { running[reaperName] += bounty; elimThirdChanged.add(reaperName); }
-    });
-    if (elimThirdChanged.size > 0) PLAYERS.forEach(p => history[p.name].push(running[p.name]));
+  // Fallback: if the in-loop trigger never fired (e.g. group results arriving
+  // out of order, or an unusual fixture set), settle 3rd place once here so the
+  // final totals stay correct. Normally a no-op — thirdsResolved is already true.
+  if (!thirdsResolved && allGroupsComplete()) {
+    thirdsResolved = true;
+    const changed = new Set();
+    resolveThirds(changed);
+    if (changed.size > 0) PLAYERS.forEach(p => history[p.name].push(running[p.name]));
   }
 
   // Reconciliation pass: catch any GROUP_ELIM teams the replay missed (e.g.
