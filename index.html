@@ -4058,7 +4058,6 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
           <div style={{ fontSize: 30, fontWeight: 900, color: topTeam.pts < 0 ? C.red : C.accent, lineHeight: 1 }}>
             {topTeam.pts}<span style={{ fontSize: 14, fontWeight: 700, color: C.muted }}> pts</span>
           </div>
-          {topTeam.owner && <div style={{ fontSize: 12, color: C.dim, marginTop: 6 }}>{topTeam.owner}</div>}
         </div>
       )}
       <Section icon="⚽" title="Top Teams" onOpen={() => { window.history.pushState({ appTab: "table", appModal: null }, ""); window.scrollTo(0, 0); setTab("table"); setLeagueView("teams"); }} linkLabel="View all teams"
