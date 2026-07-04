@@ -2256,79 +2256,146 @@ function deriveMatchPts(matches) {
 }
 
 // Per-team cumulative sweepstake-points history for the Teams-table sparklines.
-// Rather than re-deriving the point logic, this recomputes each team's exact
-// authoritative total (same formula the Teams table shows: group W/D pts +
-// highest-stage bonus + any GROUP_ELIM penalty) from deriveStages/deriveGroupPts
-// AS OF each finished match, and pushes a shared frame for all 48 teams whenever
-// any total changes. That means every real scoring event lands as its own step:
-// the group-qualification bonus (positive) or group-elimination penalty (negative)
-// when the group settles, and each knockout round reached — so a team that
-// qualifies then advances shows multiple jumps, exactly like the app scores it.
-// "As of" a cutoff = only the finished results up to that point are considered
-// (later/unplayed fixtures are excluded, so deriveStages can't credit a team for
-// merely appearing in a future knockout draw — it advances teams from RESULTS:
-// an L32 winner is marked as reaching the L16, etc.). Keyed by team code; all
-// series share one timeline (equal length).
+// Forward replay of CONFIRMED events only — the same model as deriveSparklineHistory
+// (which drives the player sparklines), keyed by team code. Using confirmed events
+// (never provisional "as it stands" states) is what keeps the line honest: a team
+// is only credited a Last-32 bonus once it has mathematically clinched (clinchedR32
+// is pessimistic/monotonic) or been settled as a best-3rd qualifier at group
+// completion — so a team like Scotland that briefly sat in the provisional top-8
+// thirds never shows a phantom rise-then-drop. Steps: group W/D points as earned;
+// the qualification bonus (+) or group-elim penalty (−) at group stage; each
+// knockout round reached (winner advances = banks the next round, matching
+// deriveStages). A final reconciliation pins each endpoint to the exact displayed
+// swPts. Keyed by team code; all series share one timeline (equal length).
 function deriveTeamHistory(matches) {
   const allCodes = Object.values(GROUP_ASSIGNMENTS).flat();
   const done = matches.filter(m => m.status === "FINISHED")
     .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
-  const history = {};
-  allCodes.forEach(c => { history[c] = [0]; });
+  const running = {}, stageBanked = {}, history = {};
+  allCodes.forEach(c => { running[c] = 0; stageBanked[c] = 0; history[c] = [0]; });
+  const grpPts = {}, grpGF = {}, grpGA = {}, groupGames = {}, eliminated = {};
+  const clinchAwarded = new Set();
+  const processedIds = new Set();
+  let thirdsResolved = false;
 
-  // Authoritative sweepstake total per team for a given match view.
-  const swPtsFor = (view) => {
-    const gp = deriveGroupPts(view);
-    const { stageReached, eliminated } = deriveStages(view);
-    const out = {};
-    allCodes.forEach(c => {
-      const sR = stageReached[c];
-      out[c] = (gp[c] || 0)
-        + (sR && sR !== "GROUP_ELIM" ? ptsTotal(c, sR) : 0)
-        + (eliminated[c] === "GROUP_ELIM" ? ptsTotal(c, "GROUP_ELIM") : 0);
+  const knockoutTeams = new Set();
+  matches.filter(m => !(m.stage||"").toUpperCase().includes("GROUP")).forEach(m => {
+    if (m.homeTeam?.tla) knockoutTeams.add(m.homeTeam.tla.toUpperCase());
+    if (m.awayTeam?.tla) knockoutTeams.add(m.awayTeam.tla.toUpperCase());
+  });
+
+  const bank = (code, stageKey) => {
+    if (!code || !(code in running)) return false;
+    const newPts = ptsTotal(code, stageKey);
+    const delta = newPts - (stageBanked[code] || 0);
+    if (delta === 0) return false;
+    stageBanked[code] = newPts; running[code] += delta; return true;
+  };
+  const pushAll = () => allCodes.forEach(c => history[c].push(running[c]));
+  const grpCmp = (x, y) => {
+    const pd = (grpPts[y]||0)-(grpPts[x]||0); if (pd) return pd;
+    const gd = ((grpGF[y]||0)-(grpGA[y]||0))-((grpGF[x]||0)-(grpGA[x]||0)); if (gd) return gd;
+    return (grpGF[y]||0)-(grpGF[x]||0);
+  };
+  const allGroupsComplete = () => Object.values(GROUP_ASSIGNMENTS).every(t => t.every(c => (groupGames[c]||0) >= 3));
+  const resolveThirds = () => {
+    let changed = false;
+    const top8 = new Set(qualifiedThirdPlacers(matches));
+    top8.forEach(code => { if (!eliminated[code] && bank(code, "LAST_32")) changed = true; });
+    Object.values(GROUP_ASSIGNMENTS).forEach(teams => {
+      const third = [...teams].sort(grpCmp)[2];
+      if (!third || top8.has(third) || eliminated[third] || knockoutTeams.has(third)) return;
+      eliminated[third] = "GROUP_ELIM";
+      if (bank(third, "GROUP_ELIM")) changed = true;
     });
-    return out;
+    return changed;
   };
 
-  let prev = {}; allCodes.forEach(c => { prev[c] = 0; });
-  for (let i = 0; i < done.length; i++) {
-    // Collapse simultaneous kickoffs into one frame.
-    const cutoff = new Date(done[i].utcDate).getTime();
-    const next = done[i + 1];
-    if (next && new Date(next.utcDate).getTime() === cutoff) continue;
-    // View as of this cutoff: only the finished results up to here.
-    const cur = swPtsFor(done.slice(0, i + 1));
-    if (allCodes.some(c => cur[c] !== prev[c])) {
-      allCodes.forEach(c => history[c].push(cur[c]));
-      prev = cur;
+  done.forEach(m => {
+    const stage = (m.stage || "").toUpperCase();
+    const h = m.homeTeam?.tla?.toUpperCase();
+    const a = m.awayTeam?.tla?.toUpperCase();
+    const hs = m.score?.fullTime?.home ?? 0;
+    const as_ = m.score?.fullTime?.away ?? 0;
+    const pen = m.score?.penalties;
+    let loser = null, winner = null;
+    if (hs > as_)      { loser = a; winner = h; }
+    else if (as_ > hs) { loser = h; winner = a; }
+    else if (pen)      { if (pen.home > pen.away) { loser = a; winner = h; } else { loser = h; winner = a; } }
+    let changed = false;
+
+    if (stage === "FINAL") {
+      if (winner && bank(winner, "WINNER")) changed = true;
+      if (loser && bank(loser, "FINALIST")) changed = true;
+    } else if (stage.includes("GROUP")) {
+      let hR, aR;
+      if (hs > as_)      { hR = "W"; aR = "L"; }
+      else if (as_ > hs) { hR = "L"; aR = "W"; }
+      else               { hR = "D"; aR = "D"; }
+      [[h, hR], [a, aR]].forEach(([c, r]) => {
+        if (c && (c in running) && r !== "L") { const p = groupGamePts(c, r); if (p) { running[c] += p; changed = true; } }
+      });
+      if (h && a) {
+        if (!grpPts[h]) { grpPts[h]=0; grpGF[h]=0; grpGA[h]=0; }
+        if (!grpPts[a]) { grpPts[a]=0; grpGF[a]=0; grpGA[a]=0; }
+        grpGF[h]+=hs; grpGA[h]+=as_; grpGF[a]+=as_; grpGA[a]+=hs;
+        if (hs>as_) grpPts[h]+=3; else if (as_>hs) grpPts[a]+=3; else { grpPts[h]++; grpPts[a]++; }
+      }
+      if (h) groupGames[h]=(groupGames[h]||0)+1;
+      if (a) groupGames[a]=(groupGames[a]||0)+1;
+      // 4th-place elimination — definitive once the group is complete, else conservative.
+      const L = h ? Object.keys(GROUP_ASSIGNMENTS).find(g => GROUP_ASSIGNMENTS[g].includes(h)) : null;
+      if (L) {
+        const teams = GROUP_ASSIGNMENTS[L];
+        if (teams.every(c => (groupGames[c]||0) >= 3)) {
+          const fourth = [...teams].sort(grpCmp)[3];
+          if (fourth && !eliminated[fourth] && !knockoutTeams.has(fourth)) { eliminated[fourth]="GROUP_ELIM"; if (bank(fourth,"GROUP_ELIM")) changed=true; }
+        } else {
+          [h, a].forEach(c => {
+            if (!c || eliminated[c] || knockoutTeams.has(c)) return;
+            if ((groupGames[c]||0) >= 3 && isDefinitelyFourth(c, grpPts, grpGF, grpGA)) { eliminated[c]="GROUP_ELIM"; if (bank(c,"GROUP_ELIM")) changed=true; }
+          });
+        }
+      }
+      // Clinch (top-2) as-of-this-frame — pessimistic, so it never over-credits.
+      processedIds.add(m.id);
+      const clinchView = matches.map(x => processedIds.has(x.id) ? x
+        : (x.status === "FINISHED" ? Object.assign({}, x, { status: "SCHEDULED" }) : x));
+      clinchedR32(clinchView).forEach(code => {
+        if (!clinchAwarded.has(code) && !eliminated[code]) { clinchAwarded.add(code); if (bank(code, "LAST_32")) changed = true; }
+      });
+      // Best-3rd resolution the instant every group finishes.
+      if (!thirdsResolved && allGroupsComplete()) { thirdsResolved = true; if (resolveThirds()) changed = true; }
+    } else {
+      // Knockout: winner advances (banks the next round), loser banks the round played.
+      let sk = null, nk = null;
+      if (stage.includes("SEMI"))                                 { sk = "SEMI_FINALS";    nk = "FINALIST"; }
+      else if (stage.includes("QUARTER"))                         { sk = "QUARTER_FINALS"; nk = "SEMI_FINALS"; }
+      else if (stage.includes("LAST_16") || stage.includes("16")) { sk = "LAST_16";        nk = "QUARTER_FINALS"; }
+      else if (stage.includes("LAST_32") || stage.includes("32")) { sk = "LAST_32";        nk = "LAST_16"; }
+      if (sk) {
+        if (loser && bank(loser, sk)) changed = true;
+        if (winner && bank(winner, nk)) changed = true;
+      }
     }
-  }
-
-  // Final frame = current live/authoritative total (also captures in-play scoring).
-  const finalPts = swPtsFor(matches);
-  if (allCodes.some(c => finalPts[c] !== prev[c])) {
-    allCodes.forEach(c => history[c].push(finalPts[c]));
-  }
-
-  // Remove transient dips. A team's points only ever rise, except for ONE terminal
-  // GROUP_ELIM penalty (after which it's out and never scores again). But
-  // deriveStages ranks best-3rd qualifiers "as it stands", so a 3rd-placed team can
-  // provisionally flip eliminated→qualified mid-group, briefly showing a −penalty
-  // that later recovers. Fix: before the point where a team settles at its final
-  // value, take the running max (erasing recovering dips); from the settle point on,
-  // hold the final value so a genuine terminal penalty still shows as one drop at
-  // the right (group-stage) frame.
-  allCodes.forEach(code => {
-    const h = history[code];
-    const n = h.length;
-    if (n < 2) return;
-    const finalVal = h[n - 1];
-    let settle = n - 1;
-    while (settle > 0 && h[settle - 1] === finalVal) settle--;
-    let mx = h[0];
-    for (let i = 0; i < settle; i++) { if (h[i] > mx) mx = h[i]; h[i] = mx; }
-    for (let i = settle; i < n; i++) h[i] = finalVal;
+    if (changed) pushAll();
   });
+
+  if (!thirdsResolved && allGroupsComplete()) { thirdsResolved = true; if (resolveThirds()) pushAll(); }
+
+  // Reconcile each endpoint to the exact displayed swPts (catches e.g. teams
+  // credited via a published knockout fixture the FINISHED-only replay can't see).
+  const grpPtsAuth = deriveGroupPts(matches);
+  const { stageReached, eliminated: elimAuth } = deriveStages(matches);
+  let recon = false;
+  allCodes.forEach(code => {
+    const sR = stageReached[code];
+    const swPts = (grpPtsAuth[code] || 0)
+      + (sR && sR !== "GROUP_ELIM" ? ptsTotal(code, sR) : 0)
+      + (elimAuth[code] === "GROUP_ELIM" ? ptsTotal(code, "GROUP_ELIM") : 0);
+    if (running[code] !== swPts) { running[code] = swPts; recon = true; }
+  });
+  if (recon) pushAll();
 
   return history;
 }
