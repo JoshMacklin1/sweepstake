@@ -2248,84 +2248,59 @@ function deriveMatchPts(matches) {
 }
 
 // Per-team cumulative sweepstake-points history for the Teams-table sparklines.
-// Mirrors deriveSparklineHistory's SHARED-timeline model: every team gets a frame
-// pushed on every scoring event (not just its own), so all 48 teams share one
-// tournament-wide x-axis and their lines are directly comparable — flat where a
-// team didn't score, stepping up where it did — exactly like the Players table.
-// (Pushing only on a team's own events gave each team a short independent axis,
-// which rendered as near-identical straight diagonals.) Group W/D points and the
-// highest knockout/final stage bonus are banked chronologically (same delta model
-// as deriveMatchPts); a final reconciliation aligns every team's endpoint to the
-// exact swPts shown (incl. GROUP_ELIM penalties). Keyed by team code.
+// Rather than re-deriving the point logic, this recomputes each team's exact
+// authoritative total (same formula the Teams table shows: group W/D pts +
+// highest-stage bonus + any GROUP_ELIM penalty) from deriveStages/deriveGroupPts
+// AS OF each finished match, and pushes a shared frame for all 48 teams whenever
+// any total changes. That means every real scoring event lands as its own step:
+// the group-qualification bonus (positive) or group-elimination penalty (negative)
+// when the group settles, and each knockout round reached — so a team that
+// qualifies then advances shows multiple jumps, exactly like the app scores it.
+// "As of" a cutoff = only the finished results up to that point are considered
+// (later/unplayed fixtures are excluded, so deriveStages can't credit a team for
+// merely appearing in a future knockout draw — it advances teams from RESULTS:
+// an L32 winner is marked as reaching the L16, etc.). Keyed by team code; all
+// series share one timeline (equal length).
 function deriveTeamHistory(matches) {
-  const done = matches.filter(m => isSettled(m.status))
-    .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
   const allCodes = Object.values(GROUP_ASSIGNMENTS).flat();
-  const running = {};      // code -> running total
-  const stageBanked = {};  // code -> pts already banked for highest stage reached
-  const history = {};      // code -> [0, ...]  (all same length — shared timeline)
-  allCodes.forEach(c => { running[c] = 0; stageBanked[c] = 0; history[c] = [0]; });
-  const bankStage = (code, stageKey) => {
-    const newPts = ptsTotal(code, stageKey);
-    const delta = newPts - (stageBanked[code] || 0);
-    stageBanked[code] = newPts;
-    return delta;
+  const done = matches.filter(m => m.status === "FINISHED")
+    .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
+  const history = {};
+  allCodes.forEach(c => { history[c] = [0]; });
+
+  // Authoritative sweepstake total per team for a given match view.
+  const swPtsFor = (view) => {
+    const gp = deriveGroupPts(view);
+    const { stageReached, eliminated } = deriveStages(view);
+    const out = {};
+    allCodes.forEach(c => {
+      const sR = stageReached[c];
+      out[c] = (gp[c] || 0)
+        + (sR && sR !== "GROUP_ELIM" ? ptsTotal(c, sR) : 0)
+        + (eliminated[c] === "GROUP_ELIM" ? ptsTotal(c, "GROUP_ELIM") : 0);
+    });
+    return out;
   };
-  const pushAll = () => allCodes.forEach(c => history[c].push(running[c]));
 
-  done.forEach(m => {
-    const stage = (m.stage || "").toUpperCase();
-    const h = m.homeTeam?.tla?.toUpperCase();
-    const a = m.awayTeam?.tla?.toUpperCase();
-    const hs = m.score?.fullTime?.home ?? 0;
-    const as_ = m.score?.fullTime?.away ?? 0;
-    const pen = m.score?.penalties;
-    let loser = null, winner = null;
-    if (hs > as_)      { loser = a; winner = h; }
-    else if (as_ > hs) { loser = h; winner = a; }
-    else if (pen)      { if (pen.home > pen.away) { loser = a; winner = h; } else { loser = h; winner = a; } }
-
-    let changed = false;
-    const add = (code, delta) => { if (code && (code in running) && delta) { running[code] += delta; changed = true; } };
-
-    if (stage.includes("GROUP")) {
-      let hResult, aResult;
-      if (hs > as_)      { hResult = "W"; aResult = "L"; }
-      else if (as_ > hs) { hResult = "L"; aResult = "W"; }
-      else               { hResult = "D"; aResult = "D"; }
-      add(h, groupGamePts(h, hResult));
-      add(a, groupGamePts(a, aResult));
-    } else if (stage === "FINAL") {
-      if (winner) add(winner, bankStage(winner, "WINNER"));
-      if (loser)  add(loser,  bankStage(loser,  "FINALIST"));
-    } else {
-      let stageKey = null, nextStageKey = null;
-      if (stage.includes("SEMI"))                                 { stageKey = "SEMI_FINALS";    nextStageKey = "FINALIST"; }
-      else if (stage.includes("QUARTER"))                         { stageKey = "QUARTER_FINALS"; nextStageKey = "SEMI_FINALS"; }
-      else if (stage.includes("LAST_16") || stage.includes("16")) { stageKey = "LAST_16";        nextStageKey = "QUARTER_FINALS"; }
-      else if (stage.includes("LAST_32") || stage.includes("32")) { stageKey = "LAST_32";        nextStageKey = "LAST_16"; }
-      if (stageKey) {
-        if (loser)  add(loser,  bankStage(loser,  stageKey));
-        if (winner) add(winner, bankStage(winner, nextStageKey));
-      }
+  let prev = {}; allCodes.forEach(c => { prev[c] = 0; });
+  for (let i = 0; i < done.length; i++) {
+    // Collapse simultaneous kickoffs into one frame.
+    const cutoff = new Date(done[i].utcDate).getTime();
+    const next = done[i + 1];
+    if (next && new Date(next.utcDate).getTime() === cutoff) continue;
+    // View as of this cutoff: only the finished results up to here.
+    const cur = swPtsFor(done.slice(0, i + 1));
+    if (allCodes.some(c => cur[c] !== prev[c])) {
+      allCodes.forEach(c => history[c].push(cur[c]));
+      prev = cur;
     }
-    if (changed) pushAll();
-  });
+  }
 
-  // Reconcile every team's final total to the exact Teams-table swPts (adds any
-  // GROUP_ELIM penalty and catches stage bonuses the chronological replay missed),
-  // then push one final synced frame so all series stay the same length.
-  const grpPts = deriveGroupPts(matches);
-  const { stageReached, eliminated } = deriveStages(matches);
-  let reconChanged = false;
-  allCodes.forEach(code => {
-    const stageR = stageReached[code];
-    const swPts = (grpPts[code] || 0)
-      + (stageR && stageR !== "GROUP_ELIM" ? ptsTotal(code, stageR) : 0)
-      + (eliminated[code] === "GROUP_ELIM" ? ptsTotal(code, "GROUP_ELIM") : 0);
-    if (running[code] !== swPts) { running[code] = swPts; reconChanged = true; }
-  });
-  if (reconChanged) pushAll();
+  // Final frame = current live/authoritative total (also captures in-play scoring).
+  const finalPts = swPtsFor(matches);
+  if (allCodes.some(c => finalPts[c] !== prev[c])) {
+    allCodes.forEach(c => history[c].push(finalPts[c]));
+  }
 
   return history;
 }
