@@ -4325,19 +4325,27 @@ function KnockoutBracket({ matches, onTeamClick, matchPtsById = {}, bracketRef: 
     if (currentIdx === -1) currentIdx = 0;
     const nextIdx = Math.min(currentIdx + 1, allRounds.length - 1);
     const displayIndices = currentIdx === nextIdx ? [currentIdx] : [currentIdx, nextIdx];
+    // Re-index the (up to) two shown rounds LOCALLY so the layout is independent of
+    // how far the tournament has progressed: the left round is always tight (like
+    // Last 32), the right centred between its pairs (like Last 16). Height tracks the
+    // left round's match count, so the card shrinks vertically after each round.
+    const leftCount = allRounds[displayIndices[0]].data.length;
+    const localSlots = (localIdx) => Math.pow(2, localIdx) * SLOT;
+    const localTop = (localIdx, matchIdx) => { const sl = localSlots(localIdx); return sl * matchIdx + (sl - MATCH_H) / 2; };
+    const localHeight = leftCount * SLOT - R32_GAP;
     return (
       <div style={{ padding:"12px 12px 12px" }}>
         <div style={{ display:"flex", gap:12 }}>
-          {displayIndices.map(globalIdx => {
+          {displayIndices.map((globalIdx, localIdx) => {
             const round = allRounds[globalIdx];
             return (
               <div key={round.key} style={{ flex:1, display:"flex", flexDirection:"column", minWidth:0 }}>
                 <div style={{ fontSize:10, fontWeight:700, color: round.key === "fin" ? C.accent : C.muted, textTransform:"uppercase", letterSpacing:1, padding:"0 4px 8px", textAlign:"center" }}>
                   {round.label}
                 </div>
-                <div style={{ position:"relative", height: totalHeight }}>
+                <div style={{ position:"relative", height: localHeight }}>
                   {round.data.map((m, i) => (
-                    <div key={i} style={{ position:"absolute", top: topFor(globalIdx, i), left:0, right:0, height:MATCH_H }}>
+                    <div key={i} style={{ position:"absolute", top: localTop(localIdx, i), left:0, right:0, height:MATCH_H }}>
                       <BracketMatch match={m} matchNum={round.key === "r32" ? i+1 : null} compact />
                     </div>
                   ))}
