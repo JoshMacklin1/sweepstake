@@ -1513,6 +1513,11 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
   const totalPts = teamEntry?.pts ?? 0;
   // Orphaned Last-32 qualification bonus (points not tied to any single match).
   const stageBonus = stageBonusFor(tla, totalPts, matches, matchPtsById);
+  // Points-over-time history for this team (same source as the Teams-tab sparklines).
+  const teamHist = React.useMemo(
+    () => (typeof deriveTeamHistory === "function" ? (deriveTeamHistory(matches)[tla] || [0]) : [0]),
+    [matches, tla]
+  );
 
   return (<>
         <div className="sheet-handle"><span></span></div>
@@ -1564,6 +1569,11 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
                 </div>
               );
             })()}
+          </div>
+
+          <div style={{ fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Points over time</div>
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: s.card.borderRadius, padding: "12px 8px", marginBottom: 18, display: "flex", justifyContent: "center" }}>
+            <Sparkline data={teamHist} width={300} height={72} color={totalPts < 0 ? C.red : totalPts === 0 ? C.neutral : C.accent} />
           </div>
 
           {upcomingMatches.length > 0 && (<>
