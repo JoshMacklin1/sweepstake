@@ -3930,6 +3930,28 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
   const familyRankChange = (families && typeof compute24hFamilyRankChange === "function")
     ? compute24hFamilyRankChange(matches, families) : new Map();
 
+  // Teams ranked by sweepstake points (each owned team = one row), same source as
+  // the Teams tab. Sparkline history from deriveTeamHistory (confirmed-events model).
+  const teamHist = React.useMemo(
+    () => (typeof deriveTeamHistory === "function" ? deriveTeamHistory(matches) : {}),
+    [matches]
+  );
+  const buildTeamRows = (rk) => rk.filter(p => !p.grimReaper)
+    .flatMap(p => (p.teams || []).map(t => ({ code: t.code, name: t.name, pot: t.pot, pts: t.pts, eliminated: t.eliminated, owner: p.name })))
+    .sort((a, b) => (b.pts - a.pts) || a.name.localeCompare(b.name));
+  const teamRows = buildTeamRows(ranked).map(t => ({ ...t, hist: teamHist[t.code] || [0] }));
+  const topTeam = teamRows[0] || null;
+  const topTeamThree = teamRows.slice(0, 3);
+  // 24h team-position change — mirror compute24hRankChange: rank now vs 24h ago.
+  const teamRankChange = (() => {
+    const rankNow = {}; teamRows.forEach((t, i) => { rankNow[t.code] = i; });
+    const past = matches.filter(m => new Date(m.utcDate).getTime() <= cutoffMs);
+    const rankPast = {}; buildTeamRows(scorePlayers(past)).forEach((t, i) => { rankPast[t.code] = i; });
+    const out = new Map();
+    teamRows.forEach(t => { const n = rankNow[t.code], pa = rankPast[t.code]; out.set(t.code, (pa !== undefined && n !== undefined) ? pa - n : 0); });
+    return out;
+  })();
+
   return (
     <div>
       <MatchFocusCard matches={matches} ranked={ranked} matchPtsById={matchPtsById} onMatchClick={openMatchModal} />
@@ -3949,7 +3971,7 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
         </div>
       )}
 
-      <Section icon="🏆" title="Top Players" onOpen={() => { window.history.pushState({ appTab: "table", appModal: null }, ""); window.scrollTo(0, 0); setTab("table"); setLeagueView("league"); }} linkLabel="View player league"
+      <Section icon="🏆" title="Top Players" onOpen={() => { window.history.pushState({ appTab: "table", appModal: null }, ""); window.scrollTo(0, 0); setTab("table"); setLeagueView("league"); }} linkLabel="View all players"
         empty={topThree.length === 0 ? "No standings yet" : null}>
         {topThree.map((p, i) => {
           const delta = rank24hChange.get(p.name) || 0;
@@ -3993,7 +4015,7 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
         </div>
       )}
       {topFamilyThree.length > 0 && (
-        <Section icon="👨‍👩‍👧‍👦" title="Top Families" onOpen={() => { window.history.pushState({ appTab: "table", appModal: null }, ""); window.scrollTo(0, 0); setTab("table"); setLeagueView("families"); }} linkLabel="View family league"
+        <Section icon="👨‍👩‍👧‍👦" title="Top Families" onOpen={() => { window.history.pushState({ appTab: "table", appModal: null }, ""); window.scrollTo(0, 0); setTab("table"); setLeagueView("families"); }} linkLabel="View all families"
           empty={null}>
           {topFamilyThree.map((family, i) => {
             const delta = familyRankChange.get(family.name) || 0;
@@ -4022,6 +4044,52 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
           })}
         </Section>
       )}
+
+      {topTeam && (
+        <div className="player-card" onClick={() => openTeamModal(topTeam.code)} style={{
+          ...s.card, padding: "18px 16px", marginBottom: 16, textAlign: "center", cursor: "pointer",
+          background: "linear-gradient(135deg, rgba(34,197,94,0.14), rgba(34,197,94,0.02))",
+        }}>
+          <div style={{ fontSize: 11, color: C.dim, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Leading Team</div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 8 }}>
+            <Flag code={topTeam.code} size={24} />
+            <span style={{ fontSize: 20, fontWeight: 900, color: C.text }}>{topTeam.name}<span style={{ fontSize: 13, fontWeight: 700, color: C.muted }}> (P{topTeam.pot})</span></span>
+          </div>
+          <div style={{ fontSize: 30, fontWeight: 900, color: topTeam.pts < 0 ? C.red : C.accent, lineHeight: 1 }}>
+            {topTeam.pts}<span style={{ fontSize: 14, fontWeight: 700, color: C.muted }}> pts</span>
+          </div>
+          {topTeam.owner && <div style={{ fontSize: 12, color: C.dim, marginTop: 6 }}>{topTeam.owner}</div>}
+        </div>
+      )}
+      <Section icon="⚽" title="Top Teams" onOpen={() => { window.history.pushState({ appTab: "table", appModal: null }, ""); window.scrollTo(0, 0); setTab("table"); setLeagueView("teams"); }} linkLabel="View all teams"
+        empty={topTeamThree.length === 0 ? "No standings yet" : null}>
+        {topTeamThree.map((t, i) => {
+          const delta = teamRankChange.get(t.code) || 0;
+          return (
+            <div key={t.code} className="player-card" onClick={() => openTeamModal(t.code)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", cursor: "pointer", borderBottom: i < topTeamThree.length - 1 ? `1px solid ${C.border}` : "none" }}>
+              <div style={{
+                width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
+                background: rankColors[i], display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 12, fontWeight: 800, color: "#080c18",
+              }}>{i + 1}</div>
+              <Flag code={t.code} size={20} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}<span style={{ fontSize: 11, fontWeight: 600, color: C.muted }}> (P{t.pot})</span></div>
+                <div style={{ fontSize: 11, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.owner || "—"}</div>
+              </div>
+              <Sparkline data={t.hist} width={64} height={28} color={t.pts < 0 ? C.red : t.pts === 0 ? C.neutral : C.accent} />
+              <div style={{ textAlign: "right", flexShrink: 0, minWidth: 50 }}>
+                <div style={{ fontSize: 16, fontWeight: 800, color: t.pts < 0 ? C.red : C.text, lineHeight: 1 }}>{t.pts}</div>
+                <div style={{
+                  display: "inline-block", fontSize: 9, fontWeight: 700, padding: "1px 4px", borderRadius: 3, marginTop: 3,
+                  background: delta === 0 ? "rgba(148,163,184,0.12)" : delta > 0 ? C.posBg : C.negBg,
+                  color: delta === 0 ? "#94a3b8" : delta > 0 ? C.accent : C.red,
+                }}>{delta === 0 ? "0 pos" : `${delta > 0 ? "▲" : "▼"} ${Math.abs(delta)} pos`}</div>
+              </div>
+            </div>
+          );
+        })}
+      </Section>
 
       <Section icon="🏅" title="New Accolades" onOpen={() => setShowAllAccolades(true)} linkLabel="View all accolades"
         empty={newAccolades.length === 0 ? "No new accolades in the last 24h" : null}>
