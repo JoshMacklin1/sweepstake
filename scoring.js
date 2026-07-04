@@ -2302,6 +2302,26 @@ function deriveTeamHistory(matches) {
     allCodes.forEach(c => history[c].push(finalPts[c]));
   }
 
+  // Remove transient dips. A team's points only ever rise, except for ONE terminal
+  // GROUP_ELIM penalty (after which it's out and never scores again). But
+  // deriveStages ranks best-3rd qualifiers "as it stands", so a 3rd-placed team can
+  // provisionally flip eliminated→qualified mid-group, briefly showing a −penalty
+  // that later recovers. Fix: before the point where a team settles at its final
+  // value, take the running max (erasing recovering dips); from the settle point on,
+  // hold the final value so a genuine terminal penalty still shows as one drop at
+  // the right (group-stage) frame.
+  allCodes.forEach(code => {
+    const h = history[code];
+    const n = h.length;
+    if (n < 2) return;
+    const finalVal = h[n - 1];
+    let settle = n - 1;
+    while (settle > 0 && h[settle - 1] === finalVal) settle--;
+    let mx = h[0];
+    for (let i = 0; i < settle; i++) { if (h[i] > mx) mx = h[i]; h[i] = mx; }
+    for (let i = settle; i < n; i++) h[i] = finalVal;
+  });
+
   return history;
 }
 
