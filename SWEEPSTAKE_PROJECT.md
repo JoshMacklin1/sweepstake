@@ -49,7 +49,9 @@ Free tier reaches back 3 seasons (2023–2025). Playoff stage labels vary by
 season ("SEMI_FINALS"/"FINAL" vs flat "PLAYOFFS"), so the final is identified
 structurally. Bonuses award only when **mathematically settled**
 (conservative pairwise clinch maths — validated drift-free against daily
-replay snapshots of 2025-26). UI (`league.html`) not started yet.
+replay snapshots of 2025-26). UI (`league.html`) is built out — full
+group-gated app (Home / Sweeps / Tables / Scores / More) verified rendering
+end-to-end against the 2025-26 replay data.
 
 ---
 
