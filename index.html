@@ -4203,21 +4203,31 @@ function KnockoutBracket({ matches, onTeamClick, matchPtsById = {}, bracketRef: 
   const projectRound = (prevRound, apiRound, count) => {
     const apiWithTeams = apiRound.filter(m => m.home || m.away);
     if (apiWithTeams.length >= count) return apiRound;
+    // Partially-filled round: place each real API fixture in its TRUE bracket slot
+    // by matching TEAMS to the two feeding matches' winners — the API's kickoff
+    // order doesn't line up with the bracket once TBD-placeholder fixtures are
+    // interleaved (which put the real fixture at the wrong index and left it also
+    // showing as a separate projected duplicate). Remaining slots are projected
+    // from the previous round's winners.
+    const used = new Set();
+    const findApi = (t1, t2) => {
+      for (let k = 0; k < apiRound.length; k++) {
+        const m = apiRound[k];
+        if (!m || used.has(k) || !(m.home || m.away)) continue;
+        const teams = [m.home, m.away];
+        const ok = (t1 && t2) ? (teams.includes(t1) && teams.includes(t2)) : teams.includes(t1 || t2);
+        if (ok) { used.add(k); return m; }
+      }
+      return null;
+    };
     const out = [];
     for (let s = 0; s < count; s++) {
-      const apiSlot = apiRound[s] || null;
-      if (apiSlot && (apiSlot.home || apiSlot.away)) {
-        const keep = (tla) => !tla || !eliminated[tla];
-        const home = keep(apiSlot.home) ? apiSlot.home : null;
-        const away = keep(apiSlot.away) ? apiSlot.away : null;
-        out.push(home !== apiSlot.home || away !== apiSlot.away ? { ...apiSlot, home, away } : apiSlot);
-      } else {
-        const m1 = prevRound[s * 2] || null;
-        const m2 = prevRound[s * 2 + 1] || null;
-        const home = m1?.winner || null;
-        const away = m2?.winner || null;
-        out.push((home || away) ? { home, away, homeScore: null, awayScore: null, status: "PROJECTED", winner: null } : null);
-      }
+      const eh = (prevRound[s * 2] || {}).winner || null;
+      const ea = (prevRound[s * 2 + 1] || {}).winner || null;
+      const api = (eh || ea) ? findApi(eh, ea) : null;
+      if (api) out.push(api);
+      else if (eh || ea) out.push({ home: eh, away: ea, homeScore: null, awayScore: null, status: "PROJECTED", winner: null });
+      else out.push(null);
     }
     return out;
   };
