@@ -682,8 +682,10 @@ function MatchCard({ m, ranked, upcoming = [], pts, onPlayerClick, onTeamClick, 
   const live = m.status === "IN_PLAY" || m.status === "PAUSED";
   const scheduled = m.status === "SCHEDULED" || m.status === "TIMED";
   // Kicked off but the feed hasn't flipped it to IN_PLAY (or is failing) — treat
-  // as live for the label/indicator; there's no real score yet so we don't fake one.
+  // as live for the label/indicator. Show the real score whenever the feed has
+  // one (its status often lags the scoreline); only say "awaiting" when it doesn't.
   const kickedOff = scheduled && new Date(m.utcDate).getTime() <= Date.now();
+  const hasScore = m.score?.fullTime?.home != null && m.score?.fullTime?.away != null;
   const broadcast = getBroadcast(h, a);
   const hOwner = ownerOf(h, ranked);
   const aOwner = ownerOf(a, ranked);
@@ -832,9 +834,9 @@ function MatchCard({ m, ranked, upcoming = [], pts, onPlayerClick, onTeamClick, 
             </div>
           </div>
           <div style={{ minWidth:64, textAlign:"center" }}>
-            {fin || live
+            {fin || live || hasScore
               ? <>
-                  <span style={{ fontSize:18, fontWeight:800, letterSpacing:2 }}>
+                  <span style={{ fontSize:18, fontWeight:800, letterSpacing:2, color: (live || (hasScore && !fin)) ? C.red : C.text }}>
                     {m.score?.fullTime?.home ?? 0}–{m.score?.fullTime?.away ?? 0}
                   </span>
                   {fin && m.score?.penalties?.home != null && (
@@ -842,6 +844,7 @@ function MatchCard({ m, ranked, upcoming = [], pts, onPlayerClick, onTeamClick, 
                       pens {m.score.penalties.home}–{m.score.penalties.away}
                     </div>
                   )}
+                  {!fin && <div style={{ fontSize:9, fontWeight:800, color:C.red, marginTop:2, letterSpacing:"0.05em" }}>⚡ LIVE</div>}
                 </>
               : <div>
                   {kickedOff
@@ -3753,9 +3756,10 @@ function MatchFocusCard({ matches, ranked, matchPtsById = {}, onMatchClick }) {
     const aOwner = ownerOf(a, ranked);
     const broadcast = typeof getBroadcast === "function" ? getBroadcast(h, a) : { b: "", url: "" };
     const livePts = matchPtsById[m.id];
-    // Per-match live state: a real feed score only exists for IN_PLAY/PAUSED.
-    // A kicked-off-but-still-scheduled match is live too, but has no score yet.
-    const mHasScore = m.status === "IN_PLAY" || m.status === "PAUSED";
+    // Show a real score whenever the feed has one, even if it hasn't flipped the
+    // status to IN_PLAY yet (it often lags). A kicked-off match with no score yet
+    // is still live — it just shows "awaiting score".
+    const mHasScore = m.score?.fullTime?.home != null && m.score?.fullTime?.away != null;
     const mKicked   = (m.status === "SCHEDULED" || m.status === "TIMED") && new Date(m.utcDate).getTime() <= Date.now();
     return (
       <div key={m.id} style={{ flex:"0 0 100%", display:"flex", alignItems:"center" }}>
@@ -3775,7 +3779,7 @@ function MatchFocusCard({ matches, ranked, matchPtsById = {}, onMatchClick }) {
               : <div style={{ fontSize:13, color:C.muted, marginBottom:4 }}>vs</div>
           }
           {broadcast.b && <span style={{ background:broadcast.b==="ITV"?"#003087":"#FF6B35", color:"white", fontSize:9, fontWeight:800, padding:"2px 5px", borderRadius:3, whiteSpace:"nowrap", display:"inline-block" }}>▶ {broadcast.b}</span>}
-          {mKicked && <div style={{ fontSize:8, color:C.muted, marginTop:3 }}>awaiting score</div>}
+          {mKicked && !mHasScore && <div style={{ fontSize:8, color:C.muted, marginTop:3 }}>awaiting score</div>}
         </div>
         <div style={{ flex:1, display:"flex", alignItems:"center", gap:6, justifyContent:"flex-end" }}>
           <div style={{ textAlign:"right" }}>
@@ -4188,8 +4192,11 @@ function KnockoutBracket({ matches, onTeamClick, matchPtsById = {}, bracketRef: 
     const hs = m.score?.fullTime?.home;
     const as_ = m.score?.fullTime?.away;
     const pen = m.score?.penalties;
+    // Only crown a winner once the match is FINISHED — otherwise a live
+    // scoreline (e.g. a team leading at half-time) would advance that team into
+    // the next round while the match is still being played.
     let winner = null;
-    if (hs != null && as_ != null) {
+    if (m.status === "FINISHED" && hs != null && as_ != null) {
       if (hs > as_) winner = h;
       else if (as_ > hs) winner = a;
       else if (pen) winner = pen.home > pen.away ? h : a;
