@@ -2149,36 +2149,14 @@ function deriveSparklineHistory(matches) {
   });
   if (reconChanged.size > 0) PLAYERS.forEach(p => history[p.name].push(running[p.name]));
 
-  // Append live match contribution as the final sparkline point
-  const liveMatches = matches.filter(m => m.status === "IN_PLAY" || m.status === "PAUSED");
-  if (liveMatches.length > 0) {
-    const liveChanged = new Set();
-    liveMatches.forEach(m => {
-      const stage = (m.stage || "").toUpperCase();
-      if (!stage.includes("GROUP")) return; // only group stage scores mid-game
-      const h = m.homeTeam?.tla?.toUpperCase();
-      const a = m.awayTeam?.tla?.toUpperCase();
-      const hs = m.score?.fullTime?.home ?? 0;
-      const as_ = m.score?.fullTime?.away ?? 0;
-      let hResult, aResult;
-      if (hs > as_)      { hResult = "W"; aResult = "L"; }
-      else if (as_ > hs) { hResult = "L"; aResult = "W"; }
-      else               { hResult = "D"; aResult = "D"; }
-      [[h, hResult], [a, aResult]].forEach(([code, result]) => {
-        if (!code || result === "L") return;
-        const pls = teamPlayer[code] || [];
-        pls.forEach(pl => {
-          running[pl] = (running[pl] || 0) + groupGamePts(code, result);
-          liveChanged.add(pl);
-        });
-      });
-      // Grim Reaper drought curse on live 0-0
-      const drought = goalDroughtPts(m);
-      if (drought > 0) { running[reaperName] = (running[reaperName] || 0) + drought; liveChanged.add(reaperName); }
-    });
-    if (liveChanged.size > 0) PLAYERS.forEach(p => history[p.name].push(running[p.name]));
-  }
-
+  // NOTE: the sparkline is deliberately CONFIRMED-ONLY — it replays FINISHED
+  // matches and does NOT append a live-match point. A live game's points still
+  // move the player's displayed total/position in real time (scorePlayers /
+  // deriveStages / deriveGroupPts use isSettled), but the sparkline stays flat
+  // during the game and only redraws when the match finishes — same as the
+  // bracket resolves at the final whistle. This also keeps the frame count in
+  // sync with the bar race (deriveRaceEliminations/Stages), which are likewise
+  // FINISHED-only.
   return history;
 }
 
@@ -2383,10 +2361,17 @@ function deriveTeamHistory(matches) {
 
   if (!thirdsResolved && allGroupsComplete()) { thirdsResolved = true; if (resolveThirds()) pushAll(); }
 
-  // Reconcile each endpoint to the exact displayed swPts (catches e.g. teams
-  // credited via a published knockout fixture the FINISHED-only replay can't see).
-  const grpPtsAuth = deriveGroupPts(matches);
-  const { stageReached, eliminated: elimAuth } = deriveStages(matches);
+  // Reconcile each endpoint to the exact CONFIRMED swPts (catches e.g. teams
+  // credited via a published knockout fixture the FINISHED-only replay can't
+  // see). A "confirmed view" downgrades any live match to SCHEDULED first, so a
+  // team's qualification credit is kept but a live match's score does NOT move
+  // the sparkline endpoint — the team's displayed total still updates live via
+  // scorePlayers, but the line only redraws when the game finishes (same as the
+  // bracket). Converges to the live total the instant the match is FINISHED.
+  const confirmedView = matches.map(m =>
+    (m.status === "IN_PLAY" || m.status === "PAUSED") ? Object.assign({}, m, { status: "SCHEDULED" }) : m);
+  const grpPtsAuth = deriveGroupPts(confirmedView);
+  const { stageReached, eliminated: elimAuth } = deriveStages(confirmedView);
   let recon = false;
   allCodes.forEach(code => {
     const sR = stageReached[code];

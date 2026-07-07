@@ -317,7 +317,7 @@
   });
 </script>
 
-<script src="scoring.js?v=14"></script>
+<script src="scoring.js?v=15"></script>
 <!-- scoring.js defines PLAYERS, POT, PTS_INC, scorePlayers, deriveStages, etc.
      as classic-script globals (see scoring.js header comment for why it's a
      classic script and not type="module"). The Babel script below depends on
@@ -4287,7 +4287,7 @@ function KnockoutBracket({ matches, onTeamClick, matchPtsById = {}, bracketRef: 
     return <div style={{ textAlign:"center", color:C.muted, fontSize:13, padding:"40px 20px" }}>Knockout stage hasn't started yet</div>;
   }
 
-  const BracketSlot = ({ tla, matchNum, side, score, isWinner, status, pts }) => {
+  const BracketSlot = ({ tla, matchNum, side, score, isWinner, status, pts, matchDecided }) => {
     const slotH = 38;
     const name = tla ? (teamName(tla) || tla) : null;
     const owner = tla ? ownerOf[tla] : null;
@@ -4295,7 +4295,10 @@ function KnockoutBracket({ matches, onTeamClick, matchPtsById = {}, bracketRef: 
     const flagUrl = tla ? flag(tla) : null;
     const isLive = status === "IN_PLAY" || status === "PAUSED";
     const label = tla ? null : (matchNum ? `W Match ${matchNum}` : "TBD");
-    const isElim = tla && eliminated[tla] && score != null && !isWinner;
+    // Eliminated ✕ only once THIS match has a confirmed winner (FINISHED) — a
+    // live scoreline never knocks a team out of the bracket, same rule as the
+    // winner advancement above.
+    const isElim = tla && matchDecided && !isWinner;
     const clickable = onTeamClick && tla;
     return (
       <div className={clickable ? "player-card" : undefined}
@@ -4353,8 +4356,8 @@ function KnockoutBracket({ matches, onTeamClick, matchPtsById = {}, bracketRef: 
         borderRadius:6, overflow:"hidden", ...sizeStyle, height:76, boxSizing:"border-box", background:C.card,
         opacity: isProjected ? 0.85 : 1,
       }}>
-        <BracketSlot tla={home} side="home" score={hasScore ? homeScore : null} isWinner={winner === home} status={status} pts={mpts?.home} />
-        <BracketSlot tla={away} side="away" score={hasScore ? awayScore : null} isWinner={winner === away} status={status} pts={mpts?.away} />
+        <BracketSlot tla={home} side="home" score={hasScore ? homeScore : null} isWinner={winner === home} status={status} pts={mpts?.home} matchDecided={!!winner} />
+        <BracketSlot tla={away} side="away" score={hasScore ? awayScore : null} isWinner={winner === away} status={status} pts={mpts?.away} matchDecided={!!winner} />
       </div>
     );
   };
