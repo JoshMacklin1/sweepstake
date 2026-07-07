@@ -681,6 +681,9 @@ function MatchCard({ m, ranked, upcoming = [], pts, onPlayerClick, onTeamClick, 
   const fin = m.status === "FINISHED";
   const live = m.status === "IN_PLAY" || m.status === "PAUSED";
   const scheduled = m.status === "SCHEDULED" || m.status === "TIMED";
+  // Kicked off but the feed hasn't flipped it to IN_PLAY (or is failing) — treat
+  // as live for the label/indicator; there's no real score yet so we don't fake one.
+  const kickedOff = scheduled && new Date(m.utcDate).getTime() <= Date.now();
   const broadcast = getBroadcast(h, a);
   const hOwner = ownerOf(h, ranked);
   const aOwner = ownerOf(a, ranked);
@@ -799,9 +802,9 @@ function MatchCard({ m, ranked, upcoming = [], pts, onPlayerClick, onTeamClick, 
       <div style={{ padding: "12px 14px" }}>
         {/* Header row: stage left | rivalry centre | date right */}
         <div style={{ display:"flex", alignItems:"center", marginBottom:10 }}>
-          <span style={{ fontSize:10, color: live ? C.red : C.dim, fontWeight:700, letterSpacing:"0.08em", flex:1,
-            animation: live ? "pulse-red 1.5s infinite" : "none" }}>
-            {live ? "⚡ LIVE" : (m.stage||"").replace(/_/g," ")}
+          <span style={{ fontSize:10, color: (live || kickedOff) ? C.red : C.dim, fontWeight:700, letterSpacing:"0.08em", flex:1,
+            animation: (live || kickedOff) ? "pulse-red 1.5s infinite" : "none" }}>
+            {(live || kickedOff) ? "⚡ LIVE" : (m.stage||"").replace(/_/g," ")}
           </span>
           <div style={{ display:"flex", alignItems:"center", gap:4, justifyContent:"center", flex:1 }}>
             {clashLabel && scheduled && <>
@@ -841,12 +844,16 @@ function MatchCard({ m, ranked, upcoming = [], pts, onPlayerClick, onTeamClick, 
                   )}
                 </>
               : <div>
-                  <div style={{ fontSize:12, color: C.muted, marginBottom:5 }}>vs</div>
+                  {kickedOff
+                    ? <div style={{ fontSize:11, fontWeight:800, color:C.red, marginBottom:5, letterSpacing:"0.05em" }}>LIVE</div>
+                    : <div style={{ fontSize:12, color: C.muted, marginBottom:5 }}>vs</div>
+                  }
                   <span style={{
                     fontSize:9, fontWeight:800, color:"white",
                     background: broadcast.b === "ITV" ? "#003087" : "#FF6B35",
                     padding:"2px 6px", borderRadius:3,
                   }}>{broadcast.b}</span>
+                  {kickedOff && <div style={{ fontSize:8, color:C.muted, marginTop:3 }}>awaiting score</div>}
                 </div>
             }
           </div>
@@ -3648,12 +3655,23 @@ function MatchFocusCard({ matches, ranked, matchPtsById = {}, onMatchClick }) {
   const drag = React.useRef({ startX: 0, dx: 0, active: false, w: 0 });
   const ANIM = "transform 0.28s cubic-bezier(0.4,0,0.2,1)";
 
-  const liveMatches = matches.filter(m => m.status === "IN_PLAY" || m.status === "PAUSED")
+  // A match counts as live if the feed says IN_PLAY/PAUSED, OR its kickoff time
+  // has passed and it isn't finished. The kickoff-time fallback matters because
+  // the feed (football-data.org free tier) is often slow or fails outright to
+  // flip a match to IN_PLAY at kickoff — without it the banner silently skips a
+  // match that has clearly started and counts down to the next one instead.
+  // Mirrors the Scores tab's live rule so the two stay consistent.
+  const nowMs = Date.now();
+  const koPassed = (m) => new Date(m.utcDate).getTime() <= nowMs;
+  const isLiveM  = (m) => m.status === "IN_PLAY" || m.status === "PAUSED" ||
+    ((m.status === "SCHEDULED" || m.status === "TIMED") && koPassed(m));
+  const liveMatches = matches.filter(isLiveM)
     .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
   const isLive = liveMatches.length > 0;
 
-  // For upcoming: show all matches sharing the same earliest kickoff minute.
-  const upcomingSorted = matches.filter(m => m.status === "SCHEDULED" || m.status === "TIMED")
+  // For upcoming: matches still in the future (kicked-off ones are "live" above),
+  // showing all that share the same earliest kickoff minute.
+  const upcomingSorted = matches.filter(m => (m.status === "SCHEDULED" || m.status === "TIMED") && !koPassed(m))
     .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
   const nextTime = upcomingSorted.length > 0 ? new Date(upcomingSorted[0].utcDate).getTime() : null;
   const nextBatch = nextTime
@@ -3735,6 +3753,10 @@ function MatchFocusCard({ matches, ranked, matchPtsById = {}, onMatchClick }) {
     const aOwner = ownerOf(a, ranked);
     const broadcast = typeof getBroadcast === "function" ? getBroadcast(h, a) : { b: "", url: "" };
     const livePts = matchPtsById[m.id];
+    // Per-match live state: a real feed score only exists for IN_PLAY/PAUSED.
+    // A kicked-off-but-still-scheduled match is live too, but has no score yet.
+    const mHasScore = m.status === "IN_PLAY" || m.status === "PAUSED";
+    const mKicked   = (m.status === "SCHEDULED" || m.status === "TIMED") && new Date(m.utcDate).getTime() <= Date.now();
     return (
       <div key={m.id} style={{ flex:"0 0 100%", display:"flex", alignItems:"center" }}>
         <div style={{ flex:1, display:"flex", alignItems:"center", gap:6 }}>
@@ -3746,11 +3768,14 @@ function MatchFocusCard({ matches, ranked, matchPtsById = {}, onMatchClick }) {
           </div>
         </div>
         <div style={{ textAlign:"center", padding:"0 8px", flexShrink:0 }}>
-          {isLive
+          {mHasScore
             ? <div style={{ fontSize:16, fontWeight:800, color:C.red, letterSpacing:2 }}>{m.score?.fullTime?.home??0}–{m.score?.fullTime?.away??0}</div>
-            : <div style={{ fontSize:13, color:C.muted, marginBottom:4 }}>vs</div>
+            : mKicked
+              ? <div style={{ fontSize:12, fontWeight:800, color:C.red, marginBottom:2, letterSpacing:"0.06em" }}>LIVE</div>
+              : <div style={{ fontSize:13, color:C.muted, marginBottom:4 }}>vs</div>
           }
           {broadcast.b && <span style={{ background:broadcast.b==="ITV"?"#003087":"#FF6B35", color:"white", fontSize:9, fontWeight:800, padding:"2px 5px", borderRadius:3, whiteSpace:"nowrap", display:"inline-block" }}>▶ {broadcast.b}</span>}
+          {mKicked && <div style={{ fontSize:8, color:C.muted, marginTop:3 }}>awaiting score</div>}
         </div>
         <div style={{ flex:1, display:"flex", alignItems:"center", gap:6, justifyContent:"flex-end" }}>
           <div style={{ textAlign:"right" }}>
@@ -6261,7 +6286,16 @@ function App({ onSwitchGroup, onQuickSwitchGroup, groupKey, isAdmin = false, ini
     const LIVE_POLL_MS = 20_000;
     const IDLE_POLL_MS = 60_000;
     const scheduleNext = () => {
-      const hasLive = (matchesRef.current || []).some(m => m.status === "IN_PLAY" || m.status === "PAUSED");
+      // Fast-poll while a match is IN_PLAY/PAUSED, or has kicked off within the
+      // last 3h but the feed hasn't flipped it to IN_PLAY yet — so a lagging
+      // feed's score/goal lands within 20s of recovering rather than up to 60s.
+      // The 3h window stops a fixture stuck as SCHEDULED in the past (e.g.
+      // postponed) from fast-polling forever.
+      const now = Date.now();
+      const hasLive = (matchesRef.current || []).some(m =>
+        m.status === "IN_PLAY" || m.status === "PAUSED" ||
+        ((m.status === "SCHEDULED" || m.status === "TIMED") &&
+          new Date(m.utcDate).getTime() <= now && now - new Date(m.utcDate).getTime() < 3 * 3600 * 1000));
       timeoutId = setTimeout(async () => {
         if (!devModeRef.current) await fetchMatches();
         scheduleNext();
