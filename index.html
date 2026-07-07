@@ -690,17 +690,17 @@ function MatchCard({ m, ranked, upcoming = [], pts, onPlayerClick, onTeamClick, 
 
   const [showStakes, setShowStakes] = React.useState(false);
 
-  // Points at stake for each possible result — only computed for upcoming matches
-  const stakesResult = (scheduled && h && a) ? (() => {
+  // Points at stake if each team wins — shown for upcoming AND live matches.
+  // Flat { homeWin, awayWin, draw, note } so the render can place each team's
+  // stake directly under that team, rather than a player×outcome matrix.
+  const stakesResult = ((scheduled || live) && h && a) ? (() => {
     const isGroup = (m.stage || "").toUpperCase().includes("GROUP");
     if (isGroup) {
       return {
-        rows: [
-          { label: m.homeTeam?.name || h, hPts: groupGamePts(h, "W"), aPts: 0 },
-          { label: "Draw",                hPts: groupGamePts(h, "D"),  aPts: groupGamePts(a, "D"), reaperDraw: true },
-          { label: m.awayTeam?.name || a, hPts: 0, aPts: groupGamePts(a, "W") },
-        ],
-        note: null,
+        homeWin: groupGamePts(h, "W"),
+        awayWin: groupGamePts(a, "W"),
+        draw:    { hPts: groupGamePts(h, "D"), aPts: groupGamePts(a, "D") },
+        note:    null,
       };
     }
     const stage = (m.stage || "").toUpperCase();
@@ -712,11 +712,10 @@ function MatchCard({ m, ranked, upcoming = [], pts, onPlayerClick, onTeamClick, 
     else if (stage.includes("LAST_32") || stage.includes("32"))   { thisStage = "LAST_32";        nextStage = "LAST_16"; }
     if (!thisStage) return null;
     return {
-      rows: [
-        { label: m.homeTeam?.name || h, hPts: ptsTotal(h, nextStage) - ptsTotal(h, thisStage), aPts: 0 },
-        { label: m.awayTeam?.name || a, hPts: 0, aPts: ptsTotal(a, nextStage) - ptsTotal(a, thisStage) },
-      ],
-      note: `win = advance to ${STAGE_LABEL[nextStage] || nextStage}`,
+      homeWin: ptsTotal(h, nextStage) - ptsTotal(h, thisStage),
+      awayWin: ptsTotal(a, nextStage) - ptsTotal(a, thisStage),
+      draw:    null,
+      note:    `win = advance to ${STAGE_LABEL[nextStage] || nextStage}`,
     };
   })() : null;
 
@@ -875,28 +874,29 @@ function MatchCard({ m, ranked, upcoming = [], pts, onPlayerClick, onTeamClick, 
             </div>
             {showStakes && (
               <div style={{ marginTop:6, padding:"8px 4px 2px", borderTop:`1px solid ${C.border}` }}>
-                {stakesResult.rows.map((row, i) => {
-                  const sameOwner = hOwner && aOwner && hOwner === aOwner;
-                  return (
-                    <div key={i} style={{ display:"flex", alignItems:"center", gap:4, marginBottom: i < stakesResult.rows.length - 1 ? 5 : 0 }}>
-                      <span style={{ flex:1.4, color:C.dim, fontWeight:600, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", fontSize:10 }}>{row.label}</span>
-                      {sameOwner ? (
-                        <span style={{ flex:2, textAlign:"center", color:C.accent, fontWeight:700, fontSize:11 }}>{hOwner} +{row.hPts + row.aPts}</span>
-                      ) : (
-                        <>
-                          <span style={{ flex:1, textAlign:"center", fontWeight:700, fontSize:11, color: row.hPts > 0 ? C.accent : C.muted }}>
-                            {hOwner || h} {row.hPts > 0 ? `+${row.hPts}` : "0"}
-                          </span>
-                          <span style={{ flex:1, textAlign:"right", fontWeight:700, fontSize:11, color: row.aPts > 0 ? C.accent : C.muted }}>
-                            {aOwner || a} {row.aPts > 0 ? `+${row.aPts}` : "0"}
-                          </span>
-                        </>
-                      )}
-                      {row.reaperDraw && <span style={{ fontSize:9, color:C.dangerText, flexShrink:0 }}>💀+3 if 0-0</span>}
+                {/* Each team's win stake sits directly under that team, mirroring
+                    the teams row above — home on the left, away on the right. */}
+                <div style={{ display:"flex", alignItems:"flex-start" }}>
+                  <div style={{ flex:1, textAlign:"left" }}>
+                    <div style={{ fontSize:14, fontWeight:800, color: stakesResult.homeWin > 0 ? C.accent : C.muted }}>
+                      {stakesResult.homeWin > 0 ? `+${stakesResult.homeWin}` : "0"} pts
                     </div>
-                  );
-                })}
-                {stakesResult.note && <div style={{ fontSize:9, color:C.muted, marginTop:5, textAlign:"center" }}>{stakesResult.note}</div>}
+                    <div style={{ fontSize:9, color:C.muted, marginTop:1 }}>if {m.homeTeam?.name || h} win</div>
+                  </div>
+                  <div style={{ flex:1, textAlign:"right" }}>
+                    <div style={{ fontSize:14, fontWeight:800, color: stakesResult.awayWin > 0 ? C.accent : C.muted }}>
+                      {stakesResult.awayWin > 0 ? `+${stakesResult.awayWin}` : "0"} pts
+                    </div>
+                    <div style={{ fontSize:9, color:C.muted, marginTop:1 }}>if {m.awayTeam?.name || a} win</div>
+                  </div>
+                </div>
+                {stakesResult.draw && (
+                  <div style={{ fontSize:9, color:C.muted, marginTop:7, textAlign:"center" }}>
+                    Draw: {hOwner || h} +{stakesResult.draw.hPts} · {aOwner || a} +{stakesResult.draw.aPts}
+                    <span style={{ color:C.dangerText }}> · 💀+3 if 0-0</span>
+                  </div>
+                )}
+                {stakesResult.note && <div style={{ fontSize:9, color:C.muted, marginTop:6, textAlign:"center" }}>{stakesResult.note}</div>}
               </div>
             )}
           </>
