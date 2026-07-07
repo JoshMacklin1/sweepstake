@@ -195,8 +195,20 @@ A player's total = **flat knockout value (highest stage reached)** **+** **group
 | Draw   | +1    | +2    | +3    | +5    |
 | Loss   | 0     | 0     | 0     | 0     |
 
-`GROUP_WIN_PTS = [2,4,8,12]`, `GROUP_DRAW_PTS = [1,2,3,5]`. Live matches
-(`IN_PLAY`/`PAUSED`) score in real time — `isSettled()` treats them as finished.
+`GROUP_WIN_PTS = [2,4,8,12]`, `GROUP_DRAW_PTS = [1,2,3,5]`.
+
+**Live vs confirmed split.** A live match's points move the **displayed totals
+and table positions** in real time — `scorePlayers`/`deriveStages`/
+`deriveGroupPts` use `isSettled()` (which treats `IN_PLAY`/`PAUSED` as
+finished). But the **sparklines and the knockout bracket are confirmed-only**:
+they only redraw/resolve when a match is `FINISHED`. So during a live game the
+big number rises while the sparkline stays flat and the bracket doesn't advance
+or eliminate — everything snaps to the confirmed state at the final whistle.
+Implemented by: `deriveSparklineHistory` replays FINISHED-only (no live point
+appended); `deriveTeamHistory` reconciles its endpoint against a "confirmed
+view" (live matches downgraded to `SCHEDULED` first, keeping qualification
+credit but dropping live scores); `KnockoutBracket` computes `winner`/✕ only
+when `status === "FINISHED"`.
 
 ### Knockout stage — FLAT value for highest stage reached (`PTS_INC`)
 
@@ -303,7 +315,7 @@ State: `tab` (`home`·`table`·`scores`·`race`) and `leagueView`
 
 - **Home** (`HomeTab`/`HomeMatchRow`) — dashboard: Top of the Table, Recent Results, Risers & Fallers, Up Next, each linking into the relevant tab.
 - **League → Players** (`leagueView==="league"`) — the `PlayerRow` standings.
-- **League → Teams** (`leagueView==="teams"`) — `TeamsLeagueTab`: every team in one list ranked by sweepstake points, styled like the Players table (flag + `Sparkline` + points; pot + owning player as subtitle). Row → team card. Sparkline history from `deriveTeamHistory` (per-team cumulative sweepstake points, endpoint reconciled to the displayed swPts).
+- **League → Teams** (`leagueView==="teams"`) — `TeamsLeagueTab`: every team in one list ranked by sweepstake points, styled like the Players table (flag + `Sparkline` + points; pot + owning player as subtitle). Row → team card. Sparkline history from `deriveTeamHistory` (per-team cumulative sweepstake points, endpoint reconciled to the **confirmed** swPts — a live match doesn't move the line, see "Live vs confirmed split").
 - **League → Knockouts** — `TeamsTab` (knockout **bracket** via `BracketSlot`/`BracketMatch`/`BracketRound`). `TeamsTab` still contains a dormant `view==="groups"` group-tables block, no longer surfaced by the nav.
 - **Scores** (`DayPicker`) — combined day-by-day schedule **+** results, BBC-style day strip.
 - **The Race** (`BarRaceModal`) — full-screen animated bar race.
