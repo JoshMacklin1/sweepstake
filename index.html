@@ -4184,7 +4184,27 @@ function KnockoutBracket({ matches, onTeamClick, matchPtsById = {}, bracketRef: 
   // guaranteed relationship to it, which was silently mispairing most slots.
   Object.keys(koByStage).forEach(st => koByStage[st].sort((a,b) => new Date(a.utcDate) - new Date(b.utcDate) || a.id - b.id));
 
-  const r32 = koByStage["LAST_32"] || [];
+  // Canonical top-to-bottom Last-32 leaf order from the official 2026 bracket
+  // (left half then right half). The API returns knockout fixtures in kickoff
+  // order, which does NOT match the bracket tree — so France and England (in
+  // opposite halves, able to meet only in the final) could appear to collide in
+  // a semi. Ordering the leaf round by this fixed sequence and then projecting
+  // every subsequent round off the previous round's winners makes the lines
+  // traceable round-by-round to the final.
+  const R32_BRACKET_ORDER = [
+    ["GER","PAR"],["FRA","SWE"],["RSA","CAN"],["NED","MAR"],
+    ["POR","CRO"],["ESP","AUT"],["USA","BIH"],["BEL","SEN"],
+    ["BRA","JPN"],["CIV","NOR"],["MEX","ECU"],["ENG","DRC"],
+    ["ARG","CPV"],["AUS","EGY"],["SUI","ALG"],["COL","GHA"],
+  ];
+  const r32LeafIdx = (m) => {
+    for (let i = 0; i < R32_BRACKET_ORDER.length; i++) {
+      const [x, y] = R32_BRACKET_ORDER[i];
+      if (m.home === x || m.home === y || m.away === x || m.away === y) return i;
+    }
+    return 99;
+  };
+  const r32 = [...(koByStage["LAST_32"] || [])].sort((a, b) => r32LeafIdx(a) - r32LeafIdx(b));
   const r32HasResolvedTeams = r32.some(m => m.home && m.away);
   const r16Raw = koByStage["LAST_16"] || [];
   const qfRaw  = koByStage["QUARTER_FINALS"] || [];
@@ -4193,22 +4213,16 @@ function KnockoutBracket({ matches, onTeamClick, matchPtsById = {}, bracketRef: 
 
   const pad = (arr, len) => { while (arr.length < len) arr.push(null); return arr; };
 
-  // Fill a round's slots from the previous round's winners when the API hasn't
-  // populated it yet — QF/SF/Final fixtures usually don't exist until the prior
-  // round finishes, so a winner (e.g. a Last-16 winner) would otherwise never
-  // show in the next bracket column. Trusts real API slot data when present
-  // (dropping only already-eliminated stale placeholders); otherwise each slot
-  // gets the winners of its two feeding matches. PROJECTED matches carry no
-  // winner, so projections only ever advance one round at a time.
+  // Build a round strictly off the previous round's bracket order: for each of
+  // the round's slots, the two feeding matches are prevRound[s*2] and
+  // prevRound[s*2+1], so slot s is contested by their winners. We then place the
+  // matching real API fixture (found by TEAMS, not kickoff index — the API's
+  // kickoff order doesn't line up with the bracket tree) and fall back to a
+  // PROJECTED placeholder when the fixture doesn't exist yet. Anchored to the
+  // canonically-ordered leaf round (r32), this keeps every column traceable to
+  // the final. PROJECTED matches carry no winner, so projections only ever
+  // advance one round at a time.
   const projectRound = (prevRound, apiRound, count) => {
-    const apiWithTeams = apiRound.filter(m => m.home || m.away);
-    if (apiWithTeams.length >= count) return apiRound;
-    // Partially-filled round: place each real API fixture in its TRUE bracket slot
-    // by matching TEAMS to the two feeding matches' winners — the API's kickoff
-    // order doesn't line up with the bracket once TBD-placeholder fixtures are
-    // interleaved (which put the real fixture at the wrong index and left it also
-    // showing as a separate projected duplicate). Remaining slots are projected
-    // from the previous round's winners.
     const used = new Set();
     const findApi = (t1, t2) => {
       for (let k = 0; k < apiRound.length; k++) {
