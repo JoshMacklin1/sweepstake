@@ -286,7 +286,7 @@ future upside once the group stage is done).
 | `ptsTotal(code, stageKey)` / `pts()` | Flat points for a team at a stage (the real knockout-scoring path) |
 | `compute24hRankChange(matches, ranked)` | Map name → **table-position delta over a rolling 24h window** (replaces old "% change"). +ve = moved up |
 | `compute24hPtsChange(matches, ranked)` | Map name → points gained in the same 24h window |
-| `simulateWinProbability(ranked, matches, N=5000)` | **Now used.** Monte-Carlo, pot-weighted KO matchups, handles shared codes, reaper fixed. Returns `{ players:{name→%}, teams:{code→%} }` |
+| `simulateWinProbability(ranked, matches, N=5000)` | **Now used.** Monte-Carlo, pot-weighted KO matchups, handles shared codes, reaper fixed. Returns `{ players:{name→win%}, teams:{code→%}, predicted:{name→{rank,confidence,field}} }`. `predicted` = modal finishing position across sims among the **real** field (reaper excluded) + % of sims at that position; drives the player card's "Predicted finish (Nth of M) · X% confidence" stat |
 | `computeBadges(ranked, matches, rank24hChange, winPctPlayers)` | Per-player badge arrays (see Badges); sorted rarest-first |
 | `computeNewBadges24h(badgesNow, matches)` | Badges newly assigned in the last 24h (for the notifications drawer) |
 | `deriveHistory(matches)` | **Bucketed** (MD1/MD2/MD3 then stage names) → `{ history, bucketLabels }`. BumpChart only |

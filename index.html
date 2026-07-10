@@ -317,7 +317,7 @@
   });
 </script>
 
-<script src="scoring.js?v=15"></script>
+<script src="scoring.js?v=16"></script>
 <!-- scoring.js defines PLAYERS, POT, PTS_INC, scorePlayers, deriveStages, etc.
      as classic-script globals (see scoring.js header comment for why it's a
      classic script and not type="module"). The Babel script below depends on
@@ -1195,9 +1195,10 @@ function stageBonusFor(tla, teamTotalPts, matches, matchPtsById) {
   return Math.round((teamTotalPts || 0) - attached);
 }
 
-function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, badges = [], matches = [], matchPtsById = {}, onTeamClick, onMatchClick, onFamilyClick, playerFamily, onClose }) {
+function PlayerCardContent({ bodyRef, player, displayRank, winPct, predicted, winTeams, badges = [], matches = [], matchPtsById = {}, onTeamClick, onMatchClick, onFamilyClick, playerFamily, onClose }) {
   if (!player) return null;
   const isReaper = player.grimReaper;
+  const ordinal = (n) => { const s = ["th","st","nd","rd"], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); };
   const playerWon = (player.teams || []).some(t => t.won);
   const playerStillIn = (player.teams || []).some(t => !t.eliminated);
   return (<>
@@ -1224,14 +1225,23 @@ function PlayerCardContent({ bodyRef, player, displayRank, winPct, winTeams, bad
               <span aria-hidden="true" style={{ color: C.muted, fontSize: 18, lineHeight: 1, flexShrink: 0 }}>›</span>
             </div>
           )}
-          <div style={{ display:"flex", gap:10, marginBottom:18 }}>
-            <div style={{ flex:1, background:C.card, border:`1px solid ${C.border}`, borderRadius:s.card.borderRadius, padding:"12px 8px", textAlign:"center" }}>
+          <div style={{ display:"flex", gap:10, marginBottom:18, alignItems:"stretch" }}>
+            <div style={{ flex:1, background:C.card, border:`1px solid ${C.border}`, borderRadius:s.card.borderRadius, padding:"12px 8px", textAlign:"center", display:"flex", flexDirection:"column", justifyContent:"center" }}>
               <div style={{ fontSize:24, fontWeight:900, color: player.total < 0 ? C.red : C.text }}>{player.total}</div>
               <div style={{ fontSize:9, color:C.muted, textTransform:"uppercase", letterSpacing:"0.08em" }}>Points</div>
             </div>
-            <div style={{ flex:1, background:C.card, border:`1px solid ${C.border}`, borderRadius:s.card.borderRadius, padding:"12px 8px", textAlign:"center" }}>
-              <div style={{ fontSize:24, fontWeight:900, color: isReaper ? C.dangerText : C.accent }}>{isReaper ? "—" : `${winPct ?? 0}%`}</div>
-              <div style={{ fontSize:9, color:C.muted, textTransform:"uppercase", letterSpacing:"0.08em" }}>Sweeps win chance</div>
+            <div style={{ flex:1, background:C.card, border:`1px solid ${C.border}`, borderRadius:s.card.borderRadius, padding:"12px 8px", textAlign:"center", display:"flex", flexDirection:"column", justifyContent:"center" }}>
+              {isReaper || !predicted ? (
+                <div style={{ fontSize:24, fontWeight:900, color: isReaper ? C.dangerText : C.muted }}>—</div>
+              ) : (
+                <>
+                  <div style={{ fontSize:24, fontWeight:900, color:C.accent, lineHeight:1.05 }}>
+                    {ordinal(predicted.rank)}<span style={{ fontSize:12, color:C.muted, fontWeight:700 }}> of {predicted.field}</span>
+                  </div>
+                  <div style={{ fontSize:9, color:C.muted, textTransform:"uppercase", letterSpacing:"0.08em", marginTop:2 }}>Predicted finish</div>
+                  <div style={{ fontSize:10, color:C.accent, fontWeight:700, marginTop:3 }}>{predicted.confidence}% confidence</div>
+                </>
+              )}
             </div>
           </div>
 
@@ -7091,7 +7101,7 @@ function App({ onSwitchGroup, onQuickSwitchGroup, groupKey, isAdmin = false, ini
                 if (!fams) return null;
                 return fams.find(f => f.members.includes(selectedPlayer))?.name || null;
               })();
-              return <PlayerCardContent bodyRef={bodyRef} player={p} displayRank={p._displayRank || (idx + 1)} winPct={winPct.players ? winPct.players[selectedPlayer] : 0} winTeams={winPct.teams} badges={badges[selectedPlayer] || []} matches={matches} matchPtsById={matchPtsById} onTeamClick={switchToTeam} onMatchClick={switchToMatchFromCard} onFamilyClick={switchToFamily} playerFamily={playerFamily} onClose={handleClose} />;
+              return <PlayerCardContent bodyRef={bodyRef} player={p} displayRank={p._displayRank || (idx + 1)} winPct={winPct.players ? winPct.players[selectedPlayer] : 0} predicted={winPct.predicted ? winPct.predicted[selectedPlayer] : null} winTeams={winPct.teams} badges={badges[selectedPlayer] || []} matches={matches} matchPtsById={matchPtsById} onTeamClick={switchToTeam} onMatchClick={switchToMatchFromCard} onFamilyClick={switchToFamily} playerFamily={playerFamily} onClose={handleClose} />;
             }}
           </SnapSheet>
         )}

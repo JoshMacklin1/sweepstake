@@ -1139,6 +1139,13 @@ function simulateWinProbability(ranked, matches, N = 5000) {
   const teamWins = {};        // per-team World Cup championships across sims
   alive.forEach(c => { teamWins[c] = 0; });
 
+  // Finishing-position distribution across sims, for "predicted finish (Nth of
+  // M) + confidence". Ranked among REAL players only — the Grim Reaper can haunt
+  // the table but can't place/win it, so it isn't part of the field.
+  const realNames = ranked.filter(p => !p.grimReaper).map(p => p.name);
+  const rankCounts = {}; // name -> { rank -> count }
+  realNames.forEach(n => { rankCounts[n] = {}; });
+
   const remainingStages = ["LAST_32","LAST_16","QUARTER_FINALS","SEMI_FINALS","FINALIST","WINNER"];
   // Work out current highest stage reached by any alive team
   const currentStageIdx = (() => {
@@ -1209,6 +1216,16 @@ function simulateWinProbability(ranked, matches, N = 5000) {
     scores.push({ name: reaperName, pts: reaperPts }); // Reaper stays fixed (group stage over)
     scores.sort((a, b) => b.pts - a.pts);
     if (scores[0]) wins[scores[0].name] = (wins[scores[0].name] || 0) + 1;
+
+    // Tally finishing positions among the real field (reaper excluded), with
+    // competition ranking so tied totals share a position.
+    const board = realNames.map(name => ({ name, pts: simPts[name] ?? 0 }))
+      .sort((a, b) => b.pts - a.pts);
+    let rank = 0, prevPts = null;
+    board.forEach((e, i) => {
+      if (prevPts === null || e.pts < prevPts) { rank = i + 1; prevPts = e.pts; }
+      rankCounts[e.name][rank] = (rankCounts[e.name][rank] || 0) + 1;
+    });
   }
 
   // Convert to percentages
@@ -1219,7 +1236,19 @@ function simulateWinProbability(ranked, matches, N = 5000) {
   const teams = {};
   alive.forEach(code => { teams[code] = Math.round((teamWins[code] || 0) / N * 100); });
   Object.keys(winners).forEach(code => { teams[code] = 100; }); // already crowned
-  return { players: result, teams };
+
+  // Predicted finish per real player: the modal (most-frequent) finishing
+  // position across sims, plus the % of sims that landed on it (confidence).
+  const field = realNames.length;
+  const predicted = {};
+  realNames.forEach(name => {
+    const counts = rankCounts[name];
+    let bestRank = field, bestCount = -1;
+    Object.entries(counts).forEach(([r, c]) => { if (c > bestCount) { bestCount = c; bestRank = +r; } });
+    predicted[name] = { rank: bestRank, confidence: Math.round((bestCount / N) * 100), field };
+  });
+
+  return { players: result, teams, predicted };
 }
 
 // Helper — get current stage points for a team (already awarded)
