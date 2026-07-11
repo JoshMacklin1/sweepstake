@@ -1231,15 +1231,13 @@ function PlayerCardContent({ bodyRef, player, displayRank, winPct, predicted, wi
               <div style={{ fontSize:9, color:C.muted, textTransform:"uppercase", letterSpacing:"0.08em" }}>Points</div>
             </div>
             <div style={{ flex:1, background:C.card, border:`1px solid ${C.border}`, borderRadius:s.card.borderRadius, padding:"12px 8px", textAlign:"center", display:"flex", flexDirection:"column", justifyContent:"center" }}>
-              {isReaper || !predicted ? (
-                <div style={{ fontSize:24, fontWeight:900, color: isReaper ? C.dangerText : C.muted }}>—</div>
+              {isReaper ? (
+                <div style={{ fontSize:24, fontWeight:900, color:C.dangerText }}>—</div>
               ) : (
                 <>
-                  <div style={{ fontSize:24, fontWeight:900, color:C.accent, lineHeight:1.05 }}>
-                    {ordinal(predicted.rank)}<span style={{ fontSize:12, color:C.muted, fontWeight:700 }}> of {predicted.field}</span>
-                  </div>
-                  <div style={{ fontSize:9, color:C.muted, textTransform:"uppercase", letterSpacing:"0.08em", marginTop:2 }}>Predicted finish</div>
-                  <div style={{ fontSize:10, color:C.accent, fontWeight:700, marginTop:3 }}>{predicted.confidence}% confidence</div>
+                  <div style={{ fontSize:24, fontWeight:900, color:C.accent }}>{winPct ?? 0}%</div>
+                  <div style={{ fontSize:9, color:C.muted, textTransform:"uppercase", letterSpacing:"0.08em" }}>Sweeps win chance</div>
+                  {predicted && <div style={{ fontSize:10, color:C.muted, fontWeight:600, marginTop:3 }}>Likely {ordinal(predicted.rank)} of {predicted.field}</div>}
                 </>
               )}
             </div>
