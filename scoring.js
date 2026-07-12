@@ -2068,18 +2068,23 @@ function deriveSparklineHistory(matches) {
     if (stage === "FINAL") {
       if (winner && !winners[winner]) { winners[winner] = true; award(winner, "WINNER"); }
       if (loser && !eliminated[loser]) { eliminated[loser] = "FINALIST"; award(loser, "FINALIST"); }
+    // Knockout: loser banks the round they went out in; the WINNER advances and
+    // banks the NEXT round (the current round was already banked on qualifying,
+    // e.g. via clinch), so every knockout frame carries a real score change (the
+    // winner advancing) alongside the loser's elimination — no more frames where
+    // a team is eliminated but nothing moves. Same model as deriveStages.
     } else if (stage.includes("SEMI") && loser && !eliminated[loser]) {
       eliminated[loser] = "SEMI_FINALS"; award(loser, "SEMI_FINALS");
-      if (winner) award(winner, "SEMI_FINALS");
+      if (winner) award(winner, "FINALIST");
     } else if (stage.includes("QUARTER") && loser && !eliminated[loser]) {
       eliminated[loser] = "QUARTER_FINALS"; award(loser, "QUARTER_FINALS");
-      if (winner) award(winner, "QUARTER_FINALS");
+      if (winner) award(winner, "SEMI_FINALS");
     } else if ((stage.includes("LAST_16")||stage.includes("16")) && loser && !eliminated[loser]) {
       eliminated[loser] = "LAST_16"; award(loser, "LAST_16");
-      if (winner) award(winner, "LAST_16");
+      if (winner) award(winner, "QUARTER_FINALS");
     } else if ((stage.includes("LAST_32")||stage.includes("32")) && loser && !eliminated[loser]) {
       eliminated[loser] = "LAST_32"; award(loser, "LAST_32");
-      if (winner) award(winner, "LAST_32");
+      if (winner) award(winner, "LAST_16");
     } else if (stage.includes("GROUP")) {
       let hResult, aResult;
       if (hs > as_)      { hResult = "W"; aResult = "L"; }
@@ -2513,24 +2518,18 @@ function deriveRaceEliminations(matches) {
     }
     if (changed) frames.push(Object.keys(eliminated));
   });
-  const liveMatches = matches.filter(m => m.status === "IN_PLAY" || m.status === "PAUSED");
-  if (liveMatches.length > 0) {
-    let liveChanged = false;
-    liveMatches.forEach(m => {
-      const stage = (m.stage || "").toUpperCase();
-      if (!stage.includes("GROUP")) return;
-      const h = m.homeTeam?.tla?.toUpperCase();
-      const a = m.awayTeam?.tla?.toUpperCase();
-      const hs = m.score?.fullTime?.home ?? 0;
-      const as_ = m.score?.fullTime?.away ?? 0;
-      let hResult, aResult;
-      if (hs > as_)      { hResult = "W"; aResult = "L"; }
-      else if (as_ > hs) { hResult = "L"; aResult = "W"; }
-      else               { hResult = "D"; aResult = "D"; }
-      [[h, hResult], [a, aResult]].forEach(([code, result]) => { if (result !== "L" && owned(code)) liveChanged = true; });
-      if (goalDroughtPts(m) > 0) liveChanged = true;
-    });
-    if (liveChanged) frames.push(Object.keys(eliminated));
+  // Reconcile the final frame with the authoritative eliminated set. The
+  // chronological FINISHED-only replay can't see a knockout exit whose losing
+  // fixture the feed never delivered (e.g. a Last-16 loss missing while the QFs
+  // arrived) — deriveStages infers those. Fold any such teams into the LAST
+  // frame only (no new frame is pushed), so their ✕ shows once the race reaches
+  // the end without breaking frame-alignment with the bars. No live frame is
+  // appended — the bars (deriveSparklineHistory) are FINISHED-only too.
+  if (frames.length > 0) {
+    const authElim = deriveStages(matches).eliminated;
+    const finalSet = new Set(frames[frames.length - 1]);
+    Object.keys(authElim).forEach(c => finalSet.add(c));
+    frames[frames.length - 1] = [...finalSet];
   }
   return frames;
 }
@@ -2636,25 +2635,8 @@ function deriveRaceStages(matches) {
     }
     if (changed) { lastLabel = stageLabel(stage, gameNo); stages.push(lastLabel); }
   });
-  const liveMatches = matches.filter(m => m.status === "IN_PLAY" || m.status === "PAUSED");
-  if (liveMatches.length > 0) {
-    let liveChanged = false;
-    liveMatches.forEach(m => {
-      const stage = (m.stage || "").toUpperCase();
-      if (!stage.includes("GROUP")) return;
-      const h = m.homeTeam?.tla?.toUpperCase();
-      const a = m.awayTeam?.tla?.toUpperCase();
-      const hs = m.score?.fullTime?.home ?? 0;
-      const as_ = m.score?.fullTime?.away ?? 0;
-      let hResult, aResult;
-      if (hs > as_)      { hResult = "W"; aResult = "L"; }
-      else if (as_ > hs) { hResult = "L"; aResult = "W"; }
-      else               { hResult = "D"; aResult = "D"; }
-      [[h, hResult], [a, aResult]].forEach(([code, result]) => { if (result !== "L" && owned(code)) liveChanged = true; });
-      if (goalDroughtPts(m) > 0) liveChanged = true;
-    });
-    if (liveChanged) stages.push(lastLabel || "Group Stage");
-  }
+  // No live frame is appended — the race bars (deriveSparklineHistory) are
+  // FINISHED-only, so the stage labels stay 1:1 frame-aligned with them.
   stages[0] = stages[1] || "Group Stage Game 1";
   return stages;
 }
