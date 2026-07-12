@@ -1187,66 +1187,46 @@ function simulateWinProbability(ranked, matches, N = 5000) {
   })();
 
   for (let sim = 0; sim < N; sim++) {
-    // Clone alive teams for this simulation
     let pool = [...alive];
     const simPts = { ...basePoints };
-    let reaperPts = reaperBase;
+    // Flat KO points each team has already banked THIS sim, seeded from its
+    // current highest stage (exactly what basePoints already reflects).
+    // advance() credits only the increment to the newly-reached stage and moves
+    // the bank up, so winning several rounds telescopes to precisely
+    // ptsTotal(finalStage) - ptsTotal(startStage) — no intermediate round is
+    // re-counted, and there is no separate (double-counting) champion bonus.
+    const simBanked = {};
+    alive.forEach(c => { simBanked[c] = teamPts_sim(c, stageReached); });
+    const advance = (code, stage) => {
+      const np = ptsTotal(code, stage);
+      const inc = np - (simBanked[code] || 0);
+      if (inc > 0) {
+        (codeToPlayers[code] || []).forEach(o => { simPts[o] = (simPts[o] || 0) + inc; });
+        simBanked[code] = np;
+      }
+    };
 
-    // Simulate each remaining knockout stage
     for (let si = currentStageIdx; si < remainingStages.length - 1; si++) {
       const stage = remainingStages[si + 1];
       const nextPool = [];
-
-      // Shuffle pool for random matchups
       const shuffled = [...pool].sort(() => Math.random() - 0.5);
-
-      for (let i = 0; i < shuffled.length - 1; i += 2) {
+      for (let i = 0; i < shuffled.length; i += 2) {
         const a = shuffled[i];
         const b = shuffled[i + 1];
-        if (!b) { nextPool.push(a); continue; }
-
-        // Weight by pot strength
+        if (!b) { nextPool.push(a); continue; } // odd one out gets a bye
         const wa = potWeight(a);
         const wb = potWeight(b);
         const winner = Math.random() < wa / (wa + wb) ? a : b;
-        const loser = winner === a ? b : a;
-
         nextPool.push(winner);
-
-        // Award points to loser's owner(s) for reaching this stage
-        {
-          const inc = Math.max(0, ptsTotal(loser, stage) - teamPts_sim(loser, stageReached));
-          (codeToPlayers[loser] || []).forEach(o => { simPts[o] = (simPts[o] || 0) + inc; });
-        }
-
-        // Award points to winner's owner(s) for reaching the next stage too
-        {
-          const inc = Math.max(0, ptsTotal(winner, stage) - teamPts_sim(winner, stageReached));
-          (codeToPlayers[winner] || []).forEach(o => { simPts[o] = (simPts[o] || 0) + inc; });
-        }
+        advance(winner, stage); // only the winner reaches the next stage; loser stays put
       }
-
       pool = nextPool;
     }
+    if (pool.length > 0) teamWins[pool[0]] = (teamWins[pool[0]] || 0) + 1;
 
-    // Award winner bonus
-    if (pool.length > 0) {
-      const champion = pool[0];
-      teamWins[champion] = (teamWins[champion] || 0) + 1;
-      {
-        const inc = Math.max(0, ptsTotal(champion, "WINNER") - teamPts_sim(champion, stageReached));
-        (codeToPlayers[champion] || []).forEach(o => { simPts[o] = (simPts[o] || 0) + inc; });
-      }
-    }
-
-    // Find winner of this simulation
-    const scores = Object.entries(simPts).map(([name, pts]) => ({ name, pts }));
-    scores.push({ name: reaperName, pts: reaperPts }); // Reaper stays fixed (group stage over)
-    scores.sort((a, b) => b.pts - a.pts);
-    if (scores[0]) wins[scores[0].name] = (wins[scores[0].name] || 0) + 1;
-
-    // Tally finishing positions among the real field (reaper excluded), with
-    // competition ranking so tied totals share a position.
+    // Final standings among the real field (the reaper can't place/win), with
+    // competition ranking so tied totals share a position. wins[] = finishing
+    // first, so the percentages sum to 100% across the field.
     const board = realNames.map(name => ({ name, pts: simPts[name] ?? 0 }))
       .sort((a, b) => b.pts - a.pts);
     let rank = 0, prevPts = null;
@@ -1254,6 +1234,7 @@ function simulateWinProbability(ranked, matches, N = 5000) {
       if (prevPts === null || e.pts < prevPts) { rank = i + 1; prevPts = e.pts; }
       rankCounts[e.name][rank] = (rankCounts[e.name][rank] || 0) + 1;
     });
+    if (board[0]) wins[board[0].name] = (wins[board[0].name] || 0) + 1;
   }
 
   // Convert to percentages
