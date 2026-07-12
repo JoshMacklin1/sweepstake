@@ -839,6 +839,34 @@ function deriveStages(matches) {
     });
   }
 
+  // Self-heal missing knockout eliminations from partial feed data. If a LATER
+  // knockout round has actually been played (a FINISHED match exists at a stage
+  // beyond a team's furthest-reached round), that team's round is definitively
+  // over — so any team still shown at the earlier round that didn't advance is
+  // out, even when the feed never delivered its own losing fixture. Real case:
+  // the QF/SF results arrive but a team's Last-16 loss is missing, leaving a
+  // knocked-out team wrongly "still in" (and wrongly counted alive by the win
+  // simulation). Confirmed-only: keyed off FINISHED matches.
+  const koStageOf = (m) => {
+    const s = (m.stage || "").toUpperCase();
+    if (s === "FINAL")                                     return "FINALIST";
+    if (s.includes("SEMI"))                                return "SEMI_FINALS";
+    if (s.includes("QUARTER"))                             return "QUARTER_FINALS";
+    if (s.includes("LAST_16") || s.includes("16"))         return "LAST_16";
+    if (s.includes("LAST_32") || s.includes("32"))         return "LAST_32";
+    return null;
+  };
+  let maxFinishedIdx = 0;
+  matches.filter(m => m.status === "FINISHED").forEach(m => {
+    const sk = koStageOf(m);
+    if (sk) maxFinishedIdx = Math.max(maxFinishedIdx, STAGE_ORDER.indexOf(sk));
+  });
+  Object.entries(stageReached).forEach(([code, stage]) => {
+    if (eliminated[code] || winners[code]) return;
+    const idx = STAGE_ORDER.indexOf(stage);
+    if (idx > 0 && idx < maxFinishedIdx) eliminated[code] = stage; // out at the round reached
+  });
+
   return { eliminated, winners, stageReached };
 }
 
