@@ -2049,6 +2049,9 @@ function BarRaceModal({ history, allRanked, bucketLabels = [], elimByFrame = [],
   // Work out tournament stage label for current frame
   const frameLabel = frame === 0 ? "Start" : `Game ${frame} of ${maxLen - 1}`;
   const stageNow = stageByFrame.length ? (stageByFrame[Math.min(frame, stageByFrame.length - 1)] || "") : "";
+  // The Grim Reaper only scores during the group stage (bounties + 0-0 droughts);
+  // once the knockouts begin its total is frozen, so grey its icons out then.
+  const reaperDone = !!stageNow && !/group/i.test(stageNow);
   // End-of-race celebration: who's top at the final frame, and whether the
   // tournament is actually decided (the final has been played → "Champion",
   // otherwise they're just "Leading the Race").
@@ -2117,7 +2120,15 @@ function BarRaceModal({ history, allRanked, bucketLabels = [], elimByFrame = [],
                 </div>
                 <div style={{ display:"flex", flexDirection:"column", justifyContent:"center", gap:2, flexShrink:0, width:75 }}>
                   {(teamsByName[s.name] || []).length === 0 ? (
-                    <span style={{ fontSize:16, lineHeight:1, marginLeft:2 }}>💀</span>
+                    <div style={{ display:"flex", alignItems:"center", gap:3, marginLeft:2,
+                      opacity: reaperDone ? 0.4 : 1, filter: reaperDone ? "grayscale(1)" : "none" }}>
+                      <span style={{ fontSize:16, lineHeight:1 }}>💀</span>
+                      {/* Scythe (no scythe emoji exists) — the Reaper's second mark. */}
+                      <svg width="15" height="16" viewBox="0 0 15 16" aria-hidden="true" style={{ display:"block", flexShrink:0 }}>
+                        <path d="M4 15 L9 3" stroke="#b9c0c9" strokeWidth="1.6" strokeLinecap="round" fill="none"/>
+                        <path d="M9 3 C13 3 14 6.5 11 8.5" stroke="#e2e8f0" strokeWidth="1.7" strokeLinecap="round" fill="none"/>
+                      </svg>
+                    </div>
                   ) : chunkFlags(teamsByName[s.name] || [], 3).map((row, ri) => (
                     <div key={ri} style={{ display:"flex", gap:3 }}>
                       {row.map(t => {
