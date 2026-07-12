@@ -2450,6 +2450,9 @@ function deriveRaceEliminations(matches) {
   const eliminated = {}, winners = {}, groupGames = {};
   const grpPts = {}, grpGF = {}, grpGA = {};
   const frames = [[]]; // frame 0 = start, nothing eliminated
+  let thirdsResolved = false;
+  const allGroupsComplete = () => Object.values(GROUP_ASSIGNMENTS).every(teams =>
+    teams.every(c => (groupGames[c]||0) >= 3));
   done.forEach(m => {
     const stage = (m.stage || "").toUpperCase();
     const h = m.homeTeam?.tla?.toUpperCase();
@@ -2514,6 +2517,26 @@ function deriveRaceEliminations(matches) {
             }
           });
         }
+      }
+      // The moment every group is complete, eliminate the 4 non-qualifying
+      // third-placers (the other 8 of 12 thirds go through). Without this they'd
+      // stay uncrossed through the knockout frames even though they're out —
+      // mirrors deriveSparklineHistory's resolveThirds, riding this last group
+      // match's frame rather than adding one.
+      if (!thirdsResolved && allGroupsComplete()) {
+        thirdsResolved = true;
+        const top8 = new Set(qualifiedThirdPlacers(matches));
+        const cmp = (x, y) => {
+          const pd = (grpPts[y]||0)-(grpPts[x]||0); if (pd) return pd;
+          const gd = ((grpGF[y]||0)-(grpGA[y]||0))-((grpGF[x]||0)-(grpGA[x]||0)); if (gd) return gd;
+          return (grpGF[y]||0)-(grpGF[x]||0);
+        };
+        Object.values(GROUP_ASSIGNMENTS).forEach(teams => {
+          const third = [...teams].sort(cmp)[2];
+          if (!third || top8.has(third) || eliminated[third] || knockoutTeams.has(third)) return;
+          eliminated[third] = "GROUP_ELIM";
+          if (owned(third) || reaperBountyForCode(third) > 0) changed = true;
+        });
       }
     }
     if (changed) frames.push(Object.keys(eliminated));
