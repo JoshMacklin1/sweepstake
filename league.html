@@ -1475,8 +1475,11 @@
               <span style={{ fontSize: 18 }}>🔁</span> Replay 2025-26 season
               <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, color: replayOn ? C.accent : C.muted }}>{replayOn ? "ON" : "OFF"}</span>
             </button>
-            <button style={{ ...row, borderBottom: "none" }} onClick={() => { onClose(); onSwitchGroup(); }}>
+            <button style={row} onClick={() => { onClose(); onSwitchGroup(); }}>
               <span style={{ fontSize: 18 }}>👥</span> Switch group
+            </button>
+            <button style={{ ...row, borderBottom: "none" }} onClick={() => { window.location.href = "index.html"; }}>
+              <span style={{ fontSize: 18 }}>🏆</span> World Cup Sweepstake
             </button>
           </div>
         </div>
