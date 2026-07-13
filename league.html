@@ -23,6 +23,10 @@
     #root { max-width: 480px; margin: 0 auto; min-height: 100vh; }
     button { font-family: inherit; -webkit-tap-highlight-color: transparent; }
     input[type="range"] { width: 100%; accent-color: #22c55e; }
+    @keyframes barGlow {
+      0%, 100% { box-shadow: 0 0 8px 2px var(--glow-color), 0 0 20px 4px var(--glow-color-dim); }
+      50%       { box-shadow: 0 0 18px 6px var(--glow-color), 0 0 36px 10px var(--glow-color-dim); }
+    }
     .tab-seg { display: flex; border: 1px solid #1e3d28; border-radius: 10px; overflow: hidden; }
     .tab-seg button {
       flex: 1; padding: 10px 0; border: none; border-radius: 0; cursor: pointer;
@@ -777,9 +781,312 @@
       );
     }
 
-    // ── The Race — placeholder (full bar-chart race ported in the next step) ──
+    // ── The Race — ported from the WC app (BumpChart positions-over-time +
+    //    an animated BarRaceModal launched by the "Watch the Race" button),
+    //    fed by deriveLeagueHistory. No knockouts/eliminations in a league
+    //    season, so the stage/elim layers are dropped; frames are calendar
+    //    days and team badges come from leagueCrest by teamId. ───────────────
+    function lgChunk(items, size) {
+      const rows = [];
+      for (let i = 0; i < items.length; i += size) rows.push(items.slice(i, i + size));
+      return rows;
+    }
+
+    function BumpChart({ history, allRanked, bucketLabels = [] }) {
+      const [selected, setSelected] = React.useState(null);
+      const [atLeft, setAtLeft] = React.useState(false);
+      const scrollRef = React.useRef(null);
+      const maxLen = Math.max(...history.map(p => p.hist.length));
+
+      React.useEffect(() => {
+        const el = scrollRef.current;
+        if (el) requestAnimationFrame(() => { el.scrollLeft = el.scrollWidth; });
+      }, [maxLen]);
+
+      const handleScroll = React.useCallback(() => {
+        const el = scrollRef.current;
+        if (el) setAtLeft(el.scrollLeft <= 1);
+      }, []);
+
+      if (maxLen < 2) {
+        return <div style={{ textAlign: "center", padding: 40, color: C.muted, fontSize: 13 }}>Not enough scoring events yet to show rankings over time.</div>;
+      }
+
+      const n = history.length;
+      const padL = 16, padR = 72, padT = 16, padB = 24;
+      const availW = window.innerWidth - padL - padR - 28;
+      const MIN_COL = 26;
+      const COL_W = maxLen <= 2 ? availW : Math.max(MIN_COL, Math.floor(availW / (maxLen - 1)));
+      const scrollable = (maxLen - 1) * COL_W > availW + 1;
+      const rowH = n <= 9 ? Math.max(34, Math.min(72, Math.floor((window.innerHeight * 0.5) / Math.max(n - 1, 1)))) : 34;
+      const chartW = (maxLen - 1) * COL_W;
+      const chartH = (n - 1) * rowH;
+      const W = padL + chartW + padR;
+      const H = padT + chartH + padB;
+      const xScale = t => padL + t * COL_W;
+      const yScale = r => padT + (r - 1) * rowH;
+      const colorOf = name => playerColor(name);
+
+      const timePoints = Array.from({ length: maxLen }, (_, t) => {
+        const ranks = {};
+        if (t === maxLen - 1 && allRanked && allRanked.length > 0) {
+          allRanked.forEach((p, i) => { ranks[p.name] = i + 1; });
+          history.forEach((p, i) => { if (!(p.name in ranks)) ranks[p.name] = allRanked.length + i + 1; });
+        } else {
+          history.map(p => ({ name: p.name, pts: p.hist[Math.min(t, p.hist.length - 1)] }))
+            .sort((a, b) => b.pts - a.pts || a.name.localeCompare(b.name))
+            .forEach((s, i) => { ranks[s.name] = i + 1; });
+        }
+        return ranks;
+      });
+
+      const buildPath = name => {
+        const pts = timePoints.map((tp, t) => [xScale(t), yScale(tp[name])]);
+        let d = `M ${pts[0][0]},${pts[0][1]}`;
+        for (let i = 1; i < pts.length; i++) {
+          const cpx = (pts[i - 1][0] + pts[i][0]) / 2;
+          d += ` C ${cpx},${pts[i - 1][1]} ${cpx},${pts[i][1]} ${pts[i][0]},${pts[i][1]}`;
+        }
+        return d;
+      };
+
+      const startRanks = timePoints[0];
+      const endRanks = timePoints[maxLen - 1];
+
+      // Sparse x-labels: a short month name at the first frame of each month
+      // (175 daily frames would overlap if every one were labelled).
+      const xLabels = [];
+      let lastMonth = "";
+      bucketLabels.forEach((b, t) => {
+        const mo = b ? b.slice(0, 7) : "";
+        if (mo && mo !== lastMonth) {
+          lastMonth = mo;
+          xLabels.push({ t, label: new Date(b).toLocaleDateString("en-GB", { month: "short" }) });
+        }
+      });
+
+      return (
+        <div style={{ padding: "8px 0 0" }}>
+          <div style={{ position: "relative" }}>
+            <div ref={scrollRef} onScroll={handleScroll} style={{ overflowX: "scroll", overflowY: "hidden", WebkitOverflowScrolling: "touch" }}>
+              <div style={{ display: "inline-block" }}>
+                <svg width={W} height={H} style={{ display: "block" }}>
+                  {Array.from({ length: n }, (_, i) => (
+                    <line key={i} x1={padL} y1={yScale(i + 1)} x2={padL + chartW} y2={yScale(i + 1)} stroke={C.border} strokeWidth={1} />
+                  ))}
+                  {history.map(p => {
+                    const dim = selected && selected !== p.name;
+                    return (
+                      <path key={p.name} d={buildPath(p.name)} fill="none"
+                        stroke={dim ? C.border : colorOf(p.name)}
+                        strokeWidth={selected === p.name ? 3.5 : 2.5}
+                        strokeLinecap="round" strokeLinejoin="round"
+                        opacity={dim ? 0.3 : 0.9} />
+                    );
+                  })}
+                  {history.map(p => {
+                    const dim = selected && selected !== p.name;
+                    return timePoints.map((tp, t) => (
+                      <circle key={`${p.name}-${t}`} cx={xScale(t)} cy={yScale(tp[p.name])}
+                        r={t === maxLen - 1 ? 5 : 2.5}
+                        fill={dim ? C.border : colorOf(p.name)}
+                        stroke="#080c18" strokeWidth={1.5} opacity={dim ? 0.3 : 1} />
+                    ));
+                  })}
+                  {history.map(p => {
+                    const dim = selected && selected !== p.name;
+                    return (
+                      <text key={`s-${p.name}`} x={padL - 5} y={yScale(startRanks[p.name]) + 4}
+                        textAnchor="end" fontSize={10} fontWeight={700}
+                        fill={dim ? C.border : colorOf(p.name)} opacity={dim ? 0.3 : 1}>{startRanks[p.name]}</text>
+                    );
+                  })}
+                  {history.map(p => {
+                    const dim = selected && selected !== p.name;
+                    return (
+                      <text key={`e-${p.name}`} x={padL + chartW + 8} y={yScale(endRanks[p.name]) + 4}
+                        textAnchor="start" fontSize={11} fontWeight={700}
+                        fill={dim ? C.neutral : colorOf(p.name)} opacity={dim ? 0.4 : 1}
+                        style={{ cursor: "pointer" }}
+                        onClick={() => setSelected(selected === p.name ? null : p.name)}>{p.name}</text>
+                    );
+                  })}
+                  {xLabels.map(({ t, label }) => (
+                    <text key={`xl-${t}`} x={xScale(t)} y={H - 4} textAnchor="middle" fontSize={9} fill={C.muted}>{label}</text>
+                  ))}
+                </svg>
+              </div>
+            </div>
+            {scrollable && !atLeft && (
+              <div style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: 48, background: `linear-gradient(to right, ${C.bg} 0%, transparent 100%)`, pointerEvents: "none" }} />
+            )}
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 16, padding: "0 4px" }}>
+            {allRanked.map(p => {
+              const dim = selected && selected !== p.name;
+              return (
+                <div key={p.name} onClick={() => setSelected(selected === p.name ? null : p.name)}
+                  style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", opacity: dim ? 0.35 : 1 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: colorOf(p.name), flexShrink: 0 }} />
+                  <span style={{ fontSize: 11, color: C.muted }}>{p.name} <span style={{ color: C.text, fontWeight: 700 }}>{p.total}pts</span></span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    function BarRaceModal({ history, allRanked, bucketLabels = [], onClose }) {
+      const maxLen = Math.max(...history.map(p => p.hist.length));
+      const [frame, setFrame] = React.useState(0);
+      const [playing, setPlaying] = React.useState(true);
+      const intervalRef = React.useRef(null);
+      const TICK = 700;
+      const n = history.length;
+
+      const teamsByName = {};
+      allRanked.forEach(p => { teamsByName[p.name] = p.teams || []; });
+      const colorOf = name => playerColor(name);
+      const prevRanks = React.useRef({});
+
+      const standings = React.useMemo(() => {
+        const sorted = history.map(p => ({
+          name: p.name,
+          value: p.hist[Math.min(frame, p.hist.length - 1)],
+          color: colorOf(p.name),
+        })).sort((a, b) => b.value - a.value || a.name.localeCompare(b.name));
+        return sorted.map((s, i) => {
+          const prev = prevRanks.current[s.name] ?? i;
+          return { ...s, rank: i, movingUp: i < prev };
+        });
+      }, [frame]);
+
+      React.useEffect(() => { standings.forEach(s => { prevRanks.current[s.name] = s.rank; }); }, [standings]);
+
+      const minValue = Math.min(...standings.map(s => s.value), 0);
+      const maxValue = Math.max(...standings.map(s => s.value), 1);
+      const barOffset = minValue < 0 ? -minValue : 0;
+      const barRange = maxValue + barOffset || 1;
+
+      const frameLabel = frame === 0 ? "Start" : (bucketLabels[frame] ? fmtDay(bucketLabels[frame]) : `Day ${frame}`);
+      const champ = (allRanked && allRanked.length) ? allRanked[0] : null;
+      const raceFinished = frame >= maxLen - 1 && maxLen > 1 && champ && champ.total > 0;
+
+      React.useEffect(() => {
+        if (playing && frame < maxLen - 1) {
+          intervalRef.current = setTimeout(() => setFrame(f => f + 1), TICK);
+        } else if (frame >= maxLen - 1) {
+          setPlaying(false);
+        }
+        return () => clearTimeout(intervalRef.current);
+      }, [playing, frame]);
+
+      const wasPlayingRef = React.useRef(false);
+      const onScrubStart = () => { wasPlayingRef.current = playing; setPlaying(false); };
+      const onScrubEnd = () => { if (wasPlayingRef.current && frame < maxLen - 1) setPlaying(true); };
+      const toggle = () => { if (frame >= maxLen - 1) { setFrame(0); setPlaying(true); } else setPlaying(p => !p); };
+      const restart = () => { setFrame(0); setPlaying(true); };
+      const ROW_H = `${100 / n}%`;
+
+      return (
+        <div style={{ position: "fixed", inset: 0, zIndex: 60, background: C.bg, display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: C.text }}>🏁 The Race</div>
+            <button onClick={onClose} aria-label="Close" style={{ background: "transparent", border: "none", color: C.muted, fontSize: 22, cursor: "pointer" }}>✕</button>
+          </div>
+          <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
+            <div style={{ position: "absolute", inset: 0 }}>
+              {[...history].sort((a, b) => a.name.localeCompare(b.name)).map(p => {
+                const s = standings.find(x => x.name === p.name);
+                if (!s) return null;
+                const topPct = (s.rank / n) * 100;
+                const barW = ((s.value + barOffset) / barRange) * 100;
+                const teams = teamsByName[s.name] || [];
+                return (
+                  <div key={s.name} style={{
+                    position: "absolute", left: 0, right: 0, height: ROW_H, top: `${topPct}%`,
+                    transition: `top ${TICK * 0.85}ms cubic-bezier(0.4,0,0.2,1)`,
+                    display: "flex", alignItems: "center", padding: "0 12px", gap: 8,
+                    zIndex: s.movingUp ? n + 1 : 1,
+                  }}>
+                    <div style={{ width: 18, textAlign: "right", fontSize: 11, color: C.muted, flexShrink: 0, fontWeight: 700 }}>{s.rank + 1}</div>
+                    <div style={{ width: 70, textAlign: "right", fontSize: 12, fontWeight: 700, color: C.text, flexShrink: 0, overflow: "hidden", whiteSpace: "nowrap" }}>{s.name}</div>
+                    <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 2, flexShrink: 0, width: 66 }}>
+                      {teams.length === 0
+                        ? <span style={{ fontSize: 16, lineHeight: 1, marginLeft: 2 }}>💀</span>
+                        : lgChunk(teams, 3).map((row, ri) => (
+                          <div key={ri} style={{ display: "flex", gap: 3 }}>
+                            {row.map(t => <Crest key={t.teamId} teamId={t.teamId} size={18} />)}
+                          </div>
+                        ))}
+                    </div>
+                    <div style={{ flex: 1, position: "relative", height: "55%", minHeight: 18 }}>
+                      <div style={{ position: "absolute", inset: 0, background: C.border, borderRadius: "0 3px 3px 0" }} />
+                      <div style={{
+                        position: "absolute", left: 0, top: 0, bottom: 0, width: `${barW}%`,
+                        background: s.color, borderRadius: "0 3px 3px 0",
+                        transition: `width ${TICK * 0.85}ms cubic-bezier(0.4,0,0.2,1)`,
+                        ...(raceFinished && s.rank === 0 ? { "--glow-color": s.color, "--glow-color-dim": s.color + "55", animation: "barGlow 1.8s ease-in-out infinite" } : {}),
+                      }} />
+                      {s.value !== 0 && (
+                        <div style={{
+                          position: "absolute", left: 0, top: 0, bottom: 0, right: 0, display: "flex", alignItems: "center",
+                          justifyContent: barW > 70 ? "flex-end" : "flex-start",
+                          paddingLeft: barW > 70 ? 0 : `calc(${Math.max(barW, 0)}% + 6px)`,
+                          paddingRight: barW > 70 ? 8 : 0, pointerEvents: "none",
+                        }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: s.value < 0 ? C.red : C.text, whiteSpace: "nowrap" }}>{s.value}pts</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <div style={{ padding: "10px 16px 20px", flexShrink: 0 }}>
+            <input type="range" min={0} max={maxLen - 1} value={frame}
+              onMouseDown={onScrubStart} onTouchStart={onScrubStart} onMouseUp={onScrubEnd} onTouchEnd={onScrubEnd}
+              onChange={e => setFrame(Number(e.target.value))}
+              style={{ width: "100%", marginBottom: 10, accentColor: C.accent, cursor: "pointer" }} />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 11, color: C.muted, fontWeight: 600 }}>{frameLabel}</span>
+              <span style={{ fontSize: 11, color: C.muted }}>Day {frame + 1} of {maxLen}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
+              <button onClick={restart} style={{ background: C.border, border: "none", color: C.text, padding: "8px 16px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Restart</button>
+              <button onClick={toggle} style={{ background: C.accent, border: "none", color: "white", padding: "8px 24px", borderRadius: 6, cursor: "pointer", fontSize: 14, fontWeight: 700 }}>
+                {playing ? "⏸" : frame >= maxLen - 1 ? "↺" : "▶"}
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     function RaceTab({ ranked, matches, anchorIso, replayOn }) {
-      return <div style={{ color: C.muted, textAlign: "center", padding: 40 }}>The Race — coming up next.</div>;
+      const [showRace, setShowRace] = React.useState(false);
+      const { frames, history } = React.useMemo(
+        () => (typeof deriveLeagueHistory === "function" ? deriveLeagueHistory(matches) : { frames: [], history: {} }),
+        [matches]
+      );
+      const raceHist = React.useMemo(
+        () => ranked.map(p => ({ name: p.name, hist: history[p.name] || [0], total: p.total })),
+        [ranked, history]
+      );
+      return (
+        <div style={{ padding: "0 14px" }}>
+          <button onClick={() => setShowRace(true)} style={{
+            width: "100%", padding: "12px", borderRadius: 10, border: "none", cursor: "pointer",
+            background: "linear-gradient(135deg, #15803d, #22c55e)", color: "#fff", fontSize: 13, fontWeight: 800,
+            letterSpacing: "0.03em", boxShadow: "0 2px 12px rgba(34,197,94,0.30)", marginBottom: 8,
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+          }}>🏁 Watch the Race</button>
+          <BumpChart history={raceHist} allRanked={ranked} bucketLabels={frames} />
+          {showRace && <BarRaceModal history={raceHist} allRanked={ranked} bucketLabels={frames} onClose={() => setShowRace(false)} />}
+        </div>
+      );
     }
 
     // ── HomeMatchRow — WC HomeMatchRow, player-first (owner bold, club as
