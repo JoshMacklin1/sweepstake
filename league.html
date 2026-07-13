@@ -58,7 +58,7 @@
 <body>
   <div id="root"></div>
   <!-- Coupled: every league-scoring.js change must bump ?v=N (see SWEEPSTAKE_PROJECT.md cache-bust rule) -->
-  <script src="league-scoring.js?v=4"></script>
+  <script src="league-scoring.js?v=5"></script>
   <script type="text/babel">
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
@@ -688,6 +688,100 @@
       );
     }
 
+    // ── Teams view — every owned team ranked by sweepstake points, styled like
+    //    the Players table (crest + sparkline + pts + 7-day position pill). The
+    //    team name leads; pot + owner sit underneath as context. Tap → team card.
+    function TeamLeagueRow({ row, rank, hist, move, onOpen }) {
+      const swPts = row.total;
+      const lineColor = swPts < 0 ? C.red : swPts === 0 ? C.neutral : C.accent;
+      const rankColors = ["#84cc16", "#94a3b8", "#b45309"];
+      const isTop = rank <= 3;
+      return (
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, marginBottom: 10, overflow: "hidden" }}>
+          <div onClick={onOpen} style={{ display: "flex", alignItems: "center", padding: "10px 14px", cursor: "pointer", gap: 10 }}>
+            <div style={{
+              width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
+              background: isTop ? rankColors[rank - 1] : C.border,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 13, fontWeight: 800, color: isTop ? "#080c18" : C.dim,
+            }}>{rank}</div>
+            <Crest teamId={row.teamId} size={22} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 700, fontSize: 15, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.name}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2, minWidth: 0 }}>
+                <span style={{ fontSize: 11, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Pot {row.pot} · {row.owner}</span>
+                {row.outcome && outcomeChip(row.outcome)}
+              </div>
+            </div>
+            <div style={{ flexShrink: 0 }}>
+              <Sparkline data={hist} width={90} height={48} color={lineColor} />
+            </div>
+            <div style={{ textAlign: "right", flexShrink: 0, minWidth: 52 }}>
+              <div style={{ fontSize: 22, fontWeight: 800, color: swPts < 0 ? C.red : C.text, lineHeight: 1 }}>{swPts}</div>
+              <div style={{ fontSize: 10, color: C.muted, marginBottom: 4 }}>pts</div>
+              {move !== 0 ? (
+                <div style={{
+                  display: "inline-block", fontSize: 10, fontWeight: 700, padding: "1px 5px", borderRadius: 3,
+                  background: move > 0 ? C.posBg : C.negBg, color: move > 0 ? C.accent : C.red,
+                }}>{move > 0 ? "▲" : "▼"} {Math.abs(move)} pos</div>
+              ) : (
+                <div style={{
+                  display: "inline-block", fontSize: 10, fontWeight: 700, padding: "1px 5px", borderRadius: 3,
+                  background: "rgba(148,163,184,0.12)", color: "#94a3b8",
+                }}>0 pos</div>
+              )}
+            </div>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, transform: "rotate(-90deg)" }}>
+              <path d="M6 9l6 6 6-6" stroke={C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+        </div>
+      );
+    }
+
+    function TeamsLeagueTab({ matches, ranked, anchorIso, onTeamClick }) {
+      // Owned teams (every player's teams) ranked by sweepstake points.
+      const rows = React.useMemo(() => {
+        const out = [];
+        ranked.filter(p => !p.grimReaper).forEach(p => (p.teams || []).forEach(t => out.push({ ...t, owner: p.name })));
+        out.sort((a, b) => (b.total - a.total) || a.name.localeCompare(b.name));
+        return out;
+      }, [ranked]);
+      // Per-team sparkline history — computed lazily (only when this tab mounts).
+      const teamHist = React.useMemo(
+        () => (typeof deriveLeagueTeamHistory === "function" ? deriveLeagueTeamHistory(matches).history : {}),
+        [matches]
+      );
+      // 7-day position change (league weekly rhythm): rank now vs rank ~7d before anchor.
+      const move = React.useMemo(() => {
+        const rankNow = {}; rows.forEach((t, i) => { rankNow[t.teamId] = i; });
+        const cut = new Date(anchorIso).getTime() - 7 * 864e5;
+        const past = matches.filter(m => new Date(m.utcDate).getTime() <= cut);
+        const pastRanked = typeof scoreLeaguePlayers === "function" ? scoreLeaguePlayers(past) : [];
+        const pastRows = [];
+        pastRanked.filter(p => !p.grimReaper).forEach(p => (p.teams || []).forEach(t => pastRows.push(t)));
+        pastRows.sort((a, b) => (b.total - a.total) || a.name.localeCompare(b.name));
+        const rankPast = {}; pastRows.forEach((t, i) => { rankPast[t.teamId] = i; });
+        const out = {};
+        rows.forEach(t => { const n = rankNow[t.teamId], pa = rankPast[t.teamId]; out[t.teamId] = (pa != null && n != null) ? pa - n : 0; });
+        return out;
+      }, [rows, matches, anchorIso]);
+      return (
+        <div style={{ padding: "0 14px" }}>
+          {rows.map((t, i) => (
+            <TeamLeagueRow key={t.teamId} row={t} rank={i + 1} hist={teamHist[t.teamId] || [0]}
+              move={move[t.teamId] || 0} onOpen={() => onTeamClick(t.teamId)} />
+          ))}
+          {rows.length === 0 && <div style={{ color: C.muted, textAlign: "center", padding: 40 }}>No teams yet.</div>}
+        </div>
+      );
+    }
+
+    // ── The Race — placeholder (full bar-chart race ported in the next step) ──
+    function RaceTab({ ranked, matches, anchorIso, replayOn }) {
+      return <div style={{ color: C.muted, textAlign: "center", padding: 40 }}>The Race — coming up next.</div>;
+    }
+
     // ── HomeMatchRow — WC HomeMatchRow, player-first (owner bold, club as
     //    context beneath), crest per side, "+N pts" chips ───────────────────
     function HomeMatchRow({ m, matchPtsById, onTeamClick, isLast, banners = false }) {
@@ -881,8 +975,7 @@
     }
 
     // ── Tables tab ──────────────────────────────────────────────────────────
-    function TablesTab({ matches, tables, outcomes, onTeamClick }) {
-      const [comp, setComp] = useState("PL");
+    function TablesTab({ matches, tables, outcomes, onTeamClick, comp = "PL" }) {
       const table = tables[comp] || [];
       const teamName = (id) => {
         const t = typeof LEAGUE_TEAMS !== "undefined" && LEAGUE_TEAMS[id];
@@ -899,14 +992,6 @@
       const td = { fontSize: 12, textAlign: "right", padding: "5px 4px", whiteSpace: "nowrap" };
       return (
         <div style={{ padding: "0 14px" }}>
-          <div className="tab-seg" style={{ marginBottom: 10 }}>
-            {["PL", "ELC"].map(c => (
-              <button key={c} onClick={() => setComp(c)} style={{
-                background: comp === c ? C.accent : C.surface,
-                color: comp === c ? C.bg : C.dim, fontWeight: 700, fontSize: 13,
-              }}>{compLabel(c)}</button>
-            ))}
-          </div>
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "8px 10px", overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead><tr>
@@ -1092,16 +1177,64 @@
     }
 
     // ── Bottom nav — same fixed pill-highlight bar as the WC app ───────────
+    // Bottom-nav icons — identical set to the WC app (index.html navIcon*),
+    // self-contained per-icon styling so each renders exactly as in that app.
     const navIcons = {
-      home: <path d="M3 10.5L12 3l9 7.5V21a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1v-10.5z" strokeWidth="1.8" strokeLinejoin="round" />,
-      sweeps: <><path d="M8 21h8M12 17v4M6 3h12v5a6 6 0 0 1-12 0V3z" strokeWidth="1.8" strokeLinejoin="round" /><path d="M6 5H3v2a4 4 0 0 0 3 3.87M18 5h3v2a4 4 0 0 1-3 3.87" strokeWidth="1.8" strokeLinejoin="round" /></>,
-      tables: <><rect x="3" y="4" width="18" height="16" rx="2" strokeWidth="1.8" /><path d="M3 9h18M9 9v11" strokeWidth="1.8" /></>,
-      scores: <><rect x="3" y="5" width="18" height="16" rx="2" strokeWidth="1.8" /><path d="M8 3v4M16 3v4M3 11h18" strokeWidth="1.8" strokeLinecap="round" /></>,
-      more: <><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></>,
+      home: (active) => (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? "white" : C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 11l9-7 9 7" />
+          <path d="M5 10v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9" />
+          <path d="M10 20v-6h4v6" />
+        </svg>
+      ),
+      table: (active) => (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? "white" : C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M7 4h10v5a5 5 0 0 1-10 0z" />
+          <path d="M7 5H4.5A1.5 1.5 0 0 0 3 6.5C3 8.5 4.4 10 7 10" />
+          <path d="M17 5h2.5A1.5 1.5 0 0 1 21 6.5C21 8.5 19.6 10 17 10" />
+          <path d="M12 14v3" />
+          <path d="M8.5 21h7" />
+          <path d="M10 17h4l.5 4h-5z" />
+        </svg>
+      ),
+      scores: (active) => (
+        <svg width="22" height="22" viewBox="0 0 24 24">
+          <path fill={active ? "white" : C.muted} fillRule="evenodd" d="
+            M21,12 A9,9 0 1,0 3,12 A9,9 0 1,0 21,12 Z
+            M12,7.228 L16.539,10.525 L14.805,15.861 L9.195,15.861 L7.461,10.525 Z
+            M12,9.7 L14.187,11.289 L13.352,13.861 L10.648,13.861 L9.813,11.289 Z
+            M11,7.228 L11,3 L13,3 L13,7.228 Z
+            M16.23,9.574 L20.25,8.268 L20.869,10.17 L16.848,11.476 Z
+            M15.614,15.273 L18.099,18.693 L16.481,19.869 L13.996,16.449 Z
+            M10.004,16.449 L7.519,19.869 L5.901,18.693 L8.386,15.273 Z
+            M7.152,11.476 L3.131,10.17 L3.75,8.268 L7.77,9.574 Z
+          "/>
+        </svg>
+      ),
+      race: (active) => (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <line x1="5" y1="3" x2="5" y2="21" stroke={active ? "white" : C.muted} strokeWidth="2" strokeLinecap="round"/>
+          <rect x="6" y="4" width="12" height="9" stroke={active ? "white" : C.muted} strokeWidth="1.5" fill="none"/>
+          <g fill={active ? "white" : C.muted}>
+            <rect x="6" y="4" width="4" height="3"/>
+            <rect x="14" y="4" width="4" height="3"/>
+            <rect x="10" y="7" width="4" height="3"/>
+            <rect x="6" y="10" width="4" height="3"/>
+            <rect x="14" y="10" width="4" height="3"/>
+          </g>
+        </svg>
+      ),
+      more: (active) => (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <circle cx="5" cy="12" r="2" fill={active ? "white" : C.muted}/>
+          <circle cx="12" cy="12" r="2" fill={active ? "white" : C.muted}/>
+          <circle cx="19" cy="12" r="2" fill={active ? "white" : C.muted}/>
+        </svg>
+      ),
     };
     function BottomNav({ tab, showMore, onNav, onMore }) {
       const items = [
-        ["home", "Home"], ["sweeps", "Sweeps"], ["tables", "Tables"], ["scores", "Scores"], ["more", "More"],
+        ["home", "Home"], ["table", "League"], ["scores", "Scores"], ["race", "The Race"], ["more", "More"],
       ];
       return (
         <div style={{
@@ -1113,16 +1246,13 @@
         }}>
           {items.map(([id, label]) => {
             const active = id === "more" ? showMore : (tab === id && !showMore);
-            const fill = id === "more";
             return (
               <button key={id} onClick={() => id === "more" ? onMore() : onNav(id)}
-                style={{ flex: 1, padding: "10px 4px 8px", background: "transparent", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, WebkitTapHighlightColor: "transparent" }}>
-                <div style={{ padding: "6px 16px", borderRadius: 20, background: active ? C.accent : "transparent", display: "flex" }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill={fill ? (active ? C.bg : C.muted) : "none"} stroke={fill ? "none" : (active ? C.bg : C.muted)}>
-                    {navIcons[id]}
-                  </svg>
+                style={{ flex: 1, padding: "14px 4px 12px", background: "transparent", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 5, WebkitTapHighlightColor: "transparent" }}>
+                <div style={{ padding: "8px 20px", borderRadius: 20, background: active ? C.accent : "transparent", transition: "background 0.2s ease" }}>
+                  {navIcons[id](active)}
                 </div>
-                <span style={{ fontSize: 10, fontWeight: 700, color: active ? C.accent : C.muted }}>{label}</span>
+                <span style={{ fontSize: 11, fontWeight: active ? 700 : 400, color: active ? C.text : C.muted }}>{label}</span>
               </button>
             );
           })}
@@ -1175,6 +1305,8 @@
     // ── app shell ───────────────────────────────────────────────────────────
     function App({ group, onSwitchGroup }) {
       const [tab, setTab] = useState("home");
+      // League tab's inline top toggle: players · teams · pl · elc
+      const [leagueView, setLeagueView] = useState("players");
       const [liveMatches, setLiveMatches] = useState([]);
       const [loading, setLoading] = useState(true);
       const [error, setError] = useState(null);
@@ -1315,6 +1447,7 @@
         window.scrollTo(0, 0);
         setShowMore(false); setShowRules(false);
         setSelectedPlayer(null); setSelectedTeam(null);
+        if (id === "table") setLeagueView("players"); // League always opens on Players
         setTab(id);
       };
 
@@ -1328,13 +1461,31 @@
               Couldn't reach the match feed ({error}) — showing last known data.
             </div>
           )}
+          {!loading && tab === "table" && (
+            <div style={{ padding: "0 14px 10px" }}>
+              <div className="tab-seg">
+                {[["players", "Players"], ["teams", "Teams"], ["pl", "Premier League"], ["elc", "Championship"]].map(([id, label]) => (
+                  <button key={id} onClick={() => { window.scrollTo(0, 0); setLeagueView(id); }} style={{
+                    background: leagueView === id ? C.accent : C.surface,
+                    color: leagueView === id ? C.bg : C.dim, fontWeight: 700, fontSize: 11,
+                    padding: "11px 1px", whiteSpace: "nowrap", letterSpacing: "-0.02em",
+                  }}>{label}</button>
+                ))}
+              </div>
+            </div>
+          )}
           <div style={{ height: 8 }} />
           {loading && !replay.on
             ? <div style={{ color: C.muted, textAlign: "center", padding: 40 }}>Loading fixtures…</div>
             : tab === "home" ? <HomeTab matches={matches} ranked={ranked} badges={badges} weekWindow={weekWindow} matchPtsById={matchPtsById} hist={hist} outcomes={outcomes} anchorIso={anchorIso} setTab={navTo} openPlayerModal={openPlayerModal} openTeamModal={openTeamModal} />
-            : tab === "sweeps" ? <SweepsTab ranked={ranked} badges={badges} hist={hist} weekMove={weekMove} outcomes={outcomes} displayRanks={displayRanks} onOpenPlayer={openPlayerModal} />
-            : tab === "tables" ? <TablesTab matches={matches} tables={tables} outcomes={outcomes} onTeamClick={openTeamModal} />
-            : <ScoresTab matches={matches} matchPtsById={matchPtsById} anchorIso={anchorIso} onTeamClick={openTeamModal} />}
+            : tab === "table" ? (
+                leagueView === "players" ? <SweepsTab ranked={ranked} badges={badges} hist={hist} weekMove={weekMove} outcomes={outcomes} displayRanks={displayRanks} onOpenPlayer={openPlayerModal} />
+                : leagueView === "teams" ? <TeamsLeagueTab matches={matches} ranked={ranked} anchorIso={anchorIso} onTeamClick={openTeamModal} />
+                : <TablesTab matches={matches} tables={tables} outcomes={outcomes} onTeamClick={openTeamModal} comp={leagueView === "pl" ? "PL" : "ELC"} />
+              )
+            : tab === "scores" ? <ScoresTab matches={matches} matchPtsById={matchPtsById} anchorIso={anchorIso} onTeamClick={openTeamModal} />
+            : tab === "race" ? <RaceTab ranked={ranked} matches={matches} anchorIso={anchorIso} replayOn={replay.on} />
+            : null}
 
           {(selectedPlayer || selectedTeam) && (
             <SnapSheet onClose={closeCard}>

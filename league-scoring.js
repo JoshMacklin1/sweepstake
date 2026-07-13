@@ -548,6 +548,54 @@ function deriveLeagueHistory(matches) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// deriveLeagueTeamHistory(matches) → { frames: [YYYY-MM-DD], history: { teamId: [totals] } }
+//
+// Per-team cumulative sweepstake points (matchPts + season bonus) at the end of
+// every settled day — the team-level twin of deriveLeagueHistory, feeding the
+// Teams-view sparklines. Same incremental pass and per-frame outcome derivation,
+// keyed by teamId instead of player. Invariant: the final frame for a team
+// equals that team's `total` in scoreLeaguePlayers. Kept as its own pass (rather
+// than folded into deriveLeagueHistory) so the Teams tab can compute it lazily
+// only when shown — a per-frame deriveSeasonOutcomes scan isn't free.
+// ─────────────────────────────────────────────────────────────────────────────
+function deriveLeagueTeamHistory(matches) {
+  var settled = matches.filter(lgIsSettled).slice()
+    .sort(function (a, b) { return a.utcDate.localeCompare(b.utcDate); });
+  var history = {};   // teamId → [cumulative sweepstake pts]
+  Object.keys(LEAGUE_TEAMS).forEach(function (id) { history[id] = []; });
+  var frames = [];
+  var matchPts = {};  // teamId → accumulated W/D points
+  var current = [], idx = 0;
+  var days = [];
+  settled.forEach(function (m) {
+    var d = m.utcDate.slice(0, 10);
+    if (days[days.length - 1] !== d) days.push(d);
+  });
+  days.forEach(function (day) {
+    while (idx < settled.length && settled[idx].utcDate.slice(0, 10) <= day) {
+      var m = settled[idx++];
+      current.push(m);
+      if (m.stage === "REGULAR_SEASON") {
+        [m.homeTeam.id, m.awayTeam.id].forEach(function (id) {
+          var t = LEAGUE_TEAMS[id];
+          if (!t) return;
+          var r = lgResultFor(m, id);
+          var pts = LEAGUE_MATCH_PTS[t.league];
+          if (r === "W") matchPts[id] = (matchPts[id] || 0) + pts.win[t.pot - 1];
+          else if (r === "D") matchPts[id] = (matchPts[id] || 0) + pts.draw[t.pot - 1];
+        });
+      }
+    }
+    var outcomes = deriveSeasonOutcomes(current);
+    frames.push(day);
+    Object.keys(LEAGUE_TEAMS).forEach(function (id) {
+      history[id].push((matchPts[id] || 0) + leagueBonusPts(Number(id), outcomes));
+    });
+  });
+  return { frames: frames, history: history };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // 7-day window: points gained + table movement per player. The league's
 // answer to the WC app's rolling 24h window — a league weekend is the
 // natural rhythm, and `anchorIso` keeps it working in replay mode.
