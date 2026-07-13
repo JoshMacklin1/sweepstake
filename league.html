@@ -1155,6 +1155,150 @@
 
     // ── HOME — dashboard mirroring the WC HomeTab section by section, on
     //    the league's 7-day rhythm instead of the WC's rolling 24h ──────────
+    // ── MatchFocusCard — WC-parity live/next match card at the top of Home.
+    //    Swipeable carousel of the live batch (or the next kickoff batch),
+    //    with a countdown when upcoming. No live/upcoming matches → renders
+    //    nothing. Team sides tap through to the team card (the league has no
+    //    head-to-head match modal). ───────────────────────────────────────────
+    function LeagueMatchFocusCard({ matches, matchPtsById = {}, onTeamClick }) {
+      const [countdown, setCountdown] = React.useState("");
+      const [idx, setIdx] = React.useState(0);
+      const trackRef = React.useRef(null);
+      const drag = React.useRef({ startX: 0, dx: 0, active: false, w: 0 });
+      const ANIM = "transform 0.28s cubic-bezier(0.4,0,0.2,1)";
+      const nowMs = Date.now();
+      const koPassed = (m) => new Date(m.utcDate).getTime() <= nowMs;
+      const isLiveM = (m) => m.status === "IN_PLAY" || m.status === "PAUSED" || ((m.status === "SCHEDULED" || m.status === "TIMED") && koPassed(m));
+      const liveMatches = matches.filter(isLiveM).sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
+      const isLive = liveMatches.length > 0;
+      const upcomingSorted = matches.filter(m => (m.status === "SCHEDULED" || m.status === "TIMED") && !koPassed(m)).sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
+      const nextTime = upcomingSorted.length ? new Date(upcomingSorted[0].utcDate).getTime() : null;
+      const nextBatch = nextTime ? upcomingSorted.filter(m => Math.abs(new Date(m.utcDate).getTime() - nextTime) < 60000) : [];
+      const games = isLive ? liveMatches : nextBatch;
+      const count = games.length;
+      const multi = count > 1;
+      const safeIdx = Math.max(0, Math.min(idx, count - 1));
+      React.useEffect(() => { const t = trackRef.current; if (!t) return; t.style.transition = ANIM; t.style.transform = `translateX(${-safeIdx * 100}%)`; }, [safeIdx, count]);
+      React.useEffect(() => { if (idx > count - 1) setIdx(Math.max(0, count - 1)); }, [count]);
+      const settle = React.useCallback((i) => { const t = trackRef.current; const c = Math.max(0, Math.min(count - 1, i)); if (t) { t.style.transition = ANIM; t.style.transform = `translateX(${-c * 100}%)`; } setIdx(c); }, [count]);
+      const onDown = (e) => { const d = drag.current; d.active = true; d.startX = e.clientX; d.dx = 0; d.w = e.currentTarget.clientWidth; if (multi && trackRef.current) trackRef.current.style.transition = "none"; if (e.currentTarget.setPointerCapture) e.currentTarget.setPointerCapture(e.pointerId); };
+      const onMove = (e) => { const d = drag.current; if (!d.active || !multi) return; d.dx = e.clientX - d.startX; const edge = (safeIdx === 0 && d.dx > 0) || (safeIdx === count - 1 && d.dx < 0); const eff = edge ? d.dx * 0.35 : d.dx; if (trackRef.current) trackRef.current.style.transform = `translateX(calc(${-safeIdx * 100}% + ${eff}px))`; };
+      const onUp = () => { const d = drag.current; if (!d.active) return; d.active = false; const th = Math.max(40, d.w * 0.15); if (d.dx <= -th) settle(safeIdx + 1); else if (d.dx >= th) settle(safeIdx - 1); else settle(safeIdx); };
+      React.useEffect(() => {
+        if (isLive || !nextBatch[0]) { setCountdown(""); return; }
+        const tick = () => {
+          const diff = new Date(nextBatch[0].utcDate) - new Date();
+          if (diff <= 0) { setCountdown(""); return; }
+          const hh = Math.floor(diff / 3600000), mm = Math.floor((diff % 3600000) / 60000), ss = Math.floor((diff % 60000) / 1000);
+          setCountdown(hh > 0 ? `${hh}h ${String(mm).padStart(2, "0")}m ${String(ss).padStart(2, "0")}s` : `${mm}m ${String(ss).padStart(2, "0")}s`);
+        };
+        tick(); const id = setInterval(tick, 1000); return () => clearInterval(id);
+      }, [isLive, nextBatch[0] && nextBatch[0].id]);
+      if (games.length === 0) return null;
+      const renderGame = (m) => {
+        const hId = m.homeTeam.id, aId = m.awayTeam.id;
+        const hT = typeof LEAGUE_TEAMS !== "undefined" && LEAGUE_TEAMS[hId];
+        const aT = typeof LEAGUE_TEAMS !== "undefined" && LEAGUE_TEAMS[aId];
+        const hOwner = typeof leagueOwnerOfTeamId === "function" ? (leagueOwnerOfTeamId(hId) || {}).name : null;
+        const aOwner = typeof leagueOwnerOfTeamId === "function" ? (leagueOwnerOfTeamId(aId) || {}).name : null;
+        const hN = (hT && hT.name) || m.homeTeam.shortName || "TBD";
+        const aN = (aT && aT.name) || m.awayTeam.shortName || "TBD";
+        const livePts = matchPtsById[m.id];
+        const mHasScore = m.score && m.score.fullTime && m.score.fullTime.home != null && m.score.fullTime.away != null;
+        const mKicked = (m.status === "SCHEDULED" || m.status === "TIMED") && new Date(m.utcDate).getTime() <= Date.now();
+        return (
+          <div key={m.id} style={{ flex: "0 0 100%", display: "flex", alignItems: "center" }}>
+            <div onClick={onTeamClick && hT ? () => onTeamClick(hId) : undefined} style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, cursor: onTeamClick && hT ? "pointer" : "default" }}>
+              <Crest teamId={hId} size={18} />
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{hOwner || hN}</div>
+                <div style={{ fontSize: 10, color: C.muted }}>{hN}{hT ? ` (P${hT.pot})` : ""}</div>
+                {livePts && livePts.home > 0 && <div style={{ fontSize: 10, fontWeight: 800, color: C.accent, marginTop: 2 }}>+{livePts.home} pts</div>}
+              </div>
+            </div>
+            <div style={{ textAlign: "center", padding: "0 8px", flexShrink: 0 }}>
+              {mHasScore ? <div style={{ fontSize: 16, fontWeight: 800, color: C.red, letterSpacing: 2 }}>{m.score.fullTime.home}–{m.score.fullTime.away}</div>
+                : mKicked ? <div style={{ fontSize: 12, fontWeight: 800, color: C.red, marginBottom: 2, letterSpacing: "0.06em" }}>LIVE</div>
+                  : <div style={{ fontSize: 13, color: C.muted, marginBottom: 4 }}>vs</div>}
+              {mKicked && !mHasScore && <div style={{ fontSize: 8, color: C.muted, marginTop: 3 }}>awaiting score</div>}
+            </div>
+            <div onClick={onTeamClick && aT ? () => onTeamClick(aId) : undefined} style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-end", cursor: onTeamClick && aT ? "pointer" : "default" }}>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{aOwner || aN}</div>
+                <div style={{ fontSize: 10, color: C.muted }}>{aN}{aT ? ` (P${aT.pot})` : ""}</div>
+                {livePts && livePts.away > 0 && <div style={{ fontSize: 10, fontWeight: 800, color: C.accent, marginTop: 2 }}>+{livePts.away} pts</div>}
+              </div>
+              <Crest teamId={aId} size={18} />
+            </div>
+          </div>
+        );
+      };
+      return (
+        <div style={{ ...s.card, marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 14px 0" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              {isLive && <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: C.red }} />}
+              <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", color: isLive ? C.red : C.muted }}>{isLive ? "LIVE NOW" : "NEXT MATCH"}</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {!isLive && countdown && <span style={{ fontSize: 11, fontFamily: "monospace", color: C.accent }}>{countdown}</span>}
+              {multi && <span style={{ fontSize: 10, fontWeight: 700, color: C.muted }}>{safeIdx + 1}/{count}</span>}
+            </div>
+          </div>
+          <div onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
+            style={{ padding: "8px 14px 12px", overflow: "hidden", touchAction: multi ? "pan-y" : "auto" }}>
+            <div ref={trackRef} style={{ display: "flex" }}>{games.map(renderGame)}</div>
+          </div>
+          {multi && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, paddingBottom: 10, height: 16 }}>
+              {games.map((m, i) => (<button key={m.id} onClick={() => settle(i)} aria-label={`Match ${i + 1}`} style={{ width: i === safeIdx ? 8 : 6, height: i === safeIdx ? 8 : 6, padding: 0, border: "none", cursor: "pointer", borderRadius: "50%", background: i === safeIdx ? (isLive ? C.red : C.accent) : C.border, transition: "all 0.2s" }} />))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ── All Accolades modal — every player's currently-held badges, opened
+    //    from Home's New Accolades section (WC parity). ─────────────────────────
+    function LeagueAllAccoladesModal({ ranked, badges, onClose, onPlayerClick }) {
+      const [closing, setClosing] = React.useState(false);
+      const closingRef = React.useRef(false);
+      const triggerClose = () => { if (closingRef.current) return; closingRef.current = true; setClosing(true); setTimeout(onClose, 250); };
+      const isMobile = window.innerWidth < 768;
+      const withBadges = ranked.map(p => ({ name: p.name, list: badges[p.name] || [] })).filter(p => p.list.length > 0);
+      return (
+        <div className="detail-backdrop" onClick={triggerClose} style={{ background: closing ? "rgba(0,0,0,0)" : "rgba(0,0,0,0.55)", transition: "background 0.25s ease" }}>
+          <div className="detail-sheet" onClick={e => e.stopPropagation()} style={{ background: C.bg, display: "flex", flexDirection: "column", border: `1px solid ${C.border}`, boxShadow: "0 24px 64px rgba(0,0,0,0.55)", transform: closing ? (isMobile ? "translateY(120%)" : "scale(0.96)") : undefined, opacity: closing && !isMobile ? 0 : undefined, transition: closing ? (isMobile ? "transform 0.25s ease" : "transform 0.18s ease, opacity 0.18s ease") : undefined }}>
+            <div className="sheet-handle"><span></span></div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+              <div style={{ fontSize: 15, fontWeight: 800, color: C.text }}>All Accolades</div>
+              <button onClick={triggerClose} aria-label="Close" style={{ background: "transparent", border: "none", color: C.muted, fontSize: 22, cursor: "pointer", lineHeight: 1 }}>✕</button>
+            </div>
+            <div style={{ flex: 1, overflowY: "auto", padding: "8px 16px 28px" }}>
+              {withBadges.length === 0 ? <div style={{ color: C.muted, textAlign: "center", padding: "52px 24px", fontSize: 14 }}>No accolades assigned yet</div>
+                : withBadges.map(p => (
+                  <div key={p.name} style={{ marginBottom: 18 }}>
+                    <div onClick={() => onPlayerClick(p.name)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", padding: "6px 0", borderBottom: `1px solid ${C.border}`, marginBottom: 6 }}>
+                      <span style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{p.name}</span>
+                      <span style={{ color: C.muted, fontSize: 16 }}>›</span>
+                    </div>
+                    {p.list.map((b, i) => (
+                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: i < p.list.length - 1 ? `1px solid ${C.border}` : "none" }}>
+                        <span style={{ fontSize: 18, flexShrink: 0, width: 22, textAlign: "center" }}>{b.icon}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: C.accent }}>{b.label}</div>
+                          <div style={{ fontSize: 11, color: C.muted }}>{b.desc}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     function HomeTab({ matches, ranked, badges, weekWindow, matchPtsById, hist, outcomes, anchorIso, setTab, openPlayerModal, openTeamModal }) {
       const real = ranked.filter(p => !p.grimReaper);
       const newAccolades = useMemo(
@@ -1166,15 +1310,42 @@
         .filter(m => m.status === "FINISHED" && m.utcDate >= cutoff && m.utcDate <= anchorIso)
         .sort((a, b) => b.utcDate.localeCompare(a.utcDate))
         .slice(0, 8);
-      const risers = real.filter(p => (weekWindow[p.name] || {}).move > 0)
-        .sort((a, b) => weekWindow[b.name].move - weekWindow[a.name].move).slice(0, 5);
-      const fallers = real.filter(p => (weekWindow[p.name] || {}).move < 0)
-        .sort((a, b) => weekWindow[a.name].move - weekWindow[b.name].move).slice(0, 5);
       const topThree = real.slice(0, 3);
       const upNext = matches
         .filter(m => (m.status === "SCHEDULED" || m.status === "TIMED") && m.utcDate > anchorIso)
         .sort((a, b) => a.utcDate.localeCompare(b.utcDate)).slice(0, 6);
       const rankColors = ["#84cc16", "#94a3b8", "#b45309"];
+      const [showAllAccolades, setShowAllAccolades] = React.useState(false);
+
+      // Teams ranked by sweepstake points (each owned team = one row), same
+      // source as the Teams tab — for the Leading Team card + Top Teams section.
+      const teamHist = useMemo(
+        () => (typeof deriveLeagueTeamHistory === "function" ? deriveLeagueTeamHistory(matches).history : {}),
+        [matches]
+      );
+      const buildTeamRows = (rk) => rk.filter(p => !p.grimReaper)
+        .flatMap(p => (p.teams || []).map(t => ({ teamId: t.teamId, name: t.name, pot: t.pot, pts: t.total, owner: p.name })))
+        .sort((a, b) => (b.pts - a.pts) || a.name.localeCompare(b.name));
+      const teamRows = useMemo(() => buildTeamRows(ranked).map(t => ({ ...t, hist: teamHist[t.teamId] || [0] })), [ranked, teamHist]);
+      const topTeam = teamRows[0] || null;
+      const topTeamThree = teamRows.slice(0, 3);
+      const teamWeekMove = useMemo(() => {
+        const rankNow = {}; teamRows.forEach((t, i) => { rankNow[t.teamId] = i; });
+        const cut = new Date(anchorIso).getTime() - 7 * 864e5;
+        const past = matches.filter(m => new Date(m.utcDate).getTime() <= cut);
+        const pastRows = buildTeamRows(typeof scoreLeaguePlayers === "function" ? scoreLeaguePlayers(past) : []);
+        const rankPast = {}; pastRows.forEach((t, i) => { rankPast[t.teamId] = i; });
+        const out = {};
+        teamRows.forEach(t => { const n = rankNow[t.teamId], pa = rankPast[t.teamId]; out[t.teamId] = (pa != null && n != null) ? pa - n : 0; });
+        return out;
+      }, [teamRows, matches, anchorIso]);
+      const posPill = (delta) => (
+        <div style={{
+          display: "inline-block", fontSize: 9, fontWeight: 700, padding: "1px 4px", borderRadius: 3, marginTop: 3,
+          background: delta === 0 ? "rgba(148,163,184,0.12)" : delta > 0 ? C.posBg : C.negBg,
+          color: delta === 0 ? "#94a3b8" : delta > 0 ? C.accent : C.red,
+        }}>{delta === 0 ? "0 pos" : `${delta > 0 ? "▲" : "▼"} ${Math.abs(delta)} pos`}</div>
+      );
 
       const Section = ({ icon, title, onOpen, linkLabel, empty, children }) => (
         <div style={{ marginBottom: 16 }}>
@@ -1196,6 +1367,8 @@
 
       return (
         <div style={{ padding: "0 14px" }}>
+          <LeagueMatchFocusCard matches={matches} matchPtsById={matchPtsById} onTeamClick={openTeamModal} />
+
           {topThree[0] && (
             <div onClick={() => openPlayerModal(topThree[0].name)} style={{
               ...s.card, padding: "18px 16px", marginBottom: 16, textAlign: "center", cursor: "pointer",
@@ -1211,7 +1384,7 @@
             </div>
           )}
 
-          <Section icon="🏆" title="Top of the Table" onOpen={() => { window.scrollTo(0, 0); setTab("table"); }} linkLabel="View the sweepstake"
+          <Section icon="🏆" title="Top Players" onOpen={() => { window.scrollTo(0, 0); setTab("table", "players"); }} linkLabel="View all players"
             empty={topThree.length === 0 ? "No standings yet" : null}>
             {topThree.map((p, i) => {
               const delta = (weekWindow[p.name] || {}).move || 0;
@@ -1229,48 +1402,53 @@
                   <Sparkline data={hist[p.name] || []} width={64} height={28} color={p.total < 0 ? C.red : p.total === 0 ? C.neutral : C.accent} />
                   <div style={{ textAlign: "right", flexShrink: 0, minWidth: 50 }}>
                     <div style={{ fontSize: 16, fontWeight: 800, color: C.text, lineHeight: 1 }}>{p.total}</div>
-                    <div style={{
-                      display: "inline-block", fontSize: 9, fontWeight: 700, padding: "1px 4px", borderRadius: 3, marginTop: 3,
-                      background: delta === 0 ? "rgba(148,163,184,0.12)" : delta > 0 ? C.posBg : C.negBg,
-                      color: delta === 0 ? "#94a3b8" : delta > 0 ? C.accent : C.red,
-                    }}>{delta === 0 ? "0 pos" : `${delta > 0 ? "▲" : "▼"} ${Math.abs(delta)} pos`}</div>
+                    {posPill(delta)}
                   </div>
                 </div>
               );
             })}
           </Section>
 
-          <Section icon="🌐" title="Recent Results" onOpen={() => { window.scrollTo(0, 0); setTab("scores"); }} linkLabel="View all scores"
-            empty={recentResults.length === 0 ? "No matches in the last 7 days" : null}>
-            {recentResults.map((m, i) => (
-              <HomeMatchRow key={m.id} m={m} matchPtsById={matchPtsById} onTeamClick={openTeamModal} isLast={i === recentResults.length - 1} banners />
+          {topTeam && (
+            <div onClick={() => openTeamModal(topTeam.teamId)} style={{
+              ...s.card, padding: "18px 16px", marginBottom: 16, textAlign: "center", cursor: "pointer",
+              background: "linear-gradient(135deg, rgba(34,197,94,0.14), rgba(34,197,94,0.02))",
+            }}>
+              <div style={{ fontSize: 11, color: C.dim, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Leading Team</div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 8 }}>
+                <Crest teamId={topTeam.teamId} size={24} />
+                <span style={{ fontSize: 20, fontWeight: 900, color: C.text }}>{topTeam.name}<span style={{ fontSize: 13, fontWeight: 700, color: C.muted }}> (P{topTeam.pot})</span></span>
+              </div>
+              <div style={{ fontSize: 30, fontWeight: 900, color: topTeam.pts < 0 ? C.red : C.accent, lineHeight: 1 }}>
+                {topTeam.pts}<span style={{ fontSize: 14, fontWeight: 700, color: C.muted }}> pts</span>
+              </div>
+            </div>
+          )}
+
+          <Section icon="⚽" title="Top Teams" onOpen={() => { window.scrollTo(0, 0); setTab("table", "teams"); }} linkLabel="View all teams"
+            empty={topTeamThree.length === 0 ? "No standings yet" : null}>
+            {topTeamThree.map((t, i) => (
+              <div key={t.teamId} onClick={() => openTeamModal(t.teamId)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", cursor: "pointer", borderBottom: i < topTeamThree.length - 1 ? `1px solid ${C.border}` : "none" }}>
+                <div style={{
+                  width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
+                  background: rankColors[i], display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 12, fontWeight: 800, color: "#080c18",
+                }}>{i + 1}</div>
+                <Crest teamId={t.teamId} size={20} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}<span style={{ fontSize: 11, fontWeight: 600, color: C.muted }}> (P{t.pot})</span></div>
+                  <div style={{ fontSize: 11, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.owner || "—"}</div>
+                </div>
+                <Sparkline data={t.hist} width={64} height={28} color={t.pts < 0 ? C.red : t.pts === 0 ? C.neutral : C.accent} />
+                <div style={{ textAlign: "right", flexShrink: 0, minWidth: 50 }}>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: t.pts < 0 ? C.red : C.text, lineHeight: 1 }}>{t.pts}</div>
+                  {posPill(teamWeekMove[t.teamId] || 0)}
+                </div>
+              </div>
             ))}
           </Section>
 
-          <Section icon="📊" title="Risers & Fallers" onOpen={() => { window.scrollTo(0, 0); setTab("table"); }} linkLabel="View the sweepstake"
-            empty={risers.length === 0 && fallers.length === 0 ? "No position changes in the last 7 days" : null}>
-            {risers.length > 0 && <div style={{ fontSize: 10, fontWeight: 700, color: C.accent, letterSpacing: "0.06em", padding: "10px 14px 4px" }}>RISERS</div>}
-            {risers.map((p, i) => (
-              <div key={p.name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "6px 14px", borderBottom: (i < risers.length - 1 || fallers.length > 0) ? `1px solid ${C.border}` : "none" }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: C.text, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: C.accent, flexShrink: 0, whiteSpace: "nowrap" }}>
-                  ▲ {weekWindow[p.name].move} place{weekWindow[p.name].move === 1 ? "" : "s"}
-                  {weekWindow[p.name].pts > 0 ? ` (+${weekWindow[p.name].pts}pts)` : ""}
-                </span>
-              </div>
-            ))}
-            {fallers.length > 0 && <div style={{ fontSize: 10, fontWeight: 700, color: C.red, letterSpacing: "0.06em", padding: "10px 14px 4px" }}>FALLERS</div>}
-            {fallers.map((p, i) => (
-              <div key={p.name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "6px 14px", borderBottom: i < fallers.length - 1 ? `1px solid ${C.border}` : "none" }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: C.text, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: C.red, flexShrink: 0, whiteSpace: "nowrap" }}>
-                  ▼ {Math.abs(weekWindow[p.name].move)} place{Math.abs(weekWindow[p.name].move) === 1 ? "" : "s"}
-                </span>
-              </div>
-            ))}
-          </Section>
-
-          <Section icon="🏅" title="New Accolades"
+          <Section icon="🏅" title="New Accolades" onOpen={() => setShowAllAccolades(true)} linkLabel="View all accolades"
             empty={newAccolades.length === 0 ? "No new accolades in the last 7 days" : null}>
             {newAccolades.map((b, i) => (
               <div key={i} onClick={() => openPlayerModal(b.name)} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 14px", cursor: "pointer", borderBottom: i < newAccolades.length - 1 ? `1px solid ${C.border}` : "none" }}>
@@ -1282,6 +1460,18 @@
                   <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{b.desc}</div>
                 </div>
               </div>
+            ))}
+          </Section>
+          {showAllAccolades && (
+            <LeagueAllAccoladesModal ranked={ranked} badges={badges}
+              onClose={() => setShowAllAccolades(false)}
+              onPlayerClick={(name) => { setShowAllAccolades(false); openPlayerModal(name); }} />
+          )}
+
+          <Section icon="🌐" title="Recent Results" onOpen={() => { window.scrollTo(0, 0); setTab("scores"); }} linkLabel="View all scores"
+            empty={recentResults.length === 0 ? "No matches in the last 7 days" : null}>
+            {recentResults.map((m, i) => (
+              <HomeMatchRow key={m.id} m={m} matchPtsById={matchPtsById} onTeamClick={openTeamModal} isLast={i === recentResults.length - 1} banners />
             ))}
           </Section>
 
@@ -2028,11 +2218,11 @@
         return () => { window.removeEventListener("popstate", onPop); window.removeEventListener("keydown", onKey); };
       });
 
-      const navTo = (id) => {
+      const navTo = (id, view) => {
         window.scrollTo(0, 0);
         setShowMore(false); setShowRules(false);
         setSelectedPlayer(null); setSelectedTeam(null);
-        if (id === "table") setLeagueView("players"); // League always opens on Players
+        if (id === "table") setLeagueView(view || "players"); // League opens on Players unless told otherwise
         setTab(id);
       };
 
