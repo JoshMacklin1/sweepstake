@@ -121,7 +121,10 @@ if (LEAGUE_SEASON === 2025) {
 }
 
 function leagueCrest(teamId) {
-  return "https://crests.football-data.org/" + teamId + ".png";
+  // Minimalist letter-mark crests, committed to the repo under crests/<id>.svg
+  // (self-contained SVGs, club colours + abbreviation) — replaces the external
+  // football-data.org PNGs so crests load offline and match the app's look.
+  return "crests/" + teamId + ".svg";
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
