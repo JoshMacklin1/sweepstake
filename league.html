@@ -74,7 +74,7 @@
 <body>
   <div id="root"></div>
   <!-- Coupled: every league-scoring.js change must bump ?v=N (see SWEEPSTAKE_PROJECT.md cache-bust rule) -->
-  <script src="league-scoring.js?v=5"></script>
+  <script src="league-scoring.js?v=6"></script>
   <script type="text/babel">
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
@@ -104,7 +104,7 @@
     const SEARCH_RECENT_KEY = "lsw_search_recent";
     const REPLAY_START = "2025-08-01T00:00:00Z";
     const REPLAY_END   = "2026-06-05T00:00:00Z";
-    const compLabel = (code) => code === "PL" ? "Premier League" : "Championship";
+    const compLabel = (code) => code === "PL" ? "Premier League" : code === "L1" ? "League One" : "Championship";
     const ord = (n) => { const t = ["th", "st", "nd", "rd"], v = n % 100; return n + (t[(v - 20) % 10] || t[v] || t[0]); };
 
     // ── tiny shared bits ────────────────────────────────────────────────────
