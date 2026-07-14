@@ -63,14 +63,14 @@ var LEAGUE_TEAMS = {
   // Premier League — Pot 4
   71:   { id: 71,   name: "Sunderland",      tla: "SUN", league: "PL",  pot: 4 },
   341:  { id: 341,  name: "Leeds United",    tla: "LEE", league: "PL",  pot: 4 },
-  349:  { id: 349,  name: "Ipswich Town",    tla: "IPS", league: "PL",  pot: 4 },
-  1076: { id: 1076, name: "Coventry City",   tla: "COV", league: "PL",  pot: 4 },
-  322:  { id: 322,  name: "Hull City",       tla: "HUL", league: "PL",  pot: 4 },
+  349:  { id: 349,  name: "Ipswich Town",    tla: "IPS", league: "PL",  pot: 4, p25: { league: "ELC", pot: 1 } },
+  1076: { id: 1076, name: "Coventry City",   tla: "COV", league: "PL",  pot: 4, p25: { league: "ELC", pot: 2 } },
+  322:  { id: 322,  name: "Hull City",       tla: "HUL", league: "PL",  pot: 4, p25: { league: "ELC", pot: 3 } },
 
   // Championship — Pot 1
-  563:  { id: 563,  name: "West Ham",        tla: "WHU", league: "ELC", pot: 1 },
-  76:   { id: 76,   name: "Wolves",          tla: "WOL", league: "ELC", pot: 1 },
-  328:  { id: 328,  name: "Burnley",         tla: "BUR", league: "ELC", pot: 1 },
+  563:  { id: 563,  name: "West Ham",        tla: "WHU", league: "ELC", pot: 1, p25: { league: "PL",  pot: 3 } },
+  76:   { id: 76,   name: "Wolves",          tla: "WOL", league: "ELC", pot: 1, p25: { league: "PL",  pot: 4 } },
+  328:  { id: 328,  name: "Burnley",         tla: "BUR", league: "ELC", pot: 1, p25: { league: "PL",  pot: 4 } },
   340:  { id: 340,  name: "Southampton",     tla: "SOU", league: "ELC", pot: 1 },
   384:  { id: 384,  name: "Millwall",        tla: "MIL", league: "ELC", pot: 1 },
   343:  { id: 343,  name: "Middlesbrough",   tla: "MID", league: "ELC", pot: 1 },
@@ -91,11 +91,34 @@ var LEAGUE_TEAMS = {
   // Championship — Pot 4
   325:  { id: 325,  name: "Portsmouth",      tla: "POR", league: "ELC", pot: 4 },
   404:  { id: 404,  name: "Wrexham",         tla: "WRE", league: "ELC", pot: 4 },
-  715:  { id: 715,  name: "Cardiff",         tla: "CAR", league: "ELC", pot: 4 },
+  715:  { id: 715,  name: "Cardiff",         tla: "CAR", league: "ELC", pot: 4, p25: { league: "L1", pot: 4 } },
   348:  { id: 348,  name: "Charlton",        tla: "CHA", league: "ELC", pot: 4 },
-  60:   { id: 60,   name: "Bolton",          tla: "BOL", league: "ELC", pot: 4 },
-  1126: { id: 1126, name: "Lincoln City",    tla: "LIN", league: "ELC", pot: 4 },
+  60:   { id: 60,   name: "Bolton",          tla: "BOL", league: "ELC", pot: 4, p25: { league: "L1", pot: 4 } },
+  1126: { id: 1126, name: "Lincoln City",    tla: "LIN", league: "ELC", pot: 4, p25: { league: "L1", pot: 4 } },
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SEASON-CORRECT POT/LEAGUE
+//
+// The base entries above are the 2026-27 lineup. Nine teams changed division
+// between 2025-26 and 2026-27, so scoring/pricing them by their 2026-27
+// league/pot would be wrong when replaying 2025-26 (e.g. Wolves are a 2026-27
+// Championship Pot 1 side but spent 2025-26 in the Premier League). Each such
+// team carries a `p25` override with its actual 2025-26 league + pot; the three
+// promoted from League One (Cardiff/Bolton/Lincoln) map to a notional "L1" and
+// never score in the replay (they have no PL/ELC fixtures).
+//
+// Applied once at load, keyed on LEAGUE_SEASON, so every downstream scoring and
+// UI read of `.league`/`.pot` gets the season-correct value with no further
+// changes. Flip LEAGUE_SEASON to 2026 for the live season and the base
+// (2026-27) values are used untouched.
+// ─────────────────────────────────────────────────────────────────────────────
+if (LEAGUE_SEASON === 2025) {
+  Object.keys(LEAGUE_TEAMS).forEach(function (id) {
+    var t = LEAGUE_TEAMS[id];
+    if (t.p25) { t.league = t.p25.league; t.pot = t.p25.pot; }
+  });
+}
 
 function leagueCrest(teamId) {
   return "https://crests.football-data.org/" + teamId + ".png";
@@ -408,8 +431,9 @@ function deriveLeagueWDL(matches, teamId) {
 function lgTeamMatchPts(matches, teamId) {
   var team = LEAGUE_TEAMS[teamId];
   if (!team) return 0;
-  var wdl = deriveLeagueWDL(matches, teamId);
   var pts = LEAGUE_MATCH_PTS[team.league];
+  if (!pts) return 0; // team not in a covered league this season (e.g. 2025-26 League One)
+  var wdl = deriveLeagueWDL(matches, teamId);
   return wdl.w * pts.win[team.pot - 1] + wdl.d * pts.draw[team.pot - 1];
 }
 
