@@ -64,10 +64,16 @@
       padding: 24px 18px 88px; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
     }
     .info-card { width: 100%; max-width: 460px; max-height: 68vh; border-radius: 16px; overflow: hidden; }
+    /* Scores day strip — no visible scrollbar (swipe/drag on mobile; arrow
+       buttons take over on desktop). */
+    .day-strip { scrollbar-width: none; -ms-overflow-style: none; }
+    .day-strip::-webkit-scrollbar { display: none; }
+    .day-nav-arrow { display: none; align-items: center; justify-content: center; }
     @media (min-width: 768px) {
       .detail-backdrop { align-items: center; }
       .detail-sheet { max-width: 520px; max-height: 80vh; border-radius: 16px; }
       .sheet-handle { display: none; }
+      .day-nav-arrow { display: flex; }
     }
   </style>
 </head>
@@ -1756,33 +1762,104 @@
     }
 
     // ── Scores tab ──────────────────────────────────────────────────────────
-    function ScoresTab({ matches, matchPtsById, anchorIso, onTeamClick }) {
-      const days = useMemo(() => {
-        const byDay = {};
-        matches.forEach(m => {
-          const day = m.utcDate.slice(0, 10);
-          (byDay[day] = byDay[day] || []).push(m);
-        });
-        const anchor = anchorIso.slice(0, 10);
-        return Object.keys(byDay)
-          .sort((a, b) => Math.abs(new Date(a) - new Date(anchor)) - Math.abs(new Date(b) - new Date(anchor)))
-          .slice(0, 10)
-          .sort((a, b) => b.localeCompare(a))
-          .map(d => ({ day: d, games: byDay[d].sort((x, y) => x.utcDate.localeCompare(y.utcDate)) }));
-      }, [matches, anchorIso]);
+    const dayKey = (d) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+
+    // ── Scores day strip — the WC app's DayPicker: a horizontally-scrollable
+    //    row of date pills (fades + desktop arrows), auto-centring the selected
+    //    day, snap, no visible scrollbar.
+    function DayPicker({ days, selected, onSelect }) {
+      const scrollRef = useRef(null);
+      const selectedKey = dayKey(selected);
+      const today = new Date();
+      const [atStart, setAtStart] = useState(true);
+      const [atEnd, setAtEnd] = useState(true);
+      const checkEdges = () => {
+        const el = scrollRef.current;
+        if (!el) return;
+        setAtStart(el.scrollLeft <= 1);
+        setAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 1);
+      };
+      useEffect(() => {
+        const el = scrollRef.current && scrollRef.current.querySelector(`[data-daykey="${selectedKey}"]`);
+        if (el) el.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+        const t = setTimeout(checkEdges, 350);
+        return () => clearTimeout(t);
+      }, [selectedKey]);
+      const scrollBy = (dir) => scrollRef.current && scrollRef.current.scrollBy({ left: dir * 160, behavior: "smooth" });
+      const arrowStyle = {
+        position: "absolute", top: "50%", transform: "translateY(-50%)",
+        width: 26, height: 26, borderRadius: "50%", border: `1px solid ${C.border}`,
+        background: C.card, color: C.dim, cursor: "pointer", fontSize: 15, fontWeight: 700, lineHeight: 1, padding: 0,
+      };
       return (
-        <div style={{ padding: "0 14px" }}>
-          {days.map(({ day, games }) => (
-            <div key={day} style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: C.dim, margin: "0 0 6px 2px" }}>{fmtDay(day)}</div>
-              <div style={s.card}>
-                {games.map((m, i) => (
-                  <HomeMatchRow key={m.id} m={m} matchPtsById={matchPtsById} onTeamClick={onTeamClick} isLast={i === games.length - 1} banners />
-                ))}
-              </div>
-            </div>
-          ))}
-          {days.length === 0 && <div style={{ color: C.muted, fontSize: 13, padding: 20, textAlign: "center" }}>No fixtures loaded yet.</div>}
+        <div style={{ position: "relative" }}>
+          <div ref={scrollRef} onScroll={checkEdges} className="day-strip" style={{
+            display: "flex", overflowX: "auto", WebkitOverflowScrolling: "touch", scrollSnapType: "x proximity",
+          }}>
+            {days.map(d => {
+              const key = dayKey(d);
+              const isSelected = key === selectedKey;
+              const isToday = sameDay(d, today);
+              return (
+                <button key={key} data-daykey={key} onClick={() => onSelect(d)} style={{
+                  flex: "0 0 auto", minWidth: 56, scrollSnapAlign: "center",
+                  display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+                  padding: "6px 4px 8px", border: "none", cursor: "pointer", borderRadius: 8,
+                  background: isToday ? "rgba(34,197,94,0.18)" : "transparent",
+                  borderBottom: `3px solid ${isSelected ? C.accent : "transparent"}`,
+                }}>
+                  <span style={{ fontSize: 12, fontWeight: isSelected ? 800 : 500, color: isSelected ? C.text : C.muted }}>
+                    {isToday ? "Today" : d.toLocaleDateString(undefined, { weekday: "short" })}
+                  </span>
+                  <span style={{ fontSize: 17, fontWeight: isSelected ? 800 : 500, color: isSelected ? C.text : C.muted }}>{d.getDate()}</span>
+                </button>
+              );
+            })}
+          </div>
+          {!atStart && <div style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: 36, pointerEvents: "none", background: `linear-gradient(to right, ${C.bg} 0%, transparent 100%)` }} />}
+          {!atEnd && <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: 36, pointerEvents: "none", background: `linear-gradient(to left, ${C.bg} 0%, transparent 100%)` }} />}
+          {!atStart && <button className="day-nav-arrow" onClick={() => scrollBy(-1)} aria-label="Earlier days" style={{ ...arrowStyle, left: 2 }}>‹</button>}
+          {!atEnd && <button className="day-nav-arrow" onClick={() => scrollBy(1)} aria-label="Later days" style={{ ...arrowStyle, right: 2 }}>›</button>}
+        </div>
+      );
+    }
+
+    function ScoresTab({ matches, matchPtsById, anchorIso, onTeamClick }) {
+      const [selectedDay, setSelectedDay] = useState(null);
+      // Every calendar day spanned by the loaded matches (so browsing reveals
+      // empty days rather than skipping them), mirroring the WC Scores tab.
+      const scoreDays = useMemo(() => {
+        if (matches.length === 0) return [];
+        const dates = matches.map(m => new Date(m.utcDate));
+        const start = new Date(Math.min(...dates)); start.setHours(0, 0, 0, 0);
+        const end = new Date(Math.max(...dates)); end.setHours(0, 0, 0, 0);
+        const days = [];
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) days.push(new Date(d));
+        return days;
+      }, [matches]);
+      if (matches.length === 0) return <div style={{ color: C.muted, fontSize: 13, padding: 20, textAlign: "center" }}>No fixtures loaded yet.</div>;
+      const anchor = new Date(anchorIso); anchor.setHours(0, 0, 0, 0);
+      const defaultDay = anchor < scoreDays[0] ? scoreDays[0]
+        : anchor > scoreDays[scoreDays.length - 1] ? scoreDays[scoreDays.length - 1] : anchor;
+      const effectiveDay = selectedDay || defaultDay;
+      const dayGames = matches
+        .filter(m => sameDay(new Date(m.utcDate), effectiveDay))
+        .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
+      return (
+        <div>
+          <div style={{ padding: "0 8px 12px" }}>
+            <DayPicker days={scoreDays} selected={effectiveDay} onSelect={setSelectedDay} />
+          </div>
+          <div style={{ padding: "0 14px" }}>
+            {dayGames.length === 0
+              ? <div style={{ color: C.muted, fontSize: 13, padding: "28px 0", textAlign: "center" }}>No matches on {fmtDay(effectiveDay.toISOString())}.</div>
+              : <div style={s.card}>
+                  {dayGames.map((m, i) => (
+                    <HomeMatchRow key={m.id} m={m} matchPtsById={matchPtsById} onTeamClick={onTeamClick} isLast={i === dayGames.length - 1} banners />
+                  ))}
+                </div>}
+          </div>
         </div>
       );
     }
