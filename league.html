@@ -154,10 +154,28 @@
         onError={e => { e.target.style.visibility = "hidden"; }} />
     );
 
-    // CrestRow — the league's FlagRow: best-news-first ordering (champions/
-    // promoted → in play → relegated), gold outline for a settled title/
-    // promotion, dimmed + ✕ for relegation.
+    // CrestRow — the league's FlagRow: crests ordered by the points each team
+    // has earned (highest first), dimmed + ✕ for relegation. Shows at most 4
+    // crests at full size; any extra scroll horizontally, with the edges faded
+    // to cue the overflow (players can own many teams across the six leagues
+    // now, so the old shrink-to-fit clipped them illegibly).
+    const CREST_VISIBLE = 4;
     function CrestRow({ teams, outcomes, baseHeight = 26 }) {
+      const scrollRef = useRef(null);
+      // Which edges are currently faded — recomputed on scroll so the leading
+      // edge is only faded once you've scrolled past the start, and the
+      // trailing edge stops fading once you reach the end.
+      const [edge, setEdge] = useState({ start: true, end: false });
+      const updateEdges = useCallback(() => {
+        const el = scrollRef.current;
+        if (!el) return;
+        const start = el.scrollLeft <= 1;
+        const end = el.scrollLeft + el.clientWidth >= el.scrollWidth - 1;
+        setEdge(prev => (prev.start === start && prev.end === end) ? prev : { start, end });
+      }, []);
+      const count = teams ? teams.length : 0;
+      useEffect(() => { updateEdges(); }, [updateEdges, count]);
+
       if (!teams || teams.length === 0) return null;
       const state = (t) => {
         const o = outcomes[t.teamId] && outcomes[t.teamId].outcome;
@@ -165,13 +183,30 @@
         if (o === "RELEGATED") return "dead";
         return "alive";
       };
-      const ordered = [...teams.filter(t => state(t) === "won"), ...teams.filter(t => state(t) === "alive"), ...teams.filter(t => state(t) === "dead")];
+      // Highest-scoring team first; relegated teams keep their dim/✕ styling
+      // but no longer force to the back — their (often low) total tends to sink
+      // them naturally.
+      const ordered = [...teams].sort((a, b) => (b.total || 0) - (a.total || 0));
       const n = ordered.length;
-      const scale = n <= 3 ? 1 : n === 4 ? 0.94 : n === 5 ? 0.83 : 0.72;
-      const h = Math.round(baseHeight * scale);
-      const gap = n <= 3 ? 4 : n === 4 ? 3 : 2;
+      const h = baseHeight;
+      const gap = 4;
+      const scale = h / 26;
+      const capped = n > CREST_VISIBLE;
+      const maxWidth = capped ? CREST_VISIBLE * h + (CREST_VISIBLE - 1) * gap : undefined;
+      const fadePx = Math.round(h * 0.7);
+      const fadeL = capped && !edge.start;
+      const fadeR = capped && !edge.end;
+      let mask;
+      if (fadeL && fadeR) mask = `linear-gradient(to right, transparent, #000 ${fadePx}px, #000 calc(100% - ${fadePx}px), transparent)`;
+      else if (fadeL)     mask = `linear-gradient(to right, transparent, #000 ${fadePx}px)`;
+      else if (fadeR)     mask = `linear-gradient(to right, #000 calc(100% - ${fadePx}px), transparent)`;
       return (
-        <div style={{ display: "flex", gap, alignItems: "center", flexWrap: "nowrap", overflow: "hidden" }}>
+        <div ref={scrollRef} onScroll={updateEdges} style={{
+          display: "flex", gap, alignItems: "center", flexWrap: "nowrap",
+          maxWidth, overflowX: "auto", overflowY: "hidden",
+          scrollbarWidth: "none", msOverflowStyle: "none", WebkitOverflowScrolling: "touch",
+          WebkitMaskImage: mask, maskImage: mask,
+        }}>
           {ordered.map(t => {
             const st = state(t);
             return (
