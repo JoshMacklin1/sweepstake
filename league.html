@@ -1536,7 +1536,8 @@
       const bracket = typeof deriveCLBracket === "function" ? deriveCLBracket(matches) : { rounds: [] };
       const stageTies = { LAST_16: [], QUARTER_FINALS: [], SEMI_FINALS: [], FINAL: [] };
       bracket.rounds.forEach(r => { if (stageTies[r.stage]) stageTies[r.stage] = r.ties.slice(); });
-      if (!["LAST_16", "QUARTER_FINALS", "SEMI_FINALS", "FINAL"].some(s => stageTies[s].length)) {
+      const playoffs = (bracket.rounds.find(r => r.stage === "PLAYOFFS") || {}).ties || [];
+      if (bracket.rounds.length === 0) {
         return <div style={{ textAlign: "center", color: C.muted, fontSize: 13, padding: "40px 20px" }}>Knockout stage hasn't started yet</div>;
       }
       // Order each round off the next one's winners (anchored backward from the
@@ -1615,6 +1616,17 @@
       return (
         <div>
           <div style={{ fontSize: 11, color: C.muted, padding: "0 14px 10px" }}>Two-legged ties show the aggregate score. Tap a club for its card.</div>
+          {playoffs.length > 0 && (
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 1, padding: "0 14px 8px" }}>Knockout play-offs <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>· winners reach the last 16</span></div>
+              <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", paddingBottom: 4 }}>
+                <div style={{ display: "flex", gap: 12, padding: "0 12px 4px", width: "max-content" }}>
+                  {playoffs.map((tie, i) => <div key={i} style={{ width: 170, flexShrink: 0 }}><Tie tie={tie} /></div>)}
+                </div>
+              </div>
+            </div>
+          )}
+          <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 1, padding: "4px 14px 8px" }}>Bracket</div>
           <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", paddingBottom: 8 }}>
             <div style={{ display: "flex", gap: 16, padding: "0 12px 8px", alignItems: "flex-start", width: "max-content" }}>
               {rounds.map((round, idx) => (
@@ -1633,12 +1645,36 @@
       );
     }
 
+    // The Champions League runs League phase → Knockouts (a play-off round then
+    // the R16→final bracket). A sub-nav lets you follow those phases in order,
+    // mirroring the WC app's Groups | Bracket split.
     function ChampionsLeagueTab({ matches, tables, outcomes, onTeamClick }) {
+      const [phase, setPhase] = useState("league");
       return (
         <div>
-          <CLBracket matches={matches} onTeamClick={onTeamClick} />
-          <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 1, padding: "16px 14px 8px" }}>League phase</div>
-          <TablesTab matches={matches} tables={tables} outcomes={outcomes} onTeamClick={onTeamClick} comp="CL" />
+          <div style={{ padding: "0 14px 12px" }}>
+            <div className="tab-seg">
+              {[["league", "League phase"], ["ko", "Knockouts"]].map(([id, label]) => (
+                <button key={id} onClick={() => { window.scrollTo(0, 0); setPhase(id); }} style={{
+                  background: phase === id ? C.accent : C.surface,
+                  color: phase === id ? C.bg : C.dim, fontWeight: 700, fontSize: 12,
+                  padding: "10px 2px", whiteSpace: "nowrap",
+                }}>{label}</button>
+              ))}
+            </div>
+          </div>
+          {phase === "league" ? (
+            <div>
+              <div style={{ fontSize: 11, color: C.muted, padding: "0 14px 10px", lineHeight: 1.5 }}>
+                One 36-team league. <strong style={{ color: C.accent }}>Top 8</strong> go straight to the last 16;
+                <strong style={{ color: C.text }}> 9th–24th</strong> drop into the knockout play-offs;
+                <strong style={{ color: C.dangerText }}> 25th–36th</strong> are out.
+              </div>
+              <TablesTab matches={matches} tables={tables} outcomes={outcomes} onTeamClick={onTeamClick} comp="CL" />
+            </div>
+          ) : (
+            <CLBracket matches={matches} onTeamClick={onTeamClick} />
+          )}
         </div>
       );
     }
