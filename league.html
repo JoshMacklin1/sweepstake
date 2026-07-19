@@ -1529,44 +1529,10 @@
     // ── Leagues view — switch across every competition's conventional table.
     //    The switcher is built from LEAGUE_COMPETITIONS, so adding a league
     //    there adds it here automatically. ────────────────────────────────────
-    // ── Champions League bracket — the WC KnockoutBracket layout (columns of
-    //    absolute-positioned tie boxes spaced by round so the tree reads without
-    //    connector lines), adapted to two-legged aggregate ties + club crests.
-    function CLBracket({ matches, onTeamClick }) {
-      const bracket = typeof deriveCLBracket === "function" ? deriveCLBracket(matches) : { rounds: [] };
-      const stageTies = { LAST_16: [], QUARTER_FINALS: [], SEMI_FINALS: [], FINAL: [] };
-      bracket.rounds.forEach(r => { if (stageTies[r.stage]) stageTies[r.stage] = r.ties.slice(); });
-      const playoffs = (bracket.rounds.find(r => r.stage === "PLAYOFFS") || {}).ties || [];
-      if (bracket.rounds.length === 0) {
-        return <div style={{ textAlign: "center", color: C.muted, fontSize: 13, padding: "40px 20px" }}>Knockout stage hasn't started yet</div>;
-      }
-      // Order each round off the next one's winners (anchored backward from the
-      // final) so a tie sits centred between the two that feed it; fall back to
-      // natural order for any round whose winners aren't decided yet.
-      const feederOf = { FINAL: "SEMI_FINALS", SEMI_FINALS: "QUARTER_FINALS", QUARTER_FINALS: "LAST_16" };
-      const orderFeeders = (stage, ties) => {
-        const pool = (stageTies[feederOf[stage]] || []).slice();
-        if (!pool.length) return [];
-        const out = []; let matched = 0;
-        ties.forEach(tie => [tie && tie.a, tie && tie.b].forEach(team => {
-          const idx = team != null ? pool.findIndex(ft => ft && ft.winner === team) : -1;
-          if (idx >= 0) { out.push(pool[idx]); pool[idx] = null; matched++; } else out.push(null);
-        }));
-        return matched ? out : (stageTies[feederOf[stage]] || []);
-      };
-      const finalR = stageTies.FINAL.slice(0, 1);
-      const sfR = finalR.length ? orderFeeders("FINAL", finalR) : stageTies.SEMI_FINALS;
-      const qfR = (sfR && sfR.some(Boolean)) ? orderFeeders("SEMI_FINALS", sfR) : stageTies.QUARTER_FINALS;
-      const r16R = (qfR && qfR.some(Boolean)) ? orderFeeders("QUARTER_FINALS", qfR) : stageTies.LAST_16;
-      const pad = (arr, n) => { const a = (arr || []).slice(0, n); while (a.length < n) a.push(null); return a; };
-      const rounds = [
-        { key: "r16", label: "Round of 16", data: pad(r16R, 8) },
-        { key: "qf", label: "Quarter-finals", data: pad(qfR, 4) },
-        { key: "sf", label: "Semi-finals", data: pad(sfR, 2) },
-        { key: "fin", label: "🏆 Final", data: pad(finalR, 1) },
-      ];
-      const MATCH_H = 76, GAP = 12, SLOT = MATCH_H + GAP, totalHeight = 8 * SLOT - GAP;
-      const topFor = (roundIdx, i) => { const sl = Math.pow(2, roundIdx) * SLOT; return sl * i + (sl - MATCH_H) / 2; };
+    // A single Champions League tie box (two clubs stacked, aggregate score,
+    // winner highlighted / loser dimmed + ✕). Shared by the knockout bracket
+    // and the play-off fixtures row under the league table.
+    function CLTie({ tie, matches, onTeamClick, height = 76 }) {
       const teamName = (id) => {
         const t = typeof LEAGUE_TEAMS !== "undefined" && LEAGUE_TEAMS[id];
         if (t) return t.name;
@@ -1600,33 +1566,78 @@
           </div>
         );
       };
-      const Tie = ({ tie }) => {
-        if (!tie) return (
-          <div style={{ border: `1px solid ${C.border}`, borderRadius: 6, overflow: "hidden", height: MATCH_H, boxSizing: "border-box", background: C.card }}>
-            <Slot side="home" /><Slot side="away" />
+      if (!tie) return (
+        <div style={{ border: `1px solid ${C.border}`, borderRadius: 6, overflow: "hidden", height, boxSizing: "border-box", background: C.card }}>
+          <Slot side="home" /><Slot side="away" />
+        </div>
+      );
+      return (
+        <div style={{ border: `1px solid ${tie.winner ? C.accent + "44" : C.border}`, borderRadius: 6, overflow: "hidden", height, boxSizing: "border-box", background: C.card }}>
+          <Slot id={tie.a} side="home" score={tie.played ? tie.aggA : null} isWinner={tie.winner === tie.a} isElim={!!tie.winner && tie.winner !== tie.a} />
+          <Slot id={tie.b} side="away" score={tie.played ? tie.aggB : null} isWinner={tie.winner === tie.b} isElim={!!tie.winner && tie.winner !== tie.b} />
+        </div>
+      );
+    }
+
+    // Knockout play-off ties as a fixtures row (shown under the league table).
+    function CLPlayoffsRow({ matches, onTeamClick }) {
+      const bracket = typeof deriveCLBracket === "function" ? deriveCLBracket(matches) : { rounds: [] };
+      const playoffs = (bracket.rounds.find(r => r.stage === "PLAYOFFS") || {}).ties || [];
+      if (!playoffs.length) return null;
+      return (
+        <div style={{ marginTop: 20 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 1, padding: "0 14px 8px" }}>
+            Knockout play-offs <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>· 9th–24th · winners reach the last 16</span>
           </div>
-        );
-        return (
-          <div style={{ border: `1px solid ${tie.winner ? C.accent + "44" : C.border}`, borderRadius: 6, overflow: "hidden", height: MATCH_H, boxSizing: "border-box", background: C.card }}>
-            <Slot id={tie.a} side="home" score={tie.played ? tie.aggA : null} isWinner={tie.winner === tie.a} isElim={!!tie.winner && tie.winner !== tie.a} />
-            <Slot id={tie.b} side="away" score={tie.played ? tie.aggB : null} isWinner={tie.winner === tie.b} isElim={!!tie.winner && tie.winner !== tie.b} />
+          <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", paddingBottom: 6 }}>
+            <div style={{ display: "flex", gap: 12, padding: "0 14px 4px", width: "max-content" }}>
+              {playoffs.map((tie, i) => <div key={i} style={{ width: 190, flexShrink: 0 }}><CLTie tie={tie} matches={matches} onTeamClick={onTeamClick} /></div>)}
+            </div>
           </div>
-        );
+        </div>
+      );
+    }
+
+    // ── Champions League knockout bracket — the WC KnockoutBracket layout
+    //    (columns of absolute-positioned tie boxes spaced by round so the tree
+    //    reads without connector lines). Play-offs live under the league table.
+    function CLBracket({ matches, onTeamClick }) {
+      const bracket = typeof deriveCLBracket === "function" ? deriveCLBracket(matches) : { rounds: [] };
+      const stageTies = { LAST_16: [], QUARTER_FINALS: [], SEMI_FINALS: [], FINAL: [] };
+      bracket.rounds.forEach(r => { if (stageTies[r.stage]) stageTies[r.stage] = r.ties.slice(); });
+      if (["LAST_16", "QUARTER_FINALS", "SEMI_FINALS", "FINAL"].every(s => !stageTies[s].length)) {
+        return <div style={{ textAlign: "center", color: C.muted, fontSize: 13, padding: "40px 20px" }}>Knockout bracket hasn't started yet</div>;
+      }
+      // Order each round off the next one's winners (anchored backward from the
+      // final) so a tie sits centred between the two that feed it; fall back to
+      // natural order for any round whose winners aren't decided yet.
+      const feederOf = { FINAL: "SEMI_FINALS", SEMI_FINALS: "QUARTER_FINALS", QUARTER_FINALS: "LAST_16" };
+      const orderFeeders = (stage, ties) => {
+        const pool = (stageTies[feederOf[stage]] || []).slice();
+        if (!pool.length) return [];
+        const out = []; let matched = 0;
+        ties.forEach(tie => [tie && tie.a, tie && tie.b].forEach(team => {
+          const idx = team != null ? pool.findIndex(ft => ft && ft.winner === team) : -1;
+          if (idx >= 0) { out.push(pool[idx]); pool[idx] = null; matched++; } else out.push(null);
+        }));
+        return matched ? out : (stageTies[feederOf[stage]] || []);
       };
+      const finalR = stageTies.FINAL.slice(0, 1);
+      const sfR = finalR.length ? orderFeeders("FINAL", finalR) : stageTies.SEMI_FINALS;
+      const qfR = (sfR && sfR.some(Boolean)) ? orderFeeders("SEMI_FINALS", sfR) : stageTies.QUARTER_FINALS;
+      const r16R = (qfR && qfR.some(Boolean)) ? orderFeeders("QUARTER_FINALS", qfR) : stageTies.LAST_16;
+      const pad = (arr, n) => { const a = (arr || []).slice(0, n); while (a.length < n) a.push(null); return a; };
+      const rounds = [
+        { key: "r16", label: "Round of 16", data: pad(r16R, 8) },
+        { key: "qf", label: "Quarter-finals", data: pad(qfR, 4) },
+        { key: "sf", label: "Semi-finals", data: pad(sfR, 2) },
+        { key: "fin", label: "🏆 Final", data: pad(finalR, 1) },
+      ];
+      const MATCH_H = 76, GAP = 12, SLOT = MATCH_H + GAP, totalHeight = 8 * SLOT - GAP;
+      const topFor = (roundIdx, i) => { const sl = Math.pow(2, roundIdx) * SLOT; return sl * i + (sl - MATCH_H) / 2; };
       return (
         <div>
           <div style={{ fontSize: 11, color: C.muted, padding: "0 14px 10px" }}>Two-legged ties show the aggregate score. Tap a club for its card.</div>
-          {playoffs.length > 0 && (
-            <div style={{ marginBottom: 8 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 1, padding: "0 14px 8px" }}>Knockout play-offs <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>· winners reach the last 16</span></div>
-              <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", paddingBottom: 4 }}>
-                <div style={{ display: "flex", gap: 12, padding: "0 12px 4px", width: "max-content" }}>
-                  {playoffs.map((tie, i) => <div key={i} style={{ width: 170, flexShrink: 0 }}><Tie tie={tie} /></div>)}
-                </div>
-              </div>
-            </div>
-          )}
-          <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 1, padding: "4px 14px 8px" }}>Bracket</div>
           <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", paddingBottom: 8 }}>
             <div style={{ display: "flex", gap: 16, padding: "0 12px 8px", alignItems: "flex-start", width: "max-content" }}>
               {rounds.map((round, idx) => (
@@ -1634,7 +1645,7 @@
                   <div style={{ fontSize: 10, fontWeight: 700, color: round.key === "fin" ? C.accent : C.muted, textTransform: "uppercase", letterSpacing: 1, padding: "0 4px 8px", textAlign: "center" }}>{round.label}</div>
                   <div style={{ position: "relative", height: totalHeight, width: 170 }}>
                     {round.data.map((tie, i) => (
-                      <div key={i} style={{ position: "absolute", top: topFor(idx, i), left: 0, right: 0, height: MATCH_H }}><Tie tie={tie} /></div>
+                      <div key={i} style={{ position: "absolute", top: topFor(idx, i), left: 0, right: 0, height: MATCH_H }}><CLTie tie={tie} matches={matches} onTeamClick={onTeamClick} /></div>
                     ))}
                   </div>
                 </div>
@@ -1670,7 +1681,12 @@
                 <strong style={{ color: C.text }}> 9th–24th</strong> drop into the knockout play-offs;
                 <strong style={{ color: C.dangerText }}> 25th–36th</strong> are out.
               </div>
-              <TablesTab matches={matches} tables={tables} outcomes={outcomes} onTeamClick={onTeamClick} comp="CL" />
+              <TablesTab matches={matches} tables={tables} outcomes={outcomes} onTeamClick={onTeamClick} comp="CL"
+                thresholds={[
+                  { after: 8, label: "Knockout play-offs · 9th–24th", color: C.muted },
+                  { after: 24, label: "Eliminated · 25th–36th", color: C.dangerText },
+                ]} />
+              <CLPlayoffsRow matches={matches} onTeamClick={onTeamClick} />
             </div>
           ) : (
             <CLBracket matches={matches} onTeamClick={onTeamClick} />
@@ -1703,8 +1719,11 @@
     }
 
     // ── Tables tab ──────────────────────────────────────────────────────────
-    function TablesTab({ matches, tables, outcomes, onTeamClick, comp = "PL" }) {
+    function TablesTab({ matches, tables, outcomes, onTeamClick, comp = "PL", thresholds }) {
       const table = tables[comp] || [];
+      // Dotted qualification cut-lines (e.g. the CL table): { after, label, color }.
+      const threshAfter = {};
+      (thresholds || []).forEach(t => { threshAfter[t.after] = t; });
       const teamName = (id) => {
         const t = typeof LEAGUE_TEAMS !== "undefined" && LEAGUE_TEAMS[id];
         if (t) return t.name;
@@ -1732,8 +1751,10 @@
                   const o = outcomes[r.teamId];
                   const own = owner(r.teamId);
                   const known = typeof LEAGUE_TEAMS !== "undefined" && LEAGUE_TEAMS[r.teamId];
+                  const cut = (i < table.length - 1) ? threshAfter[i + 1] : null;
                   return (
-                    <tr key={r.teamId} onClick={onTeamClick && known ? () => onTeamClick(r.teamId) : undefined}
+                    <React.Fragment key={r.teamId}>
+                    <tr onClick={onTeamClick && known ? () => onTeamClick(r.teamId) : undefined}
                       style={{ borderTop: `1px solid ${C.border}`, cursor: onTeamClick && known ? "pointer" : "default" }}>
                       <td style={{ ...td, textAlign: "left", color: C.muted, width: 20, fontSize: 14 }}>{i + 1}</td>
                       <td style={{ ...td, textAlign: "left" }}>
@@ -1751,6 +1772,16 @@
                       <td style={{ ...td, fontWeight: 800 }}>{r.pts}</td>
                       <td style={td}>{r.w}</td><td style={td}>{r.d}</td><td style={td}>{r.l}</td>
                     </tr>
+                    {cut && (
+                      <tr aria-hidden="true">
+                        <td colSpan={8} style={{ padding: 0 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, borderTop: `2px dashed ${cut.color}`, margin: "2px 0", padding: "4px 3px 0" }}>
+                            <span style={{ fontSize: 9, fontWeight: 800, color: cut.color, textTransform: "uppercase", letterSpacing: 0.6 }}>{cut.label}</span>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    </React.Fragment>
                   );
                 })}
                 {table.length === 0 && <tr><td style={{ ...td, textAlign: "left" }} colSpan={8}>No matches yet.</td></tr>}
