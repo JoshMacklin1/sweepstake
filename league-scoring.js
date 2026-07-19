@@ -375,7 +375,7 @@ var LEAGUE_GROUPS = {
     players: [
       { name: "George" }, { name: "Christoph" }, { name: "Sam" }, { name: "Toby" },
       { name: "Dollie" }, { name: "Elliott" }, { name: "Paul" }, { name: "Auz" },
-      { name: "Josh", grimReaper: true },
+      { name: "Josh" },
     ],
   },
   SILVERSTREAM: {
@@ -388,7 +388,7 @@ var LEAGUE_GROUPS = {
       { name: "Peter W" }, { name: "Ramon" }, { name: "Sam" }, { name: "Stephen" },
       { name: "Stuart" }, { name: "Wes" }, { name: "Will A" }, { name: "Will B" },
       { name: "Peter H" }, { name: "Alex DL" },
-      { name: "Josh", grimReaper: true },
+      { name: "Josh" },
     ],
   },
   CORNWALL: {
@@ -398,7 +398,7 @@ var LEAGUE_GROUPS = {
       { name: "Elliott" }, { name: "Emily" }, { name: "Iain" }, { name: "Izzy" },
       { name: "Kate" }, { name: "Katie" }, { name: "Lucy" }, { name: "Naomi" },
       { name: "Rory" }, { name: "Sam" }, { name: "Tom" }, { name: "Tori" },
-      { name: "Josh", grimReaper: true },
+      { name: "Josh" },
     ],
   },
   MACKLINS: {
@@ -407,7 +407,6 @@ var LEAGUE_GROUPS = {
       { name: "Maggie" }, { name: "Julian" }, { name: "Molly" }, { name: "Josh" },
       { name: "Candice" }, { name: "Jasper" }, { name: "Taco" },
       { name: "MACK-BOT", isBot: true },
-      { name: "Grim Reaper", grimReaper: true },
     ],
   },
   CAVERSHAM: {
@@ -417,7 +416,7 @@ var LEAGUE_GROUPS = {
       { name: "India" }, { name: "Yan" }, { name: "Freya R" }, { name: "Jake" },
       { name: "Helen" }, { name: "Frank" }, { name: "Ivo" }, { name: "Jasper" },
       { name: "Delilah" }, { name: "Nora" }, { name: "Freya C" }, { name: "Lily" },
-      { name: "Josh", grimReaper: true },
+      { name: "Josh" },
     ],
   },
 };
@@ -462,7 +461,7 @@ function lgShuffle(arr, rng) {
 }
 function lgEnsureTeams(group) {
   if (!group || !group.players) return;
-  var real = group.players.filter(function (p) { return !p.grimReaper; });
+  var real = group.players.slice(); // every player is drafted a squad
   // Already drafted (RODENTS, or a group drawn earlier this session) → leave be.
   if (real.length && real.every(function (p) { return p.teamIds && p.teamIds.length; })) return;
   real.forEach(function (p) { p.teamIds = []; });
@@ -853,52 +852,15 @@ function lgTeamMatchPts(matches, teamId) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// THE GRIM REAPER
-// Scores from misfortune, cannot own teams:
-//   1. Relegation bounty — the absolute value of the owner's penalty when a
-//      Pot 1/2 team goes down (PL: +150/+75, ELC: +100/+50).
-//   2. Goal drought — +2 for every finished 0-0 involving at least one owned
-//      team (a full league season has far more 0-0s than a World Cup, hence
-//      +2 not +3, and only games someone in the group actually suffers).
-// ─────────────────────────────────────────────────────────────────────────────
-function lgReaperBounty(teamId, outcomes) {
-  var o = outcomes[teamId];
-  var team = LEAGUE_TEAMS[teamId];
-  if (!o || !team || o.outcome !== "RELEGATED" || team.pot > 2) return 0;
-  return Math.abs(LEAGUE_BONUS[o.comp].RELEGATED[team.pot - 1]);
-}
-
-function lgGoalDroughtPts(m, players) {
-  if (m.status !== "FINISHED" || m.stage !== "REGULAR_SEASON") return 0;
-  var ft = m.score && m.score.fullTime;
-  if (!ft || ft.home !== 0 || ft.away !== 0) return 0;
-  var owned = leagueOwnerOfTeamId(m.homeTeam.id, players) || leagueOwnerOfTeamId(m.awayTeam.id, players);
-  return owned ? 2 : 0;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // scoreLeaguePlayers(matches) → ranked array (the main scorer)
-// [{ name, total, w, d, l, tiebreak, grimReaper?, teams: [{ teamId, tla,
-//    name, pot, league, w, d, l, matchPts, bonusPts, outcome, total }] }]
-// Sorted: total desc → reaper last → tiebreak desc (W×3 + D − L, as WC).
+// [{ name, total, w, d, l, tiebreak, teams: [{ teamId, tla, name, pot, league,
+//    w, d, l, matchPts, bonusPts, clPts, outcome, total }] }]
+// Sorted: total desc → tiebreak desc (W×3 + D − L, as WC).
 // ─────────────────────────────────────────────────────────────────────────────
 function scoreLeaguePlayers(matches) {
   var outcomes = deriveSeasonOutcomes(matches);
   var clProgress = deriveCLProgress(matches);
   var ranked = LEAGUE_PLAYERS.map(function (p) {
-    if (p.grimReaper) {
-      var bounty = 0;
-      Object.keys(LEAGUE_TEAMS).forEach(function (id) {
-        bounty += lgReaperBounty(Number(id), outcomes);
-      });
-      var drought = 0;
-      matches.forEach(function (m) { drought += lgGoalDroughtPts(m, LEAGUE_PLAYERS); });
-      return {
-        name: p.name, grimReaper: true, teams: [],
-        total: bounty + drought, bountyPts: bounty, droughtPts: drought,
-        w: 0, d: 0, l: 0, tiebreak: -Infinity,
-      };
-    }
     var teams = (p.teamIds || []).map(function (id) {
       var t = LEAGUE_TEAMS[id];
       var wdl = deriveLeagueWDL(matches, id);
@@ -920,7 +882,6 @@ function scoreLeaguePlayers(matches) {
   });
   ranked.sort(function (a, b) {
     if (b.total !== a.total) return b.total - a.total;
-    if (!!a.grimReaper !== !!b.grimReaper) return a.grimReaper ? 1 : -1;
     return b.tiebreak - a.tiebreak;
   });
   return ranked;
@@ -936,18 +897,17 @@ function scoreLeaguePlayers(matches) {
 // as they clinch, so the final frame always equals the live total.
 // ─────────────────────────────────────────────────────────────────────────────
 function deriveLeagueHistory(matches) {
-  // Single incremental pass (match points and reaper droughts accumulate
-  // per game; only the season-outcome step rescans, per frame) — the naive
-  // score-everything-per-frame version took >1s for a full season, which is
-  // too slow for something recomputed on every fetch. Invariant, checked by
-  // the test harness: the final frame must equal scoreLeaguePlayers' totals.
+  // Single incremental pass (match points accumulate per game; only the
+  // season-outcome step rescans, per frame) — the naive score-everything-per-
+  // frame version took >1s for a full season, too slow for something recomputed
+  // on every fetch. Invariant, checked by the test harness: the final frame must
+  // equal scoreLeaguePlayers' totals.
   var settled = matches.filter(lgIsSettled).slice()
     .sort(function (a, b) { return a.utcDate.localeCompare(b.utcDate); });
   var history = {};
   LEAGUE_PLAYERS.forEach(function (p) { history[p.name] = []; });
   var frames = [];
   var matchPts = {};   // teamId → accumulated W/D points
-  var drought = 0;     // reaper 0-0 curse, accumulated
   var current = [], idx = 0;
   var days = [];
   settled.forEach(function (m) {
@@ -968,19 +928,12 @@ function deriveLeagueHistory(matches) {
           if (r === "W") matchPts[id] = (matchPts[id] || 0) + pts.win[t.pot - 1];
           else if (r === "D") matchPts[id] = (matchPts[id] || 0) + pts.draw[t.pot - 1];
         });
-        drought += lgGoalDroughtPts(m, LEAGUE_PLAYERS);
       }
     }
     var outcomes = deriveSeasonOutcomes(current);
     var clProg = deriveCLProgress(current);
     frames.push(day);
     LEAGUE_PLAYERS.forEach(function (p) {
-      if (p.grimReaper) {
-        var bounty = 0;
-        Object.keys(outcomes).forEach(function (id) { bounty += lgReaperBounty(Number(id), outcomes); });
-        history[p.name].push(bounty + drought);
-        return;
-      }
       var total = 0;
       (p.teamIds || []).forEach(function (id) {
         total += (matchPts[id] || 0) + leagueBonusPts(id, outcomes) + clGamblePts(id, clProg);
@@ -1133,9 +1086,7 @@ function computeLeagueBadges(ranked, matches, anchorIso) {
   function give(name, icon, label, desc) {
     (badges[name] = badges[name] || []).push({ icon: icon, label: label, desc: desc });
   }
-  var real = ranked.filter(function (p) { return !p.grimReaper; });
-  var reaper = ranked.filter(function (p) { return p.grimReaper; })[0];
-  if (reaper) give(reaper.name, "💀", "Grim Reaper", "Feeds on relegations and 0-0 draws. Cannot be reasoned with.");
+  var real = ranked;
   if (real.length === 0) return badges;
 
   var played = matches.some(function (m) { return lgIsSettled(m) && m.stage === "REGULAR_SEASON"; });

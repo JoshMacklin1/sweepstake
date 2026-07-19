@@ -74,7 +74,7 @@
 <body>
   <div id="root"></div>
   <!-- Coupled: every league-scoring.js change must bump ?v=N (see SWEEPSTAKE_PROJECT.md cache-bust rule) -->
-  <script src="league-scoring.js?v=13"></script>
+  <script src="league-scoring.js?v=14"></script>
   <script type="text/babel">
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
@@ -86,7 +86,6 @@
       accent: "#22c55e", red: "#f15a5a", gold: "#f59e0b",
       posBg: "#104224", negBg: "#450a0a", neutral: "#334155",
       dangerText: "#f87171", dangerTextBright: "#fca5a5",
-      reaperAccent: "#3f1212", reaperBg: "#1a1210",
     };
     const s = {
       card: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, marginBottom: 10, overflow: "hidden" },
@@ -347,7 +346,6 @@
     // ── PLAYER CARD — pop-up card mirroring the WC PlayerCardContent ───────
     function PlayerCardContent({ bodyRef, player, displayRank, badges = [], matches = [], matchPtsById = {}, hist = [], week, outcomes = {}, onTeamClick, onClose }) {
       if (!player) return null;
-      const isReaper = player.grimReaper;
       const sect = { fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 };
       const statBox = { flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "12px 8px", textAlign: "center" };
       return (<>
@@ -355,7 +353,7 @@
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "14px 16px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
           <div>
             <div style={{ fontSize: 18, fontWeight: 900, color: C.text }}>{player.name}</div>
-            <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{isReaper ? "Grim Reaper" : `Rank ${displayRank} · ${player.total} pts`}</div>
+            <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{`Rank ${displayRank} · ${player.total} pts`}</div>
           </div>
           <button onClick={onClose} aria-label="Close" style={{ background: "transparent", border: "none", color: C.muted, fontSize: 22, cursor: "pointer", lineHeight: 1 }}>✕</button>
         </div>
@@ -366,7 +364,7 @@
               <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>Points</div>
             </div>
             <div style={statBox}>
-              <div style={{ fontSize: 24, fontWeight: 900, color: isReaper ? C.dangerText : (week && week.pts > 0) ? C.accent : C.muted }}>
+              <div style={{ fontSize: 24, fontWeight: 900, color: (week && week.pts > 0) ? C.accent : C.muted }}>
                 {week ? `${week.pts > 0 ? "+" : ""}${week.pts}` : "—"}
               </div>
               <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>Pts this week</div>
@@ -375,37 +373,10 @@
 
           <div style={sect}>Points over time</div>
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "12px 8px", marginBottom: 18, display: "flex", justifyContent: "center" }}>
-            <Sparkline data={hist} width={300} height={72} color={isReaper ? C.red : player.total < 0 ? C.red : player.total === 0 ? C.neutral : C.accent} />
+            <Sparkline data={hist} width={300} height={72} color={player.total < 0 ? C.red : player.total === 0 ? C.neutral : C.accent} />
           </div>
 
-          {isReaper ? (
-            <>
-              <div style={{ ...sect, color: C.dangerText, fontWeight: 700, letterSpacing: "0.08em" }}>Bounty Board</div>
-              {[1, 2].map(pot => {
-                const victims = Object.keys(typeof LEAGUE_TEAMS !== "undefined" ? LEAGUE_TEAMS : {})
-                  .map(Number)
-                  .filter(id => LEAGUE_TEAMS[id].pot === pot && outcomes[id] && outcomes[id].outcome === "RELEGATED");
-                const total = victims.reduce((sum, id) => sum + (typeof lgReaperBounty === "function" ? lgReaperBounty(id, outcomes) : 0), 0);
-                return (
-                  <div key={pot} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${C.reaperAccent}` }}>
-                    <div>
-                      <div style={{ fontSize: 12, color: total > 0 ? C.text : C.dangerText, opacity: total > 0 ? 1 : 0.5 }}>Pot {pot} relegation</div>
-                      <div style={{ fontSize: 10, color: C.dangerText, opacity: 0.6 }}>{victims.length > 0 ? victims.map(id => LEAGUE_TEAMS[id].name).join(", ") : "bounty per relegated team"}</div>
-                    </div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: total > 0 ? C.red : C.dangerText }}>{total > 0 ? `+${total}pts` : "—"}</div>
-                  </div>
-                );
-              })}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0" }}>
-                <div>
-                  <div style={{ fontSize: 12, color: player.droughtPts > 0 ? C.text : C.dangerText, opacity: player.droughtPts > 0 ? 1 : 0.5 }}>Goal drought curse</div>
-                  <div style={{ fontSize: 10, color: C.dangerText, opacity: 0.6 }}>2pts per owned 0-0</div>
-                </div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: player.droughtPts > 0 ? C.red : C.dangerText }}>{player.droughtPts > 0 ? `+${player.droughtPts}pts` : "—"}</div>
-              </div>
-            </>
-          ) : (
-            <>
+          <>
               <div style={sect}>Teams</div>
               {player.teams.map(t => {
                 const dead = t.outcome === "RELEGATED";
@@ -428,7 +399,6 @@
                 );
               })}
             </>
-          )}
 
           {badges.length > 0 && (
             <>
@@ -445,7 +415,7 @@
             </>
           )}
 
-          {!isReaper && (() => {
+          {(() => {
             // Bonus milestones + all results + upcoming across the player's
             // teams, mirroring the WC player card's Results section.
             const settled = [], upcoming = [];
@@ -668,21 +638,20 @@
 
     // ── PlayerRow — same anatomy as the WC app's PlayerRow ─────────────────
     function PlayerRow({ p, rank, badges, hist, weekMove, outcomes, onOpen }) {
-      const reaper = p.grimReaper;
       const rankColors = ["#84cc16", "#94a3b8", "#b45309"];
       const isTop = rank <= 3;
       return (
         <div style={{
-          background: reaper ? C.reaperBg : C.card,
-          border: `1px solid ${reaper ? C.reaperAccent : C.border}`,
+          background: C.card,
+          border: `1px solid ${C.border}`,
           borderRadius: 14, marginBottom: 10, overflow: "hidden",
         }}>
           <div onClick={onOpen} style={{ display: "flex", alignItems: "center", padding: "10px 14px", cursor: "pointer", gap: 10 }}>
             <div style={{
               width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
-              background: reaper ? C.reaperAccent : isTop ? rankColors[rank - 1] : C.border,
+              background: isTop ? rankColors[rank - 1] : C.border,
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 13, fontWeight: 800, color: reaper ? C.dangerTextBright : isTop ? "#080c18" : C.dim,
+              fontSize: 13, fontWeight: 800, color: isTop ? "#080c18" : C.dim,
             }}>{rank}</div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, marginBottom: 5 }}>
@@ -695,28 +664,22 @@
                   ))}
                 </div>
               </div>
-              {reaper ? (
-                <div style={{ fontSize: 10, color: C.dangerText, lineHeight: 1.5, opacity: 0.7 }}>
-                  Grim Reaper — earns on boring football &amp; relegations
-                </div>
-              ) : (
-                <CrestRow teams={p.teams} outcomes={outcomes} />
-              )}
+              <CrestRow teams={p.teams} outcomes={outcomes} />
             </div>
             <div style={{ flexShrink: 0 }}>
               <Sparkline data={hist} width={78} height={56}
-                color={reaper ? C.red : p.total < 0 ? C.red : p.total === 0 ? C.neutral : C.accent} />
+                color={p.total < 0 ? C.red : p.total === 0 ? C.neutral : C.accent} />
             </div>
             <div style={{ textAlign: "right", flexShrink: 0, minWidth: 52 }}>
               <div style={{ fontSize: 22, fontWeight: 800, color: p.total < 0 ? C.red : C.text, lineHeight: 1 }}>
                 {p.total}
               </div>
-              <div style={{ fontSize: 10, color: reaper ? C.dangerText : C.muted, marginBottom: 4 }}>pts</div>
+              <div style={{ fontSize: 10, color: C.muted, marginBottom: 4 }}>pts</div>
               {weekMove !== 0 ? (
                 <div style={{
                   display: "inline-block", fontSize: 10, fontWeight: 700, padding: "1px 5px", borderRadius: 3,
-                  background: reaper ? C.negBg : weekMove > 0 ? C.posBg : C.negBg,
-                  color: reaper ? C.red : weekMove > 0 ? C.accent : C.red,
+                  background: weekMove > 0 ? C.posBg : C.negBg,
+                  color: weekMove > 0 ? C.accent : C.red,
                 }}>
                   {weekMove > 0 ? "▲" : "▼"} {Math.abs(weekMove)} pos
                 </div>
@@ -728,7 +691,7 @@
               )}
             </div>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, transform: "rotate(-90deg)" }}>
-              <path d="M6 9l6 6 6-6" stroke={reaper ? C.dangerText : C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M6 9l6 6 6-6" stroke={C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
         </div>
@@ -802,7 +765,7 @@
       // Owned teams (every player's teams) ranked by sweepstake points.
       const rows = React.useMemo(() => {
         const out = [];
-        ranked.filter(p => !p.grimReaper).forEach(p => (p.teams || []).forEach(t => out.push({ ...t, owner: p.name })));
+        ranked.forEach(p => (p.teams || []).forEach(t => out.push({ ...t, owner: p.name })));
         out.sort((a, b) => (b.total - a.total) || a.name.localeCompare(b.name));
         return out;
       }, [ranked]);
@@ -818,7 +781,7 @@
         const past = matches.filter(m => new Date(m.utcDate).getTime() <= cut);
         const pastRanked = typeof scoreLeaguePlayers === "function" ? scoreLeaguePlayers(past) : [];
         const pastRows = [];
-        pastRanked.filter(p => !p.grimReaper).forEach(p => (p.teams || []).forEach(t => pastRows.push(t)));
+        pastRanked.forEach(p => (p.teams || []).forEach(t => pastRows.push(t)));
         pastRows.sort((a, b) => (b.total - a.total) || a.name.localeCompare(b.name));
         const rankPast = {}; pastRows.forEach((t, i) => { rankPast[t.teamId] = i; });
         const out = {};
@@ -1069,7 +1032,7 @@
                     <div style={{ width: 70, textAlign: "right", fontSize: 12, fontWeight: 700, color: C.text, flexShrink: 0, overflow: "hidden", whiteSpace: "nowrap" }}>{s.name}</div>
                     <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 2, flexShrink: 0, width: 66 }}>
                       {teams.length === 0
-                        ? <span style={{ fontSize: 16, lineHeight: 1, marginLeft: 2 }}>💀</span>
+                        ? <span style={{ fontSize: 12, lineHeight: 1, marginLeft: 2, color: C.muted }}>—</span>
                         : lgChunk(teams, 3).map((row, ri) => (
                           <div key={ri} style={{ display: "flex", gap: 3 }}>
                             {row.map(t => <Crest key={t.teamId} teamId={t.teamId} size={18} />)}
@@ -1341,7 +1304,7 @@
     }
 
     function HomeTab({ matches, ranked, badges, weekWindow, matchPtsById, hist, outcomes, anchorIso, setTab, openPlayerModal, openTeamModal }) {
-      const real = ranked.filter(p => !p.grimReaper);
+      const real = ranked;
       const newAccolades = useMemo(
         () => (typeof computeNewLeagueBadges === "function" ? computeNewLeagueBadges(badges, matches, anchorIso) : []),
         [badges, matches, anchorIso]
@@ -1364,7 +1327,7 @@
         () => (typeof deriveLeagueTeamHistory === "function" ? deriveLeagueTeamHistory(matches).history : {}),
         [matches]
       );
-      const buildTeamRows = (rk) => rk.filter(p => !p.grimReaper)
+      const buildTeamRows = (rk) => rk
         .flatMap(p => (p.teams || []).map(t => ({ teamId: t.teamId, name: t.name, pot: t.pot, pts: t.total, owner: p.name })))
         .sort((a, b) => (b.pts - a.pts) || a.name.localeCompare(b.name));
       const teamRows = useMemo(() => buildTeamRows(ranked).map(t => ({ ...t, hist: teamHist[t.teamId] || [0] })), [ranked, teamHist]);
@@ -1923,14 +1886,6 @@
               </table>
             </div>
           )}
-          <div style={section}>
-            <div style={h}>💀 The Grim Reaper</div>
-            <div style={{ fontSize: 12, color: C.dim, lineHeight: 1.5 }}>
-              Owns no teams. Earns the owner's penalty as a bounty whenever a Pot
-              1/2 team is relegated, plus 2pts for every 0-0 involving an owned
-              team. Calibrated to lurk mid-table — never to win.
-            </div>
-          </div>
         </div>
       );
     }
@@ -2073,7 +2028,7 @@
       const index = React.useMemo(() => {
         const players = [], teams = [];
         ranked.forEach(p => {
-          players.push({ type: "player", id: p.name, label: p.name, sub: p.grimReaper ? "Grim Reaper" : `${p.total} pts`, reaper: !!p.grimReaper });
+          players.push({ type: "player", id: p.name, label: p.name, sub: `${p.total} pts` });
           (p.teams || []).forEach(t => teams.push({ type: "team", id: t.teamId, label: t.name, sub: `Pot ${t.pot} · ${p.name}` }));
         });
         return { players, teams };
@@ -2089,7 +2044,7 @@
         <div onClick={onClick} className="player-card" style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", cursor: "pointer", borderBottom: `1px solid ${C.border}` }}>
           {item.type === "team"
             ? <Crest teamId={item.id} size={26} />
-            : <div style={{ width: 26, height: 26, borderRadius: "50%", flexShrink: 0, background: item.reaper ? C.reaperAccent : C.border, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, color: C.text }}>{item.reaper ? "💀" : (item.label[0] || "?")}</div>}
+            : <div style={{ width: 26, height: 26, borderRadius: "50%", flexShrink: 0, background: C.border, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, color: C.text }}>{item.label[0] || "?"}</div>}
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</div>
             <div style={{ fontSize: 11, color: C.muted }}>{item.type === "team" ? "Team" : "Player"} · {item.sub}</div>
@@ -2153,7 +2108,6 @@
 
       const milestoneItems = [];
       ranked.forEach(p => {
-        if (p.grimReaper) return;
         (p.teams || []).forEach(t => {
           const o = outcomes[t.teamId];
           if (!o) return;
@@ -2678,7 +2632,7 @@
         while (LEAGUE_GROUPS[code]) code += Math.floor(Math.random() * 10); // avoid clashing an existing code
         const group = {
           code, label: name,
-          players: uniq.map(n => ({ name: n })).concat([{ name: "Grim Reaper", grimReaper: true }]),
+          players: uniq.map(n => ({ name: n })),
         };
         if (typeof lgEnsureTeams === "function") lgEnsureTeams(group);
         LEAGUE_GROUPS[code] = group;
