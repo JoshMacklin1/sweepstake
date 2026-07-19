@@ -330,11 +330,32 @@ function lgEnsureTeams(group) {
       if (pool[r] !== undefined) seq.push(pool[r]);
     });
   }
-  var perPlayer = Math.floor(seq.length / real.length);
-  var toAssign = perPlayer * real.length;
   var start = Math.floor(rng() * real.length);
-  for (var i = 0; i < toAssign; i++) real[(start + i) % real.length].teamIds.push(seq[i]);
-  // seq[toAssign …] is left unowned — shows in the league tables with no owner.
+  var perPlayer = Math.floor(seq.length / real.length);
+  if (perPlayer >= 2) {
+    // Enough teams for two-or-more unique each: deal an equal whole number to
+    // every player; any remainder is left unowned (shows in the tables with no
+    // owner), matching RODENTS' hand draft.
+    var toAssign = perPlayer * real.length;
+    for (var i = 0; i < toAssign; i++) real[(start + i) % real.length].teamIds.push(seq[i]);
+  } else {
+    // Too many players for two unique teams each (e.g. Silverstream's 26). No
+    // league should sit at one team per player, so give everyone two and allow a
+    // team to be co-owned rather than shrink the squad. This is the only branch
+    // that shares a team between players — among the preset groups, only
+    // Silverstream reaches it.
+    var slots = 2 * real.length;
+    for (var i = 0; i < slots; i++) {
+      var p = (start + i) % real.length, tids = real[p].teamIds, pick = seq[i % seq.length];
+      if (tids.indexOf(pick) !== -1) { // rare self-collision → give the next unheld team
+        for (var j = 1; j < seq.length; j++) {
+          var alt = seq[(i + j) % seq.length];
+          if (tids.indexOf(alt) === -1) { pick = alt; break; }
+        }
+      }
+      tids.push(pick);
+    }
+  }
 }
 
 function leagueOwnerOfTeamId(teamId, players) {
