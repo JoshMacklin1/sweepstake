@@ -74,7 +74,7 @@
 <body>
   <div id="root"></div>
   <!-- Coupled: every league-scoring.js change must bump ?v=N (see SWEEPSTAKE_PROJECT.md cache-bust rule) -->
-  <script src="league-scoring.js?v=10"></script>
+  <script src="league-scoring.js?v=11"></script>
   <script type="text/babel">
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
@@ -104,7 +104,9 @@
     const SEARCH_RECENT_KEY = "lsw_search_recent";
     const REPLAY_START = "2025-08-01T00:00:00Z";
     const REPLAY_END   = "2026-06-05T00:00:00Z";
-    const compLabel = (code) => code === "PL" ? "Premier League" : code === "L1" ? "League One" : "Championship";
+    const compLabel = (code) => (typeof LEAGUE_COMPETITIONS !== "undefined" && LEAGUE_COMPETITIONS[code])
+      ? LEAGUE_COMPETITIONS[code].label
+      : (code === "L1" ? "League One" : (code || ""));
     const ord = (n) => { const t = ["th", "st", "nd", "rd"], v = n % 100; return n + (t[(v - 20) % 10] || t[v] || t[0]); };
 
     // ── tiny shared bits ────────────────────────────────────────────────────
@@ -2127,11 +2129,21 @@
         if (replayRef.current.on) return;
         if (isManual) setRefreshing(true);
         try {
-          const results = await Promise.all(["PL", "ELC"].map(async code => {
-            const res = await fetch(`${LEAGUE_WORKER_URL}/competitions/${code}/matches?season=${LEAGUE_SEASON}`);
-            if (!res.ok) throw new Error(`API returned ${res.status} for ${code}`);
-            return (await res.json()).matches || [];
+          // One request per competition in LEAGUE_COMPETITIONS (PL, ELC + the
+          // four continental leagues). Free tier is 10 req/min; six parallel is
+          // fine. A single league failing doesn't blank the others.
+          const codes = typeof LEAGUE_COMPETITIONS !== "undefined" ? Object.keys(LEAGUE_COMPETITIONS) : ["PL", "ELC"];
+          let failures = 0, lastErr = null;
+          const results = await Promise.all(codes.map(async code => {
+            try {
+              const res = await fetch(`${LEAGUE_WORKER_URL}/competitions/${code}/matches?season=${LEAGUE_SEASON}`);
+              if (!res.ok) throw new Error(`API returned ${res.status} for ${code}`);
+              return (await res.json()).matches || [];
+            } catch (e) { failures++; lastErr = e; return []; }
           }));
+          // Surface an error only on a total outage — one league failing must
+          // not blank the five that loaded.
+          if (failures === codes.length && lastErr) throw lastErr;
           // Merge with existing state (same partial-response guard as the WC
           // app): a FINISHED match we've seen is never silently dropped.
           const merged = {};
