@@ -25,9 +25,18 @@ var LEAGUE_WORKER_URL = "https://football-proxy.joshmacklin7.workers.dev";
 // Flip to 2026 for the live 2026-27 season (PL starts 2026-08-21, ELC 08-14).
 var LEAGUE_SEASON = 2025;
 
+// `type` selects the season-outcome shape (see deriveSeasonOutcomes):
+//   "top"    → WINNER / TOP_4 / TOP_7 / RELEGATED (a country's first tier)
+//   "second" → WINNER / PROMOTED / PLAYOFFS / RELEGATED (English second tier)
+// The four continental leagues were added alongside PL+ELC (football-data.org
+// free tier covers all six). Order here is the order of the Leagues-tab pills.
 var LEAGUE_COMPETITIONS = {
-  PL:  { code: "PL",  label: "Premier League", games: 38, size: 20, potSize: 5, relegated: 3 },
-  ELC: { code: "ELC", label: "Championship",   games: 46, size: 24, potSize: 6, relegated: 3 },
+  PL:  { code: "PL",  label: "Premier League", games: 38, size: 20, potSize: 5, relegated: 3, type: "top" },
+  ELC: { code: "ELC", label: "Championship",   games: 46, size: 24, potSize: 6, relegated: 3, type: "second" },
+  PD:  { code: "PD",  label: "La Liga",        games: 38, size: 20, potSize: 5, relegated: 3, type: "top" },
+  SA:  { code: "SA",  label: "Serie A",        games: 38, size: 20, potSize: 5, relegated: 3, type: "top" },
+  BL1: { code: "BL1", label: "Bundesliga",     games: 34, size: 18, potSize: 5, relegated: 3, type: "top" },
+  FL1: { code: "FL1", label: "Ligue 1",        games: 34, size: 18, potSize: 5, relegated: 3, type: "top" },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -95,6 +104,111 @@ var LEAGUE_TEAMS = {
   348:  { id: 348,  name: "Charlton",        tla: "CHA", league: "ELC", pot: 4 },
   60:   { id: 60,   name: "Bolton",          tla: "BOL", league: "ELC", pot: 4, p25: { league: "L1", pot: 4 } },
   1126: { id: 1126, name: "Lincoln City",    tla: "LIN", league: "ELC", pot: 4, p25: { league: "L1", pot: 4 } },
+
+  // ── CONTINENTAL LEAGUES (added to the pool alongside PL+ELC) ──────────────
+  // These four rosters are the 2025-26 season composition (the season the app
+  // currently runs, LEAGUE_SEASON = 2025) seeded into pots by finishing rank —
+  // La Liga's pots are its EXACT final table; Serie A / Bundesliga / Ligue 1
+  // pots are seeded from the confirmed 2025-26 European + relegation places
+  // plus recent strength (full mid-table order wasn't retrievable when this was
+  // built). No p25 overrides: unlike PL/ELC these are keyed straight to 2025-26,
+  // so refresh rosters + pots when flipping LEAGUE_SEASON to 2026-27.
+  //
+  // IDs are football-data.org numeric ids. Every table renders correctly from
+  // live match data regardless (deriveLeagueTable + teamName fall back to the
+  // API's own team names), so an id only affects pot colour / crest / ownership
+  // / draw eligibility. IDs marked VERIFY are lower-confidence — spot-check on
+  // the live site (a team showing its plain name with no crest = id miss).
+  // Deliberately OMITTED until their id is confirmed (they still appear in the
+  // live table as unowned rows, just not yet drawable):
+  //   La Liga: Real Oviedo · Serie A: Pisa, Cremonese ·
+  //   Bundesliga: Hamburger SV, Heidenheim ·
+  //   Ligue 1: Auxerre, Le Havre, Angers, Lorient, Paris FC, Metz
+
+  // La Liga — Pot 1 (2025-26 final table, exact)
+  81:   { id: 81,   name: "Barcelona",       tla: "BAR", league: "PD",  pot: 1 },
+  86:   { id: 86,   name: "Real Madrid",     tla: "RMA", league: "PD",  pot: 1 },
+  94:   { id: 94,   name: "Villarreal",      tla: "VIL", league: "PD",  pot: 1 },
+  78:   { id: 78,   name: "Atlético Madrid", tla: "ATM", league: "PD",  pot: 1 },
+  90:   { id: 90,   name: "Real Betis",      tla: "BET", league: "PD",  pot: 1 },
+  // La Liga — Pot 2
+  558:  { id: 558,  name: "Celta Vigo",      tla: "CEL", league: "PD",  pot: 2 },
+  82:   { id: 82,   name: "Getafe",          tla: "GET", league: "PD",  pot: 2 },
+  87:   { id: 87,   name: "Rayo Vallecano",  tla: "RAY", league: "PD",  pot: 2 },
+  95:   { id: 95,   name: "Valencia",        tla: "VAL", league: "PD",  pot: 2 },
+  92:   { id: 92,   name: "Real Sociedad",   tla: "RSO", league: "PD",  pot: 2 },
+  // La Liga — Pot 3
+  80:   { id: 80,   name: "Espanyol",        tla: "ESP", league: "PD",  pot: 3 },
+  77:   { id: 77,   name: "Athletic Club",   tla: "ATH", league: "PD",  pot: 3 },
+  559:  { id: 559,  name: "Sevilla",         tla: "SEV", league: "PD",  pot: 3 },
+  263:  { id: 263,  name: "Alavés",          tla: "ALA", league: "PD",  pot: 3 },
+  285:  { id: 285,  name: "Elche",           tla: "ELH", league: "PD",  pot: 3 },
+  // La Liga — Pot 4
+  88:   { id: 88,   name: "Levante",         tla: "LEV", league: "PD",  pot: 4 },
+  79:   { id: 79,   name: "Osasuna",         tla: "OSA", league: "PD",  pot: 4 },
+  89:   { id: 89,   name: "Mallorca",        tla: "MLL", league: "PD",  pot: 4 },
+  298:  { id: 298,  name: "Girona",          tla: "GIR", league: "PD",  pot: 4 },
+
+  // Serie A — Pot 1 (Inter champions; top 4 = Champions League)
+  108:  { id: 108,  name: "Inter",           tla: "INT", league: "SA",  pot: 1 },
+  113:  { id: 113,  name: "Napoli",          tla: "NAP", league: "SA",  pot: 1 },
+  7397: { id: 7397, name: "Como",            tla: "COM", league: "SA",  pot: 1 }, // VERIFY id
+  100:  { id: 100,  name: "Roma",            tla: "ROM", league: "SA",  pot: 1 },
+  109:  { id: 109,  name: "Juventus",        tla: "JUV", league: "SA",  pot: 1 },
+  // Serie A — Pot 2
+  98:   { id: 98,   name: "AC Milan",        tla: "MIL", league: "SA",  pot: 2 },
+  102:  { id: 102,  name: "Atalanta",        tla: "ATA", league: "SA",  pot: 2 },
+  103:  { id: 103,  name: "Bologna",         tla: "BOL", league: "SA",  pot: 2 },
+  110:  { id: 110,  name: "Lazio",           tla: "LAZ", league: "SA",  pot: 2 },
+  99:   { id: 99,   name: "Fiorentina",      tla: "FIO", league: "SA",  pot: 2 },
+  // Serie A — Pot 3
+  586:  { id: 586,  name: "Torino",          tla: "TOR", league: "SA",  pot: 3 },
+  115:  { id: 115,  name: "Udinese",         tla: "UDI", league: "SA",  pot: 3 },
+  107:  { id: 107,  name: "Genoa",           tla: "GEN", league: "SA",  pot: 3 },
+  104:  { id: 104,  name: "Cagliari",        tla: "CAG", league: "SA",  pot: 3 },
+  // Serie A — Pot 4 (Verona relegated)
+  5890: { id: 5890, name: "Lecce",           tla: "LEC", league: "SA",  pot: 4 },
+  112:  { id: 112,  name: "Parma",           tla: "PAR", league: "SA",  pot: 4 },
+  471:  { id: 471,  name: "Sassuolo",        tla: "SAS", league: "SA",  pot: 4 },
+  450:  { id: 450,  name: "Hellas Verona",   tla: "VER", league: "SA",  pot: 4 },
+
+  // Bundesliga — Pot 1 (Bayern champions; 18-team league, pots of 4)
+  5:    { id: 5,    name: "Bayern München",  tla: "FCB", league: "BL1", pot: 1 },
+  3:    { id: 3,    name: "Bayer Leverkusen",tla: "B04", league: "BL1", pot: 1 },
+  4:    { id: 4,    name: "Dortmund",        tla: "BVB", league: "BL1", pot: 1 },
+  721:  { id: 721,  name: "RB Leipzig",      tla: "RBL", league: "BL1", pot: 1 },
+  // Bundesliga — Pot 2
+  10:   { id: 10,   name: "VfB Stuttgart",   tla: "VFB", league: "BL1", pot: 2 },
+  19:   { id: 19,   name: "Eintracht Frankfurt", tla: "SGE", league: "BL1", pot: 2 },
+  17:   { id: 17,   name: "SC Freiburg",     tla: "SCF", league: "BL1", pot: 2 },
+  15:   { id: 15,   name: "Mainz 05",        tla: "M05", league: "BL1", pot: 2 },
+  // Bundesliga — Pot 3
+  12:   { id: 12,   name: "Werder Bremen",   tla: "SVW", league: "BL1", pot: 3 },
+  11:   { id: 11,   name: "VfL Wolfsburg",   tla: "WOB", league: "BL1", pot: 3 },
+  18:   { id: 18,   name: "M'gladbach",      tla: "BMG", league: "BL1", pot: 3 },
+  16:   { id: 16,   name: "FC Augsburg",     tla: "FCA", league: "BL1", pot: 3 },
+  // Bundesliga — Pot 4
+  2:    { id: 2,    name: "Hoffenheim",      tla: "TSG", league: "BL1", pot: 4 },
+  28:   { id: 28,   name: "Union Berlin",    tla: "FCU", league: "BL1", pot: 4 },
+  20:   { id: 20,   name: "St. Pauli",       tla: "STP", league: "BL1", pot: 4 },
+  1:    { id: 1,    name: "1. FC Köln",      tla: "KOE", league: "BL1", pot: 4 },
+
+  // Ligue 1 — Pot 1 (PSG champions; 12 confident-id sides seeded 3 per pot)
+  524:  { id: 524,  name: "Paris SG",        tla: "PSG", league: "FL1", pot: 1 },
+  546:  { id: 546,  name: "Lens",            tla: "RCL", league: "FL1", pot: 1 }, // VERIFY id
+  521:  { id: 521,  name: "Lille",           tla: "LOS", league: "FL1", pot: 1 },
+  // Ligue 1 — Pot 2
+  516:  { id: 516,  name: "Marseille",       tla: "OM",  league: "FL1", pot: 2 },
+  548:  { id: 548,  name: "Monaco",          tla: "ASM", league: "FL1", pot: 2 },
+  523:  { id: 523,  name: "Lyon",            tla: "OL",  league: "FL1", pot: 2 },
+  // Ligue 1 — Pot 3
+  522:  { id: 522,  name: "Nice",            tla: "NIC", league: "FL1", pot: 3 },
+  529:  { id: 529,  name: "Rennes",          tla: "REN", league: "FL1", pot: 3 },
+  576:  { id: 576,  name: "Strasbourg",      tla: "RCS", league: "FL1", pot: 3 },
+  // Ligue 1 — Pot 4
+  512:  { id: 512,  name: "Brest",           tla: "BRE", league: "FL1", pot: 4 },
+  511:  { id: 511,  name: "Toulouse",        tla: "TFC", league: "FL1", pot: 4 },
+  543:  { id: 543,  name: "Nantes",          tla: "FCN", league: "FL1", pot: 4 },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -159,6 +273,14 @@ function leagueCrest(teamId) {
 var LEAGUE_MATCH_PTS = {
   PL:  { win: [4, 5, 6, 9], draw: [1, 2, 2, 3] },
   ELC: { win: [4, 5, 5, 5], draw: [2, 3, 3, 3] },
+  // The four continental top flights reuse the PL matrix — same competition
+  // shape (a first tier with a clear top quartile), and the PL calibration
+  // scripts need the API to re-fit per league. Refine once per-league W/D/L
+  // rates are available.
+  PD:  { win: [4, 5, 6, 9], draw: [1, 2, 2, 3] },
+  SA:  { win: [4, 5, 6, 9], draw: [1, 2, 2, 3] },
+  BL1: { win: [4, 5, 6, 9], draw: [1, 2, 2, 3] },
+  FL1: { win: [4, 5, 6, 9], draw: [1, 2, 2, 3] },
 };
 
 // Outcome keys are ordered highest-first per competition; a team receives
@@ -177,6 +299,13 @@ var LEAGUE_BONUS = {
     PLAYOFFS:      [15, 60, 80, 80],      // finished 3rd-6th
     RELEGATED:     [-100, -40, -15, -10],
   },
+  // Continental top flights share the PL bonus shape (title / top 4 / European
+  // places / relegation). TOP_4 and TOP_7 stand in for each league's European
+  // and relegation-adjacent cutoffs; refine per competition if desired.
+  PD:  { WINNER: [100, 300, 600, 1200], TOP_4: [40, 120, 250, 500], TOP_7: [15, 50, 100, 200], RELEGATED: [-120, -60, -30, -10] },
+  SA:  { WINNER: [100, 300, 600, 1200], TOP_4: [40, 120, 250, 500], TOP_7: [15, 50, 100, 200], RELEGATED: [-120, -60, -30, -10] },
+  BL1: { WINNER: [100, 300, 600, 1200], TOP_4: [40, 120, 250, 500], TOP_7: [15, 50, 100, 200], RELEGATED: [-120, -60, -30, -10] },
+  FL1: { WINNER: [100, 300, 600, 1200], TOP_4: [40, 120, 250, 500], TOP_7: [15, 50, 100, 200], RELEGATED: [-120, -60, -30, -10] },
 };
 
 var LEAGUE_OUTCOME_LABEL = {
@@ -518,7 +647,7 @@ function deriveSeasonOutcomes(matches) {
     }
 
     table.forEach(function (r) {
-      if (comp === "PL") {
+      if (cfg.type === "top") {
         if (clinchedTop(r, 1))      award(r.teamId, comp, "WINNER");
         else if (clinchedTop(r, 4)) award(r.teamId, comp, "TOP_4");
         else if (clinchedTop(r, 7)) award(r.teamId, comp, "TOP_7");
