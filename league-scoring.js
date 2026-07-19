@@ -202,6 +202,11 @@ var LEAGUE_OUTCOME_LABEL = {
 // Unowned: PL Chelsea/Sunderland/Brentford/Fulham; ELC Millwall/Boro/
 // Wrexham/Portsmouth/West Brom/Preston/Watford/Derby.
 // ─────────────────────────────────────────────────────────────────────────────
+// Rosters mirror the World Cup app's GROUPS (scoring.js). RODENTS carries a
+// hand-drafted league team assignment (teamIds); the other groups list players
+// only — their league teams are drawn on demand by lgEnsureTeams (deterministic
+// per group code, pots spread evenly). Families/bots are flattened to plain
+// players since the league app has no family view.
 var LEAGUE_GROUPS = {
   RODENTS: {
     code: "RODENTS", label: "Rodents",
@@ -214,7 +219,49 @@ var LEAGUE_GROUPS = {
       { name: "Elliott",   teamIds: [1044, 351, 76, 60] },   // BOU NOT | WOL BOL
       { name: "Paul",      teamIds: [397, 354, 328, 348] },  // BHA CRY | BUR CHA
       { name: "Auz",       teamIds: [67, 62, 340, 715] },    // NEW EVE | SOU CAR
-      { name: "Josh", teamIds: [], grimReaper: true },
+      { name: "Josh", grimReaper: true },
+    ],
+  },
+  SILVERSTREAM: {
+    code: "SILVERSTREAM", label: "Silverstream",
+    players: [
+      { name: "Alex B" }, { name: "Ben" }, { name: "Charlotte" }, { name: "Craig" },
+      { name: "Ahmet" }, { name: "Dharma" }, { name: "Gary" }, { name: "Henry" },
+      { name: "Katrina" }, { name: "Luke DF" }, { name: "Marco" }, { name: "Michelle" },
+      { name: "Natalie" }, { name: "Nick S" }, { name: "Ollie P" }, { name: "Paul H" },
+      { name: "Peter W" }, { name: "Ramon" }, { name: "Sam" }, { name: "Stephen" },
+      { name: "Stuart" }, { name: "Wes" }, { name: "Will A" }, { name: "Will B" },
+      { name: "Peter H" }, { name: "Alex DL" },
+      { name: "Josh", grimReaper: true },
+    ],
+  },
+  CORNWALL: {
+    code: "CORNWALL", label: "Cornwall",
+    players: [
+      { name: "Paul" }, { name: "Auz" }, { name: "Candice" }, { name: "Charlotte" },
+      { name: "Elliott" }, { name: "Emily" }, { name: "Iain" }, { name: "Izzy" },
+      { name: "Kate" }, { name: "Katie" }, { name: "Lucy" }, { name: "Naomi" },
+      { name: "Rory" }, { name: "Sam" }, { name: "Tom" }, { name: "Tori" },
+      { name: "Josh", grimReaper: true },
+    ],
+  },
+  MACKLINS: {
+    code: "MACKLINS", label: "Macklins",
+    players: [
+      { name: "Maggie" }, { name: "Julian" }, { name: "Molly" }, { name: "Josh" },
+      { name: "Candice" }, { name: "Jasper" }, { name: "Taco" },
+      { name: "MACK-BOT", isBot: true },
+      { name: "Grim Reaper", grimReaper: true },
+    ],
+  },
+  CAVERSHAM: {
+    code: "CAVERSHAM", label: "Caversham",
+    players: [
+      { name: "Aaron" }, { name: "Candice" }, { name: "Katie" }, { name: "Jon" },
+      { name: "India" }, { name: "Yan" }, { name: "Freya R" }, { name: "Jake" },
+      { name: "Helen" }, { name: "Frank" }, { name: "Ivo" }, { name: "Jasper" },
+      { name: "Delilah" }, { name: "Nora" }, { name: "Freya C" }, { name: "Lily" },
+      { name: "Josh", grimReaper: true },
     ],
   },
 };
@@ -225,6 +272,65 @@ function leagueMatchGroupCode(input) {
   var q = String(input || "").trim().toUpperCase();
   for (var key in LEAGUE_GROUPS) if (LEAGUE_GROUPS[key].code.toUpperCase() === q) return key;
   return null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LEAGUE DRAW — assign league teams to a group's players on demand.
+//
+// RODENTS ships a hand-drafted assignment; every other group (and any league
+// created in-app) is drawn here. Deterministic (seeded by the group code) so a
+// given code always shows the same draw, and pot-balanced: each pot pool is
+// dealt round-robin across the players (rotating the start per pool) so no one
+// loads up on favourites or minnows. Teams with no points matrix this season
+// (the 2025-26 League One trio) are left out of the draw — they wouldn't score.
+// ─────────────────────────────────────────────────────────────────────────────
+function lgHashStr(s) {
+  var h = 2166136261 >>> 0;
+  for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+function lgMulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    var t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function lgShuffle(arr, rng) {
+  for (var i = arr.length - 1; i > 0; i--) {
+    var j = Math.floor(rng() * (i + 1));
+    var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+  }
+  return arr;
+}
+function lgEnsureTeams(group) {
+  if (!group || !group.players) return;
+  var real = group.players.filter(function (p) { return !p.grimReaper; });
+  // Already drafted (RODENTS, or a group drawn earlier this session) → leave be.
+  if (real.length && real.every(function (p) { return p.teamIds && p.teamIds.length; })) return;
+  real.forEach(function (p) { p.teamIds = []; });
+  var rng = lgMulberry32(lgHashStr("LGDRAW::" + (group.code || group.label || "")));
+  var pools = {};
+  Object.keys(LEAGUE_TEAMS).forEach(function (id) {
+    var t = LEAGUE_TEAMS[id];
+    if (!LEAGUE_MATCH_PTS[t.league]) return; // skip non-scoring (2025-26 League One) teams
+    (pools[t.league + "|" + t.pot] = pools[t.league + "|" + t.pot] || []).push(Number(id));
+  });
+  // Concatenate the pools in a pot-interleaved order (PL1, ELC1, PL2, ELC2 …)
+  // and deal that sequence with ONE continuous round-robin pointer. Continuous
+  // dealing keeps every player's total within one of the others; interleaving
+  // the pots means consecutive picks rotate through the tiers, so each player
+  // ends up with a balanced pot mix rather than a run of favourites/minnows.
+  var seq = [];
+  for (var pot = 1; pot <= 4; pot++) {
+    ["PL", "ELC"].forEach(function (lg) {
+      var arr = pools[lg + "|" + pot];
+      if (arr) lgShuffle(arr, rng).forEach(function (id) { seq.push(id); });
+    });
+  }
+  var ptr = Math.floor(rng() * real.length);
+  seq.forEach(function (id) { real[ptr % real.length].teamIds.push(id); ptr++; });
 }
 
 function leagueOwnerOfTeamId(teamId, players) {
