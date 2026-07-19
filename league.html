@@ -74,7 +74,7 @@
 <body>
   <div id="root"></div>
   <!-- Coupled: every league-scoring.js change must bump ?v=N (see SWEEPSTAKE_PROJECT.md cache-bust rule) -->
-  <script src="league-scoring.js?v=12"></script>
+  <script src="league-scoring.js?v=13"></script>
   <script type="text/babel">
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
@@ -1529,9 +1529,125 @@
     // ── Leagues view — switch across every competition's conventional table.
     //    The switcher is built from LEAGUE_COMPETITIONS, so adding a league
     //    there adds it here automatically. ────────────────────────────────────
+    // ── Champions League bracket — the WC KnockoutBracket layout (columns of
+    //    absolute-positioned tie boxes spaced by round so the tree reads without
+    //    connector lines), adapted to two-legged aggregate ties + club crests.
+    function CLBracket({ matches, onTeamClick }) {
+      const bracket = typeof deriveCLBracket === "function" ? deriveCLBracket(matches) : { rounds: [] };
+      const stageTies = { LAST_16: [], QUARTER_FINALS: [], SEMI_FINALS: [], FINAL: [] };
+      bracket.rounds.forEach(r => { if (stageTies[r.stage]) stageTies[r.stage] = r.ties.slice(); });
+      if (!["LAST_16", "QUARTER_FINALS", "SEMI_FINALS", "FINAL"].some(s => stageTies[s].length)) {
+        return <div style={{ textAlign: "center", color: C.muted, fontSize: 13, padding: "40px 20px" }}>Knockout stage hasn't started yet</div>;
+      }
+      // Order each round off the next one's winners (anchored backward from the
+      // final) so a tie sits centred between the two that feed it; fall back to
+      // natural order for any round whose winners aren't decided yet.
+      const feederOf = { FINAL: "SEMI_FINALS", SEMI_FINALS: "QUARTER_FINALS", QUARTER_FINALS: "LAST_16" };
+      const orderFeeders = (stage, ties) => {
+        const pool = (stageTies[feederOf[stage]] || []).slice();
+        if (!pool.length) return [];
+        const out = []; let matched = 0;
+        ties.forEach(tie => [tie && tie.a, tie && tie.b].forEach(team => {
+          const idx = team != null ? pool.findIndex(ft => ft && ft.winner === team) : -1;
+          if (idx >= 0) { out.push(pool[idx]); pool[idx] = null; matched++; } else out.push(null);
+        }));
+        return matched ? out : (stageTies[feederOf[stage]] || []);
+      };
+      const finalR = stageTies.FINAL.slice(0, 1);
+      const sfR = finalR.length ? orderFeeders("FINAL", finalR) : stageTies.SEMI_FINALS;
+      const qfR = (sfR && sfR.some(Boolean)) ? orderFeeders("SEMI_FINALS", sfR) : stageTies.QUARTER_FINALS;
+      const r16R = (qfR && qfR.some(Boolean)) ? orderFeeders("QUARTER_FINALS", qfR) : stageTies.LAST_16;
+      const pad = (arr, n) => { const a = (arr || []).slice(0, n); while (a.length < n) a.push(null); return a; };
+      const rounds = [
+        { key: "r16", label: "Round of 16", data: pad(r16R, 8) },
+        { key: "qf", label: "Quarter-finals", data: pad(qfR, 4) },
+        { key: "sf", label: "Semi-finals", data: pad(sfR, 2) },
+        { key: "fin", label: "🏆 Final", data: pad(finalR, 1) },
+      ];
+      const MATCH_H = 76, GAP = 12, SLOT = MATCH_H + GAP, totalHeight = 8 * SLOT - GAP;
+      const topFor = (roundIdx, i) => { const sl = Math.pow(2, roundIdx) * SLOT; return sl * i + (sl - MATCH_H) / 2; };
+      const teamName = (id) => {
+        const t = typeof LEAGUE_TEAMS !== "undefined" && LEAGUE_TEAMS[id];
+        if (t) return t.name;
+        const m = matches.find(m => m.homeTeam.id === id || m.awayTeam.id === id);
+        return m ? (m.homeTeam.id === id ? (m.homeTeam.shortName || m.homeTeam.tla) : (m.awayTeam.shortName || m.awayTeam.tla)) : "#" + id;
+      };
+      const ownerOf = (id) => { const o = typeof leagueOwnerOfTeamId === "function" ? leagueOwnerOfTeamId(id) : null; return o ? o.name : null; };
+      const Slot = ({ id, score, isWinner, isElim, side }) => {
+        const clickable = onTeamClick && id && typeof LEAGUE_TEAMS !== "undefined" && LEAGUE_TEAMS[id];
+        const owner = id ? ownerOf(id) : null;
+        return (
+          <div onClick={clickable ? () => onTeamClick(id) : undefined} style={{
+            display: "flex", alignItems: "center", gap: 7, padding: "4px 8px", height: 38, boxSizing: "border-box", minWidth: 0, overflow: "hidden",
+            borderBottom: side === "home" ? `1px solid ${C.border}` : "none",
+            background: isWinner ? "rgba(34,197,94,0.08)" : "transparent", cursor: clickable ? "pointer" : "default",
+          }}>
+            {id ? (
+              <div style={{ position: "relative", flexShrink: 0, lineHeight: 0 }}>
+                <img src={typeof leagueCrest === "function" ? leagueCrest(id) : ""} alt="" width={20} height={20}
+                  style={{ objectFit: "contain", display: "block", opacity: isElim ? 0.4 : 1 }} onError={e => { e.target.style.visibility = "hidden"; }} />
+                {isElim && <span style={{ position: "absolute", top: -3, right: -3, fontSize: 9, fontWeight: 900, color: C.red, textShadow: "0 0 2px rgba(0,0,0,0.9)", lineHeight: 1 }}>✕</span>}
+              </div>
+            ) : <div style={{ width: 20, height: 20, background: C.border, borderRadius: 3, flexShrink: 0 }} />}
+            {id ? (
+              <div style={{ flex: 1, minWidth: 0, opacity: isElim ? 0.5 : 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: isWinner ? C.accent : C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{owner || teamName(id)}</div>
+                {owner && <div style={{ fontSize: 10, color: C.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{teamName(id)}</div>}
+              </div>
+            ) : <span style={{ fontSize: 11, color: C.muted, flex: 1 }}>TBD</span>}
+            {score != null && <div style={{ flexShrink: 0, fontSize: 13, fontWeight: 700, color: isWinner ? C.accent : C.dim, opacity: isElim ? 0.5 : 1 }}>{score}</div>}
+          </div>
+        );
+      };
+      const Tie = ({ tie }) => {
+        if (!tie) return (
+          <div style={{ border: `1px solid ${C.border}`, borderRadius: 6, overflow: "hidden", height: MATCH_H, boxSizing: "border-box", background: C.card }}>
+            <Slot side="home" /><Slot side="away" />
+          </div>
+        );
+        return (
+          <div style={{ border: `1px solid ${tie.winner ? C.accent + "44" : C.border}`, borderRadius: 6, overflow: "hidden", height: MATCH_H, boxSizing: "border-box", background: C.card }}>
+            <Slot id={tie.a} side="home" score={tie.played ? tie.aggA : null} isWinner={tie.winner === tie.a} isElim={!!tie.winner && tie.winner !== tie.a} />
+            <Slot id={tie.b} side="away" score={tie.played ? tie.aggB : null} isWinner={tie.winner === tie.b} isElim={!!tie.winner && tie.winner !== tie.b} />
+          </div>
+        );
+      };
+      return (
+        <div>
+          <div style={{ fontSize: 11, color: C.muted, padding: "0 14px 10px" }}>Two-legged ties show the aggregate score. Tap a club for its card.</div>
+          <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", paddingBottom: 8 }}>
+            <div style={{ display: "flex", gap: 16, padding: "0 12px 8px", alignItems: "flex-start", width: "max-content" }}>
+              {rounds.map((round, idx) => (
+                <div key={round.key} style={{ display: "flex", flexDirection: "column", minWidth: 170 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: round.key === "fin" ? C.accent : C.muted, textTransform: "uppercase", letterSpacing: 1, padding: "0 4px 8px", textAlign: "center" }}>{round.label}</div>
+                  <div style={{ position: "relative", height: totalHeight, width: 170 }}>
+                    {round.data.map((tie, i) => (
+                      <div key={i} style={{ position: "absolute", top: topFor(idx, i), left: 0, right: 0, height: MATCH_H }}><Tie tie={tie} /></div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function ChampionsLeagueTab({ matches, tables, outcomes, onTeamClick }) {
+      return (
+        <div>
+          <CLBracket matches={matches} onTeamClick={onTeamClick} />
+          <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 1, padding: "16px 14px 8px" }}>League phase</div>
+          <TablesTab matches={matches} tables={tables} outcomes={outcomes} onTeamClick={onTeamClick} comp="CL" />
+        </div>
+      );
+    }
+
     function LeaguesTab({ matches, tables, outcomes, onTeamClick, comp, setComp }) {
-      const comps = typeof LEAGUE_COMPETITIONS !== "undefined" ? Object.keys(LEAGUE_COMPETITIONS) : [];
-      const active = LEAGUE_COMPETITIONS && LEAGUE_COMPETITIONS[comp] ? comp : (comps[0] || "PL");
+      // Domestic leagues only — the Champions League has its own tab.
+      const comps = typeof LEAGUE_COMPETITIONS !== "undefined"
+        ? Object.keys(LEAGUE_COMPETITIONS).filter(c => LEAGUE_COMPETITIONS[c].type !== "cup") : [];
+      const active = (LEAGUE_COMPETITIONS && LEAGUE_COMPETITIONS[comp] && comps.indexOf(comp) !== -1) ? comp : (comps[0] || "PL");
       return (
         <div>
           <div style={{ display: "flex", gap: 8, overflowX: "auto", padding: "0 14px 10px", scrollbarWidth: "none", msOverflowStyle: "none" }}>
@@ -2356,10 +2472,10 @@
           {!loading && tab === "table" && (
             <div style={{ padding: "0 14px 10px" }}>
               <div className="tab-seg">
-                {[["players", "Players"], ["teams", "Teams"], ["leagues", "Leagues"]].map(([id, label]) => (
+                {[["players", "Players"], ["teams", "Teams"], ["leagues", "Leagues"], ["ucl", "UCL"]].map(([id, label]) => (
                   <button key={id} onClick={() => { window.scrollTo(0, 0); setLeagueView(id); }} style={{
                     background: leagueView === id ? C.accent : C.surface,
-                    color: leagueView === id ? C.bg : C.dim, fontWeight: 700, fontSize: 13,
+                    color: leagueView === id ? C.bg : C.dim, fontWeight: 700, fontSize: 12,
                     padding: "11px 2px", whiteSpace: "nowrap",
                   }}>{label}</button>
                 ))}
@@ -2373,6 +2489,7 @@
             : tab === "table" ? (
                 leagueView === "players" ? <SweepsTab ranked={ranked} badges={badges} hist={hist} weekMove={weekMove} outcomes={outcomes} displayRanks={displayRanks} onOpenPlayer={openPlayerModal} />
                 : leagueView === "teams" ? <TeamsLeagueTab matches={matches} ranked={ranked} anchorIso={anchorIso} onTeamClick={openTeamModal} />
+                : leagueView === "ucl" ? <ChampionsLeagueTab matches={matches} tables={tables} outcomes={outcomes} onTeamClick={openTeamModal} />
                 : <LeaguesTab matches={matches} tables={tables} outcomes={outcomes} onTeamClick={openTeamModal} comp={leaguesComp} setComp={setLeaguesComp} />
               )
             : tab === "scores" ? <ScoresTab matches={matches} matchPtsById={matchPtsById} anchorIso={anchorIso} onTeamClick={openTeamModal} />

@@ -762,6 +762,72 @@ function clGamblePts(teamId, clProgress) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// deriveCLBracket(matches) → { rounds: [{ stage, label, ties: [...] }] }
+//
+// The Champions League knockout bracket for the CL tab. Each round groups its
+// fixtures into ties by the unordered team pair (two-legged for R16-SF, a
+// single match for the final), summing legs into an aggregate. The tie winner
+// is whoever advanced (reached a later round) — robust to away goals /
+// penalties / format quirks without parsing them — falling back to the
+// aggregate, or the final's own result for the trophy.
+// ─────────────────────────────────────────────────────────────────────────────
+function deriveCLBracket(matches) {
+  var ko = matches.filter(function (m) {
+    return m.competition && m.competition.code === "CL" && CL_STAGE_RANK[m.stage] >= 1 &&
+      m.homeTeam && m.homeTeam.id && m.awayTeam && m.awayTeam.id;
+  });
+  if (ko.length === 0) return { rounds: [] };
+
+  var furthest = {};
+  ko.forEach(function (m) {
+    var r = CL_STAGE_RANK[m.stage] || 0;
+    [m.homeTeam.id, m.awayTeam.id].forEach(function (id) {
+      if (furthest[id] == null || r > furthest[id]) furthest[id] = r;
+    });
+  });
+  var finalWin = ko.filter(function (m) {
+    return CL_STAGE_RANK[m.stage] === 5 && m.status === "FINISHED" && m.score && m.score.winner && m.score.winner !== "DRAW";
+  }).sort(function (a, b) { return b.utcDate.localeCompare(a.utcDate); })[0];
+  var champion = finalWin ? (finalWin.score.winner === "HOME_TEAM" ? finalWin.homeTeam.id : finalWin.awayTeam.id) : null;
+
+  var STAGES = [
+    ["PLAYOFFS", 1, "Play-offs"], ["LAST_16", 2, "Round of 16"],
+    ["QUARTER_FINALS", 3, "Quarter-finals"], ["SEMI_FINALS", 4, "Semi-finals"], ["FINAL", 5, "Final"],
+  ];
+  var rounds = [];
+  STAGES.forEach(function (st) {
+    var rank = st[1];
+    var ms = ko.filter(function (m) { return CL_STAGE_RANK[m.stage] === rank; });
+    if (ms.length === 0) return;
+    var groups = {};
+    ms.forEach(function (m) {
+      var key = [m.homeTeam.id, m.awayTeam.id].sort(function (a, b) { return a - b; }).join("-");
+      (groups[key] = groups[key] || []).push(m);
+    });
+    var ties = Object.keys(groups).map(function (key) {
+      var legs = groups[key].slice().sort(function (a, b) { return a.utcDate.localeCompare(b.utcDate); });
+      var a = legs[0].homeTeam.id, b = legs[0].awayTeam.id;
+      var aggA = 0, aggB = 0, anyFinished = false, played = false;
+      legs.forEach(function (m) {
+        if (!m.score || !m.score.fullTime || !lgIsSettled(m)) return;
+        played = true;
+        if (m.status === "FINISHED") anyFinished = true;
+        var hs = m.score.fullTime.home || 0, as = m.score.fullTime.away || 0;
+        if (m.homeTeam.id === a) { aggA += hs; aggB += as; } else { aggA += as; aggB += hs; }
+      });
+      var winner = null;
+      if (furthest[a] > rank) winner = a;
+      else if (furthest[b] > rank) winner = b;
+      else if (rank === 5 && champion) winner = champion;
+      else if (anyFinished && aggA !== aggB) winner = aggA > aggB ? a : b;
+      return { a: a, b: b, aggA: aggA, aggB: aggB, legs: legs.length, winner: winner, played: played };
+    });
+    rounds.push({ stage: st[0], label: st[2], ties: ties });
+  });
+  return { rounds: rounds };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // deriveLeagueWDL / deriveLeagueMatchPts
 // ─────────────────────────────────────────────────────────────────────────────
 function deriveLeagueWDL(matches, teamId) {
