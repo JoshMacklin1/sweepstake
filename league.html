@@ -154,28 +154,14 @@
         onError={e => { e.target.style.visibility = "hidden"; }} />
     );
 
-    // CrestRow — the league's FlagRow: crests ordered by the points each team
-    // has earned (highest first), dimmed + ✕ for relegation. Shows at most 4
-    // crests at full size; any extra scroll horizontally, with the edges faded
-    // to cue the overflow (players can own many teams across the six leagues
-    // now, so the old shrink-to-fit clipped them illegibly).
-    const CREST_VISIBLE = 4;
+    // CrestRow — the league's FlagRow. A player can own many teams across the
+    // six leagues, so rather than cram or scroll every crest, this shows just
+    // the highest-scoring team from each league (best league first) and a "+N"
+    // chip for the rest. The full roster lives on the player card. Capped at
+    // CREST_MAX crests so it never overruns the row; relegated crests keep
+    // their dim + ✕ styling.
+    const CREST_MAX = 4;
     function CrestRow({ teams, outcomes, baseHeight = 26 }) {
-      const scrollRef = useRef(null);
-      // Which edges are currently faded — recomputed on scroll so the leading
-      // edge is only faded once you've scrolled past the start, and the
-      // trailing edge stops fading once you reach the end.
-      const [edge, setEdge] = useState({ start: true, end: false });
-      const updateEdges = useCallback(() => {
-        const el = scrollRef.current;
-        if (!el) return;
-        const start = el.scrollLeft <= 1;
-        const end = el.scrollLeft + el.clientWidth >= el.scrollWidth - 1;
-        setEdge(prev => (prev.start === start && prev.end === end) ? prev : { start, end });
-      }, []);
-      const count = teams ? teams.length : 0;
-      useEffect(() => { updateEdges(); }, [updateEdges, count]);
-
       if (!teams || teams.length === 0) return null;
       const state = (t) => {
         const o = outcomes[t.teamId] && outcomes[t.teamId].outcome;
@@ -183,31 +169,23 @@
         if (o === "RELEGATED") return "dead";
         return "alive";
       };
-      // Highest-scoring team first; relegated teams keep their dim/✕ styling
-      // but no longer force to the back — their (often low) total tends to sink
-      // them naturally.
-      const ordered = [...teams].sort((a, b) => (b.total || 0) - (a.total || 0));
-      const n = ordered.length;
+      // One representative per league — its highest-scoring team — then best
+      // league first. Everything not shown (other leagues' reps beyond the cap,
+      // plus every non-top team) is rolled into the "+N" count.
+      const bestByLeague = {};
+      teams.forEach(t => {
+        const cur = bestByLeague[t.league];
+        if (!cur || (t.total || 0) > (cur.total || 0)) bestByLeague[t.league] = t;
+      });
+      const reps = Object.values(bestByLeague).sort((a, b) => (b.total || 0) - (a.total || 0));
+      const shown = reps.slice(0, CREST_MAX);
+      const hidden = teams.length - shown.length;
       const h = baseHeight;
       const gap = 4;
       const scale = h / 26;
-      const capped = n > CREST_VISIBLE;
-      const maxWidth = capped ? CREST_VISIBLE * h + (CREST_VISIBLE - 1) * gap : undefined;
-      const fadePx = Math.round(h * 0.7);
-      const fadeL = capped && !edge.start;
-      const fadeR = capped && !edge.end;
-      let mask;
-      if (fadeL && fadeR) mask = `linear-gradient(to right, transparent, #000 ${fadePx}px, #000 calc(100% - ${fadePx}px), transparent)`;
-      else if (fadeL)     mask = `linear-gradient(to right, transparent, #000 ${fadePx}px)`;
-      else if (fadeR)     mask = `linear-gradient(to right, #000 calc(100% - ${fadePx}px), transparent)`;
       return (
-        <div ref={scrollRef} onScroll={updateEdges} style={{
-          display: "flex", gap, alignItems: "center", flexWrap: "nowrap",
-          maxWidth, overflowX: "auto", overflowY: "hidden",
-          scrollbarWidth: "none", msOverflowStyle: "none", WebkitOverflowScrolling: "touch",
-          WebkitMaskImage: mask, maskImage: mask,
-        }}>
-          {ordered.map(t => {
+        <div style={{ display: "flex", gap, alignItems: "center", flexWrap: "nowrap", overflow: "hidden" }}>
+          {shown.map(t => {
             const st = state(t);
             return (
               <div key={t.teamId} title={`${t.name} (Pot ${t.pot})`} style={{ position: "relative", display: "inline-block", height: h, flexShrink: 0 }}>
@@ -221,6 +199,13 @@
               </div>
             );
           })}
+          {hidden > 0 && (
+            <span style={{
+              flexShrink: 0, marginLeft: 2, fontSize: Math.max(10, Math.round(12 * scale)), fontWeight: 700,
+              color: C.muted, background: "rgba(148,163,184,0.14)", borderRadius: 6,
+              padding: "2px 6px", lineHeight: 1, whiteSpace: "nowrap",
+            }}>+{hidden}</span>
+          )}
         </div>
       );
     }
