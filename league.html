@@ -74,7 +74,7 @@
 <body>
   <div id="root"></div>
   <!-- Coupled: every league-scoring.js change must bump ?v=N (see SWEEPSTAKE_PROJECT.md cache-bust rule) -->
-  <script src="league-scoring.js?v=7"></script>
+  <script src="league-scoring.js?v=8"></script>
   <script type="text/babel">
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
@@ -176,8 +176,7 @@
               <div key={t.teamId} title={`${t.name} (Pot ${t.pot})`} style={{ position: "relative", display: "inline-block", height: h, flexShrink: 0 }}>
                 <img src={typeof leagueCrest === "function" ? leagueCrest(t.teamId) : ""} alt={t.name}
                   width={h} height={h}
-                  style={{ objectFit: "contain", display: "block", opacity: st === "dead" ? 0.25 : 1,
-                    outline: st === "won" ? "2px solid #f59e0b" : "none", borderRadius: 2 }}
+                  style={{ objectFit: "contain", display: "block", opacity: st === "dead" ? 0.25 : 1 }}
                   onError={e => { e.target.style.visibility = "hidden"; }} />
                 {st === "dead" && (
                   <span style={{ position: "absolute", top: 0, right: 0, fontSize: Math.max(7, Math.round(9 * scale)), fontWeight: 900, color: C.red, textShadow: "0 0 2px rgba(0,0,0,0.9)", lineHeight: 1, pointerEvents: "none" }}>✕</span>
