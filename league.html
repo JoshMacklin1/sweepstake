@@ -1484,6 +1484,30 @@
       );
     }
 
+    // ── Leagues view — switch across every competition's conventional table.
+    //    The switcher is built from LEAGUE_COMPETITIONS, so adding a league
+    //    there adds it here automatically. ────────────────────────────────────
+    function LeaguesTab({ matches, tables, outcomes, onTeamClick, comp, setComp }) {
+      const comps = typeof LEAGUE_COMPETITIONS !== "undefined" ? Object.keys(LEAGUE_COMPETITIONS) : [];
+      const active = LEAGUE_COMPETITIONS && LEAGUE_COMPETITIONS[comp] ? comp : (comps[0] || "PL");
+      return (
+        <div>
+          <div style={{ display: "flex", gap: 8, overflowX: "auto", padding: "0 14px 10px", scrollbarWidth: "none", msOverflowStyle: "none" }}>
+            {comps.map(code => (
+              <button key={code} onClick={() => { window.scrollTo(0, 0); setComp(code); }} style={{
+                flexShrink: 0, padding: "7px 14px", borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: "pointer",
+                whiteSpace: "nowrap",
+                background: active === code ? C.accent : "transparent",
+                color: active === code ? C.bg : C.muted,
+                border: `1px solid ${active === code ? C.accent : C.border}`,
+              }}>{LEAGUE_COMPETITIONS[code].label}</button>
+            ))}
+          </div>
+          <TablesTab matches={matches} tables={tables} outcomes={outcomes} onTeamClick={onTeamClick} comp={active} />
+        </div>
+      );
+    }
+
     // ── Tables tab ──────────────────────────────────────────────────────────
     function TablesTab({ matches, tables, outcomes, onTeamClick, comp = "PL" }) {
       const table = tables[comp] || [];
@@ -2076,8 +2100,10 @@
     // ── app shell ───────────────────────────────────────────────────────────
     function App({ group, onSwitchGroup }) {
       const [tab, setTab] = useState("home");
-      // League tab's inline top toggle: players · teams · pl · elc
+      // League tab's inline top toggle: players · teams · leagues
       const [leagueView, setLeagueView] = useState("players");
+      // Which competition table the "Leagues" view is showing.
+      const [leaguesComp, setLeaguesComp] = useState("PL");
       const [liveMatches, setLiveMatches] = useState([]);
       const [loading, setLoading] = useState(true);
       const [error, setError] = useState(null);
@@ -2161,8 +2187,12 @@
       const hist = useMemo(() => (typeof deriveLeagueHistory === "function" ? deriveLeagueHistory(matches).history : {}), [matches]);
       const weekWindow = useMemo(() => (typeof lgWeekWindow === "function" ? lgWeekWindow(ranked, matches, anchorIso) : {}), [ranked, matches, anchorIso]);
       const matchPtsById = useMemo(() => (typeof deriveLeagueMatchPts === "function" ? deriveLeagueMatchPts(matches) : {}), [matches]);
-      const tables = useMemo(() => (typeof deriveLeagueTable === "function"
-        ? { PL: deriveLeagueTable(matches, "PL"), ELC: deriveLeagueTable(matches, "ELC") } : {}), [matches]);
+      const tables = useMemo(() => {
+        if (typeof deriveLeagueTable !== "function" || typeof LEAGUE_COMPETITIONS === "undefined") return {};
+        const out = {};
+        Object.keys(LEAGUE_COMPETITIONS).forEach(code => { out[code] = deriveLeagueTable(matches, code); });
+        return out;
+      }, [matches]);
       const weekMove = useMemo(() => {
         const out = {};
         Object.keys(weekWindow).forEach(n => { out[n] = weekWindow[n].move; });
@@ -2248,11 +2278,11 @@
           {!loading && tab === "table" && (
             <div style={{ padding: "0 14px 10px" }}>
               <div className="tab-seg">
-                {[["players", "Players"], ["teams", "Teams"], ["pl", "Premier League"], ["elc", "Championship"]].map(([id, label]) => (
+                {[["players", "Players"], ["teams", "Teams"], ["leagues", "Leagues"]].map(([id, label]) => (
                   <button key={id} onClick={() => { window.scrollTo(0, 0); setLeagueView(id); }} style={{
                     background: leagueView === id ? C.accent : C.surface,
-                    color: leagueView === id ? C.bg : C.dim, fontWeight: 700, fontSize: 11,
-                    padding: "11px 1px", whiteSpace: "nowrap", letterSpacing: "-0.02em",
+                    color: leagueView === id ? C.bg : C.dim, fontWeight: 700, fontSize: 13,
+                    padding: "11px 2px", whiteSpace: "nowrap",
                   }}>{label}</button>
                 ))}
               </div>
@@ -2265,7 +2295,7 @@
             : tab === "table" ? (
                 leagueView === "players" ? <SweepsTab ranked={ranked} badges={badges} hist={hist} weekMove={weekMove} outcomes={outcomes} displayRanks={displayRanks} onOpenPlayer={openPlayerModal} />
                 : leagueView === "teams" ? <TeamsLeagueTab matches={matches} ranked={ranked} anchorIso={anchorIso} onTeamClick={openTeamModal} />
-                : <TablesTab matches={matches} tables={tables} outcomes={outcomes} onTeamClick={openTeamModal} comp={leagueView === "pl" ? "PL" : "ELC"} />
+                : <LeaguesTab matches={matches} tables={tables} outcomes={outcomes} onTeamClick={openTeamModal} comp={leaguesComp} setComp={setLeaguesComp} />
               )
             : tab === "scores" ? <ScoresTab matches={matches} matchPtsById={matchPtsById} anchorIso={anchorIso} onTeamClick={openTeamModal} />
             : tab === "race" ? <RaceTab ranked={ranked} matches={matches} anchorIso={anchorIso} replayOn={replay.on} />
