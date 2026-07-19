@@ -28,12 +28,13 @@ season is being built alongside the WC app.
 | `league-scoring.js` | Teams (44, keyed by **numeric API id**, not TLA), pots (3-season weighted composite seeding), points matrices, `deriveLeagueTable` / `deriveSeasonOutcomes` / `scoreLeaguePlayers` / `computeLeagueBadges` / `deriveLeagueHistory` (per-day cumulative player totals for sparklines + The Race, incremental — invariant: final frame == live totals) / `deriveLeagueTeamHistory` (per-team twin of the above, for the Teams-view sparklines; same invariant per team) / `computeWeekRankChange` + `lgWeekWindow` (7-day movement, `anchorIso`-aware so replay works) / `deriveLeagueMatchPts` (per-match points attribution for +pts chips and cards) / `computeNewLeagueBadges` (7-day badge diff for Home). Prefixed `LEAGUE_`/`league`/`lg` — no globals shared with `scoring.js`. `LEAGUE_SEASON` is **2025 for testing; flip to 2026 at launch**. **Per-season pot/league**: the base `LEAGUE_TEAMS` entries are the 2026-27 lineup; the nine teams that changed division between seasons carry a `p25` override with their actual 2025-26 league + pot (West Ham/Wolves/Burnley were Premier League; Coventry/Ipswich/Hull were Championship; Cardiff/Bolton/Lincoln were League One → notional `L1`, never score in the replay). A load-time pass keyed on `LEAGUE_SEASON` applies `p25` so all scoring + UI read the season-correct `.league`/`.pot` — critical because match points are priced by the team's own pot (a wrong pot mis-scores the replay, e.g. Coventry's title run at PL-Pot-4 pricing). `lgTeamMatchPts` returns 0 for a team with no matrix (the `L1` teams). Group: `RODENTS` — same crew as the WC Rodents (8 players + Josh as reaper), 2 PL + 2 ELC teams each covering all four pots; **placeholder draw** until the real one |
 | `league-data-2025.js` | Trimmed real 2025-26 PL+ELC results (937 matches) as a `LEAGUE_REPLAY_DATA` global, injected on demand by replay mode (a .js global, not .json, so it works on file:// previews) |
 
-Club **crests** are minimalist letter-mark badges committed to the repo at
-`crests/<teamId>.svg` (self-contained SVGs, club colours + abbreviation),
-served by `leagueCrest(teamId)` in place of the WC app's flagcdn flags —
-so they load offline and match the app's look (they replaced the external
-`crests.football-data.org` PNGs). Teams use the WC visual language
-otherwise (same `C` palette).
+Club **crests** come from `crests.football-data.org/<id>.png` (public, no
+auth) via `leagueCrest(teamId)`, in place of the WC app's flagcdn flags.
+`CrestRow` orders best-news-first (champions/promoted → in play →
+relegated) and dims + ✕-marks relegated crests; unlike the WC `FlagRow` it
+draws **no gold outline** on won crests (that boxes non-rectangular crests
+with orange — the outcome chips convey title/promotion instead). Teams use
+the WC visual language otherwise (same `C` palette).
 
 **Scoring is empirically calibrated, not copied from the WC app.** Match
 points (win/draw by pot, per league: `LEAGUE_MATCH_PTS`) and season-outcome
