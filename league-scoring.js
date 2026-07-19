@@ -317,20 +317,24 @@ function lgEnsureTeams(group) {
     if (!LEAGUE_MATCH_PTS[t.league]) return; // skip non-scoring (2025-26 League One) teams
     (pools[t.league + "|" + t.pot] = pools[t.league + "|" + t.pot] || []).push(Number(id));
   });
-  // Concatenate the pools in a pot-interleaved order (PL1, ELC1, PL2, ELC2 …)
-  // and deal that sequence with ONE continuous round-robin pointer. Continuous
-  // dealing keeps every player's total within one of the others; interleaving
-  // the pots means consecutive picks rotate through the tiers, so each player
-  // ends up with a balanced pot mix rather than a run of favourites/minnows.
+  // Everyone gets the SAME number of teams — floor(teams / players); any
+  // remainder is left unowned (no player), exactly like RODENTS' hand draft.
+  // Build a pot-fair sequence one round at a time (one team from each pot pool
+  // per round, pool order re-shuffled each round so nothing lines up with the
+  // player count), then deal the first perPlayer×players of it round-robin.
+  var poolArrs = Object.keys(pools).map(function (k) { return lgShuffle(pools[k].slice(), rng); });
+  var maxLen = poolArrs.reduce(function (m, a) { return Math.max(m, a.length); }, 0);
   var seq = [];
-  for (var pot = 1; pot <= 4; pot++) {
-    ["PL", "ELC"].forEach(function (lg) {
-      var arr = pools[lg + "|" + pot];
-      if (arr) lgShuffle(arr, rng).forEach(function (id) { seq.push(id); });
+  for (var r = 0; r < maxLen; r++) {
+    lgShuffle(poolArrs, rng).forEach(function (pool) {
+      if (pool[r] !== undefined) seq.push(pool[r]);
     });
   }
-  var ptr = Math.floor(rng() * real.length);
-  seq.forEach(function (id) { real[ptr % real.length].teamIds.push(id); ptr++; });
+  var perPlayer = Math.floor(seq.length / real.length);
+  var toAssign = perPlayer * real.length;
+  var start = Math.floor(rng() * real.length);
+  for (var i = 0; i < toAssign; i++) real[(start + i) % real.length].teamIds.push(seq[i]);
+  // seq[toAssign …] is left unowned — shows in the league tables with no owner.
 }
 
 function leagueOwnerOfTeamId(teamId, players) {
