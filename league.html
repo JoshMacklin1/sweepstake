@@ -74,7 +74,7 @@
 <body>
   <div id="root"></div>
   <!-- Coupled: every league-scoring.js change must bump ?v=N (see SWEEPSTAKE_PROJECT.md cache-bust rule) -->
-  <script src="league-scoring.js?v=8"></script>
+  <script src="league-scoring.js?v=9"></script>
   <script type="text/babel">
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
@@ -2323,49 +2323,137 @@
 
     // ── group gate (same pattern as the WC app: reassign the roster global
     //    BEFORE App's first render, so every scoring call reads it live) ────
+    const CREATED_LEAGUES_KEY = "lsw_created";
+    function loadCreatedLeagues() {
+      if (typeof LEAGUE_GROUPS === "undefined") return;
+      try {
+        const stored = JSON.parse(localStorage.getItem(CREATED_LEAGUES_KEY) || "{}");
+        Object.keys(stored).forEach(code => { if (!LEAGUE_GROUPS[code]) LEAGUE_GROUPS[code] = stored[code]; });
+      } catch (e) { /* ignore corrupt storage */ }
+    }
+    function saveCreatedLeague(group) {
+      try {
+        const stored = JSON.parse(localStorage.getItem(CREATED_LEAGUES_KEY) || "{}");
+        stored[group.code] = group;
+        localStorage.setItem(CREATED_LEAGUES_KEY, JSON.stringify(stored));
+      } catch (e) { /* ignore */ }
+    }
+
     function GroupGate() {
+      const [ready] = useState(() => { loadCreatedLeagues(); return true; });
       const [groupKey, setGroupKey] = useState(() => {
         const k = localStorage.getItem(GROUP_STORAGE_KEY);
         return (k && typeof LEAGUE_GROUPS !== "undefined" && LEAGUE_GROUPS[k]) ? k : null;
       });
+      const [mode, setMode] = useState("menu"); // menu · join · create
       const [input, setInput] = useState("");
       const [bad, setBad] = useState(false);
+      // create form
+      const [leagueName, setLeagueName] = useState("");
+      const [playersText, setPlayersText] = useState("");
+      const [createErr, setCreateErr] = useState("");
+
+      const enter = (key) => {
+        if (typeof lgEnsureTeams === "function") lgEnsureTeams(LEAGUE_GROUPS[key]);
+        localStorage.setItem(GROUP_STORAGE_KEY, key);
+        setGroupKey(key);
+      };
 
       if (groupKey && typeof LEAGUE_GROUPS !== "undefined" && LEAGUE_GROUPS[groupKey]) {
+        if (typeof lgEnsureTeams === "function") lgEnsureTeams(LEAGUE_GROUPS[groupKey]);
         LEAGUE_PLAYERS = LEAGUE_GROUPS[groupKey].players;
         return <App group={LEAGUE_GROUPS[groupKey]} onSwitchGroup={() => {
           localStorage.removeItem(GROUP_STORAGE_KEY);
-          setGroupKey(null);
+          setGroupKey(null); setMode("menu"); setInput(""); setBad(false);
         }} />;
       }
-      const submit = (e) => {
+
+      const submitJoin = (e) => {
         e.preventDefault();
         const k = typeof leagueMatchGroupCode === "function" ? leagueMatchGroupCode(input) : null;
-        if (k) { localStorage.setItem(GROUP_STORAGE_KEY, k); setGroupKey(k); }
-        else setBad(true);
+        if (k) enter(k); else setBad(true);
       };
-      return (
-        <div style={{ padding: "80px 24px", textAlign: "center" }}>
-          <div style={{ fontSize: 24, fontWeight: 800, marginBottom: 6 }}>League Sweeps <span style={{ color: C.accent }}>26/27</span></div>
-          <div style={{ color: C.muted, fontSize: 13, marginBottom: 24 }}>Enter your group code to see your sweepstake.</div>
-          <form onSubmit={submit}>
-            <input value={input} onChange={e => { setInput(e.target.value); setBad(false); }}
-              placeholder="GROUP CODE" autoFocus
-              style={{
-                width: "100%", maxWidth: 280, padding: "12px 14px", fontSize: 16,
-                background: C.surface, color: C.text, border: `1px solid ${bad ? C.red : C.border}`,
-                borderRadius: 10, textAlign: "center", textTransform: "uppercase", outline: "none",
-              }} />
-            <div style={{ marginTop: 12 }}>
-              <button type="submit" style={{
-                background: C.accent, color: C.bg, fontWeight: 800, fontSize: 14,
-                border: "none", borderRadius: 10, padding: "10px 28px", cursor: "pointer",
-              }}>Enter</button>
-            </div>
-            {bad && <div style={{ color: C.dangerTextBright, fontSize: 12, marginTop: 10 }}>Unknown code — check with whoever runs your group.</div>}
-          </form>
+      const submitCreate = (e) => {
+        e.preventDefault();
+        const name = leagueName.trim();
+        if (!name) { setCreateErr("Give your league a name."); return; }
+        const names = playersText.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+        const seen = {}, uniq = [];
+        names.forEach(n => { const k = n.toLowerCase(); if (!seen[k]) { seen[k] = 1; uniq.push(n); } });
+        if (uniq.length < 2) { setCreateErr("Add at least two players (one per line)."); return; }
+        let code = name.toUpperCase().replace(/[^A-Z0-9]+/g, "");
+        if (!code) code = "LEAGUE";
+        while (LEAGUE_GROUPS[code]) code += Math.floor(Math.random() * 10); // avoid clashing an existing code
+        const group = {
+          code, label: name,
+          players: uniq.map(n => ({ name: n })).concat([{ name: "Grim Reaper", grimReaper: true }]),
+        };
+        if (typeof lgEnsureTeams === "function") lgEnsureTeams(group);
+        LEAGUE_GROUPS[code] = group;
+        saveCreatedLeague(group);
+        enter(code);
+      };
+
+      const shell = (children) => (
+        <div style={{ padding: "64px 24px 40px", textAlign: "center", maxWidth: 480, margin: "0 auto" }}>
+          <div style={{ fontSize: 26, fontWeight: 800, marginBottom: 4 }}>League Sweeps <span style={{ color: C.accent }}>26/27</span></div>
+          {children}
         </div>
       );
+      const bigBtn = (label, sub, onClick, primary) => (
+        <button onClick={onClick} style={{
+          width: "100%", maxWidth: 320, padding: "16px 18px", marginTop: 14, cursor: "pointer",
+          background: primary ? C.accent : C.card, color: primary ? C.bg : C.text,
+          border: `1px solid ${primary ? C.accent : C.border}`, borderRadius: 14, textAlign: "left",
+          display: "flex", flexDirection: "column", gap: 3,
+        }}>
+          <span style={{ fontSize: 15, fontWeight: 800 }}>{label}</span>
+          <span style={{ fontSize: 12, fontWeight: 500, color: primary ? "rgba(13,31,18,0.75)" : C.muted }}>{sub}</span>
+        </button>
+      );
+      const backLink = (
+        <button onClick={() => { setMode("menu"); setBad(false); setCreateErr(""); }}
+          style={{ marginTop: 22, background: "none", border: "none", color: C.muted, fontSize: 13, cursor: "pointer" }}>‹ Back</button>
+      );
+
+      if (mode === "join") {
+        return shell(<>
+          <div style={{ color: C.muted, fontSize: 13, margin: "6px 0 22px" }}>Enter the code your league organiser shared.</div>
+          <form onSubmit={submitJoin}>
+            <input value={input} onChange={e => { setInput(e.target.value); setBad(false); }}
+              placeholder="LEAGUE CODE" autoFocus
+              style={{ width: "100%", maxWidth: 300, padding: "13px 14px", fontSize: 16, background: C.surface, color: C.text,
+                border: `1px solid ${bad ? C.red : C.border}`, borderRadius: 10, textAlign: "center", textTransform: "uppercase", outline: "none" }} />
+            <div style={{ marginTop: 12 }}>
+              <button type="submit" style={{ background: C.accent, color: C.bg, fontWeight: 800, fontSize: 14, border: "none", borderRadius: 10, padding: "11px 34px", cursor: "pointer" }}>Join</button>
+            </div>
+            {bad && <div style={{ color: C.dangerTextBright, fontSize: 12, marginTop: 10 }}>Unknown code — check with whoever runs your league.</div>}
+          </form>
+          {backLink}
+        </>);
+      }
+      if (mode === "create") {
+        return shell(<>
+          <div style={{ color: C.muted, fontSize: 13, margin: "6px 0 20px" }}>Name your league and add the players — we'll draw everyone a balanced spread of teams.</div>
+          <form onSubmit={submitCreate} style={{ textAlign: "left", maxWidth: 320, margin: "0 auto" }}>
+            <label style={{ fontSize: 11, fontWeight: 700, color: C.dim, letterSpacing: "0.08em", textTransform: "uppercase" }}>League name</label>
+            <input value={leagueName} onChange={e => { setLeagueName(e.target.value); setCreateErr(""); }} placeholder="e.g. The Office League" autoFocus
+              style={{ width: "100%", boxSizing: "border-box", padding: "11px 13px", marginTop: 6, marginBottom: 16, fontSize: 15, background: C.surface, color: C.text, border: `1px solid ${C.border}`, borderRadius: 10, outline: "none" }} />
+            <label style={{ fontSize: 11, fontWeight: 700, color: C.dim, letterSpacing: "0.08em", textTransform: "uppercase" }}>Players <span style={{ textTransform: "none", fontWeight: 500, color: C.muted }}>(one per line)</span></label>
+            <textarea value={playersText} onChange={e => { setPlayersText(e.target.value); setCreateErr(""); }} placeholder={"Alex\nBen\nCharlie\n…"} rows={6}
+              style={{ width: "100%", boxSizing: "border-box", padding: "11px 13px", marginTop: 6, fontSize: 15, background: C.surface, color: C.text, border: `1px solid ${C.border}`, borderRadius: 10, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
+            {createErr && <div style={{ color: C.dangerTextBright, fontSize: 12, marginTop: 8 }}>{createErr}</div>}
+            <button type="submit" style={{ width: "100%", marginTop: 16, background: C.accent, color: C.bg, fontWeight: 800, fontSize: 14, border: "none", borderRadius: 10, padding: "12px", cursor: "pointer" }}>Create &amp; draw teams</button>
+          </form>
+          <div style={{ textAlign: "center" }}>{backLink}</div>
+        </>);
+      }
+      // menu
+      return shell(<>
+        <div style={{ color: C.muted, fontSize: 13, margin: "6px 0 26px" }}>Premier League &amp; Championship sweepstake.</div>
+        {bigBtn("Join a league", "Enter a code you've been given", () => { setMode("join"); }, true)}
+        {bigBtn("Create a league", "Start a new one and draw the teams", () => { setMode("create"); }, false)}
+      </>);
     }
 
     ReactDOM.createRoot(document.getElementById("root")).render(<GroupGate />);
