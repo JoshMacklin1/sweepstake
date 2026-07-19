@@ -155,7 +155,7 @@
     // CrestRow — the league's FlagRow: best-news-first ordering (champions/
     // promoted → in play → relegated), gold outline for a settled title/
     // promotion, dimmed + ✕ for relegation.
-    function CrestRow({ teams, outcomes, baseHeight = 20 }) {
+    function CrestRow({ teams, outcomes, baseHeight = 26 }) {
       if (!teams || teams.length === 0) return null;
       const state = (t) => {
         const o = outcomes[t.teamId] && outcomes[t.teamId].outcome;
@@ -391,7 +391,7 @@
                   <div key={t.teamId} onClick={onTeamClick ? () => onTeamClick(t.teamId) : undefined}
                     role={onTeamClick ? "button" : undefined} tabIndex={onTeamClick ? 0 : undefined}
                     style={{ display: "flex", alignItems: "center", padding: "9px 0", borderBottom: `1px solid ${C.border}`, opacity: dead ? 0.6 : 1, cursor: onTeamClick ? "pointer" : "default", WebkitTapHighlightColor: "transparent" }}>
-                    <div style={{ marginRight: 10, flexShrink: 0 }}><Crest teamId={t.teamId} size={20} /></div>
+                    <div style={{ marginRight: 10, flexShrink: 0 }}><Crest teamId={t.teamId} size={26} /></div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{t.name} <span style={{ fontSize: 10, color: C.muted, fontWeight: 400 }}>(P{t.pot} · {t.league})</span></div>
                       <div style={{ fontSize: 11, color: C.muted }}>{t.w}W {t.d}D {t.l}L{t.outcome ? ` · ${(LEAGUE_OUTCOME_LABEL[t.outcome] || t.outcome)}` : ""}</div>
@@ -531,7 +531,7 @@
         <div className="sheet-handle"><span></span></div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "14px 16px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <Crest teamId={teamId} size={28} />
+            <Crest teamId={teamId} size={38} />
             <div>
               <div style={{ fontSize: 18, fontWeight: 900, color: C.text }}>{name}</div>
               <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
@@ -591,7 +591,7 @@
               <div key={m.id} onClick={onTeamClick && oppKnown ? () => onTeamClick(r.opp.id) : undefined}
                 style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 0", borderBottom: `1px solid ${C.border}`, cursor: onTeamClick && oppKnown ? "pointer" : "default" }}>
                 <div style={resultChipStyle(r.result)}>{r.result}</div>
-                <Crest teamId={r.opp.id} size={18} />
+                <Crest teamId={r.opp.id} size={24} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{oppKnown ? oppKnown.name : (r.opp.shortName || "TBD")}</div>
                   <div style={{ fontSize: 10, color: C.muted }}>{fmtDay(m.utcDate)} · {r.isHome ? "home" : "away"}{m.stage !== "REGULAR_SEASON" ? " · playoffs" : ""}</div>
@@ -612,7 +612,7 @@
             return (
               <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 0", borderBottom: `1px solid ${C.border}` }}>
                 <div style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0, background: "rgba(148,163,184,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: C.muted }}>vs</div>
-                <Crest teamId={opp.id} size={18} />
+                <Crest teamId={opp.id} size={24} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{oppKnown ? oppKnown.name : (opp.shortName || "TBD")}</div>
                   <div style={{ fontSize: 10, color: C.muted }}>{fmtDay(m.utcDate)} {fmtTime(m.utcDate)} · {m.homeTeam.id === teamId ? "home" : "away"}</div>
@@ -662,10 +662,10 @@
               )}
             </div>
             <div style={{ flexShrink: 0 }}>
-              <Sparkline data={hist} width={100} height={56}
+              <Sparkline data={hist} width={78} height={56}
                 color={reaper ? C.red : p.total < 0 ? C.red : p.total === 0 ? C.neutral : C.accent} />
             </div>
-            <div style={{ textAlign: "right", flexShrink: 0, minWidth: 56 }}>
+            <div style={{ textAlign: "right", flexShrink: 0, minWidth: 52 }}>
               <div style={{ fontSize: 22, fontWeight: 800, color: p.total < 0 ? C.red : C.text, lineHeight: 1 }}>
                 {p.total}
               </div>
@@ -722,7 +722,7 @@
               display: "flex", alignItems: "center", justifyContent: "center",
               fontSize: 13, fontWeight: 800, color: isTop ? "#080c18" : C.dim,
             }}>{rank}</div>
-            <Crest teamId={row.teamId} size={22} />
+            <Crest teamId={row.teamId} size={30} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 700, fontSize: 15, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.name}</div>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2, minWidth: 0 }}>
@@ -1117,7 +1117,7 @@
         return (
           <div onClick={onTeamClick && known ? () => onTeamClick(t.id) : undefined}
             style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, cursor: onTeamClick && known ? "pointer" : "default", minWidth: 0, flexDirection: right ? "row-reverse" : "row" }}>
-            <Crest teamId={t.id} size={20} />
+            <Crest teamId={t.id} size={26} />
             <div style={{ minWidth: 0, textAlign: right ? "right" : "left" }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: o ? C.text : C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o ? o.name : clubName}</div>
               {o && <div style={{ fontSize: 10, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{clubName}</div>}
@@ -1208,7 +1208,7 @@
         return (
           <div key={m.id} style={{ flex: "0 0 100%", display: "flex", alignItems: "center" }}>
             <div onClick={onTeamClick && hT ? () => onTeamClick(hId) : undefined} style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, cursor: onTeamClick && hT ? "pointer" : "default" }}>
-              <Crest teamId={hId} size={18} />
+              <Crest teamId={hId} size={24} />
               <div>
                 <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{hOwner || hN}</div>
                 <div style={{ fontSize: 10, color: C.muted }}>{hN}{hT ? ` (P${hT.pot})` : ""}</div>
@@ -1227,7 +1227,7 @@
                 <div style={{ fontSize: 10, color: C.muted }}>{aN}{aT ? ` (P${aT.pot})` : ""}</div>
                 {livePts && livePts.away > 0 && <div style={{ fontSize: 10, fontWeight: 800, color: C.accent, marginTop: 2 }}>+{livePts.away} pts</div>}
               </div>
-              <Crest teamId={aId} size={18} />
+              <Crest teamId={aId} size={24} />
             </div>
           </div>
         );
@@ -1396,7 +1396,7 @@
                   }}>{i + 1}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: C.text, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 4 }}>{p.name}</div>
-                    <CrestRow teams={p.teams} outcomes={outcomes} baseHeight={15} />
+                    <CrestRow teams={p.teams} outcomes={outcomes} baseHeight={22} />
                   </div>
                   <Sparkline data={hist[p.name] || []} width={64} height={28} color={p.total < 0 ? C.red : p.total === 0 ? C.neutral : C.accent} />
                   <div style={{ textAlign: "right", flexShrink: 0, minWidth: 50 }}>
@@ -1415,7 +1415,7 @@
             }}>
               <div style={{ fontSize: 11, color: C.dim, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Leading Team</div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 8 }}>
-                <Crest teamId={topTeam.teamId} size={24} />
+                <Crest teamId={topTeam.teamId} size={34} />
                 <span style={{ fontSize: 20, fontWeight: 900, color: C.text }}>{topTeam.name}<span style={{ fontSize: 13, fontWeight: 700, color: C.muted }}> (P{topTeam.pot})</span></span>
               </div>
               <div style={{ fontSize: 30, fontWeight: 900, color: topTeam.pts < 0 ? C.red : C.accent, lineHeight: 1 }}>
@@ -1433,7 +1433,7 @@
                   background: rankColors[i], display: "flex", alignItems: "center", justifyContent: "center",
                   fontSize: 12, fontWeight: 800, color: "#080c18",
                 }}>{i + 1}</div>
-                <Crest teamId={t.teamId} size={20} />
+                <Crest teamId={t.teamId} size={28} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}<span style={{ fontSize: 11, fontWeight: 600, color: C.muted }}> (P{t.pot})</span></div>
                   <div style={{ fontSize: 11, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.owner || "—"}</div>
@@ -1498,16 +1498,16 @@
         const o = typeof leagueOwnerOfTeamId === "function" ? leagueOwnerOfTeamId(id) : null;
         return o ? o.name : null;
       };
-      const th = { fontSize: 10, color: C.muted, fontWeight: 600, textAlign: "right", padding: "2px 4px" };
-      const td = { fontSize: 12, textAlign: "right", padding: "5px 4px", whiteSpace: "nowrap" };
+      const th = { fontSize: 11, color: C.muted, fontWeight: 600, textAlign: "right", padding: "4px 3px" };
+      const td = { fontSize: 12, textAlign: "right", padding: "10px 3px", whiteSpace: "nowrap" };
       return (
-        <div style={{ padding: "0 14px" }}>
-          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "8px 10px", overflowX: "auto" }}>
+        <div style={{ padding: "0 10px" }}>
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "8px 7px", overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead><tr>
                 <th style={{ ...th, textAlign: "left" }} colSpan={2}>Team</th>
-                <th style={th}>P</th><th style={th}>W</th><th style={th}>D</th><th style={th}>L</th>
-                <th style={th}>GD</th><th style={th}>Pts</th>
+                <th style={th}>P</th><th style={th}>GD</th><th style={th}>Pts</th>
+                <th style={th}>W</th><th style={th}>D</th><th style={th}>L</th>
               </tr></thead>
               <tbody>
                 {table.map((r, i) => {
@@ -1517,21 +1517,21 @@
                   return (
                     <tr key={r.teamId} onClick={onTeamClick && known ? () => onTeamClick(r.teamId) : undefined}
                       style={{ borderTop: `1px solid ${C.border}`, cursor: onTeamClick && known ? "pointer" : "default" }}>
-                      <td style={{ ...td, textAlign: "left", color: C.muted, width: 18 }}>{i + 1}</td>
+                      <td style={{ ...td, textAlign: "left", color: C.muted, width: 20, fontSize: 14 }}>{i + 1}</td>
                       <td style={{ ...td, textAlign: "left" }}>
                         {/* Player-first: the owner IS the row; the club is context */}
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                          <Crest teamId={r.teamId} size={16} />
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 9 }}>
+                          <Crest teamId={r.teamId} size={24} />
                           {own
-                            ? <span><span style={{ fontWeight: 700 }}>{own}</span> <span style={{ fontSize: 10, color: C.muted }}>{teamName(r.teamId)}</span></span>
-                            : <span style={{ fontSize: 11, color: C.muted }}>{teamName(r.teamId)}</span>}
+                            ? <span><span style={{ fontWeight: 700, fontSize: 14 }}>{own}</span> <span style={{ fontSize: 12, color: C.muted }}>{teamName(r.teamId)}</span></span>
+                            : <span style={{ fontSize: 13, color: C.muted }}>{teamName(r.teamId)}</span>}
                           {o && outcomeChip(o.outcome)}
                         </span>
                       </td>
-                      <td style={td}>{r.played}</td><td style={td}>{r.w}</td>
-                      <td style={td}>{r.d}</td><td style={td}>{r.l}</td>
+                      <td style={td}>{r.played}</td>
                       <td style={td}>{r.gd > 0 ? "+" + r.gd : r.gd}</td>
                       <td style={{ ...td, fontWeight: 800 }}>{r.pts}</td>
+                      <td style={td}>{r.w}</td><td style={td}>{r.d}</td><td style={td}>{r.l}</td>
                     </tr>
                   );
                 })}
