@@ -74,7 +74,7 @@
 <body>
   <div id="root"></div>
   <!-- Coupled: every league-scoring.js change must bump ?v=N (see SWEEPSTAKE_PROJECT.md cache-bust rule) -->
-  <script src="league-scoring.js?v=11"></script>
+  <script src="league-scoring.js?v=12"></script>
   <script type="text/babel">
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
@@ -421,6 +421,7 @@
                     <div style={{ textAlign: "right", flexShrink: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 700, color: t.total < 0 ? C.red : t.total > 0 ? C.text : C.muted }}>{t.total > 0 ? "+" : ""}{t.total}pts</div>
                       {t.bonusPts !== 0 && <div style={{ fontSize: 10, color: t.bonusPts > 0 ? C.gold : C.red }}>{t.bonusPts > 0 ? "+" : ""}{t.bonusPts} bonus</div>}
+                      {t.clPts ? <div style={{ fontSize: 10, color: t.clPts > 0 ? C.gold : C.red }}>{t.clPts > 0 ? "+" : ""}{t.clPts} 🏆</div> : null}
                     </div>
                     {onTeamClick && <span aria-hidden="true" style={{ marginLeft: 8, color: C.muted, fontSize: 18, lineHeight: 1, flexShrink: 0 }}>›</span>}
                   </div>
@@ -536,7 +537,12 @@
       const wdl = teamEntry || (typeof deriveLeagueWDL === "function" ? deriveLeagueWDL(matches, teamId) : { w: 0, d: 0, l: 0 });
       const matchPts = teamEntry ? teamEntry.matchPts : (typeof lgTeamMatchPts === "function" ? lgTeamMatchPts(matches, teamId) : 0);
       const bonusPts = teamEntry ? teamEntry.bonusPts : (typeof leagueBonusPts === "function" ? leagueBonusPts(teamId, outcomes) : 0);
-      const totalPts = matchPts + bonusPts;
+      // Champions League overlay gamble (from the scored entry if owned, else computed).
+      const clProg = (!teamEntry && typeof deriveCLProgress === "function") ? deriveCLProgress(matches) : null;
+      const clPts = teamEntry ? (teamEntry.clPts || 0) : (clProg && typeof clGamblePts === "function" ? clGamblePts(teamId, clProg) : 0);
+      const clOutcome = teamEntry ? (teamEntry.clOutcome || null) : (clProg ? (clProg[teamId] || null) : null);
+      const clLabel = (typeof CL_OUTCOME_LABEL !== "undefined" && clOutcome) ? (CL_OUTCOME_LABEL[clOutcome] || clOutcome) : clOutcome;
+      const totalPts = matchPts + bonusPts + clPts;
       const outcome = outcomes[teamId] ? outcomes[teamId].outcome : null;
       const table = team ? tables[team.league] || [] : [];
       const posIdx = table.findIndex(r => r.teamId === teamId);
@@ -602,6 +608,20 @@
                 <div style={{ fontSize: 10, color: C.muted }}>Season bonus · not tied to one game</div>
               </div>
               <div style={{ fontSize: 13, fontWeight: 800, color: bonusPts > 0 ? C.accent : C.red, flexShrink: 0 }}>{bonusPts > 0 ? "+" : ""}{bonusPts} pts</div>
+            </div>
+          )}
+          {clOutcome && (
+            <div style={{
+              display: "flex", alignItems: "center", gap: 8, padding: "9px 10px", marginBottom: 8, borderRadius: 8,
+              border: `1px solid ${clPts >= 0 ? "rgba(34,197,94,0.25)" : "rgba(241,90,90,0.25)"}`,
+              background: clPts >= 0 ? "rgba(34,197,94,0.07)" : "rgba(241,90,90,0.06)",
+            }}>
+              <div style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0, background: clPts >= 0 ? C.posBg : C.negBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>🏆</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{clLabel}</div>
+                <div style={{ fontSize: 10, color: C.muted }}>Champions League gamble · by pot</div>
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: clPts >= 0 ? C.accent : C.red, flexShrink: 0 }}>{clPts > 0 ? "+" : ""}{clPts} pts</div>
             </div>
           )}
           {teamMatches.length === 0 ? (
@@ -1571,7 +1591,7 @@
                           {own
                             ? <span><span style={{ fontWeight: 700, fontSize: 14 }}>{own}</span> <span style={{ fontSize: 12, color: C.muted }}>{teamName(r.teamId)}</span></span>
                             : <span style={{ fontSize: 13, color: C.muted }}>{teamName(r.teamId)}</span>}
-                          {o && outcomeChip(o.outcome)}
+                          {o && o.comp === comp && outcomeChip(o.outcome)}
                         </span>
                       </td>
                       <td style={td}>{r.played}</td>
@@ -1643,48 +1663,53 @@
           ))}
         </div>
       );
+      const topLeagues = typeof LEAGUE_COMPETITIONS !== "undefined"
+        ? Object.keys(LEAGUE_COMPETITIONS).filter(c => LEAGUE_COMPETITIONS[c].type === "top") : [];
+      const refLg = topLeagues[0];
+      const clGamble = typeof CL_GAMBLE !== "undefined" ? CL_GAMBLE : null;
+      const clLabel = typeof CL_OUTCOME_LABEL !== "undefined" ? CL_OUTCOME_LABEL : {};
       return (
         <div>
           <div style={section}>
             <div style={h}>How it works</div>
             <div style={{ fontSize: 12, color: C.dim, lineHeight: 1.5 }}>
-              Every player owns an equal number of Premier League and Championship
-              teams. Wins and draws earn points by pot, and each team banks one
-              flat bonus for the best thing it achieves all season — title, top 4,
-              promotion, playoffs — or a penalty for relegation, awarded the moment
-              it's mathematically certain. Values are calibrated so no pot is a
-              better deal than any other: underdogs pay more per win, favourites
-              chase the big season bonuses.
+              Every player owns teams spread across Europe's five biggest leagues —
+              the Premier League, La Liga, Serie A, Bundesliga and Ligue 1. Wins and
+              draws earn points by pot, and each team banks one flat bonus for the
+              best thing it achieves — title, top 4, European place — or a penalty
+              for relegation, the moment it's mathematically certain. Own a club
+              that's also in the <strong>Champions League</strong> and it becomes a
+              gamble: a deep run pays out, but a big favourite crashing out early
+              costs you points.
             </div>
           </div>
           <div style={section}>
             <div style={h}>The pots</div>
-            {potTable("PL", "Premier League")}
-            {potTable("ELC", "Championship")}
+            {topLeagues.map(c => potTable(c, LEAGUE_COMPETITIONS[c].label))}
           </div>
-          {matchPts && (
+          {matchPts && refLg && (
             <div style={section}>
-              <div style={h}>Match points</div>
+              <div style={h}>Match points <span style={{ fontSize: 11, fontWeight: 500, color: C.muted }}>· same in every league</span></div>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead><tr><th style={{ ...th, textAlign: "left" }}></th>{[1, 2, 3, 4].map(p => <th key={p} style={{ ...th, color: POT_COLORS[p] }}>P{p}</th>)}</tr></thead>
                 <tbody>
-                  {["PL", "ELC"].map(lg => ["win", "draw"].map(kind => (
-                    <tr key={lg + kind} style={{ borderTop: `1px solid ${C.border}` }}>
-                      <td style={{ ...td, textAlign: "left", color: C.dim }}>{lg} {kind}</td>
-                      {matchPts[lg][kind].map((v, i) => <td key={i} style={td}>{v}</td>)}
+                  {["win", "draw"].map(kind => (
+                    <tr key={kind} style={{ borderTop: `1px solid ${C.border}` }}>
+                      <td style={{ ...td, textAlign: "left", color: C.dim, textTransform: "capitalize" }}>{kind}</td>
+                      {matchPts[refLg][kind].map((v, i) => <td key={i} style={td}>{v}</td>)}
                     </tr>
-                  )))}
+                  ))}
                 </tbody>
               </table>
             </div>
           )}
-          {bonus && ["PL", "ELC"].map(lg => (
-            <div key={lg} style={section}>
-              <div style={h}>{compLabel(lg)} season bonuses</div>
+          {bonus && refLg && (
+            <div style={section}>
+              <div style={h}>Season bonuses <span style={{ fontSize: 11, fontWeight: 500, color: C.muted }}>· same in every league</span></div>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead><tr><th style={{ ...th, textAlign: "left" }}></th>{[1, 2, 3, 4].map(p => <th key={p} style={{ ...th, color: POT_COLORS[p] }}>P{p}</th>)}</tr></thead>
                 <tbody>
-                  {Object.entries(bonus[lg]).map(([k, vals]) => (
+                  {Object.entries(bonus[refLg]).map(([k, vals]) => (
                     <tr key={k} style={{ borderTop: `1px solid ${C.border}` }}>
                       <td style={{ ...td, textAlign: "left", color: C.dim }}>{(typeof LEAGUE_OUTCOME_LABEL !== "undefined" && LEAGUE_OUTCOME_LABEL[k]) || k}</td>
                       {vals.map((v, i) => <td key={i} style={{ ...td, color: v < 0 ? C.dangerText : C.text }}>{v}</td>)}
@@ -1693,7 +1718,28 @@
                 </tbody>
               </table>
             </div>
-          ))}
+          )}
+          {clGamble && (
+            <div style={section}>
+              <div style={h}>🏆 Champions League gamble</div>
+              <div style={{ fontSize: 12, color: C.dim, lineHeight: 1.5, marginBottom: 8 }}>
+                Laid on top of a club's league points, by its <em>domestic</em> pot.
+                A Pot 1 favourite earns little for a deep run and loses points for an
+                early exit; a lower-pot side is mostly upside.
+              </div>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead><tr><th style={{ ...th, textAlign: "left" }}></th>{[1, 2, 3, 4].map(p => <th key={p} style={{ ...th, color: POT_COLORS[p] }}>P{p}</th>)}</tr></thead>
+                <tbody>
+                  {Object.entries(clGamble).map(([k, vals]) => (
+                    <tr key={k} style={{ borderTop: `1px solid ${C.border}` }}>
+                      <td style={{ ...td, textAlign: "left", color: C.dim }}>{clLabel[k] || k}</td>
+                      {vals.map((v, i) => <td key={i} style={{ ...td, color: v < 0 ? C.dangerText : C.text }}>{v > 0 ? "+" + v : v}</td>)}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
           <div style={section}>
             <div style={h}>💀 The Grim Reaper</div>
             <div style={{ fontSize: 12, color: C.dim, lineHeight: 1.5 }}>

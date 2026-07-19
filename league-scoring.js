@@ -26,17 +26,23 @@ var LEAGUE_WORKER_URL = "https://football-proxy.joshmacklin7.workers.dev";
 var LEAGUE_SEASON = 2025;
 
 // `type` selects the season-outcome shape (see deriveSeasonOutcomes):
-//   "top"    → WINNER / TOP_4 / TOP_7 / RELEGATED (a country's first tier)
-//   "second" → WINNER / PROMOTED / PLAYOFFS / RELEGATED (English second tier)
-// The four continental leagues were added alongside PL+ELC (football-data.org
-// free tier covers all six). Order here is the order of the Leagues-tab pills.
+//   "top" → WINNER / TOP_4 / TOP_7 / RELEGATED (a country's first tier)
+//   "cup" → no league outcomes; scored as an overlay gamble (Champions League)
+// The pool is the five biggest European first divisions plus the Champions
+// League as an overlay. (The English Championship used to be here too; it was
+// dropped when the continental leagues came in.) Order = Leagues-tab pill order.
 var LEAGUE_COMPETITIONS = {
   PL:  { code: "PL",  label: "Premier League", games: 38, size: 20, potSize: 5, relegated: 3, type: "top" },
-  ELC: { code: "ELC", label: "Championship",   games: 46, size: 24, potSize: 6, relegated: 3, type: "second" },
   PD:  { code: "PD",  label: "La Liga",        games: 38, size: 20, potSize: 5, relegated: 3, type: "top" },
   SA:  { code: "SA",  label: "Serie A",        games: 38, size: 20, potSize: 5, relegated: 3, type: "top" },
   BL1: { code: "BL1", label: "Bundesliga",     games: 34, size: 18, potSize: 5, relegated: 3, type: "top" },
   FL1: { code: "FL1", label: "Ligue 1",        games: 34, size: 18, potSize: 5, relegated: 3, type: "top" },
+  // Champions League — a knockout competition, not a domestic table, and NOT a
+  // separate draft: owning a club that also plays in the CL is a pot-relative
+  // GAMBLE laid on top of its league points (see CL_GAMBLE / deriveCLProgress).
+  // type "cup" makes deriveSeasonOutcomes skip it; the Leagues tab still shows
+  // its league phase as a table.
+  CL:  { code: "CL",  label: "Champions League", type: "cup", size: 36 },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -272,11 +278,10 @@ function leagueCrest(teamId) {
 // ─────────────────────────────────────────────────────────────────────────────
 var LEAGUE_MATCH_PTS = {
   PL:  { win: [4, 5, 6, 9], draw: [1, 2, 2, 3] },
-  ELC: { win: [4, 5, 5, 5], draw: [2, 3, 3, 3] },
   // The four continental top flights reuse the PL matrix — same competition
   // shape (a first tier with a clear top quartile), and the PL calibration
   // scripts need the API to re-fit per league. Refine once per-league W/D/L
-  // rates are available.
+  // rates are available. (The Championship's ELC matrix was removed with it.)
   PD:  { win: [4, 5, 6, 9], draw: [1, 2, 2, 3] },
   SA:  { win: [4, 5, 6, 9], draw: [1, 2, 2, 3] },
   BL1: { win: [4, 5, 6, 9], draw: [1, 2, 2, 3] },
@@ -291,13 +296,6 @@ var LEAGUE_BONUS = {
     TOP_4:     [40, 120, 250, 500],   // Champions League places
     TOP_7:     [15, 50, 100, 200],    // European places
     RELEGATED: [-120, -60, -30, -10],
-  },
-  ELC: {
-    WINNER:        [80, 200, 400, 800],   // Championship champions
-    PROMOTED:      [60, 120, 180, 180],   // 2nd place or playoff final winners
-    PLAYOFF_FINAL: [35, 100, 120, 150],   // lost the playoff final
-    PLAYOFFS:      [15, 60, 80, 80],      // finished 3rd-6th
-    RELEGATED:     [-100, -40, -15, -10],
   },
   // Continental top flights share the PL bonus shape (title / top 4 / European
   // places / relegation). TOP_4 and TOP_7 stand in for each league's European
@@ -315,39 +313,68 @@ var LEAGUE_OUTCOME_LABEL = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// CHAMPIONS LEAGUE — the overlay gamble
+//
+// Owning a club that ALSO plays in the Champions League is a bet, not free
+// points. The payoff is relative to the club's DOMESTIC pot: a Pot-1 favourite
+// is expected to go deep, so it only earns a modest bonus for doing so and a
+// real DEDUCTION if it flops early; a lower-pot side is playing with house
+// money, so any run is upside and an early exit barely stings. Applied on top
+// of the club's league points (deriveCLProgress → clGamblePts), so a big club
+// that wins its league but bombs in Europe can still bleed points.
+//
+// Rows = furthest CL stage reached; columns = the club's domestic pot (1-4).
+// Values are hand-set for feel (the API-fit calibration scripts don't cover a
+// knockout cup) — tune freely.
+var CL_GAMBLE = {
+  WINNER:      [120, 220, 360, 500],  // won the final
+  FINAL:       [70, 140, 250, 380],   // runner-up
+  SEMI:        [35, 90, 170, 280],    // lost in the semis
+  QF:          [10, 45, 110, 200],    // lost in the quarters
+  R16:         [-15, 15, 60, 130],    // lost in the round of 16
+  PLAYOFF:     [-45, -10, 30, 90],    // lost the knockout play-off round
+  LEAGUE_EXIT: [-90, -50, -10, 20],   // eliminated in the league phase
+};
+
+var CL_OUTCOME_LABEL = {
+  WINNER: "CL winners", FINAL: "CL final", SEMI: "CL semis", QF: "CL quarters",
+  R16: "CL last 16", PLAYOFF: "CL play-off", LEAGUE_EXIT: "CL group exit",
+};
+
+// football-data.org stage → depth rank (higher = further). Synonyms included
+// because the API's labels have drifted across seasons/competitions.
+var CL_STAGE_RANK = {
+  LEAGUE_STAGE: 0, LEAGUE_PHASE: 0, GROUP_STAGE: 0, REGULAR_SEASON: 0,
+  PLAYOFFS: 1, PLAY_OFFS: 1, PLAYOFF_ROUND: 1, KNOCKOUT_PLAYOFFS: 1, PRELIMINARY_ROUND: 1,
+  LAST_16: 2, ROUND_OF_16: 2,
+  QUARTER_FINALS: 3, QUARTER_FINAL: 3,
+  SEMI_FINALS: 4, SEMI_FINAL: 4,
+  FINAL: 5,
+};
+var CL_RANK_OUTCOME = ["LEAGUE_EXIT", "PLAYOFF", "R16", "QF", "SEMI", "FINAL"];
+
+// ─────────────────────────────────────────────────────────────────────────────
 // GROUPS / PLAYERS
 //
 // Same multi-group pattern as the WC app: LEAGUE_PLAYERS is a mutable global
 // reassigned by the group gate before first render. Players hold team ids
-// (not TLAs). Every player must own an EQUAL number of PL and ELC teams —
-// the Championship's 46 games vs the PL's 38 would otherwise skew match
-// points toward Championship-heavy rosters.
+// (not TLAs), drawn from the five top divisions; the draw spreads pots evenly
+// so no one is loaded with weak teams.
 //
-// RODENTS: same crew as the WC app's Rodents group (8 players, Josh as the
-// Grim Reaper). 4 teams each (2 PL + 2 ELC), pot-balanced so everyone holds
-// exactly one team from each pot (a P1+P4 pair in one league, P2+P3 in the
-// other), snake-paired best-with-worst within the composite ranking. This is
-// a PLACEHOLDER draw for testing — the real draw happens before kickoff.
-// Unowned: PL Chelsea/Sunderland/Brentford/Fulham; ELC Millwall/Boro/
-// Wrexham/Portsmouth/West Brom/Preston/Watford/Derby.
+// Every group — RODENTS included — now lists players only; their league teams
+// are drawn on demand by lgEnsureTeams (deterministic per group code, pot-
+// balanced, teams split evenly with any remainder left unowned). Families/bots
+// are flattened to plain players since the league app has no family view.
 // ─────────────────────────────────────────────────────────────────────────────
-// Rosters mirror the World Cup app's GROUPS (scoring.js). RODENTS carries a
-// hand-drafted league team assignment (teamIds); the other groups list players
-// only — their league teams are drawn on demand by lgEnsureTeams (deterministic
-// per group code, pots spread evenly). Families/bots are flattened to plain
-// players since the league app has no family view.
 var LEAGUE_GROUPS = {
   RODENTS: {
+    // Re-drawn by lgEnsureTeams from the five-league pool. The old hand-draft
+    // held Championship teams, which left the pool when it was dropped, so the
+    // placeholder assignment is gone; the real draft happens before kickoff.
     code: "RODENTS", label: "Rodents",
     players: [
-      { name: "George",    teamIds: [57, 322, 356, 332] },   // ARS HUL | SHU BIR
-      { name: "Christoph", teamIds: [65, 1076, 68, 70] },    // MCI COV | NOR STK
-      { name: "Sam",       teamIds: [64, 349, 387, 59] },    // LIV IPS | BRC BLA
-      { name: "Toby",      teamIds: [58, 341, 72, 69] },     // AVL LEE | SWA QPR
-      { name: "Dollie",    teamIds: [66, 73, 563, 1126] },   // MUN TOT | WHU LIN
-      { name: "Elliott",   teamIds: [1044, 351, 76, 60] },   // BOU NOT | WOL BOL
-      { name: "Paul",      teamIds: [397, 354, 328, 348] },  // BHA CRY | BUR CHA
-      { name: "Auz",       teamIds: [67, 62, 340, 715] },    // NEW EVE | SOU CAR
+      { name: "George" }, { name: "Christoph" }, { name: "Sam" }, { name: "Toby" },
+      { name: "Dollie" }, { name: "Elliott" }, { name: "Paul" }, { name: "Auz" },
       { name: "Josh", grimReaper: true },
     ],
   },
@@ -512,8 +539,14 @@ function lgResultFor(m, teamId) {
 }
 
 function lgRegularSeason(matches, compCode) {
+  var cfg = (typeof LEAGUE_COMPETITIONS !== "undefined") ? LEAGUE_COMPETITIONS[compCode] : null;
+  var isCup = cfg && cfg.type === "cup";
   return matches.filter(function (m) {
-    return m.competition && m.competition.code === compCode && m.stage === "REGULAR_SEASON";
+    if (!m.competition || m.competition.code !== compCode) return false;
+    // A cup's "regular season" is its league phase — everything that isn't a
+    // knockout round (rank >= 1). Domestic leagues use the API's REGULAR_SEASON.
+    if (isCup) return !(CL_STAGE_RANK[m.stage] >= 1);
+    return m.stage === "REGULAR_SEASON";
   });
 }
 
@@ -576,6 +609,7 @@ function deriveSeasonOutcomes(matches) {
 
   Object.keys(LEAGUE_COMPETITIONS).forEach(function (comp) {
     var cfg = LEAGUE_COMPETITIONS[comp];
+    if (cfg.type === "cup") return; // Champions League scored via deriveCLProgress, not here
     var table = deriveLeagueTable(matches, comp);
     if (table.length === 0) return;
     var complete = table.length >= cfg.size && table.every(function (r) { return r.played >= cfg.games; });
@@ -673,6 +707,61 @@ function leagueBonusPts(teamId, outcomes) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// deriveCLProgress(matches) → { [teamId]: CL_OUTCOME }
+//
+// The furthest Champions League stage each club has reached. Deep runs (>= QF)
+// are credited on reaching the stage; earlier exits (league phase / play-off /
+// R16) are only credited once the tournament has FINISHED a later round, so a
+// club still alive mid-competition isn't prematurely scored as "out". For a
+// completed season (the replay) every club gets its true final stage.
+// ─────────────────────────────────────────────────────────────────────────────
+function deriveCLProgress(matches) {
+  var cl = matches.filter(function (m) {
+    return m.competition && m.competition.code === "CL" &&
+      m.homeTeam && m.homeTeam.id && m.awayTeam && m.awayTeam.id;
+  });
+  if (cl.length === 0) return {};
+  function rankOf(m) { var r = CL_STAGE_RANK[m.stage]; return typeof r === "number" ? r : 0; }
+
+  var maxFinishedRank = 0;
+  cl.forEach(function (m) { if (m.status === "FINISHED") maxFinishedRank = Math.max(maxFinishedRank, rankOf(m)); });
+
+  var furthest = {}; // id → furthest stage rank reached (any status = drawn into it)
+  cl.forEach(function (m) {
+    var r = rankOf(m);
+    [m.homeTeam.id, m.awayTeam.id].forEach(function (id) {
+      if (furthest[id] == null || r > furthest[id]) furthest[id] = r;
+    });
+  });
+
+  // Champion = winner of the latest FINISHED final.
+  var finalWin = cl.filter(function (m) {
+    return rankOf(m) === 5 && m.status === "FINISHED" && m.score && m.score.winner && m.score.winner !== "DRAW";
+  }).sort(function (a, b) { return b.utcDate.localeCompare(a.utcDate); })[0];
+  var champion = finalWin ? (finalWin.score.winner === "HOME_TEAM" ? finalWin.homeTeam.id : finalWin.awayTeam.id) : null;
+
+  var out = {};
+  Object.keys(furthest).forEach(function (key) {
+    var id = Number(key), r = furthest[id];
+    if (r === 5) { out[id] = (champion === id) ? "WINNER" : "FINAL"; return; }
+    // An early-stage exit only counts once a later round has actually finished
+    // (confirming elimination); QF/SF are positive milestones, credited on reach.
+    if (r < 3 && maxFinishedRank <= r) return;
+    out[id] = CL_RANK_OUTCOME[r];
+  });
+  return out;
+}
+
+// Pot-relative gamble points for one club's CL run (0 if it isn't in the CL).
+function clGamblePts(teamId, clProgress) {
+  var o = clProgress && clProgress[teamId];
+  var team = LEAGUE_TEAMS[teamId];
+  if (!o || !team) return 0;
+  var row = CL_GAMBLE[o];
+  return row ? (row[team.pot - 1] || 0) : 0;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // deriveLeagueWDL / deriveLeagueMatchPts
 // ─────────────────────────────────────────────────────────────────────────────
 function deriveLeagueWDL(matches, teamId) {
@@ -729,6 +818,7 @@ function lgGoalDroughtPts(m, players) {
 // ─────────────────────────────────────────────────────────────────────────────
 function scoreLeaguePlayers(matches) {
   var outcomes = deriveSeasonOutcomes(matches);
+  var clProgress = deriveCLProgress(matches);
   var ranked = LEAGUE_PLAYERS.map(function (p) {
     if (p.grimReaper) {
       var bounty = 0;
@@ -748,12 +838,14 @@ function scoreLeaguePlayers(matches) {
       var wdl = deriveLeagueWDL(matches, id);
       var matchPts = lgTeamMatchPts(matches, id);
       var bonusPts = leagueBonusPts(id, outcomes);
+      var clPts = clGamblePts(id, clProgress);
       return {
         teamId: id, tla: t.tla, name: t.name, pot: t.pot, league: t.league,
         w: wdl.w, d: wdl.d, l: wdl.l,
         matchPts: matchPts, bonusPts: bonusPts,
+        clPts: clPts, clOutcome: clProgress[id] || null,
         outcome: outcomes[id] ? outcomes[id].outcome : null,
-        total: matchPts + bonusPts,
+        total: matchPts + bonusPts + clPts,
       };
     });
     var w = 0, d = 0, l = 0, total = 0;
@@ -806,6 +898,7 @@ function deriveLeagueHistory(matches) {
           if (!t) return;
           var r = lgResultFor(m, id);
           var pts = LEAGUE_MATCH_PTS[t.league];
+          if (!pts) return; // team not in a scoring league (e.g. replay-only Championship/L1 sides)
           if (r === "W") matchPts[id] = (matchPts[id] || 0) + pts.win[t.pot - 1];
           else if (r === "D") matchPts[id] = (matchPts[id] || 0) + pts.draw[t.pot - 1];
         });
@@ -813,6 +906,7 @@ function deriveLeagueHistory(matches) {
       }
     }
     var outcomes = deriveSeasonOutcomes(current);
+    var clProg = deriveCLProgress(current);
     frames.push(day);
     LEAGUE_PLAYERS.forEach(function (p) {
       if (p.grimReaper) {
@@ -823,7 +917,7 @@ function deriveLeagueHistory(matches) {
       }
       var total = 0;
       (p.teamIds || []).forEach(function (id) {
-        total += (matchPts[id] || 0) + leagueBonusPts(id, outcomes);
+        total += (matchPts[id] || 0) + leagueBonusPts(id, outcomes) + clGamblePts(id, clProg);
       });
       history[p.name].push(total);
     });
@@ -865,15 +959,17 @@ function deriveLeagueTeamHistory(matches) {
           if (!t) return;
           var r = lgResultFor(m, id);
           var pts = LEAGUE_MATCH_PTS[t.league];
+          if (!pts) return; // team not in a scoring league (e.g. replay-only Championship/L1 sides)
           if (r === "W") matchPts[id] = (matchPts[id] || 0) + pts.win[t.pot - 1];
           else if (r === "D") matchPts[id] = (matchPts[id] || 0) + pts.draw[t.pot - 1];
         });
       }
     }
     var outcomes = deriveSeasonOutcomes(current);
+    var clProg = deriveCLProgress(current);
     frames.push(day);
     Object.keys(LEAGUE_TEAMS).forEach(function (id) {
-      history[id].push((matchPts[id] || 0) + leagueBonusPts(Number(id), outcomes));
+      history[id].push((matchPts[id] || 0) + leagueBonusPts(Number(id), outcomes) + clGamblePts(Number(id), clProg));
     });
   });
   return { frames: frames, history: history };
