@@ -1,0 +1,18 @@
+# Sweepstaker League — draft backend Worker.
+# Deploy with:  npx wrangler deploy   (run inside this worker/ folder)
+# This is a SEPARATE Worker from football-proxy; deploying it does not touch
+# the match-data / push service.
+
+name = "sweepstaker-league"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+
+# One Durable Object class holds each league's authoritative state.
+[[durable_objects.bindings]]
+name = "LEAGUE"
+class_name = "League"
+
+# SQLite-backed Durable Objects are available on the free Workers plan.
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["League"]
