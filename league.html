@@ -3001,20 +3001,136 @@
       if (state.status === "lobby") {
         return <Lobby state={state} session={session} isHost={isHost} connected={connected} onStart={start} onLeave={onLeave} />;
       }
-      if (state.status === "drafting") {
-        return <GateShell>
-          <div style={{ fontSize: 15, fontWeight: 800, marginTop: 14 }}>{state.name}</div>
-          <div style={{ color: C.muted, fontSize: 13, margin: "10px 0 6px" }}>The draft is under way. The live picking board is the next phase.</div>
-          <div style={{ fontSize: 12, color: C.dim }}>Pick {state.turnNo + 1} of {state.totalPicks}.</div>
-          <button onClick={onLeave} style={{ marginTop: 22, background: "none", border: "none", color: C.muted, fontSize: 13, cursor: "pointer" }}>Leave</button>
-        </GateShell>;
-      }
-      // complete
-      return <GateShell>
-        <div style={{ fontSize: 15, fontWeight: 800, marginTop: 14 }}>{state.name}</div>
-        <div style={{ color: C.muted, fontSize: 13, margin: "10px 0" }}>The draft is done. Standings hook up in a later phase.</div>
-        <button onClick={onLeave} style={{ marginTop: 8, background: "none", border: "none", color: C.muted, fontSize: 13, cursor: "pointer" }}>Leave</button>
-      </GateShell>;
+      // drafting or complete → the draft board
+      return <Draft state={state} session={session} onLeave={onLeave} />;
+    }
+
+    // ── live draft board: snake/ABBA picks, roster shrinks in real time ─────
+    function Draft({ state, session, onLeave }) {
+      const [picking, setPicking] = useState(false);
+      const [pickErr, setPickErr] = useState("");
+      const isComplete = state.status === "complete";
+      const P = state.order.length || 1;
+
+      const teamMeta = (id) => (typeof LEAGUE_TEAMS !== "undefined" && LEAGUE_TEAMS[id]) ? LEAGUE_TEAMS[id] : { name: "#" + id, tla: "", league: "", pot: 0 };
+      const nameOf = (pid) => { const p = state.players.find(x => x.id === pid); return p ? p.name : "—"; };
+
+      // The roster pool is derived from the competitions on every client — same
+      // function, same LEAGUE_TEAMS data, so everyone renders an identical board.
+      const poolIds = useMemo(() => (typeof lgPoolTeamIds === "function" ? lgPoolTeamIds(state.competitions) : []), [(state.competitions || []).join(",")]);
+      const pickedIds = useMemo(() => new Set(state.picks.map(p => p.teamId)), [state.picks]);
+      const available = poolIds.filter(id => !pickedIds.has(id));
+
+      const isMyTurn = !isComplete && state.currentPlayerId === session.playerId;
+      const round = Math.floor(state.turnNo / P) + 1;
+
+      const squadOf = {};
+      state.order.forEach(pid => { squadOf[pid] = []; });
+      state.picks.forEach(pk => { (squadOf[pk.playerId] = squadOf[pk.playerId] || []).push(pk.teamId); });
+
+      const byComp = {};
+      available.forEach(id => { const t = teamMeta(id); (byComp[t.league] = byComp[t.league] || []).push(id); });
+      const compOrder = Object.keys(byComp).sort();
+      compOrder.forEach(c => byComp[c].sort((a, b) => { const ta = teamMeta(a), tb = teamMeta(b); return (ta.pot - tb.pot) || ta.name.localeCompare(tb.name); }));
+
+      const pick = async (teamId) => {
+        if (!isMyTurn || picking) return;
+        setPicking(true); setPickErr("");
+        try {
+          const res = await fetch(`${leagueApiBase()}/league/${state.code}/pick`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token: session.token, teamId, expectedTurnNo: state.turnNo }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            const m = String(data.error || "");
+            setPickErr(m === "taken" ? "Someone just took that team."
+              : (m === "not_your_turn" || m === "stale_turn") ? "The turn just moved on — hang on for yours."
+              : "Couldn't pick — try again.");
+          }
+          // On success the WebSocket broadcast refreshes the board for everyone.
+        } catch (e) { setPickErr("Couldn't reach the league — try again."); }
+        finally { setPicking(false); }
+      };
+
+      return <div style={{ maxWidth: 560, margin: "0 auto", padding: "24px 16px 48px" }}>
+        <div style={{ textAlign: "center", marginBottom: 10 }}>
+          <div style={{ fontSize: 18, fontWeight: 800 }}>{state.name}</div>
+          <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
+            {isComplete ? "Draft complete" : `Round ${round} of ${state.perPlayer} · pick ${state.turnNo + 1} of ${state.totalPicks}`}
+          </div>
+        </div>
+
+        {!isComplete && (
+          <div style={{ textAlign: "center", padding: "12px 14px", borderRadius: 12, marginBottom: 14, fontWeight: 700, fontSize: 14,
+            background: isMyTurn ? C.accent : C.card, color: isMyTurn ? C.bg : C.text, border: `1px solid ${isMyTurn ? C.accent : C.border}` }}>
+            {isMyTurn ? "Your pick — tap a team" : `${nameOf(state.currentPlayerId)} is picking…`}
+          </div>
+        )}
+        {pickErr && <div style={{ textAlign: "center", color: C.dangerTextBright, fontSize: 12, marginBottom: 10 }}>{pickErr}</div>}
+
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center", marginBottom: 18 }}>
+          {state.order.map(pid => {
+            const cur = !isComplete && pid === state.currentPlayerId;
+            const mine = pid === session.playerId;
+            return <span key={pid} style={{ fontSize: 12, fontWeight: 700, padding: "5px 10px", borderRadius: 999,
+              background: cur ? C.accent : "transparent", color: cur ? C.bg : (mine ? C.text : C.muted),
+              border: `1px solid ${cur ? C.accent : C.border}` }}>{nameOf(pid)}{mine ? " (you)" : ""} · {(squadOf[pid] || []).length}</span>;
+          })}
+        </div>
+
+        {!isComplete && (
+          <div style={{ marginBottom: 22 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.dim, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>Available ({available.length})</div>
+            {compOrder.map(c => (
+              <div key={c} style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, marginBottom: 8 }}>{compLabelOf(c)}</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 8 }}>
+                  {byComp[c].map(id => {
+                    const t = teamMeta(id);
+                    return <button key={id} onClick={() => pick(id)} disabled={!isMyTurn || picking} style={{
+                      textAlign: "left", padding: "10px 12px", borderRadius: 10, cursor: (isMyTurn && !picking) ? "pointer" : "default",
+                      background: C.card, color: C.text, border: `1px solid ${C.border}`, opacity: isMyTurn ? 1 : 0.7,
+                      display: "flex", flexDirection: "column", gap: 2 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700 }}>{t.name}</span>
+                      <span style={{ fontSize: 11, color: C.muted }}>Pot {t.pot}</span>
+                    </button>;
+                  })}
+                </div>
+              </div>
+            ))}
+            {available.length === 0 && <div style={{ fontSize: 13, color: C.muted }}>All draftable teams have been picked.</div>}
+          </div>
+        )}
+
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.dim, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>Squads</div>
+          {state.order.map(pid => (
+            <div key={pid} style={{ padding: "12px 14px", background: C.card, border: `1px solid ${pid === session.playerId ? C.accent : C.border}`, borderRadius: 10, marginBottom: 8 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 6 }}>{nameOf(pid)}{pid === session.playerId ? " (you)" : ""} <span style={{ color: C.muted, fontWeight: 500 }}>· {(squadOf[pid] || []).length}</span></div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {(squadOf[pid] || []).length === 0
+                  ? <span style={{ fontSize: 12, color: C.muted }}>No picks yet</span>
+                  : squadOf[pid].map(id => <span key={id} style={{ fontSize: 12, fontWeight: 600, padding: "4px 8px", borderRadius: 6, background: C.surface, border: `1px solid ${C.border}` }}>{teamMeta(id).name}</span>)}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {isComplete && available.length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.dim, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>Unassigned ({available.length})</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {available.map(id => <span key={id} style={{ fontSize: 12, fontWeight: 600, padding: "4px 8px", borderRadius: 6, background: C.surface, border: `1px solid ${C.border}`, color: C.muted }}>{teamMeta(id).name}</span>)}
+            </div>
+          </div>
+        )}
+
+        {isComplete && <div style={{ textAlign: "center", fontSize: 12, color: C.dim, marginBottom: 16 }}>Standings &amp; scoring hook up next.</div>}
+        <div style={{ textAlign: "center" }}>
+          <button onClick={onLeave} style={{ background: "none", border: "none", color: C.muted, fontSize: 13, cursor: "pointer" }}>Leave league</button>
+        </div>
+      </div>;
     }
 
     function Lobby({ state, session, isHost, connected, onStart, onLeave }) {
