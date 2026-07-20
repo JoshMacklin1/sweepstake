@@ -111,110 +111,111 @@ var LEAGUE_TEAMS = {
   60:   { id: 60,   name: "Bolton",          tla: "BOL", league: "ELC", pot: 4, p25: { league: "L1", pot: 4 } },
   1126: { id: 1126, name: "Lincoln City",    tla: "LIN", league: "ELC", pot: 4, p25: { league: "L1", pot: 4 } },
 
-  // ── CONTINENTAL LEAGUES (added to the pool alongside PL+ELC) ──────────────
-  // These four rosters are the 2025-26 season composition (the season the app
-  // currently runs, LEAGUE_SEASON = 2025) seeded into pots by finishing rank —
-  // La Liga's pots are its EXACT final table; Serie A / Bundesliga / Ligue 1
-  // pots are seeded from the confirmed 2025-26 European + relegation places
-  // plus recent strength (full mid-table order wasn't retrievable when this was
-  // built). No p25 overrides: unlike PL/ELC these are keyed straight to 2025-26,
-  // so refresh rosters + pots when flipping LEAGUE_SEASON to 2026-27.
-  //
-  // IDs are football-data.org numeric ids. Every table renders correctly from
-  // live match data regardless (deriveLeagueTable + teamName fall back to the
-  // API's own team names), so an id only affects pot colour / crest / ownership
-  // / draw eligibility. IDs marked VERIFY are lower-confidence — spot-check on
-  // the live site (a team showing its plain name with no crest = id miss).
-  // Deliberately OMITTED until their id is confirmed (they still appear in the
-  // live table as unowned rows, just not yet drawable):
-  //   La Liga: Real Oviedo · Serie A: Pisa, Cremonese ·
-  //   Bundesliga: Hamburger SV, Heidenheim ·
-  //   Ligue 1: Auxerre, Le Havre, Angers, Lorient, Paris FC, Metz
+  // ── CONTINENTAL LEAGUES — the five biggest European first divisions. Rosters
+  //    below are the REAL 2025-26 final tables (football-data.org numeric ids),
+  //    with pots = quartiles by finishing position. No p25 overrides — keyed
+  //    straight to 2025-26; refresh when flipping LEAGUE_SEASON to 2026-27. The
+  //    Champions League is an overlay (see CL_GAMBLE), not a roster here.
 
-  // La Liga — Pot 1 (2025-26 final table, exact)
-  81:   { id: 81,   name: "Barcelona",       tla: "BAR", league: "PD",  pot: 1 },
-  86:   { id: 86,   name: "Real Madrid",     tla: "RMA", league: "PD",  pot: 1 },
-  94:   { id: 94,   name: "Villarreal",      tla: "VIL", league: "PD",  pot: 1 },
-  78:   { id: 78,   name: "Atlético Madrid", tla: "ATM", league: "PD",  pot: 1 },
-  90:   { id: 90,   name: "Real Betis",      tla: "BET", league: "PD",  pot: 1 },
+  // La Liga — real 2025-26 final table; pots = quartiles by finish
+  // La Liga — Pot 1
+  81:   { id: 81,   name: "Barcelona",         tla: "BAR", league: "PD", pot: 1 },
+  86:   { id: 86,   name: "Real Madrid",       tla: "RMA", league: "PD", pot: 1 },
+  94:   { id: 94,   name: "Villarreal",        tla: "VIL", league: "PD", pot: 1 },
+  78:   { id: 78,   name: "Atlético Madrid",   tla: "ATM", league: "PD", pot: 1 },
+  90:   { id: 90,   name: "Real Betis",        tla: "BET", league: "PD", pot: 1 },
   // La Liga — Pot 2
-  558:  { id: 558,  name: "Celta Vigo",      tla: "CEL", league: "PD",  pot: 2 },
-  82:   { id: 82,   name: "Getafe",          tla: "GET", league: "PD",  pot: 2 },
-  87:   { id: 87,   name: "Rayo Vallecano",  tla: "RAY", league: "PD",  pot: 2 },
-  95:   { id: 95,   name: "Valencia",        tla: "VAL", league: "PD",  pot: 2 },
-  92:   { id: 92,   name: "Real Sociedad",   tla: "RSO", league: "PD",  pot: 2 },
+  558:  { id: 558,  name: "Celta Vigo",        tla: "CEL", league: "PD", pot: 2 },
+  82:   { id: 82,   name: "Getafe",            tla: "GET", league: "PD", pot: 2 },
+  87:   { id: 87,   name: "Rayo Vallecano",    tla: "RAY", league: "PD", pot: 2 },
+  95:   { id: 95,   name: "Valencia",          tla: "VAL", league: "PD", pot: 2 },
+  92:   { id: 92,   name: "Real Sociedad",     tla: "RSO", league: "PD", pot: 2 },
   // La Liga — Pot 3
-  80:   { id: 80,   name: "Espanyol",        tla: "ESP", league: "PD",  pot: 3 },
-  77:   { id: 77,   name: "Athletic Club",   tla: "ATH", league: "PD",  pot: 3 },
-  559:  { id: 559,  name: "Sevilla",         tla: "SEV", league: "PD",  pot: 3 },
-  263:  { id: 263,  name: "Alavés",          tla: "ALA", league: "PD",  pot: 3 },
-  285:  { id: 285,  name: "Elche",           tla: "ELH", league: "PD",  pot: 3 },
+  80:   { id: 80,   name: "Espanyol",          tla: "ESP", league: "PD", pot: 3 },
+  77:   { id: 77,   name: "Athletic Club",     tla: "ATH", league: "PD", pot: 3 },
+  285:  { id: 285,  name: "Elche",             tla: "ELH", league: "PD", pot: 3 },
+  263:  { id: 263,  name: "Alavés",            tla: "ALA", league: "PD", pot: 3 },
+  559:  { id: 559,  name: "Sevilla",           tla: "SEV", league: "PD", pot: 3 },
   // La Liga — Pot 4
-  88:   { id: 88,   name: "Levante",         tla: "LEV", league: "PD",  pot: 4 },
-  79:   { id: 79,   name: "Osasuna",         tla: "OSA", league: "PD",  pot: 4 },
-  89:   { id: 89,   name: "Mallorca",        tla: "MLL", league: "PD",  pot: 4 },
-  298:  { id: 298,  name: "Girona",          tla: "GIR", league: "PD",  pot: 4 },
+  79:   { id: 79,   name: "Osasuna",           tla: "OSA", league: "PD", pot: 4 },
+  89:   { id: 89,   name: "Mallorca",          tla: "MLL", league: "PD", pot: 4 },
+  88:   { id: 88,   name: "Levante",           tla: "LEV", league: "PD", pot: 4 },
+  298:  { id: 298,  name: "Girona",            tla: "GIR", league: "PD", pot: 4 },
+  1048: { id: 1048, name: "Real Oviedo",       tla: "OVI", league: "PD", pot: 4 },
 
-  // Serie A — Pot 1 (Inter champions; top 4 = Champions League)
-  108:  { id: 108,  name: "Inter",           tla: "INT", league: "SA",  pot: 1 },
-  113:  { id: 113,  name: "Napoli",          tla: "NAP", league: "SA",  pot: 1 },
-  7397: { id: 7397, name: "Como",            tla: "COM", league: "SA",  pot: 1 }, // VERIFY id
-  100:  { id: 100,  name: "Roma",            tla: "ROM", league: "SA",  pot: 1 },
-  109:  { id: 109,  name: "Juventus",        tla: "JUV", league: "SA",  pot: 1 },
+  // Serie A — real 2025-26 final table; pots = quartiles by finish
+  // Serie A — Pot 1
+  108:  { id: 108,  name: "Inter",             tla: "INT", league: "SA", pot: 1 },
+  113:  { id: 113,  name: "Napoli",            tla: "NAP", league: "SA", pot: 1 },
+  100:  { id: 100,  name: "Roma",              tla: "ROM", league: "SA", pot: 1 },
+  7397: { id: 7397, name: "Como",              tla: "COM", league: "SA", pot: 1 },
+  98:   { id: 98,   name: "AC Milan",          tla: "MIL", league: "SA", pot: 1 },
   // Serie A — Pot 2
-  98:   { id: 98,   name: "AC Milan",        tla: "MIL", league: "SA",  pot: 2 },
-  102:  { id: 102,  name: "Atalanta",        tla: "ATA", league: "SA",  pot: 2 },
-  103:  { id: 103,  name: "Bologna",         tla: "BOL", league: "SA",  pot: 2 },
-  110:  { id: 110,  name: "Lazio",           tla: "LAZ", league: "SA",  pot: 2 },
-  99:   { id: 99,   name: "Fiorentina",      tla: "FIO", league: "SA",  pot: 2 },
+  109:  { id: 109,  name: "Juventus",          tla: "JUV", league: "SA", pot: 2 },
+  102:  { id: 102,  name: "Atalanta",          tla: "ATA", league: "SA", pot: 2 },
+  103:  { id: 103,  name: "Bologna",           tla: "BOL", league: "SA", pot: 2 },
+  110:  { id: 110,  name: "Lazio",             tla: "LAZ", league: "SA", pot: 2 },
+  115:  { id: 115,  name: "Udinese",           tla: "UDI", league: "SA", pot: 2 },
   // Serie A — Pot 3
-  586:  { id: 586,  name: "Torino",          tla: "TOR", league: "SA",  pot: 3 },
-  115:  { id: 115,  name: "Udinese",         tla: "UDI", league: "SA",  pot: 3 },
-  107:  { id: 107,  name: "Genoa",           tla: "GEN", league: "SA",  pot: 3 },
-  104:  { id: 104,  name: "Cagliari",        tla: "CAG", league: "SA",  pot: 3 },
-  // Serie A — Pot 4 (Verona relegated)
-  5890: { id: 5890, name: "Lecce",           tla: "LEC", league: "SA",  pot: 4 },
-  112:  { id: 112,  name: "Parma",           tla: "PAR", league: "SA",  pot: 4 },
-  471:  { id: 471,  name: "Sassuolo",        tla: "SAS", league: "SA",  pot: 4 },
-  450:  { id: 450,  name: "Hellas Verona",   tla: "VER", league: "SA",  pot: 4 },
+  471:  { id: 471,  name: "Sassuolo",          tla: "SAS", league: "SA", pot: 3 },
+  112:  { id: 112,  name: "Parma",             tla: "PAR", league: "SA", pot: 3 },
+  586:  { id: 586,  name: "Torino",            tla: "TOR", league: "SA", pot: 3 },
+  104:  { id: 104,  name: "Cagliari",          tla: "CAG", league: "SA", pot: 3 },
+  99:   { id: 99,   name: "Fiorentina",        tla: "FIO", league: "SA", pot: 3 },
+  // Serie A — Pot 4
+  107:  { id: 107,  name: "Genoa",             tla: "GEN", league: "SA", pot: 4 },
+  5890: { id: 5890, name: "Lecce",             tla: "LEC", league: "SA", pot: 4 },
+  457:  { id: 457,  name: "Cremonese",         tla: "CRE", league: "SA", pot: 4 },
+  450:  { id: 450,  name: "Hellas Verona",     tla: "VER", league: "SA", pot: 4 },
+  487:  { id: 487,  name: "Pisa",              tla: "PIS", league: "SA", pot: 4 },
 
-  // Bundesliga — Pot 1 (Bayern champions; 18-team league, pots of 4)
-  5:    { id: 5,    name: "Bayern München",  tla: "FCB", league: "BL1", pot: 1 },
-  3:    { id: 3,    name: "Bayer Leverkusen",tla: "B04", league: "BL1", pot: 1 },
-  4:    { id: 4,    name: "Dortmund",        tla: "BVB", league: "BL1", pot: 1 },
-  721:  { id: 721,  name: "RB Leipzig",      tla: "RBL", league: "BL1", pot: 1 },
+  // Bundesliga — real 2025-26 final table; pots = quartiles by finish
+  // Bundesliga — Pot 1
+  5:    { id: 5,    name: "Bayern München",    tla: "FCB", league: "BL1", pot: 1 },
+  4:    { id: 4,    name: "Dortmund",          tla: "BVB", league: "BL1", pot: 1 },
+  721:  { id: 721,  name: "RB Leipzig",        tla: "RBL", league: "BL1", pot: 1 },
+  10:   { id: 10,   name: "VfB Stuttgart",     tla: "VFB", league: "BL1", pot: 1 },
   // Bundesliga — Pot 2
-  10:   { id: 10,   name: "VfB Stuttgart",   tla: "VFB", league: "BL1", pot: 2 },
+  2:    { id: 2,    name: "Hoffenheim",        tla: "TSG", league: "BL1", pot: 2 },
+  3:    { id: 3,    name: "Bayer Leverkusen",  tla: "B04", league: "BL1", pot: 2 },
+  17:   { id: 17,   name: "SC Freiburg",       tla: "SCF", league: "BL1", pot: 2 },
   19:   { id: 19,   name: "Eintracht Frankfurt", tla: "SGE", league: "BL1", pot: 2 },
-  17:   { id: 17,   name: "SC Freiburg",     tla: "SCF", league: "BL1", pot: 2 },
-  15:   { id: 15,   name: "Mainz 05",        tla: "M05", league: "BL1", pot: 2 },
+  16:   { id: 16,   name: "FC Augsburg",       tla: "FCA", league: "BL1", pot: 2 },
   // Bundesliga — Pot 3
-  12:   { id: 12,   name: "Werder Bremen",   tla: "SVW", league: "BL1", pot: 3 },
-  11:   { id: 11,   name: "VfL Wolfsburg",   tla: "WOB", league: "BL1", pot: 3 },
-  18:   { id: 18,   name: "M'gladbach",      tla: "BMG", league: "BL1", pot: 3 },
-  16:   { id: 16,   name: "FC Augsburg",     tla: "FCA", league: "BL1", pot: 3 },
+  15:   { id: 15,   name: "Mainz 05",          tla: "M05", league: "BL1", pot: 3 },
+  28:   { id: 28,   name: "Union Berlin",      tla: "FCU", league: "BL1", pot: 3 },
+  18:   { id: 18,   name: "M'gladbach",        tla: "BMG", league: "BL1", pot: 3 },
+  7:    { id: 7,    name: "Hamburger SV",      tla: "HSV", league: "BL1", pot: 3 },
   // Bundesliga — Pot 4
-  2:    { id: 2,    name: "Hoffenheim",      tla: "TSG", league: "BL1", pot: 4 },
-  28:   { id: 28,   name: "Union Berlin",    tla: "FCU", league: "BL1", pot: 4 },
-  20:   { id: 20,   name: "St. Pauli",       tla: "STP", league: "BL1", pot: 4 },
-  1:    { id: 1,    name: "1. FC Köln",      tla: "KOE", league: "BL1", pot: 4 },
+  1:    { id: 1,    name: "1. FC Köln",        tla: "KOE", league: "BL1", pot: 4 },
+  12:   { id: 12,   name: "Werder Bremen",     tla: "SVW", league: "BL1", pot: 4 },
+  11:   { id: 11,   name: "VfL Wolfsburg",     tla: "WOB", league: "BL1", pot: 4 },
+  44:   { id: 44,   name: "1. FC Heidenheim",  tla: "HEI", league: "BL1", pot: 4 },
+  20:   { id: 20,   name: "St. Pauli",         tla: "STP", league: "BL1", pot: 4 },
 
-  // Ligue 1 — Pot 1 (PSG champions; 12 confident-id sides seeded 3 per pot)
-  524:  { id: 524,  name: "Paris SG",        tla: "PSG", league: "FL1", pot: 1 },
-  546:  { id: 546,  name: "Lens",            tla: "RCL", league: "FL1", pot: 1 }, // VERIFY id
-  521:  { id: 521,  name: "Lille",           tla: "LOS", league: "FL1", pot: 1 },
+  // Ligue 1 — real 2025-26 final table; pots = quartiles by finish
+  // Ligue 1 — Pot 1
+  524:  { id: 524,  name: "Paris SG",          tla: "PSG", league: "FL1", pot: 1 },
+  546:  { id: 546,  name: "Lens",              tla: "RCL", league: "FL1", pot: 1 },
+  521:  { id: 521,  name: "Lille",             tla: "LOS", league: "FL1", pot: 1 },
+  523:  { id: 523,  name: "Lyon",              tla: "OL", league: "FL1", pot: 1 },
   // Ligue 1 — Pot 2
-  516:  { id: 516,  name: "Marseille",       tla: "OM",  league: "FL1", pot: 2 },
-  548:  { id: 548,  name: "Monaco",          tla: "ASM", league: "FL1", pot: 2 },
-  523:  { id: 523,  name: "Lyon",            tla: "OL",  league: "FL1", pot: 2 },
+  516:  { id: 516,  name: "Marseille",         tla: "OM", league: "FL1", pot: 2 },
+  529:  { id: 529,  name: "Rennes",            tla: "REN", league: "FL1", pot: 2 },
+  548:  { id: 548,  name: "Monaco",            tla: "ASM", league: "FL1", pot: 2 },
+  576:  { id: 576,  name: "Strasbourg",        tla: "RCS", league: "FL1", pot: 2 },
+  511:  { id: 511,  name: "Toulouse",          tla: "TFC", league: "FL1", pot: 2 },
   // Ligue 1 — Pot 3
-  522:  { id: 522,  name: "Nice",            tla: "NIC", league: "FL1", pot: 3 },
-  529:  { id: 529,  name: "Rennes",          tla: "REN", league: "FL1", pot: 3 },
-  576:  { id: 576,  name: "Strasbourg",      tla: "RCS", league: "FL1", pot: 3 },
+  525:  { id: 525,  name: "Lorient",           tla: "FCL", league: "FL1", pot: 3 },
+  1045: { id: 1045, name: "Paris FC",          tla: "PFC", league: "FL1", pot: 3 },
+  512:  { id: 512,  name: "Brest",             tla: "BRE", league: "FL1", pot: 3 },
+  532:  { id: 532,  name: "Angers",            tla: "ANG", league: "FL1", pot: 3 },
   // Ligue 1 — Pot 4
-  512:  { id: 512,  name: "Brest",           tla: "BRE", league: "FL1", pot: 4 },
-  511:  { id: 511,  name: "Toulouse",        tla: "TFC", league: "FL1", pot: 4 },
-  543:  { id: 543,  name: "Nantes",          tla: "FCN", league: "FL1", pot: 4 },
+  533:  { id: 533,  name: "Le Havre",          tla: "HAC", league: "FL1", pot: 4 },
+  519:  { id: 519,  name: "Auxerre",           tla: "AJA", league: "FL1", pot: 4 },
+  522:  { id: 522,  name: "Nice",              tla: "NIC", league: "FL1", pot: 4 },
+  543:  { id: 543,  name: "Nantes",            tla: "FCN", league: "FL1", pot: 4 },
+  545:  { id: 545,  name: "Metz",              tla: "FCM", league: "FL1", pot: 4 },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -525,7 +526,7 @@ function leagueOwnerOfTeamId(teamId, players) {
 // PURE HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 function lgIsSettled(m) {
-  return m.status === "FINISHED" || m.status === "IN_PLAY" || m.status === "PAUSED";
+  return m.status === "FINISHED" || m.status === "AWARDED" || m.status === "IN_PLAY" || m.status === "PAUSED";
 }
 
 function lgResultFor(m, teamId) {
