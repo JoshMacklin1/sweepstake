@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>League Sweeps — 2026/27</title>
+  <title>Sweepstaker — 2026/27</title>
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-  <meta name="apple-mobile-web-app-title" content="League Sweeps"/>
+  <meta name="apple-mobile-web-app-title" content="Sweepstaker"/>
   <meta name="theme-color" content="#0d1f12"/>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
@@ -93,6 +93,7 @@
       posBg: "#104224", negBg: "#450a0a", neutral: "#334155",
       dangerText: "#f87171", dangerTextBright: "#fca5a5",
     };
+    const LOGO_SRC = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAzIiBoZWlnaHQ9IjIwMSIgdmlld0JveD0iMCAwIDIwMyAyMDEiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0xMjcuMjY0IDE4MS43NDFDMTIyLjA0MyAxODEuNzQxIDExNy44MSAxODUuOTgyIDExNy44MSAxOTEuMjEzQzExNy44MSAxOTYuNDQ1IDEyMi4wNDMgMjAwLjY4NiAxMjcuMjY0IDIwMC42ODZDMTMyLjQ4NSAyMDAuNjg2IDEzNi43MTcgMTk2LjQ0NSAxMzYuNzE3IDE5MS4yMTNDMTM2LjcxNyAxODUuOTgyIDEzMi40ODUgMTgxLjc0MSAxMjcuMjY0IDE4MS43NDFaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMTAxLjA4MyAxODEuNzQxQzk1Ljg2MTkgMTgxLjc0MSA5MS42MjkzIDE4NS45ODIgOTEuNjI5MyAxOTEuMjEzQzkxLjYyOTMgMTk2LjQ0NSA5NS44NjE5IDIwMC42ODYgMTAxLjA4MyAyMDAuNjg2QzEwNi4zMDQgMjAwLjY4NiAxMTAuNTM3IDE5Ni40NDUgMTEwLjUzNyAxOTEuMjEzQzExMC41MzcgMTg1Ljk4MiAxMDYuMzA0IDE4MS43NDEgMTAxLjA4MyAxODEuNzQxWiIgZmlsbD0iI0Q1MkIxRSIvPgo8cGF0aCBkPSJNNzQuOTAzMyAxODEuNzQxQzY5LjY4MjIgMTgxLjc0MSA2NS40NDk3IDE4NS45ODIgNjUuNDQ5NyAxOTEuMjEzQzY1LjQ0OTcgMTk2LjQ0NSA2OS42ODIyIDIwMC42ODYgNzQuOTAzMyAyMDAuNjg2QzgwLjEyNDQgMjAwLjY4NiA4NC4zNTY5IDE5Ni40NDUgODQuMzU2OSAxOTEuMjEzQzg0LjM1NjkgMTg1Ljk4MiA4MC4xMjQ0IDE4MS43NDEgNzQuOTAzMyAxODEuNzQxWiIgZmlsbD0iI0Q1MkIxRSIvPgo8cGF0aCBkPSJNMTY2LjUzMyAxNTkuMDI0QzE2MS4zMTIgMTU5LjAyNCAxNTcuMDc5IDE2My4yNjUgMTU3LjA3OSAxNjguNDk2QzE1Ny4wNzkgMTczLjcyOCAxNjEuMzEyIDE3Ny45NjkgMTY2LjUzMyAxNzcuOTY5QzE3MS43NTQgMTc3Ljk2OSAxNzUuOTg2IDE3My43MjggMTc1Ljk4NiAxNjguNDk2QzE3NS45ODYgMTYzLjI2NSAxNzEuNzU0IDE1OS4wMjQgMTY2LjUzMyAxNTkuMDI0WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTE0MC4zNTMgMTU5LjAyNEMxMzUuMTMyIDE1OS4wMjQgMTMwLjg5OSAxNjMuMjY1IDEzMC44OTkgMTY4LjQ5NkMxMzAuODk5IDE3My43MjggMTM1LjEzMiAxNzcuOTY5IDE0MC4zNTMgMTc3Ljk2OUMxNDUuNTc0IDE3Ny45NjkgMTQ5LjgwNyAxNzMuNzI4IDE0OS44MDcgMTY4LjQ5NkMxNDkuODA3IDE2My4yNjUgMTQ1LjU3NCAxNTkuMDI0IDE0MC4zNTMgMTU5LjAyNFoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xMTQuMTcyIDE1OS4wMjRDMTA4Ljk1MSAxNTkuMDI0IDEwNC43MTkgMTYzLjI2NSAxMDQuNzE5IDE2OC40OTZDMTA0LjcxOSAxNzMuNzI4IDEwOC45NTEgMTc3Ljk2OSAxMTQuMTcyIDE3Ny45NjlDMTE5LjM5MyAxNzcuOTY5IDEyMy42MjYgMTczLjcyOCAxMjMuNjI2IDE2OC40OTZDMTIzLjYyNiAxNjMuMjY1IDExOS4zOTMgMTU5LjAyNCAxMTQuMTcyIDE1OS4wMjRaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNODcuOTkyNyAxNTkuMDI0QzgyLjc3MTYgMTU5LjAyNCA3OC41MzkgMTYzLjI2NSA3OC41MzkgMTY4LjQ5NkM3OC41MzkgMTczLjcyOCA4Mi43NzE2IDE3Ny45NjkgODcuOTkyNyAxNzcuOTY5QzkzLjIxMzggMTc3Ljk2OSA5Ny40NDYzIDE3My43MjggOTcuNDQ2MyAxNjguNDk2Qzk3LjQ0NjMgMTYzLjI2NSA5My4yMTM4IDE1OS4wMjQgODcuOTkyNyAxNTkuMDI0WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTYxLjgxMyAxNTkuMDI0QzU2LjU5MTkgMTU5LjAyNCA1Mi4zNTkzIDE2My4yNjUgNTIuMzU5MyAxNjguNDk2QzUyLjM1OTMgMTczLjcyOCA1Ni41OTE5IDE3Ny45NjkgNjEuODEzIDE3Ny45NjlDNjcuMDM0MSAxNzcuOTY5IDcxLjI2NjYgMTczLjcyOCA3MS4yNjY2IDE2OC40OTZDNzEuMjY2NiAxNjMuMjY1IDY3LjAzNDEgMTU5LjAyNCA2MS44MTMgMTU5LjAyNFoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0zNS42MzMzIDE1OS4wMjRDMzAuNDEyMiAxNTkuMDI0IDI2LjE3OTYgMTYzLjI2NSAyNi4xNzk2IDE2OC40OTZDMjYuMTc5NiAxNzMuNzI4IDMwLjQxMjIgMTc3Ljk2OSAzNS42MzMzIDE3Ny45NjlDNDAuODU0NCAxNzcuOTY5IDQ1LjA4NjkgMTczLjcyOCA0NS4wODY5IDE2OC40OTZDNDUuMDg2OSAxNjMuMjY1IDQwLjg1NDQgMTU5LjAyNCAzNS42MzMzIDE1OS4wMjRaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMTc5LjYyMyAxMzYuMzA1QzE3NC40MDEgMTM2LjMwNSAxNzAuMTY5IDE0MC41NDYgMTcwLjE2OSAxNDUuNzc4QzE3MC4xNjkgMTUxLjAwOSAxNzQuNDAxIDE1NS4yNSAxNzkuNjIzIDE1NS4yNUMxODQuODQ0IDE1NS4yNSAxODkuMDc2IDE1MS4wMDkgMTg5LjA3NiAxNDUuNzc4QzE4OS4wNzYgMTQwLjU0NiAxODQuODQ0IDEzNi4zMDUgMTc5LjYyMyAxMzYuMzA1WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTE1My40NDMgMTM2LjMwNUMxNDguMjIyIDEzNi4zMDUgMTQzLjk4OSAxNDAuNTQ2IDE0My45ODkgMTQ1Ljc3OEMxNDMuOTg5IDE1MS4wMDkgMTQ4LjIyMiAxNTUuMjUgMTUzLjQ0MyAxNTUuMjVDMTU4LjY2NCAxNTUuMjUgMTYyLjg5NiAxNTEuMDA5IDE2Mi44OTYgMTQ1Ljc3OEMxNjIuODk2IDE0MC41NDYgMTU4LjY2NCAxMzYuMzA1IDE1My40NDMgMTM2LjMwNVoiIGZpbGw9IiMwQjZFMkMiLz4KPHBhdGggZD0iTTEyNy4yNjQgMTM2LjMwNUMxMjIuMDQzIDEzNi4zMDUgMTE3LjgxIDE0MC41NDYgMTE3LjgxIDE0NS43NzhDMTE3LjgxIDE1MS4wMDkgMTIyLjA0MyAxNTUuMjUgMTI3LjI2NCAxNTUuMjVDMTMyLjQ4NSAxNTUuMjUgMTM2LjcxNyAxNTEuMDA5IDEzNi43MTcgMTQ1Ljc3OEMxMzYuNzE3IDE0MC41NDYgMTMyLjQ4NSAxMzYuMzA1IDEyNy4yNjQgMTM2LjMwNVoiIGZpbGw9IiMwQjZFMkMiLz4KPHBhdGggZD0iTTEwMS4wODMgMTM2LjMwNUM5NS44NjE5IDEzNi4zMDUgOTEuNjI5MyAxNDAuNTQ2IDkxLjYyOTMgMTQ1Ljc3OEM5MS42MjkzIDE1MS4wMDkgOTUuODYxOSAxNTUuMjUgMTAxLjA4MyAxNTUuMjVDMTA2LjMwNCAxNTUuMjUgMTEwLjUzNyAxNTEuMDA5IDExMC41MzcgMTQ1Ljc3OEMxMTAuNTM3IDE0MC41NDYgMTA2LjMwNCAxMzYuMzA1IDEwMS4wODMgMTM2LjMwNVoiIGZpbGw9IiMwQjZFMkMiLz4KPHBhdGggZD0iTTc0LjkwMzMgMTM2LjMwNUM2OS42ODIyIDEzNi4zMDUgNjUuNDQ5NyAxNDAuNTQ2IDY1LjQ0OTcgMTQ1Ljc3OEM2NS40NDk3IDE1MS4wMDkgNjkuNjgyMiAxNTUuMjUgNzQuOTAzMyAxNTUuMjVDODAuMTI0NCAxNTUuMjUgODQuMzU2OSAxNTEuMDA5IDg0LjM1NjkgMTQ1Ljc3OEM4NC4zNTY5IDE0MC41NDYgODAuMTI0NCAxMzYuMzA1IDc0LjkwMzMgMTM2LjMwNVoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik00OC43MjM2IDEzNi4zMDVDNDMuNTAyNSAxMzYuMzA1IDM5LjI3IDE0MC41NDYgMzkuMjcgMTQ1Ljc3OEMzOS4yNyAxNTEuMDA5IDQzLjUwMjUgMTU1LjI1IDQ4LjcyMzYgMTU1LjI1QzUzLjk0NDcgMTU1LjI1IDU4LjE3NzIgMTUxLjAwOSA1OC4xNzcyIDE0NS43NzhDNTguMTc3MiAxNDAuNTQ2IDUzLjk0NDcgMTM2LjMwNSA0OC43MjM2IDEzNi4zMDVaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMjIuNTQzOSAxMzYuMzA1QzE3LjMyMjggMTM2LjMwNSAxMy4wOTAzIDE0MC41NDYgMTMuMDkwMyAxNDUuNzc4QzEzLjA5MDMgMTUxLjAwOSAxNy4zMjI4IDE1NS4yNSAyMi41NDM5IDE1NS4yNUMyNy43NjUgMTU1LjI1IDMxLjk5NzYgMTUxLjAwOSAzMS45OTc2IDE0NS43NzhDMzEuOTk3NiAxNDAuNTQ2IDI3Ljc2NSAxMzYuMzA1IDIyLjU0MzkgMTM2LjMwNVoiIGZpbGw9IiMwQjZFMkMiLz4KPHBhdGggZD0iTTE5Mi43MTIgMTEzLjU4OEMxODcuNDkxIDExMy41ODggMTgzLjI1OSAxMTcuODI5IDE4My4yNTkgMTIzLjA2MUMxODMuMjU5IDEyOC4yOTIgMTg3LjQ5MSAxMzIuNTMzIDE5Mi43MTIgMTMyLjUzM0MxOTcuOTMzIDEzMi41MzMgMjAyLjE2NiAxMjguMjkyIDIwMi4xNjYgMTIzLjA2MUMyMDIuMTY2IDExNy44MjkgMTk3LjkzMyAxMTMuNTg4IDE5Mi43MTIgMTEzLjU4OFoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xNjYuNTMzIDExMy41ODhDMTYxLjMxMiAxMTMuNTg4IDE1Ny4wNzkgMTE3LjgyOSAxNTcuMDc5IDEyMy4wNjFDMTU3LjA3OSAxMjguMjkyIDE2MS4zMTIgMTMyLjUzMyAxNjYuNTMzIDEzMi41MzNDMTcxLjc1NCAxMzIuNTMzIDE3NS45ODYgMTI4LjI5MiAxNzUuOTg2IDEyMy4wNjFDMTc1Ljk4NiAxMTcuODI5IDE3MS43NTQgMTEzLjU4OCAxNjYuNTMzIDExMy41ODhaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMTQwLjM1MyAxMTMuNTg4QzEzNS4xMzIgMTEzLjU4OCAxMzAuODk5IDExNy44MjkgMTMwLjg5OSAxMjMuMDYxQzEzMC44OTkgMTI4LjI5MiAxMzUuMTMyIDEzMi41MzMgMTQwLjM1MyAxMzIuNTMzQzE0NS41NzQgMTMyLjUzMyAxNDkuODA3IDEyOC4yOTIgMTQ5LjgwNyAxMjMuMDYxQzE0OS44MDcgMTE3LjgyOSAxNDUuNTc0IDExMy41ODggMTQwLjM1MyAxMTMuNTg4WiIgZmlsbD0iIzBCNkUyQyIvPgo8cGF0aCBkPSJNMTE0LjE3MiAxMTMuNTg4QzEwOC45NTEgMTEzLjU4OCAxMDQuNzE5IDExNy44MjkgMTA0LjcxOSAxMjMuMDYxQzEwNC43MTkgMTI4LjI5MiAxMDguOTUxIDEzMi41MzMgMTE0LjE3MiAxMzIuNTMzQzExOS4zOTMgMTMyLjUzMyAxMjMuNjI2IDEyOC4yOTIgMTIzLjYyNiAxMjMuMDYxQzEyMy42MjYgMTE3LjgyOSAxMTkuMzkzIDExMy41ODggMTE0LjE3MiAxMTMuNTg4WiIgZmlsbD0iIzBCNkUyQyIvPgo8cGF0aCBkPSJNODcuOTkyNyAxMTMuNTg4QzgyLjc3MTYgMTEzLjU4OCA3OC41MzkgMTE3LjgyOSA3OC41MzkgMTIzLjA2MUM3OC41MzkgMTI4LjI5MiA4Mi43NzE2IDEzMi41MzMgODcuOTkyNyAxMzIuNTMzQzkzLjIxMzggMTMyLjUzMyA5Ny40NDYzIDEyOC4yOTIgOTcuNDQ2MyAxMjMuMDYxQzk3LjQ0NjMgMTE3LjgyOSA5My4yMTM4IDExMy41ODggODcuOTkyNyAxMTMuNTg4WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTYxLjgxMyAxMTMuNTg4QzU2LjU5MTkgMTEzLjU4OCA1Mi4zNTkzIDExNy44MjkgNTIuMzU5MyAxMjMuMDYxQzUyLjM1OTMgMTI4LjI5MiA1Ni41OTE5IDEzMi41MzMgNjEuODEzIDEzMi41MzNDNjcuMDM0MSAxMzIuNTMzIDcxLjI2NjYgMTI4LjI5MiA3MS4yNjY2IDEyMy4wNjFDNzEuMjY2NiAxMTcuODI5IDY3LjAzNDEgMTEzLjU4OCA2MS44MTMgMTEzLjU4OFoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0zNS42MzMzIDExMy41ODhDMzAuNDEyMiAxMTMuNTg4IDI2LjE3OTYgMTE3LjgyOSAyNi4xNzk2IDEyMy4wNjFDMjYuMTc5NiAxMjguMjkyIDMwLjQxMjIgMTMyLjUzMyAzNS42MzMzIDEzMi41MzNDNDAuODU0NCAxMzIuNTMzIDQ1LjA4NjkgMTI4LjI5MiA0NS4wODY5IDEyMy4wNjFDNDUuMDg2OSAxMTcuODI5IDQwLjg1NDQgMTEzLjU4OCAzNS42MzMzIDExMy41ODhaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNOS40NTM1OCAxMTMuNTg4QzQuMjMyNDggMTEzLjU4OCAtNS4zNDA1OGUtMDUgMTE3LjgyOSAtNS4zNDA1OGUtMDUgMTIzLjA2MUMtNS4zNDA1OGUtMDUgMTI4LjI5MiA0LjIzMjQ4IDEzMi41MzMgOS40NTM1OCAxMzIuNTMzQzE0LjY3NDcgMTMyLjUzMyAxOC45MDcyIDEyOC4yOTIgMTguOTA3MiAxMjMuMDYxQzE4LjkwNzIgMTE3LjgyOSAxNC42NzQ3IDExMy41ODggOS40NTM1OCAxMTMuNTg4WiIgZmlsbD0iIzBCNkUyQyIvPgo8cGF0aCBkPSJNMTc5LjYyMyA5MC44Njk1QzE3NC40MDEgOTAuODY5NSAxNzAuMTY5IDk1LjExMDUgMTcwLjE2OSAxMDAuMzQyQzE3MC4xNjkgMTA1LjU3MyAxNzQuNDAxIDEwOS44MTQgMTc5LjYyMyAxMDkuODE0QzE4NC44NDQgMTA5LjgxNCAxODkuMDc2IDEwNS41NzMgMTg5LjA3NiAxMDAuMzQyQzE4OS4wNzYgOTUuMTEwNSAxODQuODQ0IDkwLjg2OTUgMTc5LjYyMyA5MC44Njk1WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTE1My40NDMgOTAuODY5NUMxNDguMjIyIDkwLjg2OTUgMTQzLjk4OSA5NS4xMTA1IDE0My45ODkgMTAwLjM0MkMxNDMuOTg5IDEwNS41NzMgMTQ4LjIyMiAxMDkuODE0IDE1My40NDMgMTA5LjgxNEMxNTguNjY0IDEwOS44MTQgMTYyLjg5NiAxMDUuNTczIDE2Mi44OTYgMTAwLjM0MkMxNjIuODk2IDk1LjExMDUgMTU4LjY2NCA5MC44Njk1IDE1My40NDMgOTAuODY5NVoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xMjcuMjY0IDkwLjg2OTVDMTIyLjA0MyA5MC44Njk1IDExNy44MSA5NS4xMTA1IDExNy44MSAxMDAuMzQyQzExNy44MSAxMDUuNTczIDEyMi4wNDMgMTA5LjgxNCAxMjcuMjY0IDEwOS44MTRDMTMyLjQ4NSAxMDkuODE0IDEzNi43MTcgMTA1LjU3MyAxMzYuNzE3IDEwMC4zNDJDMTM2LjcxNyA5NS4xMTA1IDEzMi40ODUgOTAuODY5NSAxMjcuMjY0IDkwLjg2OTVaIiBmaWxsPSIjMEI2RTJDIi8+CjxwYXRoIGQ9Ik0xMDEuMDgzIDkwLjg2OTVDOTUuODYxOSA5MC44Njk1IDkxLjYyOTMgOTUuMTEwNSA5MS42MjkzIDEwMC4zNDJDOTEuNjI5MyAxMDUuNTczIDk1Ljg2MTkgMTA5LjgxNCAxMDEuMDgzIDEwOS44MTRDMTA2LjMwNCAxMDkuODE0IDExMC41MzcgMTA1LjU3MyAxMTAuNTM3IDEwMC4zNDJDMTEwLjUzNyA5NS4xMTA1IDEwNi4zMDQgOTAuODY5NSAxMDEuMDgzIDkwLjg2OTVaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNNzQuOTAzMyA5MC44Njk1QzY5LjY4MjIgOTAuODY5NSA2NS40NDk3IDk1LjExMDUgNjUuNDQ5NyAxMDAuMzQyQzY1LjQ0OTcgMTA1LjU3MyA2OS42ODIyIDEwOS44MTQgNzQuOTAzMyAxMDkuODE0QzgwLjEyNDQgMTA5LjgxNCA4NC4zNTY5IDEwNS41NzMgODQuMzU2OSAxMDAuMzQyQzg0LjM1NjkgOTUuMTEwNSA4MC4xMjQ0IDkwLjg2OTUgNzQuOTAzMyA5MC44Njk1WiIgZmlsbD0iI0Q1MkIxRSIvPgo8cGF0aCBkPSJNNDguNzIzNiA5MC44Njk1QzQzLjUwMjUgOTAuODY5NSAzOS4yNyA5NS4xMTA1IDM5LjI3IDEwMC4zNDJDMzkuMjcgMTA1LjU3MyA0My41MDI1IDEwOS44MTQgNDguNzIzNiAxMDkuODE0QzUzLjk0NDcgMTA5LjgxNCA1OC4xNzcyIDEwNS41NzMgNTguMTc3MiAxMDAuMzQyQzU4LjE3NzIgOTUuMTEwNSA1My45NDQ3IDkwLjg2OTUgNDguNzIzNiA5MC44Njk1WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTIyLjU0MzkgOTAuODY5NUMxNy4zMjI4IDkwLjg2OTUgMTMuMDkwMyA5NS4xMTA1IDEzLjA5MDMgMTAwLjM0MkMxMy4wOTAzIDEwNS41NzMgMTcuMzIyOCAxMDkuODE0IDIyLjU0MzkgMTA5LjgxNEMyNy43NjUgMTA5LjgxNCAzMS45OTc2IDEwNS41NzMgMzEuOTk3NiAxMDAuMzQyQzMxLjk5NzYgOTUuMTEwNSAyNy43NjUgOTAuODY5NSAyMi41NDM5IDkwLjg2OTVaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMTkyLjcxMiA2OC4xNTI3QzE4Ny40OTEgNjguMTUyNyAxODMuMjU5IDcyLjM5MzcgMTgzLjI1OSA3Ny42MjUyQzE4My4yNTkgODIuODU2NyAxODcuNDkxIDg3LjA5NzcgMTkyLjcxMiA4Ny4wOTc3QzE5Ny45MzMgODcuMDk3NyAyMDIuMTY2IDgyLjg1NjcgMjAyLjE2NiA3Ny42MjUyQzIwMi4xNjYgNzIuMzkzNyAxOTcuOTMzIDY4LjE1MjcgMTkyLjcxMiA2OC4xNTI3WiIgZmlsbD0iI0Q1MkIxRSIvPgo8cGF0aCBkPSJNMTY2LjUzMyA2OC4xNTI3QzE2MS4zMTIgNjguMTUyNyAxNTcuMDc5IDcyLjM5MzcgMTU3LjA3OSA3Ny42MjUyQzE1Ny4wNzkgODIuODU2NyAxNjEuMzEyIDg3LjA5NzcgMTY2LjUzMyA4Ny4wOTc3QzE3MS43NTQgODcuMDk3NyAxNzUuOTg2IDgyLjg1NjcgMTc1Ljk4NiA3Ny42MjUyQzE3NS45ODYgNzIuMzkzNyAxNzEuNzU0IDY4LjE1MjcgMTY2LjUzMyA2OC4xNTI3WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTE0MC4zNTMgNjguMTUyN0MxMzUuMTMyIDY4LjE1MjcgMTMwLjg5OSA3Mi4zOTM3IDEzMC44OTkgNzcuNjI1MkMxMzAuODk5IDgyLjg1NjcgMTM1LjEzMiA4Ny4wOTc3IDE0MC4zNTMgODcuMDk3N0MxNDUuNTc0IDg3LjA5NzcgMTQ5LjgwNyA4Mi44NTY3IDE0OS44MDcgNzcuNjI1MkMxNDkuODA3IDcyLjM5MzcgMTQ1LjU3NCA2OC4xNTI3IDE0MC4zNTMgNjguMTUyN1oiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xMTQuMTcyIDY4LjE1MjdDMTA4Ljk1MSA2OC4xNTI3IDEwNC43MTkgNzIuMzkzNyAxMDQuNzE5IDc3LjYyNTJDMTA0LjcxOSA4Mi44NTY3IDEwOC45NTEgODcuMDk3NyAxMTQuMTcyIDg3LjA5NzdDMTE5LjM5MyA4Ny4wOTc3IDEyMy42MjYgODIuODU2NyAxMjMuNjI2IDc3LjYyNTJDMTIzLjYyNiA3Mi4zOTM3IDExOS4zOTMgNjguMTUyNyAxMTQuMTcyIDY4LjE1MjdaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNODcuOTkyNyA2OC4xNTI3QzgyLjc3MTYgNjguMTUyNyA3OC41MzkgNzIuMzkzNyA3OC41MzkgNzcuNjI1MkM3OC41MzkgODIuODU2NyA4Mi43NzE2IDg3LjA5NzcgODcuOTkyNyA4Ny4wOTc3QzkzLjIxMzggODcuMDk3NyA5Ny40NDYzIDgyLjg1NjcgOTcuNDQ2MyA3Ny42MjUyQzk3LjQ0NjMgNzIuMzkzNyA5My4yMTM4IDY4LjE1MjcgODcuOTkyNyA2OC4xNTI3WiIgZmlsbD0iI0Q1MkIxRSIvPgo8cGF0aCBkPSJNNjEuODEzIDY4LjE1MjdDNTYuNTkxOSA2OC4xNTI3IDUyLjM1OTMgNzIuMzkzNyA1Mi4zNTkzIDc3LjYyNTJDNTIuMzU5MyA4Mi44NTY3IDU2LjU5MTkgODcuMDk3NyA2MS44MTMgODcuMDk3N0M2Ny4wMzQxIDg3LjA5NzcgNzEuMjY2NiA4Mi44NTY3IDcxLjI2NjYgNzcuNjI1MkM3MS4yNjY2IDcyLjM5MzcgNjcuMDM0MSA2OC4xNTI3IDYxLjgxMyA2OC4xNTI3WiIgZmlsbD0iI0Q1MkIxRSIvPgo8cGF0aCBkPSJNMzUuNjMzMyA2OC4xNTI3QzMwLjQxMjIgNjguMTUyNyAyNi4xNzk2IDcyLjM5MzcgMjYuMTc5NiA3Ny42MjUyQzI2LjE3OTYgODIuODU2NyAzMC40MTIyIDg3LjA5NzcgMzUuNjMzMyA4Ny4wOTc3QzQwLjg1NDQgODcuMDk3NyA0NS4wODY5IDgyLjg1NjcgNDUuMDg2OSA3Ny42MjUyQzQ1LjA4NjkgNzIuMzkzNyA0MC44NTQ0IDY4LjE1MjcgMzUuNjMzMyA2OC4xNTI3WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTkuNDUzNTggNjguMTUyN0M0LjIzMjQ4IDY4LjE1MjcgLTUuMzQwNThlLTA1IDcyLjM5MzcgLTUuMzQwNThlLTA1IDc3LjYyNTJDLTUuMzQwNThlLTA1IDgyLjg1NjcgNC4yMzI0OCA4Ny4wOTc3IDkuNDUzNTggODcuMDk3N0MxNC42NzQ3IDg3LjA5NzcgMTguOTA3MiA4Mi44NTY3IDE4LjkwNzIgNzcuNjI1MkMxOC45MDcyIDcyLjM5MzcgMTQuNjc0NyA2OC4xNTI3IDkuNDUzNTggNjguMTUyN1oiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xNzkuNjIzIDQ1LjQzMzlDMTc0LjQwMSA0NS40MzM5IDE3MC4xNjkgNDkuNjc0OSAxNzAuMTY5IDU0LjkwNjRDMTcwLjE2OSA2MC4xMzc5IDE3NC40MDEgNjQuMzc4OSAxNzkuNjIzIDY0LjM3ODlDMTg0Ljg0NCA2NC4zNzg5IDE4OS4wNzYgNjAuMTM3OSAxODkuMDc2IDU0LjkwNjRDMTg5LjA3NiA0OS42NzQ5IDE4NC44NDQgNDUuNDMzOSAxNzkuNjIzIDQ1LjQzMzlaIiBmaWxsPSIjRDUyQjFFIi8+CjxwYXRoIGQ9Ik0xNTMuNDQzIDQ1LjQzMzlDMTQ4LjIyMiA0NS40MzM5IDE0My45ODkgNDkuNjc0OSAxNDMuOTg5IDU0LjkwNjRDMTQzLjk4OSA2MC4xMzc5IDE0OC4yMjIgNjQuMzc4OSAxNTMuNDQzIDY0LjM3ODlDMTU4LjY2NCA2NC4zNzg5IDE2Mi44OTYgNjAuMTM3OSAxNjIuODk2IDU0LjkwNjRDMTYyLjg5NiA0OS42NzQ5IDE1OC42NjQgNDUuNDMzOSAxNTMuNDQzIDQ1LjQzMzlaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMTI3LjI2NCA0NS40MzM5QzEyMi4wNDMgNDUuNDMzOSAxMTcuODEgNDkuNjc0OSAxMTcuODEgNTQuOTA2NEMxMTcuODEgNjAuMTM3OSAxMjIuMDQzIDY0LjM3ODkgMTI3LjI2NCA2NC4zNzg5QzEzMi40ODUgNjQuMzc4OSAxMzYuNzE3IDYwLjEzNzkgMTM2LjcxNyA1NC45MDY0QzEzNi43MTcgNDkuNjc0OSAxMzIuNDg1IDQ1LjQzMzkgMTI3LjI2NCA0NS40MzM5WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTEwMS4wODMgNDUuNDMzOUM5NS44NjE5IDQ1LjQzMzkgOTEuNjI5MyA0OS42NzQ5IDkxLjYyOTMgNTQuOTA2NEM5MS42MjkzIDYwLjEzNzkgOTUuODYxOSA2NC4zNzg5IDEwMS4wODMgNjQuMzc4OUMxMDYuMzA0IDY0LjM3ODkgMTEwLjUzNyA2MC4xMzc5IDExMC41MzcgNTQuOTA2NEMxMTAuNTM3IDQ5LjY3NDkgMTA2LjMwNCA0NS40MzM5IDEwMS4wODMgNDUuNDMzOVoiIGZpbGw9IiNENTJCMUUiLz4KPHBhdGggZD0iTTc0LjkwMzMgNDUuNDMzOUM2OS42ODIyIDQ1LjQzMzkgNjUuNDQ5NyA0OS42NzQ5IDY1LjQ0OTcgNTQuOTA2NEM2NS40NDk3IDYwLjEzNzkgNjkuNjgyMiA2NC4zNzg5IDc0LjkwMzMgNjQuMzc4OUM4MC4xMjQ0IDY0LjM3ODkgODQuMzU2OSA2MC4xMzc5IDg0LjM1NjkgNTQuOTA2NEM4NC4zNTY5IDQ5LjY3NDkgODAuMTI0NCA0NS40MzM5IDc0LjkwMzMgNDUuNDMzOVoiIGZpbGw9IiNENTJCMUUiLz4KPHBhdGggZD0iTTQ4LjcyMzYgNDUuNDMzOUM0My41MDI1IDQ1LjQzMzkgMzkuMjcgNDkuNjc0OSAzOS4yNyA1NC45MDY0QzM5LjI3IDYwLjEzNzkgNDMuNTAyNSA2NC4zNzg5IDQ4LjcyMzYgNjQuMzc4OUM1My45NDQ3IDY0LjM3ODkgNTguMTc3MiA2MC4xMzc5IDU4LjE3NzIgNTQuOTA2NEM1OC4xNzcyIDQ5LjY3NDkgNTMuOTQ0NyA0NS40MzM5IDQ4LjcyMzYgNDUuNDMzOVoiIGZpbGw9IiNENTJCMUUiLz4KPHBhdGggZD0iTTIyLjU0MzkgNDUuNDMzOUMxNy4zMjI4IDQ1LjQzMzkgMTMuMDkwMyA0OS42NzQ5IDEzLjA5MDMgNTQuOTA2NEMxMy4wOTAzIDYwLjEzNzkgMTcuMzIyOCA2NC4zNzg5IDIyLjU0MzkgNjQuMzc4OUMyNy43NjUgNjQuMzc4OSAzMS45OTc2IDYwLjEzNzkgMzEuOTk3NiA1NC45MDY0QzMxLjk5NzYgNDkuNjc0OSAyNy43NjUgNDUuNDMzOSAyMi41NDM5IDQ1LjQzMzlaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMTY2LjUzMyAyMi43MTcxQzE2MS4zMTIgMjIuNzE3MSAxNTcuMDc5IDI2Ljk1ODEgMTU3LjA3OSAzMi4xODk2QzE1Ny4wNzkgMzcuNDIxMSAxNjEuMzEyIDQxLjY2MjEgMTY2LjUzMyA0MS42NjIxQzE3MS43NTQgNDEuNjYyMSAxNzUuOTg2IDM3LjQyMTEgMTc1Ljk4NiAzMi4xODk2QzE3NS45ODYgMjYuOTU4MSAxNzEuNzU0IDIyLjcxNzEgMTY2LjUzMyAyMi43MTcxWiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTE0MC4zNTMgMjIuNzE3MUMxMzUuMTMyIDIyLjcxNzEgMTMwLjg5OSAyNi45NTgxIDEzMC44OTkgMzIuMTg5NkMxMzAuODk5IDM3LjQyMTEgMTM1LjEzMiA0MS42NjIxIDE0MC4zNTMgNDEuNjYyMUMxNDUuNTc0IDQxLjY2MjEgMTQ5LjgwNyAzNy40MjExIDE0OS44MDcgMzIuMTg5NkMxNDkuODA3IDI2Ljk1ODEgMTQ1LjU3NCAyMi43MTcxIDE0MC4zNTMgMjIuNzE3MVoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xMTQuMTcyIDIyLjcxNzFDMTA4Ljk1MSAyMi43MTcxIDEwNC43MTkgMjYuOTU4MSAxMDQuNzE5IDMyLjE4OTZDMTA0LjcxOSAzNy40MjExIDEwOC45NTEgNDEuNjYyMSAxMTQuMTcyIDQxLjY2MjFDMTE5LjM5MyA0MS42NjIxIDEyMy42MjYgMzcuNDIxMSAxMjMuNjI2IDMyLjE4OTZDMTIzLjYyNiAyNi45NTgxIDExOS4zOTMgMjIuNzE3MSAxMTQuMTcyIDIyLjcxNzFaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNODcuOTkyNyAyMi43MTcxQzgyLjc3MTYgMjIuNzE3MSA3OC41MzkgMjYuOTU4MSA3OC41MzkgMzIuMTg5NkM3OC41MzkgMzcuNDIxMSA4Mi43NzE2IDQxLjY2MjEgODcuOTkyNyA0MS42NjIxQzkzLjIxMzggNDEuNjYyMSA5Ny40NDYzIDM3LjQyMTEgOTcuNDQ2MyAzMi4xODk2Qzk3LjQ0NjMgMjYuOTU4MSA5My4yMTM4IDIyLjcxNzEgODcuOTkyNyAyMi43MTcxWiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTYxLjgxMyAyMi43MTcxQzU2LjU5MTkgMjIuNzE3MSA1Mi4zNTkzIDI2Ljk1ODEgNTIuMzU5MyAzMi4xODk2QzUyLjM1OTMgMzcuNDIxMSA1Ni41OTE5IDQxLjY2MjEgNjEuODEzIDQxLjY2MjFDNjcuMDM0MSA0MS42NjIxIDcxLjI2NjYgMzcuNDIxMSA3MS4yNjY2IDMyLjE4OTZDNzEuMjY2NiAyNi45NTgxIDY3LjAzNDEgMjIuNzE3MSA2MS44MTMgMjIuNzE3MVoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0zNS42MzMzIDIyLjcxNzFDMzAuNDEyMiAyMi43MTcxIDI2LjE3OTYgMjYuOTU4MSAyNi4xNzk2IDMyLjE4OTZDMjYuMTc5NiAzNy40MjExIDMwLjQxMjIgNDEuNjYyMSAzNS42MzMzIDQxLjY2MjFDNDAuODU0NCA0MS42NjIxIDQ1LjA4NjkgMzcuNDIxMSA0NS4wODY5IDMyLjE4OTZDNDUuMDg2OSAyNi45NTgxIDQwLjg1NDQgMjIuNzE3MSAzNS42MzMzIDIyLjcxNzFaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMTI3LjI2NCAwLjAwMDM0MzMyM0MxMjIuMDQzIDAuMDAwMzQzMzIzIDExNy44MSA0LjI0MTMzIDExNy44MSA5LjQ3MjgzQzExNy44MSAxNC43MDQzIDEyMi4wNDMgMTguOTQ1MyAxMjcuMjY0IDE4Ljk0NTNDMTMyLjQ4NSAxOC45NDUzIDEzNi43MTcgMTQuNzA0MyAxMzYuNzE3IDkuNDcyODNDMTM2LjcxNyA0LjI0MTMzIDEzMi40ODUgMC4wMDAzNDMzMjMgMTI3LjI2NCAwLjAwMDM0MzMyM1oiIGZpbGw9IiMwQjZFMkMiLz4KPHBhdGggZD0iTTEwMS4wODMgMC4wMDAzNDMzMjNDOTUuODYxOSAwLjAwMDM0MzMyMyA5MS42MjkzIDQuMjQxMzMgOTEuNjI5MyA5LjQ3MjgzQzkxLjYyOTMgMTQuNzA0MyA5NS44NjE5IDE4Ljk0NTMgMTAxLjA4MyAxOC45NDUzQzEwNi4zMDQgMTguOTQ1MyAxMTAuNTM3IDE0LjcwNDMgMTEwLjUzNyA5LjQ3MjgzQzExMC41MzcgNC4yNDEzMyAxMDYuMzA0IDAuMDAwMzQzMzIzIDEwMS4wODMgMC4wMDAzNDMzMjNaIiBmaWxsPSIjMEI2RTJDIi8+CjxwYXRoIGQ9Ik03NC45MDMzIDAuMDAwMzQzMzIzQzY5LjY4MjIgMC4wMDAzNDMzMjMgNjUuNDQ5NyA0LjI0MTMzIDY1LjQ0OTcgOS40NzI4M0M2NS40NDk3IDE0LjcwNDMgNjkuNjgyMiAxOC45NDUzIDc0LjkwMzMgMTguOTQ1M0M4MC4xMjQ0IDE4Ljk0NTMgODQuMzU2OSAxNC43MDQzIDg0LjM1NjkgOS40NzI4M0M4NC4zNTY5IDQuMjQxMzMgODAuMTI0NCAwLjAwMDM0MzMyMyA3NC45MDMzIDAuMDAwMzQzMzIzWiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+";
     const s = {
       card: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, marginBottom: 10, overflow: "hidden" },
       label: { fontSize: 11, color: C.dim, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10, marginTop: 4 },
@@ -1113,36 +1114,238 @@
       );
     }
 
+    // Pot tag shown after a club name everywhere it appears, e.g. "Inter (P1)".
+    const potTag = (id) => {
+      const t = typeof LEAGUE_TEAMS !== "undefined" && LEAGUE_TEAMS[id];
+      return t ? <span style={{ color: C.muted, fontSize: 9, fontWeight: 600 }}> (P{t.pot})</span> : null;
+    };
+    const lgPotOf = (id) => { const t = typeof LEAGUE_TEAMS !== "undefined" && LEAGUE_TEAMS[id]; return t ? t.pot : null; };
+
+    // Significant-result banner (pot-gap upset ladder) — mirrors the WC MatchCard.
+    // Domestic games use the "upset" ladder; CL knockout ties use the harsher
+    // "shock exit" ladder. Returns { icon, label } or null.
+    const lgResultBanner = (m) => {
+      if (!(m.status === "FINISHED" || m.status === "AWARDED")) return null;
+      const ft = m.score && m.score.fullTime;
+      if (!ft) return null;
+      const hs = ft.home || 0, as_ = ft.away || 0;
+      const isKO = m.competition && m.competition.code === "CL" && m.stage && m.stage !== "LEAGUE_STAGE" && m.stage !== "GROUP_STAGE";
+      if (hs !== as_) {
+        const W = hs > as_ ? m.homeTeam.id : m.awayTeam.id, L = hs > as_ ? m.awayTeam.id : m.homeTeam.id;
+        const pw = lgPotOf(W), pl = lgPotOf(L);
+        if (pw == null || pl == null) return null;
+        const gap = pw - pl; // > 0 when the weaker pot (higher number) won
+        if (isKO) { if (gap >= 3) return { icon: "🌋", label: "SEISMIC SHOCK" }; if (gap === 2) return { icon: "😱", label: "SHOCK EXIT" }; if (gap === 1) return { icon: "⚠️", label: "UPSET ALERT" }; return null; }
+        if (gap >= 3) return { icon: "🦄", label: "FAIRYTALE" }; if (gap === 2) return { icon: "🔪", label: "GIANT KILLER" }; if (gap === 1) return { icon: "⚠️", label: "UPSET ALERT" }; return null;
+      }
+      const pw = lgPotOf(m.homeTeam.id), pl = lgPotOf(m.awayTeam.id);
+      if (pw == null || pl == null) return null;
+      const gap = Math.abs(pw - pl);
+      if (gap >= 3) return { icon: "🛡️", label: "HEROIC STAND" };
+      if (gap === 2) return { icon: "🤝", label: "PUNCHED ABOVE" };
+      return null;
+    };
+
+    // ── LeagueMatchCard — the WC MatchCard, adapted: spaced card, gold border +
+    //    glow on a significant result, tap → head-to-head modal ──────────────
+    function LeagueMatchCard({ m, matchPtsById, onMatchClick, onTeamClick }) {
+      const fin = m.status === "FINISHED" || m.status === "AWARDED";
+      const live = m.status === "IN_PLAY" || m.status === "PAUSED";
+      const scheduled = m.status === "SCHEDULED" || m.status === "TIMED";
+      const kickedOff = scheduled && new Date(m.utcDate).getTime() <= Date.now();
+      const ft = m.score && m.score.fullTime;
+      const hs = (ft && ft.home) ?? 0, as_ = (ft && ft.away) ?? 0;
+      const hasScore = ft && ft.home != null && ft.away != null;
+      const pts = matchPtsById ? matchPtsById[m.id] : null;
+      const banner = lgResultBanner(m);
+      const border = banner ? `2px solid ${C.gold}` : `1px solid ${C.border}`;
+      const glow = banner ? "0 0 10px #f59e0b44" : "none";
+      const Side = ({ t, right, earned }) => {
+        const known = typeof LEAGUE_TEAMS !== "undefined" && LEAGUE_TEAMS[t.id];
+        const owner = typeof leagueOwnerOfTeamId === "function" ? leagueOwnerOfTeamId(t.id) : null;
+        const clubName = known ? known.name : (t.shortName || "TBD");
+        return (
+          <div onClick={onTeamClick && known ? (e) => { e.stopPropagation(); onTeamClick(t.id); } : undefined}
+            style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, minWidth: 0, flexDirection: right ? "row-reverse" : "row", cursor: onTeamClick && known ? "pointer" : "default" }}>
+            <Crest teamId={t.id} size={26} />
+            <div style={{ minWidth: 0, textAlign: right ? "right" : "left" }}>
+              {owner
+                ? <>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{owner ? owner.name : ""}</div>
+                    <div style={{ fontSize: 11, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{clubName}{potTag(t.id)}</div>
+                  </>
+                : <div style={{ fontSize: 12, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{clubName}{potTag(t.id)}</div>}
+              {earned > 0 && <div style={{ fontSize: 10, fontWeight: 800, color: C.accent, marginTop: 2 }}>+{earned} pts</div>}
+            </div>
+          </div>
+        );
+      };
+      return (
+        <div className={onMatchClick ? "player-card" : undefined} onClick={onMatchClick ? () => onMatchClick(m.id) : undefined}
+          style={{ ...s.card, border, boxShadow: glow, marginBottom: 10, cursor: onMatchClick ? "pointer" : "default" }}>
+          <div style={{ padding: "12px 14px" }}>
+            <div style={{ display: "flex", alignItems: "center", marginBottom: 10 }}>
+              <span style={{ fontSize: 10, color: (live || kickedOff) ? C.red : C.dim, fontWeight: 700, letterSpacing: "0.08em", flex: 1, textTransform: "uppercase" }}>
+                {(live || kickedOff) ? "⚡ LIVE" : compLabel(m.competition ? m.competition.code : "")}
+              </span>
+              <div style={{ display: "flex", alignItems: "center", gap: 4, justifyContent: "center", flex: 1 }}>
+                {banner && fin && <><span style={{ fontSize: 13, lineHeight: 1 }}>{banner.icon}</span><span style={{ fontSize: 9, fontWeight: 900, color: C.gold, letterSpacing: "0.08em" }}>{banner.label}</span></>}
+              </div>
+              <span style={{ fontSize: 10, color: C.muted, flex: 1, textAlign: "right" }}>{fmtDay(m.utcDate)}</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center" }}>
+              <Side t={m.homeTeam} right earned={pts ? pts.home : 0} />
+              <div style={{ minWidth: 60, textAlign: "center", flexShrink: 0 }}>
+                {fin || live || hasScore
+                  ? <><span style={{ fontSize: 18, fontWeight: 800, letterSpacing: 2, color: (live || (hasScore && !fin)) ? C.red : C.text }}>{hs}–{as_}</span>{!fin && <div style={{ fontSize: 9, fontWeight: 800, color: C.red, marginTop: 2 }}>⚡ LIVE</div>}</>
+                  : <div><div style={{ fontSize: 12, color: C.muted, marginBottom: 2 }}>vs</div><div style={{ fontSize: 9, color: C.muted }}>{fmtTime(m.utcDate)}</div></div>}
+              </div>
+              <Side t={m.awayTeam} earned={pts ? pts.away : 0} />
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ── LeagueHeadToHeadCard — WC-style head-to-head modal opened from any
+    //    team-vs-team card. Teams | Players toggle + recent form. ────────────
+    function LeagueHeadToHeadCard({ bodyRef, m, ranked, matches, matchPtsById, onTeamClick, onPlayerClick, onClose }) {
+      const [view, setView] = useState("teams");
+      const fin = m.status === "FINISHED" || m.status === "AWARDED";
+      const live = m.status === "IN_PLAY" || m.status === "PAUSED";
+      const ft = m.score && m.score.fullTime;
+      const hs = ft ? ft.home : null, as_ = ft ? ft.away : null;
+      const banner = lgResultBanner(m);
+      const known = (id) => typeof LEAGUE_TEAMS !== "undefined" && LEAGUE_TEAMS[id];
+      const clubName = (t) => (known(t.id) ? LEAGUE_TEAMS[t.id].name : (t.shortName || "TBD"));
+      const ownerObj = (id) => typeof leagueOwnerOfTeamId === "function" ? leagueOwnerOfTeamId(id) : null;
+      const hOwner = ownerObj(m.homeTeam.id), aOwner = ownerObj(m.awayTeam.id);
+      const rankOf = (name) => { const i = ranked.findIndex(p => p.name === name); return i >= 0 ? i + 1 : null; };
+      const totalOf = (name) => { const p = ranked.find(p => p.name === name); return p ? p.total : 0; };
+      const form = (id) => matches
+        .filter(x => (x.homeTeam.id === id || x.awayTeam.id === id) && x.stage === "REGULAR_SEASON" && typeof lgIsSettled === "function" && lgIsSettled(x))
+        .sort((a, b) => b.utcDate.localeCompare(a.utcDate)).slice(0, 5).reverse()
+        .map(x => (typeof lgResultFor === "function" ? lgResultFor(x, id) : null)).filter(Boolean);
+      const teamHeader = (t, owner) => (
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, textAlign: "center", minWidth: 0 }}>
+          <Crest teamId={t.id} size={34} />
+          <div style={{ fontSize: 13, fontWeight: 800, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>{clubName(t)}{potTag(t.id)}</div>
+          {owner && <div style={{ fontSize: 11, fontWeight: 600, color: C.accent }}>{owner.name}</div>}
+        </div>
+      );
+      const formPills = (t) => {
+        const res = form(t.id);
+        if (!res.length) return <div style={{ fontSize: 10, color: C.muted }}>—</div>;
+        return (
+          <div style={{ display: "flex", gap: 3, justifyContent: "center" }}>
+            {res.map((r, i) => (
+              <span key={i} style={{ width: 16, height: 16, borderRadius: 3, fontSize: 9, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", color: r === "W" ? C.accent : r === "L" ? C.red : C.muted, background: r === "W" ? C.posBg : r === "L" ? C.negBg : "rgba(148,163,184,0.12)" }}>{r}</span>
+            ))}
+          </div>
+        );
+      };
+      const navBtn = (id, label) => (
+        <button onClick={() => setView(id)} style={{ flex: 1, padding: "9px 8px", background: view === id ? C.accent : C.surface, color: view === id ? C.bg : C.dim, border: "none", borderRadius: 12, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>{label}</button>
+      );
+      return (<>
+        <div className="sheet-handle"><span></span></div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "14px 16px 12px", flexShrink: 0 }}>
+          <div style={{ fontSize: 18, fontWeight: 900, color: C.text }}>Head to Head</div>
+          <button onClick={onClose} aria-label="Close" style={{ background: "transparent", border: "none", color: C.muted, fontSize: 22, cursor: "pointer", lineHeight: 1 }}>✕</button>
+        </div>
+        <div ref={bodyRef} style={{ flex: 1, overflowY: "auto", padding: "0 14px 24px" }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>{navBtn("teams", "Teams")}{navBtn("players", "Players")}</div>
+          {view === "teams" ? (
+            <div style={{ background: C.card, border: `1px solid ${banner ? C.gold : C.border}`, borderRadius: 14, padding: "16px 12px", boxShadow: banner ? "0 0 10px #f59e0b44" : "none" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {teamHeader(m.homeTeam, hOwner)}
+                <div style={{ flexShrink: 0, textAlign: "center", minWidth: 52 }}>
+                  {(fin || live) && hs != null && as_ != null
+                    ? <div style={{ fontSize: 22, fontWeight: 900, color: C.text, lineHeight: 1 }}>{hs} – {as_}</div>
+                    : <div style={{ fontSize: 13, fontWeight: 700, color: C.muted }}>vs</div>}
+                  {live && <div style={{ fontSize: 9, fontWeight: 800, color: C.red, marginTop: 3 }}>LIVE</div>}
+                  {fin && <div style={{ fontSize: 9, fontWeight: 700, color: C.muted, marginTop: 4, textTransform: "uppercase" }}>{m.status === "AWARDED" ? "AWD" : "FT"}</div>}
+                </div>
+                {teamHeader(m.awayTeam, aOwner)}
+              </div>
+              {banner && (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, marginTop: 12 }}>
+                  <span style={{ fontSize: 14 }}>{banner.icon}</span>
+                  <span style={{ fontSize: 10, fontWeight: 900, color: C.gold, letterSpacing: "0.08em" }}>{banner.label}</span>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{ display: "flex", gap: 10 }}>
+              {[{ owner: hOwner }, { owner: aOwner }].map(({ owner }, i) => (
+                <button key={i} onClick={owner && onPlayerClick ? () => onPlayerClick(owner.name) : undefined}
+                  style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "14px 8px", cursor: owner && onPlayerClick ? "pointer" : "default", display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                  {owner
+                    ? <>
+                        <span style={{ width: 36, height: 36, borderRadius: "50%", background: typeof playerColor === "function" ? playerColor(owner.name) : C.border, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 900, color: "#0d1f12" }}>{owner.name[0]}</span>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{owner.name}</div>
+                        <div style={{ fontSize: 11, color: C.muted }}>{rankOf(owner.name) ? ord(rankOf(owner.name)) + " · " : ""}{totalOf(owner.name)} pts</div>
+                      </>
+                    : <div style={{ fontSize: 12, color: C.muted, padding: "12px 0" }}>Unowned</div>}
+                </button>
+              ))}
+            </div>
+          )}
+          <div style={{ fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", margin: "20px 0 10px" }}>Recent form</div>
+          <div style={{ display: "flex", gap: 10 }}>
+            {[m.homeTeam, m.awayTeam].map((t, i) => (
+              <div key={i} style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: "10px 8px", textAlign: "center" }}>
+                <div style={{ fontSize: 11, color: C.muted, marginBottom: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{clubName(t)}</div>
+                {formPills(t)}
+              </div>
+            ))}
+          </div>
+        </div>
+      </>);
+    }
+
     // ── HomeMatchRow — WC HomeMatchRow, player-first (owner bold, club as
     //    context beneath), crest per side, "+N pts" chips ───────────────────
-    function HomeMatchRow({ m, matchPtsById, onTeamClick, isLast, banners = false }) {
-      const fin = m.status === "FINISHED";
+    function HomeMatchRow({ m, matchPtsById, onTeamClick, onMatchClick, isLast, banners = false }) {
+      const fin = m.status === "FINISHED" || m.status === "AWARDED";
       const live = m.status === "IN_PLAY" || m.status === "PAUSED";
       const hs = (m.score && m.score.fullTime && m.score.fullTime.home) ?? 0;
       const as_ = (m.score && m.score.fullTime && m.score.fullTime.away) ?? 0;
-      const pts = matchPtsById[m.id];
+      const pts = matchPtsById ? matchPtsById[m.id] : null;
+      const banner = lgResultBanner(m);
+      // When the whole row opens the head-to-head modal, the team sides don't
+      // navigate independently (the H2H card has its own team links).
+      const teamClick = onMatchClick ? null : onTeamClick;
       const Side = ({ t, right, earned }) => {
         const o = typeof leagueOwnerOfTeamId === "function" ? leagueOwnerOfTeamId(t.id) : null;
         const known = typeof LEAGUE_TEAMS !== "undefined" && LEAGUE_TEAMS[t.id];
         const clubName = known ? known.name : (t.shortName || "TBD");
         return (
-          <div onClick={onTeamClick && known ? () => onTeamClick(t.id) : undefined}
-            style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, cursor: onTeamClick && known ? "pointer" : "default", minWidth: 0, flexDirection: right ? "row-reverse" : "row" }}>
+          <div onClick={teamClick && known ? (e) => { e.stopPropagation(); teamClick(t.id); } : undefined}
+            style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, cursor: teamClick && known ? "pointer" : "default", minWidth: 0, flexDirection: right ? "row-reverse" : "row" }}>
             <Crest teamId={t.id} size={26} />
             <div style={{ minWidth: 0, textAlign: right ? "right" : "left" }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: o ? C.text : C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o ? o.name : clubName}</div>
-              {o && <div style={{ fontSize: 10, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{clubName}</div>}
+              {o
+                ? <>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.name}</div>
+                    <div style={{ fontSize: 10, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{clubName}{potTag(t.id)}</div>
+                  </>
+                : <div style={{ fontSize: 12, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{clubName}{potTag(t.id)}</div>}
               {earned > 0 && <div style={{ fontSize: 10, fontWeight: 800, color: C.accent, marginTop: 1 }}>+{earned}pts</div>}
             </div>
           </div>
         );
       };
       return (
-        <div style={{ padding: "10px 14px", borderBottom: isLast ? "none" : `1px solid ${C.border}` }}>
+        <div className={onMatchClick ? "player-card" : undefined} onClick={onMatchClick ? () => onMatchClick(m.id) : undefined}
+          style={{ padding: "10px 14px", borderBottom: isLast ? "none" : `1px solid ${C.border}`, cursor: onMatchClick ? "pointer" : "default" }}>
           {banners && (
             <div style={{ display: "flex", alignItems: "center", marginBottom: 7 }}>
               <span style={{ fontSize: 9, color: live ? C.red : C.dim, fontWeight: 700, letterSpacing: "0.08em", flex: 1, textTransform: "uppercase" }}>
                 {live ? "⚡ LIVE" : compLabel(m.competition ? m.competition.code : "")}
+              </span>
+              <span style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 3 }}>
+                {banner && fin && <><span style={{ fontSize: 11, lineHeight: 1 }}>{banner.icon}</span><span style={{ fontSize: 8, fontWeight: 900, color: C.gold, letterSpacing: "0.05em" }}>{banner.label}</span></>}
               </span>
               <span style={{ fontSize: 9, color: C.muted, flex: 1, textAlign: "right" }}>{fmtDay(m.utcDate)}</span>
             </div>
@@ -1309,7 +1512,7 @@
       );
     }
 
-    function HomeTab({ matches, ranked, badges, weekWindow, matchPtsById, hist, outcomes, anchorIso, setTab, openPlayerModal, openTeamModal }) {
+    function HomeTab({ matches, ranked, badges, weekWindow, matchPtsById, hist, outcomes, anchorIso, setTab, openPlayerModal, openTeamModal, openMatchModal }) {
       const real = ranked;
       const newAccolades = useMemo(
         () => (typeof computeNewLeagueBadges === "function" ? computeNewLeagueBadges(badges, matches, anchorIso) : []),
@@ -1481,14 +1684,14 @@
           <Section icon="🌐" title="Recent Results" onOpen={() => { window.scrollTo(0, 0); setTab("scores"); }} linkLabel="View all scores"
             empty={recentResults.length === 0 ? "No matches in the last 7 days" : null}>
             {recentResults.map((m, i) => (
-              <HomeMatchRow key={m.id} m={m} matchPtsById={matchPtsById} onTeamClick={openTeamModal} isLast={i === recentResults.length - 1} banners />
+              <HomeMatchRow key={m.id} m={m} matchPtsById={matchPtsById} onTeamClick={openTeamModal} onMatchClick={openMatchModal} isLast={i === recentResults.length - 1} banners />
             ))}
           </Section>
 
           <Section icon="📅" title="Up Next" onOpen={() => { window.scrollTo(0, 0); setTab("scores"); }} linkLabel="View all scores"
             empty={upNext.length === 0 ? "No upcoming fixtures" : null}>
             {upNext.map((m, i) => (
-              <HomeMatchRow key={m.id} m={m} matchPtsById={matchPtsById} onTeamClick={openTeamModal} isLast={i === upNext.length - 1} />
+              <HomeMatchRow key={m.id} m={m} matchPtsById={matchPtsById} onTeamClick={openTeamModal} onMatchClick={openMatchModal} isLast={i === upNext.length - 1} banners />
             ))}
           </Section>
         </div>
@@ -1527,8 +1730,8 @@
             ) : <div style={{ width: 20, height: 20, background: C.border, borderRadius: 3, flexShrink: 0 }} />}
             {id ? (
               <div style={{ flex: 1, minWidth: 0, opacity: isElim ? 0.5 : 1 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: isWinner ? C.accent : C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{owner || teamName(id)}</div>
-                {owner && <div style={{ fontSize: 10, color: C.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{teamName(id)}</div>}
+                <div style={{ fontSize: 12, fontWeight: 700, color: isWinner ? C.accent : C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{owner ? owner : <>{teamName(id)}{potTag(id)}</>}</div>
+                {owner && <div style={{ fontSize: 10, color: C.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{teamName(id)}{potTag(id)}</div>}
               </div>
             ) : <span style={{ fontSize: 11, color: C.muted, flex: 1 }}>TBD</span>}
             {score != null && <div style={{ flexShrink: 0, fontSize: 13, fontWeight: 700, color: isWinner ? C.accent : C.dim, opacity: isElim ? 0.5 : 1 }}>{score}</div>}
@@ -1548,9 +1751,9 @@
       );
     }
 
-    // Knockout play-off ties as a fixtures row (shown under the league table).
-    function CLPlayoffsRow({ matches, matchPtsById, onTeamClick }) {
-      // The play-off legs as a vertical fixtures list, styled like the Scores tab.
+    // Knockout play-off legs as a vertical list of spaced match cards, under
+    // the league table (same card as the Scores tab).
+    function CLPlayoffsRow({ matches, matchPtsById, onTeamClick, onMatchClick }) {
       const games = matches
         .filter(m => m.competition && m.competition.code === "CL" && m.stage === "PLAYOFFS" && m.homeTeam && m.homeTeam.id && m.awayTeam && m.awayTeam.id)
         .sort((a, b) => a.utcDate.localeCompare(b.utcDate));
@@ -1561,11 +1764,9 @@
             Knockout play-offs <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>· 9th–24th · winners reach the last 16</span>
           </div>
           <div style={{ padding: "0 14px" }}>
-            <div style={s.card}>
-              {games.map((m, i) => (
-                <HomeMatchRow key={m.id} m={m} matchPtsById={matchPtsById || {}} onTeamClick={onTeamClick} isLast={i === games.length - 1} banners />
-              ))}
-            </div>
+            {games.map(m => (
+              <LeagueMatchCard key={m.id} m={m} matchPtsById={matchPtsById} onMatchClick={onMatchClick} onTeamClick={onTeamClick} />
+            ))}
           </div>
         </div>
       );
@@ -1632,7 +1833,7 @@
     // The Champions League runs League phase → Knockouts (a play-off round then
     // the R16→final bracket). A sub-nav lets you follow those phases in order,
     // mirroring the WC app's Groups | Bracket split.
-    function ChampionsLeagueTab({ matches, tables, outcomes, matchPtsById, onTeamClick }) {
+    function ChampionsLeagueTab({ matches, tables, outcomes, matchPtsById, onTeamClick, onMatchClick }) {
       const [phase, setPhase] = useState("league");
       return (
         <div>
@@ -1659,7 +1860,7 @@
                   { after: 8, label: "Knockout play-offs · 9th–24th", color: C.muted },
                   { after: 24, label: "Eliminated · 25th–36th", color: C.dangerText },
                 ]} />
-              <CLPlayoffsRow matches={matches} matchPtsById={matchPtsById} onTeamClick={onTeamClick} />
+              <CLPlayoffsRow matches={matches} matchPtsById={matchPtsById} onTeamClick={onTeamClick} onMatchClick={onMatchClick} />
             </div>
           ) : (
             <CLBracket matches={matches} onTeamClick={onTeamClick} />
@@ -1735,8 +1936,8 @@
                         <span style={{ display: "inline-flex", alignItems: "center", gap: 9 }}>
                           <Crest teamId={r.teamId} size={24} />
                           {own
-                            ? <span><span style={{ fontWeight: 700, fontSize: 14 }}>{own}</span> <span style={{ fontSize: 12, color: C.muted }}>{teamName(r.teamId)}</span></span>
-                            : <span style={{ fontSize: 13, color: C.muted }}>{teamName(r.teamId)}</span>}
+                            ? <span><span style={{ fontWeight: 700, fontSize: 14 }}>{own}</span> <span style={{ fontSize: 12, color: C.muted }}>{teamName(r.teamId)}{potTag(r.teamId)}</span></span>
+                            : <span style={{ fontSize: 13, color: C.muted }}>{teamName(r.teamId)}{potTag(r.teamId)}</span>}
                           {o && o.comp === comp && outcomeChip(o.outcome)}
                         </span>
                       </td>
@@ -1829,7 +2030,7 @@
       );
     }
 
-    function ScoresTab({ matches, matchPtsById, anchorIso, onTeamClick }) {
+    function ScoresTab({ matches, matchPtsById, anchorIso, onTeamClick, onMatchClick }) {
       const [selectedDay, setSelectedDay] = useState(null);
       // Every calendar day spanned by the loaded matches (so browsing reveals
       // empty days rather than skipping them), mirroring the WC Scores tab.
@@ -1858,11 +2059,9 @@
           <div style={{ padding: "0 14px" }}>
             {dayGames.length === 0
               ? <div style={{ color: C.muted, fontSize: 13, padding: "28px 0", textAlign: "center" }}>No matches on {fmtDay(effectiveDay.toISOString())}.</div>
-              : <div style={s.card}>
-                  {dayGames.map((m, i) => (
-                    <HomeMatchRow key={m.id} m={m} matchPtsById={matchPtsById} onTeamClick={onTeamClick} isLast={i === dayGames.length - 1} banners />
-                  ))}
-                </div>}
+              : dayGames.map(m => (
+                  <LeagueMatchCard key={m.id} m={m} matchPtsById={matchPtsById} onMatchClick={onMatchClick} onTeamClick={onTeamClick} />
+                ))}
           </div>
         </div>
       );
@@ -2229,7 +2428,7 @@
         return fmtDay(new Date(ts).toISOString()) + ", " + fmtTime(new Date(ts).toISOString());
       };
       const ptsStr = (n) => (n === null || n === undefined) ? null : <span style={{ color: n > 0 ? C.accent : n < 0 ? C.red : C.muted, fontWeight: 700 }}>{n >= 0 ? "+" : ""}{n} pts</span>;
-      const brandRow = (ts) => <div style={{ fontSize: 10, color: C.muted, marginBottom: 3 }}>League Sweeps · {relTime(ts)}</div>;
+      const brandRow = (ts) => <div style={{ fontSize: 10, color: C.muted, marginBottom: 3 }}>Sweepstaker · {relTime(ts)}</div>;
       const cardStyle = (dimmed) => ({ padding: "10px 6px", borderBottom: `1px solid ${C.border}`, background: dimmed ? "transparent" : "rgba(34,197,94,0.07)" });
 
       const teamName = (id) => (typeof LEAGUE_TEAMS !== "undefined" && LEAGUE_TEAMS[id] && LEAGUE_TEAMS[id].name);
@@ -2323,7 +2522,7 @@
         <div style={{ padding: "10px 14px 6px" }}>
           {/* Search + notifications row — WC-parity top bar */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-            <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAzIiBoZWlnaHQ9IjIwMSIgdmlld0JveD0iMCAwIDIwMyAyMDEiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0xMjcuMjY0IDE4MS43NDFDMTIyLjA0MyAxODEuNzQxIDExNy44MSAxODUuOTgyIDExNy44MSAxOTEuMjEzQzExNy44MSAxOTYuNDQ1IDEyMi4wNDMgMjAwLjY4NiAxMjcuMjY0IDIwMC42ODZDMTMyLjQ4NSAyMDAuNjg2IDEzNi43MTcgMTk2LjQ0NSAxMzYuNzE3IDE5MS4yMTNDMTM2LjcxNyAxODUuOTgyIDEzMi40ODUgMTgxLjc0MSAxMjcuMjY0IDE4MS43NDFaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMTAxLjA4MyAxODEuNzQxQzk1Ljg2MTkgMTgxLjc0MSA5MS42MjkzIDE4NS45ODIgOTEuNjI5MyAxOTEuMjEzQzkxLjYyOTMgMTk2LjQ0NSA5NS44NjE5IDIwMC42ODYgMTAxLjA4MyAyMDAuNjg2QzEwNi4zMDQgMjAwLjY4NiAxMTAuNTM3IDE5Ni40NDUgMTEwLjUzNyAxOTEuMjEzQzExMC41MzcgMTg1Ljk4MiAxMDYuMzA0IDE4MS43NDEgMTAxLjA4MyAxODEuNzQxWiIgZmlsbD0iI0Q1MkIxRSIvPgo8cGF0aCBkPSJNNzQuOTAzMyAxODEuNzQxQzY5LjY4MjIgMTgxLjc0MSA2NS40NDk3IDE4NS45ODIgNjUuNDQ5NyAxOTEuMjEzQzY1LjQ0OTcgMTk2LjQ0NSA2OS42ODIyIDIwMC42ODYgNzQuOTAzMyAyMDAuNjg2QzgwLjEyNDQgMjAwLjY4NiA4NC4zNTY5IDE5Ni40NDUgODQuMzU2OSAxOTEuMjEzQzg0LjM1NjkgMTg1Ljk4MiA4MC4xMjQ0IDE4MS43NDEgNzQuOTAzMyAxODEuNzQxWiIgZmlsbD0iI0Q1MkIxRSIvPgo8cGF0aCBkPSJNMTY2LjUzMyAxNTkuMDI0QzE2MS4zMTIgMTU5LjAyNCAxNTcuMDc5IDE2My4yNjUgMTU3LjA3OSAxNjguNDk2QzE1Ny4wNzkgMTczLjcyOCAxNjEuMzEyIDE3Ny45NjkgMTY2LjUzMyAxNzcuOTY5QzE3MS43NTQgMTc3Ljk2OSAxNzUuOTg2IDE3My43MjggMTc1Ljk4NiAxNjguNDk2QzE3NS45ODYgMTYzLjI2NSAxNzEuNzU0IDE1OS4wMjQgMTY2LjUzMyAxNTkuMDI0WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTE0MC4zNTMgMTU5LjAyNEMxMzUuMTMyIDE1OS4wMjQgMTMwLjg5OSAxNjMuMjY1IDEzMC44OTkgMTY4LjQ5NkMxMzAuODk5IDE3My43MjggMTM1LjEzMiAxNzcuOTY5IDE0MC4zNTMgMTc3Ljk2OUMxNDUuNTc0IDE3Ny45NjkgMTQ5LjgwNyAxNzMuNzI4IDE0OS44MDcgMTY4LjQ5NkMxNDkuODA3IDE2My4yNjUgMTQ1LjU3NCAxNTkuMDI0IDE0MC4zNTMgMTU5LjAyNFoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xMTQuMTcyIDE1OS4wMjRDMTA4Ljk1MSAxNTkuMDI0IDEwNC43MTkgMTYzLjI2NSAxMDQuNzE5IDE2OC40OTZDMTA0LjcxOSAxNzMuNzI4IDEwOC45NTEgMTc3Ljk2OSAxMTQuMTcyIDE3Ny45NjlDMTE5LjM5MyAxNzcuOTY5IDEyMy42MjYgMTczLjcyOCAxMjMuNjI2IDE2OC40OTZDMTIzLjYyNiAxNjMuMjY1IDExOS4zOTMgMTU5LjAyNCAxMTQuMTcyIDE1OS4wMjRaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNODcuOTkyNyAxNTkuMDI0QzgyLjc3MTYgMTU5LjAyNCA3OC41MzkgMTYzLjI2NSA3OC41MzkgMTY4LjQ5NkM3OC41MzkgMTczLjcyOCA4Mi43NzE2IDE3Ny45NjkgODcuOTkyNyAxNzcuOTY5QzkzLjIxMzggMTc3Ljk2OSA5Ny40NDYzIDE3My43MjggOTcuNDQ2MyAxNjguNDk2Qzk3LjQ0NjMgMTYzLjI2NSA5My4yMTM4IDE1OS4wMjQgODcuOTkyNyAxNTkuMDI0WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTYxLjgxMyAxNTkuMDI0QzU2LjU5MTkgMTU5LjAyNCA1Mi4zNTkzIDE2My4yNjUgNTIuMzU5MyAxNjguNDk2QzUyLjM1OTMgMTczLjcyOCA1Ni41OTE5IDE3Ny45NjkgNjEuODEzIDE3Ny45NjlDNjcuMDM0MSAxNzcuOTY5IDcxLjI2NjYgMTczLjcyOCA3MS4yNjY2IDE2OC40OTZDNzEuMjY2NiAxNjMuMjY1IDY3LjAzNDEgMTU5LjAyNCA2MS44MTMgMTU5LjAyNFoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0zNS42MzMzIDE1OS4wMjRDMzAuNDEyMiAxNTkuMDI0IDI2LjE3OTYgMTYzLjI2NSAyNi4xNzk2IDE2OC40OTZDMjYuMTc5NiAxNzMuNzI4IDMwLjQxMjIgMTc3Ljk2OSAzNS42MzMzIDE3Ny45NjlDNDAuODU0NCAxNzcuOTY5IDQ1LjA4NjkgMTczLjcyOCA0NS4wODY5IDE2OC40OTZDNDUuMDg2OSAxNjMuMjY1IDQwLjg1NDQgMTU5LjAyNCAzNS42MzMzIDE1OS4wMjRaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMTc5LjYyMyAxMzYuMzA1QzE3NC40MDEgMTM2LjMwNSAxNzAuMTY5IDE0MC41NDYgMTcwLjE2OSAxNDUuNzc4QzE3MC4xNjkgMTUxLjAwOSAxNzQuNDAxIDE1NS4yNSAxNzkuNjIzIDE1NS4yNUMxODQuODQ0IDE1NS4yNSAxODkuMDc2IDE1MS4wMDkgMTg5LjA3NiAxNDUuNzc4QzE4OS4wNzYgMTQwLjU0NiAxODQuODQ0IDEzNi4zMDUgMTc5LjYyMyAxMzYuMzA1WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTE1My40NDMgMTM2LjMwNUMxNDguMjIyIDEzNi4zMDUgMTQzLjk4OSAxNDAuNTQ2IDE0My45ODkgMTQ1Ljc3OEMxNDMuOTg5IDE1MS4wMDkgMTQ4LjIyMiAxNTUuMjUgMTUzLjQ0MyAxNTUuMjVDMTU4LjY2NCAxNTUuMjUgMTYyLjg5NiAxNTEuMDA5IDE2Mi44OTYgMTQ1Ljc3OEMxNjIuODk2IDE0MC41NDYgMTU4LjY2NCAxMzYuMzA1IDE1My40NDMgMTM2LjMwNVoiIGZpbGw9IiMwQjZFMkMiLz4KPHBhdGggZD0iTTEyNy4yNjQgMTM2LjMwNUMxMjIuMDQzIDEzNi4zMDUgMTE3LjgxIDE0MC41NDYgMTE3LjgxIDE0NS43NzhDMTE3LjgxIDE1MS4wMDkgMTIyLjA0MyAxNTUuMjUgMTI3LjI2NCAxNTUuMjVDMTMyLjQ4NSAxNTUuMjUgMTM2LjcxNyAxNTEuMDA5IDEzNi43MTcgMTQ1Ljc3OEMxMzYuNzE3IDE0MC41NDYgMTMyLjQ4NSAxMzYuMzA1IDEyNy4yNjQgMTM2LjMwNVoiIGZpbGw9IiMwQjZFMkMiLz4KPHBhdGggZD0iTTEwMS4wODMgMTM2LjMwNUM5NS44NjE5IDEzNi4zMDUgOTEuNjI5MyAxNDAuNTQ2IDkxLjYyOTMgMTQ1Ljc3OEM5MS42MjkzIDE1MS4wMDkgOTUuODYxOSAxNTUuMjUgMTAxLjA4MyAxNTUuMjVDMTA2LjMwNCAxNTUuMjUgMTEwLjUzNyAxNTEuMDA5IDExMC41MzcgMTQ1Ljc3OEMxMTAuNTM3IDE0MC41NDYgMTA2LjMwNCAxMzYuMzA1IDEwMS4wODMgMTM2LjMwNVoiIGZpbGw9IiMwQjZFMkMiLz4KPHBhdGggZD0iTTc0LjkwMzMgMTM2LjMwNUM2OS42ODIyIDEzNi4zMDUgNjUuNDQ5NyAxNDAuNTQ2IDY1LjQ0OTcgMTQ1Ljc3OEM2NS40NDk3IDE1MS4wMDkgNjkuNjgyMiAxNTUuMjUgNzQuOTAzMyAxNTUuMjVDODAuMTI0NCAxNTUuMjUgODQuMzU2OSAxNTEuMDA5IDg0LjM1NjkgMTQ1Ljc3OEM4NC4zNTY5IDE0MC41NDYgODAuMTI0NCAxMzYuMzA1IDc0LjkwMzMgMTM2LjMwNVoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik00OC43MjM2IDEzNi4zMDVDNDMuNTAyNSAxMzYuMzA1IDM5LjI3IDE0MC41NDYgMzkuMjcgMTQ1Ljc3OEMzOS4yNyAxNTEuMDA5IDQzLjUwMjUgMTU1LjI1IDQ4LjcyMzYgMTU1LjI1QzUzLjk0NDcgMTU1LjI1IDU4LjE3NzIgMTUxLjAwOSA1OC4xNzcyIDE0NS43NzhDNTguMTc3MiAxNDAuNTQ2IDUzLjk0NDcgMTM2LjMwNSA0OC43MjM2IDEzNi4zMDVaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMjIuNTQzOSAxMzYuMzA1QzE3LjMyMjggMTM2LjMwNSAxMy4wOTAzIDE0MC41NDYgMTMuMDkwMyAxNDUuNzc4QzEzLjA5MDMgMTUxLjAwOSAxNy4zMjI4IDE1NS4yNSAyMi41NDM5IDE1NS4yNUMyNy43NjUgMTU1LjI1IDMxLjk5NzYgMTUxLjAwOSAzMS45OTc2IDE0NS43NzhDMzEuOTk3NiAxNDAuNTQ2IDI3Ljc2NSAxMzYuMzA1IDIyLjU0MzkgMTM2LjMwNVoiIGZpbGw9IiMwQjZFMkMiLz4KPHBhdGggZD0iTTE5Mi43MTIgMTEzLjU4OEMxODcuNDkxIDExMy41ODggMTgzLjI1OSAxMTcuODI5IDE4My4yNTkgMTIzLjA2MUMxODMuMjU5IDEyOC4yOTIgMTg3LjQ5MSAxMzIuNTMzIDE5Mi43MTIgMTMyLjUzM0MxOTcuOTMzIDEzMi41MzMgMjAyLjE2NiAxMjguMjkyIDIwMi4xNjYgMTIzLjA2MUMyMDIuMTY2IDExNy44MjkgMTk3LjkzMyAxMTMuNTg4IDE5Mi43MTIgMTEzLjU4OFoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xNjYuNTMzIDExMy41ODhDMTYxLjMxMiAxMTMuNTg4IDE1Ny4wNzkgMTE3LjgyOSAxNTcuMDc5IDEyMy4wNjFDMTU3LjA3OSAxMjguMjkyIDE2MS4zMTIgMTMyLjUzMyAxNjYuNTMzIDEzMi41MzNDMTcxLjc1NCAxMzIuNTMzIDE3NS45ODYgMTI4LjI5MiAxNzUuOTg2IDEyMy4wNjFDMTc1Ljk4NiAxMTcuODI5IDE3MS43NTQgMTEzLjU4OCAxNjYuNTMzIDExMy41ODhaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMTQwLjM1MyAxMTMuNTg4QzEzNS4xMzIgMTEzLjU4OCAxMzAuODk5IDExNy44MjkgMTMwLjg5OSAxMjMuMDYxQzEzMC44OTkgMTI4LjI5MiAxMzUuMTMyIDEzMi41MzMgMTQwLjM1MyAxMzIuNTMzQzE0NS41NzQgMTMyLjUzMyAxNDkuODA3IDEyOC4yOTIgMTQ5LjgwNyAxMjMuMDYxQzE0OS44MDcgMTE3LjgyOSAxNDUuNTc0IDExMy41ODggMTQwLjM1MyAxMTMuNTg4WiIgZmlsbD0iIzBCNkUyQyIvPgo8cGF0aCBkPSJNMTE0LjE3MiAxMTMuNTg4QzEwOC45NTEgMTEzLjU4OCAxMDQuNzE5IDExNy44MjkgMTA0LjcxOSAxMjMuMDYxQzEwNC43MTkgMTI4LjI5MiAxMDguOTUxIDEzMi41MzMgMTE0LjE3MiAxMzIuNTMzQzExOS4zOTMgMTMyLjUzMyAxMjMuNjI2IDEyOC4yOTIgMTIzLjYyNiAxMjMuMDYxQzEyMy42MjYgMTE3LjgyOSAxMTkuMzkzIDExMy41ODggMTE0LjE3MiAxMTMuNTg4WiIgZmlsbD0iIzBCNkUyQyIvPgo8cGF0aCBkPSJNODcuOTkyNyAxMTMuNTg4QzgyLjc3MTYgMTEzLjU4OCA3OC41MzkgMTE3LjgyOSA3OC41MzkgMTIzLjA2MUM3OC41MzkgMTI4LjI5MiA4Mi43NzE2IDEzMi41MzMgODcuOTkyNyAxMzIuNTMzQzkzLjIxMzggMTMyLjUzMyA5Ny40NDYzIDEyOC4yOTIgOTcuNDQ2MyAxMjMuMDYxQzk3LjQ0NjMgMTE3LjgyOSA5My4yMTM4IDExMy41ODggODcuOTkyNyAxMTMuNTg4WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTYxLjgxMyAxMTMuNTg4QzU2LjU5MTkgMTEzLjU4OCA1Mi4zNTkzIDExNy44MjkgNTIuMzU5MyAxMjMuMDYxQzUyLjM1OTMgMTI4LjI5MiA1Ni41OTE5IDEzMi41MzMgNjEuODEzIDEzMi41MzNDNjcuMDM0MSAxMzIuNTMzIDcxLjI2NjYgMTI4LjI5MiA3MS4yNjY2IDEyMy4wNjFDNzEuMjY2NiAxMTcuODI5IDY3LjAzNDEgMTEzLjU4OCA2MS44MTMgMTEzLjU4OFoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0zNS42MzMzIDExMy41ODhDMzAuNDEyMiAxMTMuNTg4IDI2LjE3OTYgMTE3LjgyOSAyNi4xNzk2IDEyMy4wNjFDMjYuMTc5NiAxMjguMjkyIDMwLjQxMjIgMTMyLjUzMyAzNS42MzMzIDEzMi41MzNDNDAuODU0NCAxMzIuNTMzIDQ1LjA4NjkgMTI4LjI5MiA0NS4wODY5IDEyMy4wNjFDNDUuMDg2OSAxMTcuODI5IDQwLjg1NDQgMTEzLjU4OCAzNS42MzMzIDExMy41ODhaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNOS40NTM1OCAxMTMuNTg4QzQuMjMyNDggMTEzLjU4OCAtNS4zNDA1OGUtMDUgMTE3LjgyOSAtNS4zNDA1OGUtMDUgMTIzLjA2MUMtNS4zNDA1OGUtMDUgMTI4LjI5MiA0LjIzMjQ4IDEzMi41MzMgOS40NTM1OCAxMzIuNTMzQzE0LjY3NDcgMTMyLjUzMyAxOC45MDcyIDEyOC4yOTIgMTguOTA3MiAxMjMuMDYxQzE4LjkwNzIgMTE3LjgyOSAxNC42NzQ3IDExMy41ODggOS40NTM1OCAxMTMuNTg4WiIgZmlsbD0iIzBCNkUyQyIvPgo8cGF0aCBkPSJNMTc5LjYyMyA5MC44Njk1QzE3NC40MDEgOTAuODY5NSAxNzAuMTY5IDk1LjExMDUgMTcwLjE2OSAxMDAuMzQyQzE3MC4xNjkgMTA1LjU3MyAxNzQuNDAxIDEwOS44MTQgMTc5LjYyMyAxMDkuODE0QzE4NC44NDQgMTA5LjgxNCAxODkuMDc2IDEwNS41NzMgMTg5LjA3NiAxMDAuMzQyQzE4OS4wNzYgOTUuMTEwNSAxODQuODQ0IDkwLjg2OTUgMTc5LjYyMyA5MC44Njk1WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTE1My40NDMgOTAuODY5NUMxNDguMjIyIDkwLjg2OTUgMTQzLjk4OSA5NS4xMTA1IDE0My45ODkgMTAwLjM0MkMxNDMuOTg5IDEwNS41NzMgMTQ4LjIyMiAxMDkuODE0IDE1My40NDMgMTA5LjgxNEMxNTguNjY0IDEwOS44MTQgMTYyLjg5NiAxMDUuNTczIDE2Mi44OTYgMTAwLjM0MkMxNjIuODk2IDk1LjExMDUgMTU4LjY2NCA5MC44Njk1IDE1My40NDMgOTAuODY5NVoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xMjcuMjY0IDkwLjg2OTVDMTIyLjA0MyA5MC44Njk1IDExNy44MSA5NS4xMTA1IDExNy44MSAxMDAuMzQyQzExNy44MSAxMDUuNTczIDEyMi4wNDMgMTA5LjgxNCAxMjcuMjY0IDEwOS44MTRDMTMyLjQ4NSAxMDkuODE0IDEzNi43MTcgMTA1LjU3MyAxMzYuNzE3IDEwMC4zNDJDMTM2LjcxNyA5NS4xMTA1IDEzMi40ODUgOTAuODY5NSAxMjcuMjY0IDkwLjg2OTVaIiBmaWxsPSIjMEI2RTJDIi8+CjxwYXRoIGQ9Ik0xMDEuMDgzIDkwLjg2OTVDOTUuODYxOSA5MC44Njk1IDkxLjYyOTMgOTUuMTEwNSA5MS42MjkzIDEwMC4zNDJDOTEuNjI5MyAxMDUuNTczIDk1Ljg2MTkgMTA5LjgxNCAxMDEuMDgzIDEwOS44MTRDMTA2LjMwNCAxMDkuODE0IDExMC41MzcgMTA1LjU3MyAxMTAuNTM3IDEwMC4zNDJDMTEwLjUzNyA5NS4xMTA1IDEwNi4zMDQgOTAuODY5NSAxMDEuMDgzIDkwLjg2OTVaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNNzQuOTAzMyA5MC44Njk1QzY5LjY4MjIgOTAuODY5NSA2NS40NDk3IDk1LjExMDUgNjUuNDQ5NyAxMDAuMzQyQzY1LjQ0OTcgMTA1LjU3MyA2OS42ODIyIDEwOS44MTQgNzQuOTAzMyAxMDkuODE0QzgwLjEyNDQgMTA5LjgxNCA4NC4zNTY5IDEwNS41NzMgODQuMzU2OSAxMDAuMzQyQzg0LjM1NjkgOTUuMTEwNSA4MC4xMjQ0IDkwLjg2OTUgNzQuOTAzMyA5MC44Njk1WiIgZmlsbD0iI0Q1MkIxRSIvPgo8cGF0aCBkPSJNNDguNzIzNiA5MC44Njk1QzQzLjUwMjUgOTAuODY5NSAzOS4yNyA5NS4xMTA1IDM5LjI3IDEwMC4zNDJDMzkuMjcgMTA1LjU3MyA0My41MDI1IDEwOS44MTQgNDguNzIzNiAxMDkuODE0QzUzLjk0NDcgMTA5LjgxNCA1OC4xNzcyIDEwNS41NzMgNTguMTc3MiAxMDAuMzQyQzU4LjE3NzIgOTUuMTEwNSA1My45NDQ3IDkwLjg2OTUgNDguNzIzNiA5MC44Njk1WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTIyLjU0MzkgOTAuODY5NUMxNy4zMjI4IDkwLjg2OTUgMTMuMDkwMyA5NS4xMTA1IDEzLjA5MDMgMTAwLjM0MkMxMy4wOTAzIDEwNS41NzMgMTcuMzIyOCAxMDkuODE0IDIyLjU0MzkgMTA5LjgxNEMyNy43NjUgMTA5LjgxNCAzMS45OTc2IDEwNS41NzMgMzEuOTk3NiAxMDAuMzQyQzMxLjk5NzYgOTUuMTEwNSAyNy43NjUgOTAuODY5NSAyMi41NDM5IDkwLjg2OTVaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMTkyLjcxMiA2OC4xNTI3QzE4Ny40OTEgNjguMTUyNyAxODMuMjU5IDcyLjM5MzcgMTgzLjI1OSA3Ny42MjUyQzE4My4yNTkgODIuODU2NyAxODcuNDkxIDg3LjA5NzcgMTkyLjcxMiA4Ny4wOTc3QzE5Ny45MzMgODcuMDk3NyAyMDIuMTY2IDgyLjg1NjcgMjAyLjE2NiA3Ny42MjUyQzIwMi4xNjYgNzIuMzkzNyAxOTcuOTMzIDY4LjE1MjcgMTkyLjcxMiA2OC4xNTI3WiIgZmlsbD0iI0Q1MkIxRSIvPgo8cGF0aCBkPSJNMTY2LjUzMyA2OC4xNTI3QzE2MS4zMTIgNjguMTUyNyAxNTcuMDc5IDcyLjM5MzcgMTU3LjA3OSA3Ny42MjUyQzE1Ny4wNzkgODIuODU2NyAxNjEuMzEyIDg3LjA5NzcgMTY2LjUzMyA4Ny4wOTc3QzE3MS43NTQgODcuMDk3NyAxNzUuOTg2IDgyLjg1NjcgMTc1Ljk4NiA3Ny42MjUyQzE3NS45ODYgNzIuMzkzNyAxNzEuNzU0IDY4LjE1MjcgMTY2LjUzMyA2OC4xNTI3WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTE0MC4zNTMgNjguMTUyN0MxMzUuMTMyIDY4LjE1MjcgMTMwLjg5OSA3Mi4zOTM3IDEzMC44OTkgNzcuNjI1MkMxMzAuODk5IDgyLjg1NjcgMTM1LjEzMiA4Ny4wOTc3IDE0MC4zNTMgODcuMDk3N0MxNDUuNTc0IDg3LjA5NzcgMTQ5LjgwNyA4Mi44NTY3IDE0OS44MDcgNzcuNjI1MkMxNDkuODA3IDcyLjM5MzcgMTQ1LjU3NCA2OC4xNTI3IDE0MC4zNTMgNjguMTUyN1oiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xMTQuMTcyIDY4LjE1MjdDMTA4Ljk1MSA2OC4xNTI3IDEwNC43MTkgNzIuMzkzNyAxMDQuNzE5IDc3LjYyNTJDMTA0LjcxOSA4Mi44NTY3IDEwOC45NTEgODcuMDk3NyAxMTQuMTcyIDg3LjA5NzdDMTE5LjM5MyA4Ny4wOTc3IDEyMy42MjYgODIuODU2NyAxMjMuNjI2IDc3LjYyNTJDMTIzLjYyNiA3Mi4zOTM3IDExOS4zOTMgNjguMTUyNyAxMTQuMTcyIDY4LjE1MjdaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNODcuOTkyNyA2OC4xNTI3QzgyLjc3MTYgNjguMTUyNyA3OC41MzkgNzIuMzkzNyA3OC41MzkgNzcuNjI1MkM3OC41MzkgODIuODU2NyA4Mi43NzE2IDg3LjA5NzcgODcuOTkyNyA4Ny4wOTc3QzkzLjIxMzggODcuMDk3NyA5Ny40NDYzIDgyLjg1NjcgOTcuNDQ2MyA3Ny42MjUyQzk3LjQ0NjMgNzIuMzkzNyA5My4yMTM4IDY4LjE1MjcgODcuOTkyNyA2OC4xNTI3WiIgZmlsbD0iI0Q1MkIxRSIvPgo8cGF0aCBkPSJNNjEuODEzIDY4LjE1MjdDNTYuNTkxOSA2OC4xNTI3IDUyLjM1OTMgNzIuMzkzNyA1Mi4zNTkzIDc3LjYyNTJDNTIuMzU5MyA4Mi44NTY3IDU2LjU5MTkgODcuMDk3NyA2MS44MTMgODcuMDk3N0M2Ny4wMzQxIDg3LjA5NzcgNzEuMjY2NiA4Mi44NTY3IDcxLjI2NjYgNzcuNjI1MkM3MS4yNjY2IDcyLjM5MzcgNjcuMDM0MSA2OC4xNTI3IDYxLjgxMyA2OC4xNTI3WiIgZmlsbD0iI0Q1MkIxRSIvPgo8cGF0aCBkPSJNMzUuNjMzMyA2OC4xNTI3QzMwLjQxMjIgNjguMTUyNyAyNi4xNzk2IDcyLjM5MzcgMjYuMTc5NiA3Ny42MjUyQzI2LjE3OTYgODIuODU2NyAzMC40MTIyIDg3LjA5NzcgMzUuNjMzMyA4Ny4wOTc3QzQwLjg1NDQgODcuMDk3NyA0NS4wODY5IDgyLjg1NjcgNDUuMDg2OSA3Ny42MjUyQzQ1LjA4NjkgNzIuMzkzNyA0MC44NTQ0IDY4LjE1MjcgMzUuNjMzMyA2OC4xNTI3WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTkuNDUzNTggNjguMTUyN0M0LjIzMjQ4IDY4LjE1MjcgLTUuMzQwNThlLTA1IDcyLjM5MzcgLTUuMzQwNThlLTA1IDc3LjYyNTJDLTUuMzQwNThlLTA1IDgyLjg1NjcgNC4yMzI0OCA4Ny4wOTc3IDkuNDUzNTggODcuMDk3N0MxNC42NzQ3IDg3LjA5NzcgMTguOTA3MiA4Mi44NTY3IDE4LjkwNzIgNzcuNjI1MkMxOC45MDcyIDcyLjM5MzcgMTQuNjc0NyA2OC4xNTI3IDkuNDUzNTggNjguMTUyN1oiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xNzkuNjIzIDQ1LjQzMzlDMTc0LjQwMSA0NS40MzM5IDE3MC4xNjkgNDkuNjc0OSAxNzAuMTY5IDU0LjkwNjRDMTcwLjE2OSA2MC4xMzc5IDE3NC40MDEgNjQuMzc4OSAxNzkuNjIzIDY0LjM3ODlDMTg0Ljg0NCA2NC4zNzg5IDE4OS4wNzYgNjAuMTM3OSAxODkuMDc2IDU0LjkwNjRDMTg5LjA3NiA0OS42NzQ5IDE4NC44NDQgNDUuNDMzOSAxNzkuNjIzIDQ1LjQzMzlaIiBmaWxsPSIjRDUyQjFFIi8+CjxwYXRoIGQ9Ik0xNTMuNDQzIDQ1LjQzMzlDMTQ4LjIyMiA0NS40MzM5IDE0My45ODkgNDkuNjc0OSAxNDMuOTg5IDU0LjkwNjRDMTQzLjk4OSA2MC4xMzc5IDE0OC4yMjIgNjQuMzc4OSAxNTMuNDQzIDY0LjM3ODlDMTU4LjY2NCA2NC4zNzg5IDE2Mi44OTYgNjAuMTM3OSAxNjIuODk2IDU0LjkwNjRDMTYyLjg5NiA0OS42NzQ5IDE1OC42NjQgNDUuNDMzOSAxNTMuNDQzIDQ1LjQzMzlaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMTI3LjI2NCA0NS40MzM5QzEyMi4wNDMgNDUuNDMzOSAxMTcuODEgNDkuNjc0OSAxMTcuODEgNTQuOTA2NEMxMTcuODEgNjAuMTM3OSAxMjIuMDQzIDY0LjM3ODkgMTI3LjI2NCA2NC4zNzg5QzEzMi40ODUgNjQuMzc4OSAxMzYuNzE3IDYwLjEzNzkgMTM2LjcxNyA1NC45MDY0QzEzNi43MTcgNDkuNjc0OSAxMzIuNDg1IDQ1LjQzMzkgMTI3LjI2NCA0NS40MzM5WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTEwMS4wODMgNDUuNDMzOUM5NS44NjE5IDQ1LjQzMzkgOTEuNjI5MyA0OS42NzQ5IDkxLjYyOTMgNTQuOTA2NEM5MS42MjkzIDYwLjEzNzkgOTUuODYxOSA2NC4zNzg5IDEwMS4wODMgNjQuMzc4OUMxMDYuMzA0IDY0LjM3ODkgMTEwLjUzNyA2MC4xMzc5IDExMC41MzcgNTQuOTA2NEMxMTAuNTM3IDQ5LjY3NDkgMTA2LjMwNCA0NS40MzM5IDEwMS4wODMgNDUuNDMzOVoiIGZpbGw9IiNENTJCMUUiLz4KPHBhdGggZD0iTTc0LjkwMzMgNDUuNDMzOUM2OS42ODIyIDQ1LjQzMzkgNjUuNDQ5NyA0OS42NzQ5IDY1LjQ0OTcgNTQuOTA2NEM2NS40NDk3IDYwLjEzNzkgNjkuNjgyMiA2NC4zNzg5IDc0LjkwMzMgNjQuMzc4OUM4MC4xMjQ0IDY0LjM3ODkgODQuMzU2OSA2MC4xMzc5IDg0LjM1NjkgNTQuOTA2NEM4NC4zNTY5IDQ5LjY3NDkgODAuMTI0NCA0NS40MzM5IDc0LjkwMzMgNDUuNDMzOVoiIGZpbGw9IiNENTJCMUUiLz4KPHBhdGggZD0iTTQ4LjcyMzYgNDUuNDMzOUM0My41MDI1IDQ1LjQzMzkgMzkuMjcgNDkuNjc0OSAzOS4yNyA1NC45MDY0QzM5LjI3IDYwLjEzNzkgNDMuNTAyNSA2NC4zNzg5IDQ4LjcyMzYgNjQuMzc4OUM1My45NDQ3IDY0LjM3ODkgNTguMTc3MiA2MC4xMzc5IDU4LjE3NzIgNTQuOTA2NEM1OC4xNzcyIDQ5LjY3NDkgNTMuOTQ0NyA0NS40MzM5IDQ4LjcyMzYgNDUuNDMzOVoiIGZpbGw9IiNENTJCMUUiLz4KPHBhdGggZD0iTTIyLjU0MzkgNDUuNDMzOUMxNy4zMjI4IDQ1LjQzMzkgMTMuMDkwMyA0OS42NzQ5IDEzLjA5MDMgNTQuOTA2NEMxMy4wOTAzIDYwLjEzNzkgMTcuMzIyOCA2NC4zNzg5IDIyLjU0MzkgNjQuMzc4OUMyNy43NjUgNjQuMzc4OSAzMS45OTc2IDYwLjEzNzkgMzEuOTk3NiA1NC45MDY0QzMxLjk5NzYgNDkuNjc0OSAyNy43NjUgNDUuNDMzOSAyMi41NDM5IDQ1LjQzMzlaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMTY2LjUzMyAyMi43MTcxQzE2MS4zMTIgMjIuNzE3MSAxNTcuMDc5IDI2Ljk1ODEgMTU3LjA3OSAzMi4xODk2QzE1Ny4wNzkgMzcuNDIxMSAxNjEuMzEyIDQxLjY2MjEgMTY2LjUzMyA0MS42NjIxQzE3MS43NTQgNDEuNjYyMSAxNzUuOTg2IDM3LjQyMTEgMTc1Ljk4NiAzMi4xODk2QzE3NS45ODYgMjYuOTU4MSAxNzEuNzU0IDIyLjcxNzEgMTY2LjUzMyAyMi43MTcxWiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTE0MC4zNTMgMjIuNzE3MUMxMzUuMTMyIDIyLjcxNzEgMTMwLjg5OSAyNi45NTgxIDEzMC44OTkgMzIuMTg5NkMxMzAuODk5IDM3LjQyMTEgMTM1LjEzMiA0MS42NjIxIDE0MC4zNTMgNDEuNjYyMUMxNDUuNTc0IDQxLjY2MjEgMTQ5LjgwNyAzNy40MjExIDE0OS44MDcgMzIuMTg5NkMxNDkuODA3IDI2Ljk1ODEgMTQ1LjU3NCAyMi43MTcxIDE0MC4zNTMgMjIuNzE3MVoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xMTQuMTcyIDIyLjcxNzFDMTA4Ljk1MSAyMi43MTcxIDEwNC43MTkgMjYuOTU4MSAxMDQuNzE5IDMyLjE4OTZDMTA0LjcxOSAzNy40MjExIDEwOC45NTEgNDEuNjYyMSAxMTQuMTcyIDQxLjY2MjFDMTE5LjM5MyA0MS42NjIxIDEyMy42MjYgMzcuNDIxMSAxMjMuNjI2IDMyLjE4OTZDMTIzLjYyNiAyNi45NTgxIDExOS4zOTMgMjIuNzE3MSAxMTQuMTcyIDIyLjcxNzFaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNODcuOTkyNyAyMi43MTcxQzgyLjc3MTYgMjIuNzE3MSA3OC41MzkgMjYuOTU4MSA3OC41MzkgMzIuMTg5NkM3OC41MzkgMzcuNDIxMSA4Mi43NzE2IDQxLjY2MjEgODcuOTkyNyA0MS42NjIxQzkzLjIxMzggNDEuNjYyMSA5Ny40NDYzIDM3LjQyMTEgOTcuNDQ2MyAzMi4xODk2Qzk3LjQ0NjMgMjYuOTU4MSA5My4yMTM4IDIyLjcxNzEgODcuOTkyNyAyMi43MTcxWiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTYxLjgxMyAyMi43MTcxQzU2LjU5MTkgMjIuNzE3MSA1Mi4zNTkzIDI2Ljk1ODEgNTIuMzU5MyAzMi4xODk2QzUyLjM1OTMgMzcuNDIxMSA1Ni41OTE5IDQxLjY2MjEgNjEuODEzIDQxLjY2MjFDNjcuMDM0MSA0MS42NjIxIDcxLjI2NjYgMzcuNDIxMSA3MS4yNjY2IDMyLjE4OTZDNzEuMjY2NiAyNi45NTgxIDY3LjAzNDEgMjIuNzE3MSA2MS44MTMgMjIuNzE3MVoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0zNS42MzMzIDIyLjcxNzFDMzAuNDEyMiAyMi43MTcxIDI2LjE3OTYgMjYuOTU4MSAyNi4xNzk2IDMyLjE4OTZDMjYuMTc5NiAzNy40MjExIDMwLjQxMjIgNDEuNjYyMSAzNS42MzMzIDQxLjY2MjFDNDAuODU0NCA0MS42NjIxIDQ1LjA4NjkgMzcuNDIxMSA0NS4wODY5IDMyLjE4OTZDNDUuMDg2OSAyNi45NTgxIDQwLjg1NDQgMjIuNzE3MSAzNS42MzMzIDIyLjcxNzFaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMTI3LjI2NCAwLjAwMDM0MzMyM0MxMjIuMDQzIDAuMDAwMzQzMzIzIDExNy44MSA0LjI0MTMzIDExNy44MSA5LjQ3MjgzQzExNy44MSAxNC43MDQzIDEyMi4wNDMgMTguOTQ1MyAxMjcuMjY0IDE4Ljk0NTNDMTMyLjQ4NSAxOC45NDUzIDEzNi43MTcgMTQuNzA0MyAxMzYuNzE3IDkuNDcyODNDMTM2LjcxNyA0LjI0MTMzIDEzMi40ODUgMC4wMDAzNDMzMjMgMTI3LjI2NCAwLjAwMDM0MzMyM1oiIGZpbGw9IiMwQjZFMkMiLz4KPHBhdGggZD0iTTEwMS4wODMgMC4wMDAzNDMzMjNDOTUuODYxOSAwLjAwMDM0MzMyMyA5MS42MjkzIDQuMjQxMzMgOTEuNjI5MyA5LjQ3MjgzQzkxLjYyOTMgMTQuNzA0MyA5NS44NjE5IDE4Ljk0NTMgMTAxLjA4MyAxOC45NDUzQzEwNi4zMDQgMTguOTQ1MyAxMTAuNTM3IDE0LjcwNDMgMTEwLjUzNyA5LjQ3MjgzQzExMC41MzcgNC4yNDEzMyAxMDYuMzA0IDAuMDAwMzQzMzIzIDEwMS4wODMgMC4wMDAzNDMzMjNaIiBmaWxsPSIjMEI2RTJDIi8+CjxwYXRoIGQ9Ik03NC45MDMzIDAuMDAwMzQzMzIzQzY5LjY4MjIgMC4wMDAzNDMzMjMgNjUuNDQ5NyA0LjI0MTMzIDY1LjQ0OTcgOS40NzI4M0M2NS40NDk3IDE0LjcwNDMgNjkuNjgyMiAxOC45NDUzIDc0LjkwMzMgMTguOTQ1M0M4MC4xMjQ0IDE4Ljk0NTMgODQuMzU2OSAxNC43MDQzIDg0LjM1NjkgOS40NzI4M0M4NC4zNTY5IDQuMjQxMzMgODAuMTI0NCAwLjAwMDM0MzMyMyA3NC45MDMzIDAuMDAwMzQzMzIzWiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+" alt="Sweepstaker" style={{ width: 30, height: 30, display: "block", flexShrink: 0 }} />
+            <img src={LOGO_SRC} alt="Sweepstaker" style={{ width: 30, height: 30, display: "block", flexShrink: 0 }} />
             <div onClick={onOpenSearch} role="button" style={{
               flex: 1, display: "flex", alignItems: "center", gap: 8,
               background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.18)",
@@ -2351,7 +2550,7 @@
           </div>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
             <div>
-              <div style={{ fontSize: 20, fontWeight: 800 }}>League Sweeps <span style={{ color: C.accent }}>26/27</span></div>
+              <div style={{ fontSize: 20, fontWeight: 800 }}>Sweepstaker <span style={{ color: C.accent }}>26/27</span></div>
               <div style={{ fontSize: 12, color: C.muted }}>{group.label}</div>
             </div>
             <div style={{ textAlign: "right" }}>
@@ -2399,6 +2598,7 @@
       const [replay, setReplay] = useState({ on: false, loading: false, date: REPLAY_END });
       const [selectedPlayer, setSelectedPlayer] = useState(null);
       const [selectedTeam, setSelectedTeam] = useState(null);
+      const [selectedMatch, setSelectedMatch] = useState(null);
       const [showMore, setShowMore] = useState(false);
       const [showRules, setShowRules] = useState(false);
       const [showSearch, setShowSearch] = useState(false);
@@ -2505,37 +2705,43 @@
 
       // ── modal open/close with browser-history integration (device back
       //    button closes the card, same as the WC app) ──
+      const clearCards = () => { setSelectedPlayer(null); setSelectedTeam(null); setSelectedMatch(null); };
       const openPlayerModal = (name) => {
         window.history.pushState({ lgModal: "player", name }, "");
-        setSelectedTeam(null); setSelectedPlayer(name);
+        clearCards(); setSelectedPlayer(name);
       };
       const openTeamModal = (teamId) => {
         window.history.pushState({ lgModal: "team", teamId }, "");
-        setSelectedPlayer(null); setSelectedTeam(teamId);
+        clearCards(); setSelectedTeam(teamId);
+      };
+      const openMatchModal = (matchId) => {
+        window.history.pushState({ lgModal: "match", matchId }, "");
+        clearCards(); setSelectedMatch(matchId);
       };
       const switchToTeam = (teamId) => {
         window.history.replaceState({ lgModal: "team", teamId }, "");
-        setSelectedPlayer(null); setSelectedTeam(teamId);
+        clearCards(); setSelectedTeam(teamId);
       };
       const switchToPlayer = (name) => {
         window.history.replaceState({ lgModal: "player", name }, "");
-        setSelectedTeam(null); setSelectedPlayer(name);
+        clearCards(); setSelectedPlayer(name);
       };
       const closeCard = () => {
         const st = window.history.state;
         if (st && st.lgModal) window.history.back();
-        else { setSelectedPlayer(null); setSelectedTeam(null); }
+        else clearCards();
       };
       useEffect(() => {
         const onPop = (e) => {
           const st = e.state || {};
-          if (st.lgModal === "player") { setSelectedTeam(null); setSelectedPlayer(st.name); }
-          else if (st.lgModal === "team") { setSelectedPlayer(null); setSelectedTeam(st.teamId); }
-          else { setSelectedPlayer(null); setSelectedTeam(null); setShowMore(false); setShowRules(false); }
+          if (st.lgModal === "player") { clearCards(); setSelectedPlayer(st.name); }
+          else if (st.lgModal === "team") { clearCards(); setSelectedTeam(st.teamId); }
+          else if (st.lgModal === "match") { clearCards(); setSelectedMatch(st.matchId); }
+          else { clearCards(); setShowMore(false); setShowRules(false); }
         };
         const onKey = (e) => {
           if (e.key !== "Escape") return;
-          if (selectedPlayer || selectedTeam) closeCard();
+          if (selectedPlayer || selectedTeam || selectedMatch) closeCard();
           else if (showRules) setShowRules(false);
           else if (showMore) setShowMore(false);
         };
@@ -2588,20 +2794,25 @@
           <div style={{ height: 8 }} />
           {loading && !replay.on
             ? <div style={{ color: C.muted, textAlign: "center", padding: 40 }}>Loading fixtures…</div>
-            : tab === "home" ? <HomeTab matches={matches} ranked={ranked} badges={badges} weekWindow={weekWindow} matchPtsById={matchPtsById} hist={hist} outcomes={outcomes} anchorIso={anchorIso} setTab={navTo} openPlayerModal={openPlayerModal} openTeamModal={openTeamModal} />
+            : tab === "home" ? <HomeTab matches={matches} ranked={ranked} badges={badges} weekWindow={weekWindow} matchPtsById={matchPtsById} hist={hist} outcomes={outcomes} anchorIso={anchorIso} setTab={navTo} openPlayerModal={openPlayerModal} openTeamModal={openTeamModal} openMatchModal={openMatchModal} />
             : tab === "table" ? (
                 leagueView === "players" ? <SweepsTab ranked={ranked} badges={badges} hist={hist} weekMove={weekMove} outcomes={outcomes} displayRanks={displayRanks} onOpenPlayer={openPlayerModal} />
                 : leagueView === "teams" ? <TeamsLeagueTab matches={matches} ranked={ranked} anchorIso={anchorIso} onTeamClick={openTeamModal} />
-                : leagueView === "ucl" ? <ChampionsLeagueTab matches={matches} tables={tables} outcomes={outcomes} matchPtsById={matchPtsById} onTeamClick={openTeamModal} />
+                : leagueView === "ucl" ? <ChampionsLeagueTab matches={matches} tables={tables} outcomes={outcomes} matchPtsById={matchPtsById} onTeamClick={openTeamModal} onMatchClick={openMatchModal} />
                 : <LeaguesTab matches={matches} tables={tables} outcomes={outcomes} onTeamClick={openTeamModal} comp={leaguesComp} setComp={setLeaguesComp} />
               )
-            : tab === "scores" ? <ScoresTab matches={matches} matchPtsById={matchPtsById} anchorIso={anchorIso} onTeamClick={openTeamModal} />
+            : tab === "scores" ? <ScoresTab matches={matches} matchPtsById={matchPtsById} anchorIso={anchorIso} onTeamClick={openTeamModal} onMatchClick={openMatchModal} />
             : tab === "race" ? <RaceTab ranked={ranked} matches={matches} anchorIso={anchorIso} replayOn={replay.on} />
             : null}
 
-          {(selectedPlayer || selectedTeam) && (
+          {(selectedPlayer || selectedTeam || selectedMatch) && (
             <SnapSheet onClose={closeCard}>
               {(bodyRef) => {
+                if (selectedMatch) {
+                  const mObj = matches.find(x => String(x.id) === String(selectedMatch));
+                  if (!mObj) return null;
+                  return <LeagueHeadToHeadCard key={selectedMatch} bodyRef={bodyRef} m={mObj} ranked={ranked} matches={matches} matchPtsById={matchPtsById} onTeamClick={switchToTeam} onPlayerClick={switchToPlayer} onClose={closeCard} />;
+                }
                 if (selectedTeam) {
                   return <TeamCardContent key={selectedTeam} bodyRef={bodyRef} teamId={selectedTeam} matches={matches} ranked={ranked} matchPtsById={matchPtsById} outcomes={outcomes} tables={tables} onTeamClick={switchToTeam} onOwnerClick={switchToPlayer} onClose={closeCard} />;
                 }
@@ -2724,7 +2935,8 @@
 
       const shell = (children) => (
         <div style={{ padding: "64px 24px 40px", textAlign: "center", maxWidth: 480, margin: "0 auto" }}>
-          <div style={{ fontSize: 26, fontWeight: 800, marginBottom: 4 }}>League Sweeps <span style={{ color: C.accent }}>26/27</span></div>
+          <img src={LOGO_SRC} alt="Sweepstaker" style={{ width: 72, height: 72, display: "block", margin: "0 auto 14px" }} />
+          <div style={{ fontSize: 26, fontWeight: 800, marginBottom: 4 }}>Sweepstaker <span style={{ color: C.accent }}>26/27</span></div>
           {children}
         </div>
       );
