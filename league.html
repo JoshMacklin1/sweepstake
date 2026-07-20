@@ -2992,24 +2992,37 @@
         return () => { stop = true; if (retry) clearTimeout(retry); if (wsRef.current) { try { wsRef.current.close(); } catch (e) {} } };
       }, [session.code]);
 
-      const isHost = !!session.hostToken;
+      // Host is whoever the server currently marks as host (reassigned if the
+      // original host leaves the lobby), not a fixed token on this device.
+      const isHost = !!state && state.hostPlayerId === session.playerId;
       const start = async () => {
         try {
           await fetch(`${leagueApiBase()}/league/${session.code}/start`, {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ hostToken: session.hostToken }),
+            body: JSON.stringify({ token: session.token }),
           });
         } catch (e) { /* the socket will still reflect state; nothing to do */ }
+      };
+      // Tell the server before dropping the session so lobby leavers vanish
+      // from everyone's list and a departing host hands off the role.
+      const leave = async () => {
+        try {
+          await fetch(`${leagueApiBase()}/league/${session.code}/leave`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token: session.token }),
+          });
+        } catch (e) { /* leaving locally regardless */ }
+        onLeave();
       };
 
       if (!state) {
         return <GateShell>
           <div style={{ color: C.muted, fontSize: 13, margin: "16px 0" }}>Connecting to your league…</div>
-          <button onClick={onLeave} style={{ background: "none", border: "none", color: C.muted, fontSize: 13, cursor: "pointer" }}>Leave</button>
+          <button onClick={leave} style={{ background: "none", border: "none", color: C.muted, fontSize: 13, cursor: "pointer" }}>Leave</button>
         </GateShell>;
       }
       if (state.status === "lobby") {
-        return <Lobby state={state} session={session} isHost={isHost} connected={connected} onStart={start} onLeave={onLeave} />;
+        return <Lobby state={state} session={session} isHost={isHost} connected={connected} onStart={start} onLeave={leave} />;
       }
       // Completed draft, and the user chose to enter → hand off to the full
       // league App with the drafted squads (roster global set before render,
@@ -3020,7 +3033,7 @@
         return <App group={group} onSwitchGroup={onLeave} />;
       }
       // drafting, or complete-but-reviewing → the draft board
-      return <Draft state={state} session={session} onLeave={onLeave}
+      return <Draft state={state} session={session} onLeave={leave}
         onEnter={state.status === "complete" ? () => setEntered(true) : null} />;
     }
 

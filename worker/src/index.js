@@ -79,6 +79,13 @@ export class League {
   async load() {
     if (this._data) return this._data;
     this._data = (await this.state.storage.get("data")) || null;
+    // Migrate leagues created before host was a tracked role: derive the host
+    // player from the old hostToken (fall back to the first player).
+    if (this._data && this._data.hostPlayerId === undefined) {
+      const hp = this._data.players.find(p => this._data.hostToken && p.token === this._data.hostToken);
+      this._data.hostPlayerId = hp ? hp.id : (this._data.players[0] ? this._data.players[0].id : null);
+      await this.save();
+    }
     return this._data;
   }
   async save() {
@@ -99,6 +106,7 @@ export class League {
       poolSize: d.pool.length,
       perPlayer: d.perPlayer,
       totalPicks: d.totalPicks,
+      hostPlayerId: d.hostPlayerId,
       currentPlayerId: this.currentPlayerId(d),
     };
   }
@@ -158,6 +166,7 @@ export class League {
         turnNo: 0,
         perPlayer: 0,
         totalPicks: 0,
+        hostPlayerId: null,
         createdAt: now,
       };
       // The host is a player too if they named themselves at create time.
@@ -165,6 +174,7 @@ export class League {
       if (body.hostName && body.hostName.trim()) {
         hostPlayerId = makeToken().slice(0, 12);
         this._data.players.push({ id: hostPlayerId, name: body.hostName.trim(), token: hostToken, joinedAt: now });
+        this._data.hostPlayerId = hostPlayerId;
       }
       await this.save();
       return json({ code: this._data.code, hostToken, playerId: hostPlayerId, state: this.view(this._data) });
@@ -193,10 +203,33 @@ export class League {
       return json({ playerId: player.id, token: player.token, state: this.view(d) });
     }
 
-    // POST /start { hostToken }  -> randomise order, close the lobby
+    // POST /leave { token }  -> a player leaves. In the lobby they're removed
+    // from the roster; if they were the host, the role passes to the next
+    // player. During a draft, leaving is client-side only (roster/picks/turns
+    // must stay intact), so this is a no-op server-side.
+    if (request.method === "POST" && action === "leave") {
+      const body = await request.json().catch(() => ({}));
+      const player = d.players.find(p => p.token === body.token);
+      if (!player) return json({ ok: true, state: this.view(d) });
+      if (d.status === "lobby") {
+        d.players = d.players.filter(p => p.id !== player.id);
+        if (d.hostPlayerId === player.id) {
+          d.hostPlayerId = d.players.length ? d.players[0].id : null;
+        }
+        await this.save();
+        this.broadcast();
+      }
+      return json({ ok: true, state: this.view(d) });
+    }
+
+    // POST /start { token }  -> randomise order, close the lobby (host only)
     if (request.method === "POST" && action === "start") {
       const body = await request.json().catch(() => ({}));
-      if (body.hostToken !== d.hostToken) return json({ error: "forbidden" }, 403);
+      // The caller must be the current host player. Accept the player token
+      // (new clients) or the legacy hostToken (old cached clients) — for the
+      // original host they're the same value.
+      const caller = d.players.find(p => p.token === body.token || (body.hostToken && p.token === body.hostToken));
+      if (!caller || caller.id !== d.hostPlayerId) return json({ error: "forbidden" }, 403);
       if (d.status !== "lobby") return json({ error: "already_started" }, 409);
       if (d.players.length < 2) return json({ error: "need_players" }, 400);
       const ids = d.players.map(p => p.id);
