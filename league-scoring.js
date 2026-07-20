@@ -23,7 +23,7 @@ var LEAGUE_WORKER_URL = "https://football-proxy.joshmacklin7.workers.dev";
 // Live-draft backend (separate Worker — see worker/). Powers create / invite /
 // lobby / snake draft for user-made leagues. Update this if you deploy the
 // Worker under a different name or subdomain.
-var LEAGUE_API_URL = "https://sweepstaker-league.joshmacklin7.workers.dev";
+var LEAGUE_API_URL = "https://sweepstake.joshmacklin7.workers.dev";
 
 // Competitions a created league can draft from: the domestic top flights that
 // have a scoring matrix. CL is a gamble layer laid over league points, not a
