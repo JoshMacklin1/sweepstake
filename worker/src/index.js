@@ -22,6 +22,8 @@ function makeToken() {
   return crypto.randomUUID().replace(/-/g, "");
 }
 
+const TURN_MS = 60000; // manual pickers get 60s before the robot takes over
+
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
@@ -107,6 +109,7 @@ export class League {
       perPlayer: d.perPlayer,
       totalPicks: d.totalPicks,
       hostPlayerId: d.hostPlayerId,
+      turnDeadline: d.turnDeadline || null,
       currentPlayerId: this.currentPlayerId(d),
     };
   }
@@ -151,6 +154,37 @@ export class League {
       changed = true;
     }
     return changed;
+  }
+
+  // Keep the single Durable Object alarm in sync with whose turn it is: arm a
+  // TURN_MS shot clock whenever a *manual* player is on the clock, clear it
+  // otherwise. Records the deadline on the state so clients can render it.
+  async armTimer(d) {
+    if (d.status === "drafting") {
+      const player = d.players.find(p => p.id === this.playerAtPick(d, d.turnNo));
+      if (player && !player.autopick) {
+        d.turnDeadline = Date.now() + TURN_MS;
+        await this.state.storage.setAlarm(d.turnDeadline);
+        return;
+      }
+    }
+    d.turnDeadline = null;
+    await this.state.storage.deleteAlarm();
+  }
+
+  // Shot clock expired: flip the dawdling picker to autopick (which sticks for
+  // their future turns until they switch back manually), let the robot pick,
+  // and re-arm for whoever's next.
+  async alarm() {
+    const d = await this.load();
+    if (!d || d.status !== "drafting") return;
+    const player = d.players.find(p => p.id === this.playerAtPick(d, d.turnNo));
+    if (!player || player.autopick) return; // already picked / already auto
+    player.autopick = true;
+    this.runAutopick(d);
+    await this.armTimer(d);
+    await this.save();
+    this.broadcast();
   }
 
   async fetch(request) {
@@ -264,6 +298,7 @@ export class League {
       d.turnNo = 0;
       d.status = d.totalPicks > 0 ? "drafting" : "complete";
       this.runAutopick(d); // in case the opening pickers are already on auto
+      await this.armTimer(d);
       await this.save();
       this.broadcast();
       return json({ state: this.view(d) });
@@ -276,6 +311,7 @@ export class League {
       if (!player) return json({ error: "unknown_player" }, 403);
       player.autopick = !!body.on;
       if (player.autopick) this.runAutopick(d); // may be this player's turn now
+      await this.armTimer(d);
       await this.save();
       this.broadcast();
       return json({ state: this.view(d) });
@@ -298,6 +334,7 @@ export class League {
       d.turnNo += 1;
       if (d.picks.length >= d.totalPicks) d.status = "complete";
       this.runAutopick(d); // cascade through any auto players now up next
+      await this.armTimer(d);
       await this.save();
       this.broadcast();
       return json({ state: this.view(d) });
