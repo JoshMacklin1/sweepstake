@@ -2885,6 +2885,15 @@
     function leagueApiBase() { return typeof LEAGUE_API_URL !== "undefined" ? LEAGUE_API_URL : ""; }
     function leagueWsUrl(code) { return leagueApiBase().replace(/^http/, "ws") + `/league/${code}/ws`; }
     function inviteLinkFor(code) { return `${location.origin}${location.pathname}#j=${code}`; }
+    // Turn a completed draft's server state into the group shape App/scoring
+    // expect: players carry the teamIds they drafted (no re-draw).
+    function liveGroupFromState(state) {
+      const players = state.players.map(p => ({
+        name: p.name,
+        teamIds: state.picks.filter(pk => pk.playerId === p.id).map(pk => pk.teamId),
+      }));
+      return { code: state.code, label: state.name, players: players };
+    }
 
     // Shared shell so the gate, lobby, join and draft screens look identical.
     function GateShell({ children }) {
@@ -2961,6 +2970,7 @@
     function LiveLeague({ session, onLeave }) {
       const [state, setState] = useState(null);
       const [connected, setConnected] = useState(false);
+      const [entered, setEntered] = useState(false);
       const wsRef = useRef(null);
 
       useEffect(() => {
@@ -3001,12 +3011,21 @@
       if (state.status === "lobby") {
         return <Lobby state={state} session={session} isHost={isHost} connected={connected} onStart={start} onLeave={onLeave} />;
       }
-      // drafting or complete → the draft board
-      return <Draft state={state} session={session} onLeave={onLeave} />;
+      // Completed draft, and the user chose to enter → hand off to the full
+      // league App with the drafted squads (roster global set before render,
+      // same pattern as the local-group gate).
+      if (state.status === "complete" && entered) {
+        const group = liveGroupFromState(state);
+        LEAGUE_PLAYERS = group.players;
+        return <App group={group} onSwitchGroup={onLeave} />;
+      }
+      // drafting, or complete-but-reviewing → the draft board
+      return <Draft state={state} session={session} onLeave={onLeave}
+        onEnter={state.status === "complete" ? () => setEntered(true) : null} />;
     }
 
     // ── live draft board: snake/ABBA picks, roster shrinks in real time ─────
-    function Draft({ state, session, onLeave }) {
+    function Draft({ state, session, onLeave, onEnter }) {
       const [picking, setPicking] = useState(false);
       const [pickErr, setPickErr] = useState("");
       const isComplete = state.status === "complete";
@@ -3126,7 +3145,11 @@
           </div>
         )}
 
-        {isComplete && <div style={{ textAlign: "center", fontSize: 12, color: C.dim, marginBottom: 16 }}>Standings &amp; scoring hook up next.</div>}
+        {isComplete && onEnter && (
+          <div style={{ textAlign: "center", marginBottom: 16 }}>
+            <button onClick={onEnter} style={{ background: C.accent, color: C.bg, fontWeight: 800, fontSize: 14, border: "none", borderRadius: 10, padding: "12px 28px", cursor: "pointer" }}>Enter the league →</button>
+          </div>
+        )}
         <div style={{ textAlign: "center" }}>
           <button onClick={onLeave} style={{ background: "none", border: "none", color: C.muted, fontSize: 13, cursor: "pointer" }}>Leave league</button>
         </div>

@@ -61,6 +61,44 @@ replay snapshots of 2025-26). UI (`league.html`) is built out — full
 group-gated app (Home / Sweeps / Tables / Scores / More) verified rendering
 end-to-end against the 2025-26 replay data.
 
+### Live multiplayer draft (hosted leagues)
+
+Anyone can create a league and invite others to **draft teams together in
+real time** (e.g. everyone on a call watching the roster shrink). This
+replaces the old local-only "Create" path — the previous local draw
+(`lsw_created`) is kept **only so codes created before this feature still
+resolve on Join**; new leagues go through the hosted flow below.
+
+- **Backend** (`worker/`): a **separate** Cloudflare Worker
+  (`sweepstaker-league`) + **Durable Object** — one instance per league
+  code holds authoritative state (`lobby → drafting → complete`) and pushes
+  live updates to every client over a **WebSocket**. It is independent of
+  `football-proxy`, so deploying it can't affect the match/push service.
+  Deploy from `worker/` with `npx wrangler deploy` (SQLite-backed DO, free
+  plan). API: `POST /league` (create), `GET /league/:code` (+ `…/ws`
+  upgrade), `POST …/join`, `…/start`, `…/pick`. It stores only **opaque
+  team ids** — the football data stays in `league-scoring.js`.
+- **Config / helpers** (`league-scoring.js`): `LEAGUE_API_URL` (the Worker
+  URL), `lgDraftableCompetitions()` (the five domestic top flights — CL is a
+  gamble layer, not a draw pool), and `lgPoolTeamIds(comps)` (the eligible
+  id pool for the chosen competitions; the same function runs on every
+  client so all render an identical board without the Worker echoing teams).
+- **Client** (`league.html`, in `GroupGate`): Create collects league name +
+  the host's own name + a **competitions multi-select**, then `POST`s and
+  drops into the lobby. `JoinByLink` handles invite links
+  (`league.html#j=CODE`) — set a name, join. `LiveLeague` owns the
+  WebSocket (auto-reconnect, GET-seeded) and renders by status; `Lobby`
+  shows the live player list + host-only invite/Share + **Start** (2+
+  players, randomises snake order, closes the invite); `Draft` is the live
+  board (turn banner from the server's `currentPlayerId`, available teams by
+  competition/pot, tap-to-pick with `expectedTurnNo` guard, live squads,
+  and **Unassigned** leftovers on completion). One active session lives in
+  `localStorage` (`lsw_session`: `code`/`name`/`playerId`/`token`, plus
+  `hostToken` for the host). On completion, **Enter the league →** converts
+  the picks to the standard group shape (`liveGroupFromState` → players with
+  `teamIds`), sets `LEAGUE_PLAYERS`, and hands off to the existing `App` —
+  so a drafted league scores through `scoreLeaguePlayers` like any other.
+
 ---
 
 ## Infrastructure
@@ -70,6 +108,7 @@ end-to-end against the 2025-26 replay data.
 | **Live app** | https://joshmacklin1.github.io/sweepstake/ |
 | **GitHub repo** | joshmacklin1/sweepstake |
 | **CORS / API proxy Worker** | https://football-proxy.joshmacklin7.workers.dev |
+| **League draft Worker** | `sweepstaker-league` (see `worker/`) — Durable Object + WebSocket for hosted live drafts; `LEAGUE_API_URL` in `league-scoring.js` |
 | **Email digest Worker** | `worker-email.js` (imports `scoring.js` as ES module) |
 | **API** | football-data.org free tier, competition `WC`, season `2026` |
 | **API key** | held as a Worker secret (not in the client); legacy key `d06d96f284d244ad9f4f190b6273300a` |
