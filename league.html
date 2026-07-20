@@ -2863,7 +2863,6 @@
     // ── group gate (same pattern as the WC app: reassign the roster global
     //    BEFORE App's first render, so every scoring call reads it live) ────
     const CREATED_LEAGUES_KEY = "lsw_created";
-    const HOST_SESSION_KEY = "lsw_host_session"; // server-backed league you created
     function loadCreatedLeagues() {
       if (typeof LEAGUE_GROUPS === "undefined") return;
       try {
@@ -2872,16 +2871,207 @@
       } catch (e) { /* ignore corrupt storage */ }
     }
 
+    // ── hosted (server-backed) league session ──────────────────────────────
+    // One active live league at a time. Stored: { code, name, playerId, token,
+    // hostToken? }. `token` authenticates picks; `hostToken` (host only) also
+    // authorises Start. Being host implies hostToken is set.
+    const SESSION_KEY = "lsw_session";
+    function loadSession() { try { return JSON.parse(localStorage.getItem(SESSION_KEY) || "null"); } catch (e) { return null; } }
+    function saveSession(s) { try { localStorage.setItem(SESSION_KEY, JSON.stringify(s)); } catch (e) { /* ignore */ } }
+    function clearSession() { try { localStorage.removeItem(SESSION_KEY); } catch (e) { /* ignore */ } }
+    // Invite links look like  league.html#j=CODE
+    function parseJoinHash() { const m = /[#&]j=([A-Za-z0-9]+)/.exec(location.hash || ""); return m ? m[1].toUpperCase() : null; }
+    function dropJoinHash() { try { history.replaceState(null, "", location.pathname + location.search); } catch (e) { /* ignore */ } }
+    function leagueApiBase() { return typeof LEAGUE_API_URL !== "undefined" ? LEAGUE_API_URL : ""; }
+    function leagueWsUrl(code) { return leagueApiBase().replace(/^http/, "ws") + `/league/${code}/ws`; }
+    function inviteLinkFor(code) { return `${location.origin}${location.pathname}#j=${code}`; }
+
+    // Shared shell so the gate, lobby, join and draft screens look identical.
+    function GateShell({ children }) {
+      return (
+        <div style={{ padding: "64px 24px 40px", textAlign: "center", maxWidth: 480, margin: "0 auto" }}>
+          <img src={LOGO_SRC} alt="Sweepstaker" style={{ width: 72, height: 72, display: "block", margin: "0 auto 14px" }} />
+          <div style={{ fontSize: 26, fontWeight: 800, marginBottom: 4 }}>Sweepstaker <span style={{ color: C.accent }}>26/27</span></div>
+          {children}
+        </div>
+      );
+    }
+    const compLabelOf = (code) => (typeof LEAGUE_COMPETITIONS !== "undefined" && LEAGUE_COMPETITIONS[code]) ? LEAGUE_COMPETITIONS[code].label : code;
+
+    // ── join-by-link: open an invite, set your name, join the lobby ─────────
+    function JoinByLink({ code, onJoined, onCancel }) {
+      const [name, setName] = useState("");
+      const [err, setErr] = useState("");
+      const [busy, setBusy] = useState(false);
+      const [league, setLeague] = useState(null); // preview (name/status)
+      const [gone, setGone] = useState(false);
+
+      useEffect(() => {
+        let stop = false;
+        fetch(`${leagueApiBase()}/league/${code}`)
+          .then(r => r.json())
+          .then(d => { if (!stop) { if (d && d.state) setLeague(d.state); else setGone(true); } })
+          .catch(() => { if (!stop) setGone(true); });
+        return () => { stop = true; };
+      }, [code]);
+
+      const submit = async (e) => {
+        e.preventDefault();
+        const n = name.trim();
+        if (!n) { setErr("Enter your name."); return; }
+        setBusy(true); setErr("");
+        try {
+          const res = await fetch(`${leagueApiBase()}/league/${code}/join`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: n }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.error || "join_failed");
+          onJoined({ code, name: n, playerId: data.playerId, token: data.token });
+        } catch (err) {
+          const m = String(err.message);
+          setErr(m === "name_taken" ? "That name's already taken — pick another."
+            : m === "closed" ? "This league has already started — ask the organiser to re-add you."
+            : "Couldn't join — check the link and your connection.");
+        } finally { setBusy(false); }
+      };
+
+      if (gone) {
+        return <GateShell>
+          <div style={{ color: C.muted, fontSize: 13, margin: "10px 0 20px" }}>That invite link doesn't match a league. Check you copied the whole link.</div>
+          <button onClick={onCancel} style={{ background: "none", border: "none", color: C.muted, fontSize: 13, cursor: "pointer" }}>Back to menu</button>
+        </GateShell>;
+      }
+      return <GateShell>
+        <div style={{ color: C.muted, fontSize: 13, margin: "6px 0 20px" }}>
+          {league ? <>You're joining <strong style={{ color: C.text }}>{league.name}</strong>. Set your name to take part.</> : "Loading invite…"}
+        </div>
+        <form onSubmit={submit} style={{ maxWidth: 300, margin: "0 auto" }}>
+          <input value={name} onChange={e => { setName(e.target.value); setErr(""); }} placeholder="Your name" autoFocus
+            style={{ width: "100%", boxSizing: "border-box", padding: "13px 14px", fontSize: 16, background: C.surface, color: C.text, border: `1px solid ${err ? C.red : C.border}`, borderRadius: 10, textAlign: "center", outline: "none" }} />
+          <button type="submit" disabled={busy || (league && league.status !== "lobby")} style={{ width: "100%", marginTop: 12, background: C.accent, color: C.bg, fontWeight: 800, fontSize: 14, border: "none", borderRadius: 10, padding: "12px", cursor: busy ? "default" : "pointer", opacity: (busy || (league && league.status !== "lobby")) ? 0.6 : 1 }}>{busy ? "Joining…" : "Join league"}</button>
+          {league && league.status !== "lobby" && <div style={{ color: C.dangerTextBright, fontSize: 12, marginTop: 10 }}>This league has already started.</div>}
+          {err && <div style={{ color: C.dangerTextBright, fontSize: 12, marginTop: 10 }}>{err}</div>}
+        </form>
+        <button onClick={onCancel} style={{ marginTop: 22, background: "none", border: "none", color: C.muted, fontSize: 13, cursor: "pointer" }}>‹ Not now</button>
+      </GateShell>;
+    }
+
+    // ── live league: holds the WebSocket, renders lobby / draft / done ──────
+    function LiveLeague({ session, onLeave }) {
+      const [state, setState] = useState(null);
+      const [connected, setConnected] = useState(false);
+      const wsRef = useRef(null);
+
+      useEffect(() => {
+        let stop = false, retry = null;
+        const connect = () => {
+          if (stop) return;
+          let ws;
+          try { ws = new WebSocket(leagueWsUrl(session.code)); } catch (e) { retry = setTimeout(connect, 2000); return; }
+          wsRef.current = ws;
+          ws.onopen = () => { if (!stop) setConnected(true); };
+          ws.onmessage = (ev) => { try { const m = JSON.parse(ev.data); if (m.type === "state") setState(m.state); } catch (e) { /* ignore */ } };
+          ws.onclose = () => { if (!stop) { setConnected(false); retry = setTimeout(connect, 2000); } };
+          ws.onerror = () => { try { ws.close(); } catch (e) { /* ignore */ } };
+        };
+        connect();
+        // Seed immediately in case the socket is slow to open.
+        fetch(`${leagueApiBase()}/league/${session.code}`).then(r => r.json())
+          .then(d => { if (!stop && d && d.state) setState(s => s || d.state); }).catch(() => {});
+        return () => { stop = true; if (retry) clearTimeout(retry); if (wsRef.current) { try { wsRef.current.close(); } catch (e) {} } };
+      }, [session.code]);
+
+      const isHost = !!session.hostToken;
+      const start = async () => {
+        try {
+          await fetch(`${leagueApiBase()}/league/${session.code}/start`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ hostToken: session.hostToken }),
+          });
+        } catch (e) { /* the socket will still reflect state; nothing to do */ }
+      };
+
+      if (!state) {
+        return <GateShell>
+          <div style={{ color: C.muted, fontSize: 13, margin: "16px 0" }}>Connecting to your league…</div>
+          <button onClick={onLeave} style={{ background: "none", border: "none", color: C.muted, fontSize: 13, cursor: "pointer" }}>Leave</button>
+        </GateShell>;
+      }
+      if (state.status === "lobby") {
+        return <Lobby state={state} session={session} isHost={isHost} connected={connected} onStart={start} onLeave={onLeave} />;
+      }
+      if (state.status === "drafting") {
+        return <GateShell>
+          <div style={{ fontSize: 15, fontWeight: 800, marginTop: 14 }}>{state.name}</div>
+          <div style={{ color: C.muted, fontSize: 13, margin: "10px 0 6px" }}>The draft is under way. The live picking board is the next phase.</div>
+          <div style={{ fontSize: 12, color: C.dim }}>Pick {state.turnNo + 1} of {state.totalPicks}.</div>
+          <button onClick={onLeave} style={{ marginTop: 22, background: "none", border: "none", color: C.muted, fontSize: 13, cursor: "pointer" }}>Leave</button>
+        </GateShell>;
+      }
+      // complete
+      return <GateShell>
+        <div style={{ fontSize: 15, fontWeight: 800, marginTop: 14 }}>{state.name}</div>
+        <div style={{ color: C.muted, fontSize: 13, margin: "10px 0" }}>The draft is done. Standings hook up in a later phase.</div>
+        <button onClick={onLeave} style={{ marginTop: 8, background: "none", border: "none", color: C.muted, fontSize: 13, cursor: "pointer" }}>Leave</button>
+      </GateShell>;
+    }
+
+    function Lobby({ state, session, isHost, connected, onStart, onLeave }) {
+      const [copied, setCopied] = useState(false);
+      const link = inviteLinkFor(state.code);
+      const share = async () => {
+        try { if (navigator.share) { await navigator.share({ title: state.name, text: `Join my ${state.name} sweepstake`, url: link }); return; } } catch (e) { /* cancelled */ }
+        try { await navigator.clipboard.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch (e) { /* blocked */ }
+      };
+      const comps = (state.competitions || []).map(compLabelOf).join(" · ");
+      return <GateShell>
+        <div style={{ fontSize: 15, fontWeight: 800, marginTop: 12 }}>{state.name}</div>
+        {comps && <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>{comps}</div>}
+
+        {isHost && (
+          <div style={{ maxWidth: 340, margin: "18px auto 0" }}>
+            <div style={{ padding: "12px 14px", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, fontSize: 13, color: C.text, wordBreak: "break-all", textAlign: "left" }}>{link}</div>
+            <button onClick={share} style={{ width: "100%", marginTop: 10, background: C.card, color: C.text, fontWeight: 700, fontSize: 13, border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px", cursor: "pointer" }}>{copied ? "Copied ✓" : "Share invite link"}</button>
+          </div>
+        )}
+
+        <div style={{ maxWidth: 340, margin: "20px auto 0", textAlign: "left" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.dim, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>
+            Players ({state.players.length}) {connected ? "" : "· reconnecting…"}
+          </div>
+          {state.players.map(p => (
+            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, marginBottom: 8 }}>
+              <span style={{ width: 8, height: 8, borderRadius: 999, background: C.accent, flexShrink: 0 }} />
+              <span style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{p.name}</span>
+              {p.id === session.playerId && <span style={{ marginLeft: "auto", fontSize: 11, color: C.muted }}>you</span>}
+            </div>
+          ))}
+          {state.players.length === 0 && <div style={{ fontSize: 13, color: C.muted }}>Waiting for players to join…</div>}
+        </div>
+
+        {isHost ? (
+          <div style={{ maxWidth: 340, margin: "18px auto 0" }}>
+            <button onClick={onStart} disabled={state.players.length < 2} style={{ width: "100%", background: C.accent, color: C.bg, fontWeight: 800, fontSize: 14, border: "none", borderRadius: 10, padding: "12px", cursor: state.players.length < 2 ? "default" : "pointer", opacity: state.players.length < 2 ? 0.5 : 1 }}>Start draft</button>
+            <div style={{ fontSize: 12, color: C.dim, marginTop: 8 }}>{state.players.length < 2 ? "Need at least two players." : "Starting closes the invite and randomises the pick order."}</div>
+          </div>
+        ) : (
+          <div style={{ fontSize: 13, color: C.muted, marginTop: 18 }}>Waiting for the organiser to start the draft…</div>
+        )}
+
+        <button onClick={onLeave} style={{ marginTop: 22, background: "none", border: "none", color: C.muted, fontSize: 13, cursor: "pointer" }}>Leave league</button>
+      </GateShell>;
+    }
+
     function GroupGate() {
       const [ready] = useState(() => { loadCreatedLeagues(); return true; });
       const [groupKey, setGroupKey] = useState(() => {
         const k = localStorage.getItem(GROUP_STORAGE_KEY);
         return (k && typeof LEAGUE_GROUPS !== "undefined" && LEAGUE_GROUPS[k]) ? k : null;
       });
-      const [hosted, setHosted] = useState(() => {
-        try { return JSON.parse(localStorage.getItem(HOST_SESSION_KEY) || "null"); } catch (e) { return null; }
-      });
-      const [mode, setMode] = useState(() => hosted ? "invite" : "menu"); // menu · join · create · invite
+      const [session, setSession] = useState(() => loadSession());
+      const [hashCode, setHashCode] = useState(() => parseJoinHash());
+      const [mode, setMode] = useState("menu"); // menu · join · create
       const [input, setInput] = useState("");
       const [bad, setBad] = useState(false);
       // create form
@@ -2892,7 +3082,6 @@
       const [comps, setComps] = useState(() => draftable.slice()); // all selected by default
       const [createErr, setCreateErr] = useState("");
       const [busy, setBusy] = useState(false);
-      const [copied, setCopied] = useState(false);
       const toggleComp = (code) => {
         setCreateErr("");
         setComps(prev => prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code]);
@@ -2903,6 +3092,16 @@
         localStorage.setItem(GROUP_STORAGE_KEY, key);
         setGroupKey(key);
       };
+
+      // A live (server-backed) league takes priority over everything else.
+      if (session) {
+        return <LiveLeague session={session} onLeave={() => { clearSession(); dropJoinHash(); setSession(null); setHashCode(null); }} />;
+      }
+      if (hashCode) {
+        return <JoinByLink code={hashCode}
+          onJoined={(s) => { saveSession(s); dropJoinHash(); setSession(s); setHashCode(null); }}
+          onCancel={() => { dropJoinHash(); setHashCode(null); }} />;
+      }
 
       if (groupKey && typeof LEAGUE_GROUPS !== "undefined" && LEAGUE_GROUPS[groupKey]) {
         if (typeof lgEnsureTeams === "function") lgEnsureTeams(LEAGUE_GROUPS[groupKey]);
@@ -2936,28 +3135,15 @@
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok) throw new Error(data.error || "create_failed");
-          const session = { code: data.code, hostToken: data.hostToken, playerId: data.playerId, name };
-          localStorage.setItem(HOST_SESSION_KEY, JSON.stringify(session));
-          setHosted(session);
-          setCopied(false);
-          setMode("invite");
+          // Host is a player too; the Worker set their player token = hostToken.
+          const s = { code: data.code, name, playerId: data.playerId, token: data.hostToken, hostToken: data.hostToken };
+          saveSession(s);
+          setSession(s);
         } catch (err) {
           setCreateErr("Couldn't create the league — check your connection and try again.");
         } finally {
           setBusy(false);
         }
-      };
-      const leaveHosted = () => {
-        localStorage.removeItem(HOST_SESSION_KEY);
-        setHosted(null); setMode("menu"); setCreateErr(""); setCopied(false);
-        setLeagueName(""); setHostName("");
-      };
-      const inviteLink = hosted ? `${location.origin}${location.pathname}#j=${hosted.code}` : "";
-      const shareInvite = async () => {
-        try {
-          if (navigator.share) { await navigator.share({ title: hosted.name, text: `Join my ${hosted.name} sweepstake`, url: inviteLink }); return; }
-        } catch (e) { /* user cancelled share sheet — fall through to copy */ }
-        try { await navigator.clipboard.writeText(inviteLink); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch (e) { /* clipboard blocked */ }
       };
 
       const shell = (children) => (
@@ -3027,20 +3213,6 @@
             <button type="submit" disabled={busy} style={{ width: "100%", marginTop: 16, background: C.accent, color: C.bg, fontWeight: 800, fontSize: 14, border: "none", borderRadius: 10, padding: "12px", cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1 }}>{busy ? "Creating…" : "Create league"}</button>
           </form>
           <div style={{ textAlign: "center" }}>{backLink}</div>
-        </>);
-      }
-      if (mode === "invite" && hosted) {
-        return shell(<>
-          <div style={{ color: C.muted, fontSize: 13, margin: "6px 0 18px" }}>
-            <strong style={{ color: C.text }}>{hosted.name}</strong> is created. Share this link — everyone who opens it sets their name and joins the draft.
-          </div>
-          <div style={{ maxWidth: 340, margin: "0 auto" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 14px", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, fontSize: 13, color: C.text, wordBreak: "break-all", textAlign: "left" }}>{inviteLink}</div>
-            <button onClick={shareInvite} style={{ width: "100%", marginTop: 12, background: C.accent, color: C.bg, fontWeight: 800, fontSize: 14, border: "none", borderRadius: 10, padding: "12px", cursor: "pointer" }}>{copied ? "Copied ✓" : "Share invite link"}</button>
-            <div style={{ marginTop: 16, fontSize: 13, color: C.muted }}>League code: <strong style={{ color: C.text, letterSpacing: "0.06em" }}>{hosted.code}</strong></div>
-            <div style={{ marginTop: 18, fontSize: 12, color: C.dim, lineHeight: 1.5 }}>The live lobby and team draft are coming next — your league is created and the invite link already works.</div>
-          </div>
-          <button onClick={leaveHosted} style={{ marginTop: 22, background: "none", border: "none", color: C.muted, fontSize: 13, cursor: "pointer" }}>Discard this league</button>
         </>);
       }
       // menu
