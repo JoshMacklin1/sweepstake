@@ -1549,18 +1549,22 @@
     }
 
     // Knockout play-off ties as a fixtures row (shown under the league table).
-    function CLPlayoffsRow({ matches, onTeamClick }) {
-      const bracket = typeof deriveCLBracket === "function" ? deriveCLBracket(matches) : { rounds: [] };
-      const playoffs = (bracket.rounds.find(r => r.stage === "PLAYOFFS") || {}).ties || [];
-      if (!playoffs.length) return null;
+    function CLPlayoffsRow({ matches, matchPtsById, onTeamClick }) {
+      // The play-off legs as a vertical fixtures list, styled like the Scores tab.
+      const games = matches
+        .filter(m => m.competition && m.competition.code === "CL" && m.stage === "PLAYOFFS" && m.homeTeam && m.homeTeam.id && m.awayTeam && m.awayTeam.id)
+        .sort((a, b) => a.utcDate.localeCompare(b.utcDate));
+      if (!games.length) return null;
       return (
         <div style={{ marginTop: 20 }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 1, padding: "0 14px 8px" }}>
             Knockout play-offs <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>· 9th–24th · winners reach the last 16</span>
           </div>
-          <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", paddingBottom: 6 }}>
-            <div style={{ display: "flex", gap: 12, padding: "0 14px 4px", width: "max-content" }}>
-              {playoffs.map((tie, i) => <div key={i} style={{ width: 190, flexShrink: 0 }}><CLTie tie={tie} matches={matches} onTeamClick={onTeamClick} /></div>)}
+          <div style={{ padding: "0 14px" }}>
+            <div style={s.card}>
+              {games.map((m, i) => (
+                <HomeMatchRow key={m.id} m={m} matchPtsById={matchPtsById || {}} onTeamClick={onTeamClick} isLast={i === games.length - 1} banners />
+              ))}
             </div>
           </div>
         </div>
@@ -1628,7 +1632,7 @@
     // The Champions League runs League phase → Knockouts (a play-off round then
     // the R16→final bracket). A sub-nav lets you follow those phases in order,
     // mirroring the WC app's Groups | Bracket split.
-    function ChampionsLeagueTab({ matches, tables, outcomes, onTeamClick }) {
+    function ChampionsLeagueTab({ matches, tables, outcomes, matchPtsById, onTeamClick }) {
       const [phase, setPhase] = useState("league");
       return (
         <div>
@@ -1655,7 +1659,7 @@
                   { after: 8, label: "Knockout play-offs · 9th–24th", color: C.muted },
                   { after: 24, label: "Eliminated · 25th–36th", color: C.dangerText },
                 ]} />
-              <CLPlayoffsRow matches={matches} onTeamClick={onTeamClick} />
+              <CLPlayoffsRow matches={matches} matchPtsById={matchPtsById} onTeamClick={onTeamClick} />
             </div>
           ) : (
             <CLBracket matches={matches} onTeamClick={onTeamClick} />
@@ -2587,7 +2591,7 @@
             : tab === "table" ? (
                 leagueView === "players" ? <SweepsTab ranked={ranked} badges={badges} hist={hist} weekMove={weekMove} outcomes={outcomes} displayRanks={displayRanks} onOpenPlayer={openPlayerModal} />
                 : leagueView === "teams" ? <TeamsLeagueTab matches={matches} ranked={ranked} anchorIso={anchorIso} onTeamClick={openTeamModal} />
-                : leagueView === "ucl" ? <ChampionsLeagueTab matches={matches} tables={tables} outcomes={outcomes} onTeamClick={openTeamModal} />
+                : leagueView === "ucl" ? <ChampionsLeagueTab matches={matches} tables={tables} outcomes={outcomes} matchPtsById={matchPtsById} onTeamClick={openTeamModal} />
                 : <LeaguesTab matches={matches} tables={tables} outcomes={outcomes} onTeamClick={openTeamModal} comp={leaguesComp} setComp={setLeaguesComp} />
               )
             : tab === "scores" ? <ScoresTab matches={matches} matchPtsById={matchPtsById} anchorIso={anchorIso} onTeamClick={openTeamModal} />
