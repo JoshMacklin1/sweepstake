@@ -3109,7 +3109,6 @@
 
       const availableSection = !isComplete ? (
         <div style={{ marginBottom: 22 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: C.dim, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>Available ({available.length})</div>
           {compOrder.map(c => (
             <div key={c} style={{ marginBottom: 14 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, marginBottom: 8 }}>{compLabelOf(c)}</div>
@@ -3136,7 +3135,7 @@
 
       const squadsSection = (
         <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: C.dim, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>{isComplete ? "Squads" : "Picked so far"}</div>
+          {isComplete && <div style={{ fontSize: 11, fontWeight: 700, color: C.dim, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>Squads</div>}
           {state.order.map(pid => (
             <div key={pid} style={{ padding: "12px 14px", background: C.card, border: `1px solid ${pid === session.playerId ? C.accent : C.border}`, borderRadius: 10, marginBottom: 8 }}>
               <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 6 }}>{nameOf(pid)}{pid === session.playerId ? " (you)" : ""} <span style={{ color: C.muted, fontWeight: 500 }}>· {(squadOf[pid] || []).length}</span></div>
@@ -3150,9 +3149,11 @@
         </div>
       );
 
-      // Whose-turn-driven focus: on your turn the teams to pick lead; while you
-      // wait, the draft-so-far leads and the roster sits below (scroll to it).
-      const teamsFirst = isMyTurn;
+      // Two tabs (app-style segmented control): the draft-so-far and the
+      // available roster. Snap to Available when it's your turn to pick, back
+      // to Picked so far once it isn't — the user can switch freely between.
+      const [draftTab, setDraftTab] = useState(isMyTurn ? "available" : "picked");
+      useEffect(() => { setDraftTab(isMyTurn ? "available" : "picked"); }, [isMyTurn]);
 
       return <div style={{ maxWidth: 560, margin: "0 auto", padding: "24px 16px 48px" }}>
         <div style={{ textAlign: "center", marginBottom: 10 }}>
@@ -3192,9 +3193,13 @@
           })}
         </div>
 
-        {teamsFirst
-          ? <>{availableSection}{squadsSection}</>
-          : <>{squadsSection}{availableSection}</>}
+        {!isComplete && (
+          <div className="tab-seg" style={{ marginBottom: 16 }}>
+            <button onClick={() => setDraftTab("picked")} style={{ background: draftTab === "picked" ? C.accent : C.surface, color: draftTab === "picked" ? C.bg : C.dim, fontWeight: 700, fontSize: 13 }}>Picked so far</button>
+            <button onClick={() => setDraftTab("available")} style={{ background: draftTab === "available" ? C.accent : C.surface, color: draftTab === "available" ? C.bg : C.dim, fontWeight: 700, fontSize: 13 }}>Available ({available.length})</button>
+          </div>
+        )}
+        {isComplete ? squadsSection : (draftTab === "available" ? availableSection : squadsSection)}
 
         {isComplete && available.length > 0 && (
           <div style={{ marginBottom: 20 }}>
