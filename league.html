@@ -3119,9 +3119,12 @@
                   return <button key={id} onClick={() => pick(id)} disabled={!isMyTurn || picking} style={{
                     textAlign: "left", padding: "10px 12px", borderRadius: 10, cursor: (isMyTurn && !picking) ? "pointer" : "default",
                     background: C.card, color: C.text, border: `1px solid ${C.border}`, opacity: isMyTurn ? 1 : 0.7,
-                    display: "flex", flexDirection: "column", gap: 2 }}>
-                    <span style={{ fontSize: 13, fontWeight: 700 }}>{t.name}</span>
-                    <span style={{ fontSize: 11, color: C.muted }}>Pot {t.pot}</span>
+                    display: "flex", flexDirection: "column", gap: 6 }}>
+                    <Crest teamId={id} size={34} />
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 13, fontWeight: 700 }}>{t.name}</span>
+                      <span style={{ fontSize: 10, fontWeight: 800, color: C.bg, background: POT_COLORS[t.pot] || C.dim, padding: "2px 7px", borderRadius: 999, lineHeight: 1.5 }}>P{t.pot}</span>
+                    </div>
                   </button>;
                 })}
               </div>
@@ -3207,9 +3210,13 @@
             <button onClick={onEnter} style={{ background: C.accent, color: C.bg, fontWeight: 800, fontSize: 14, border: "none", borderRadius: 10, padding: "12px 28px", cursor: "pointer" }}>Enter the league →</button>
           </div>
         )}
-        <div style={{ textAlign: "center" }}>
-          <button onClick={onLeave} style={{ background: "none", border: "none", color: C.muted, fontSize: 13, cursor: "pointer" }}>Leave league</button>
-        </div>
+        {/* No leaving mid-draft — an absent player just runs down their clock
+            and becomes a bot via autopick. Leaving is only offered once done. */}
+        {isComplete && (
+          <div style={{ textAlign: "center" }}>
+            <button onClick={onLeave} style={{ background: "none", border: "none", color: C.muted, fontSize: 13, cursor: "pointer" }}>Leave league</button>
+          </div>
+        )}
       </div>;
     }
 
