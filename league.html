@@ -3085,6 +3085,21 @@
         finally { setPicking(false); }
       };
 
+      const me = state.players.find(p => p.id === session.playerId);
+      const myAuto = !!(me && me.autopick);
+      const [autoBusy, setAutoBusy] = useState(false);
+      const toggleAuto = async () => {
+        setAutoBusy(true);
+        try {
+          await fetch(`${leagueApiBase()}/league/${state.code}/autopick`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token: session.token, on: !myAuto }),
+          });
+          // The broadcast reflects the new flag (and any picks it triggered).
+        } catch (e) { /* toggle will simply not take; user can retry */ }
+        finally { setAutoBusy(false); }
+      };
+
       return <div style={{ maxWidth: 560, margin: "0 auto", padding: "24px 16px 48px" }}>
         <div style={{ textAlign: "center", marginBottom: 10 }}>
           <div style={{ fontSize: 18, fontWeight: 800 }}>{state.name}</div>
@@ -3094,9 +3109,18 @@
         </div>
 
         {!isComplete && (
-          <div style={{ textAlign: "center", padding: "12px 14px", borderRadius: 12, marginBottom: 14, fontWeight: 700, fontSize: 14,
+          <div style={{ textAlign: "center", padding: "12px 14px", borderRadius: 12, marginBottom: 10, fontWeight: 700, fontSize: 14,
             background: isMyTurn ? C.accent : C.card, color: isMyTurn ? C.bg : C.text, border: `1px solid ${isMyTurn ? C.accent : C.border}` }}>
-            {isMyTurn ? "Your pick — tap a team" : `${nameOf(state.currentPlayerId)} is picking…`}
+            {myAuto ? "🤖 Auto-pick is on — the robot picks for you" : (isMyTurn ? "Your pick — tap a team" : `${nameOf(state.currentPlayerId)} is picking…`)}
+          </div>
+        )}
+        {!isComplete && (
+          <div style={{ textAlign: "center", marginBottom: 14 }}>
+            <button onClick={toggleAuto} disabled={autoBusy} style={{
+              fontSize: 12, fontWeight: 700, padding: "7px 14px", borderRadius: 999, cursor: autoBusy ? "default" : "pointer",
+              background: myAuto ? C.accent : "transparent", color: myAuto ? C.bg : C.muted, border: `1px solid ${myAuto ? C.accent : C.border}`, opacity: autoBusy ? 0.6 : 1 }}>
+              {myAuto ? "🤖 Auto-pick: ON — tap to pick yourself" : "🤖 Let the robot pick for me"}
+            </button>
           </div>
         )}
         {pickErr && <div style={{ textAlign: "center", color: C.dangerTextBright, fontSize: 12, marginBottom: 10 }}>{pickErr}</div>}
@@ -3105,9 +3129,10 @@
           {state.order.map(pid => {
             const cur = !isComplete && pid === state.currentPlayerId;
             const mine = pid === session.playerId;
+            const auto = (state.players.find(p => p.id === pid) || {}).autopick;
             return <span key={pid} style={{ fontSize: 12, fontWeight: 700, padding: "5px 10px", borderRadius: 999,
               background: cur ? C.accent : "transparent", color: cur ? C.bg : (mine ? C.text : C.muted),
-              border: `1px solid ${cur ? C.accent : C.border}` }}>{nameOf(pid)}{mine ? " (you)" : ""} · {(squadOf[pid] || []).length}</span>;
+              border: `1px solid ${cur ? C.accent : C.border}` }}>{auto ? "🤖 " : ""}{nameOf(pid)}{mine ? " (you)" : ""} · {(squadOf[pid] || []).length}</span>;
           })}
         </div>
 
@@ -3287,7 +3312,12 @@
         if (!hn) { setCreateErr("Add your own player name — you're in the draft too."); return; }
         if (!comps.length) { setCreateErr("Pick at least one competition."); return; }
         if (typeof LEAGUE_API_URL === "undefined") { setCreateErr("League service isn't configured yet."); return; }
-        const poolTeamIds = typeof lgPoolTeamIds === "function" ? lgPoolTeamIds(comps) : [];
+        // Send the pool best-first (pot ascending) so the server's autopick
+        // robot can just take the first available team without pot data.
+        const poolTeamIds = (typeof lgPoolTeamIds === "function" ? lgPoolTeamIds(comps) : []).slice().sort((a, b) => {
+          const ta = (typeof LEAGUE_TEAMS !== "undefined" && LEAGUE_TEAMS[a]) || {}, tb = (typeof LEAGUE_TEAMS !== "undefined" && LEAGUE_TEAMS[b]) || {};
+          return ((ta.pot || 9) - (tb.pot || 9)) || (a - b);
+        });
         if (poolTeamIds.length < 2) { setCreateErr("Those competitions don't have enough teams to draft."); return; }
         setBusy(true); setCreateErr("");
         try {

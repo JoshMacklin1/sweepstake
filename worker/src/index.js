@@ -99,7 +99,7 @@ export class League {
       name: d.name,
       competitions: d.competitions,
       status: d.status,
-      players: d.players.map(p => ({ id: p.id, name: p.name, joinedAt: p.joinedAt })),
+      players: d.players.map(p => ({ id: p.id, name: p.name, joinedAt: p.joinedAt, autopick: !!p.autopick })),
       order: d.order,
       picks: d.picks,
       turnNo: d.turnNo,
@@ -130,6 +130,27 @@ export class League {
     for (const ws of this.state.getWebSockets()) {
       try { ws.send(msg); } catch { /* dropped socket */ }
     }
+  }
+
+  // While the player whose turn it is has autopick on, the robot claims the
+  // best still-available team for them (the pool is stored best-first by the
+  // client, so that's just the first unclaimed id) and advances. Cascades
+  // through consecutive auto players. Returns true if anything was picked.
+  runAutopick(d) {
+    let changed = false;
+    while (d.status === "drafting") {
+      const pid = this.playerAtPick(d, d.turnNo);
+      const player = d.players.find(p => p.id === pid);
+      if (!player || !player.autopick) break;
+      const taken = new Set(d.picks.map(pk => pk.teamId));
+      const teamId = d.pool.find(id => !taken.has(id));
+      if (teamId === undefined) break;
+      d.picks.push({ teamId, playerId: pid, pickNo: d.turnNo, auto: true });
+      d.turnNo += 1;
+      if (d.picks.length >= d.totalPicks) d.status = "complete";
+      changed = true;
+    }
+    return changed;
   }
 
   async fetch(request) {
@@ -242,6 +263,19 @@ export class League {
       d.totalPicks = d.perPlayer * ids.length;
       d.turnNo = 0;
       d.status = d.totalPicks > 0 ? "drafting" : "complete";
+      this.runAutopick(d); // in case the opening pickers are already on auto
+      await this.save();
+      this.broadcast();
+      return json({ state: this.view(d) });
+    }
+
+    // POST /autopick { token, on }  -> toggle the robot picking for this player
+    if (request.method === "POST" && action === "autopick") {
+      const body = await request.json().catch(() => ({}));
+      const player = d.players.find(p => p.token === body.token);
+      if (!player) return json({ error: "unknown_player" }, 403);
+      player.autopick = !!body.on;
+      if (player.autopick) this.runAutopick(d); // may be this player's turn now
       await this.save();
       this.broadcast();
       return json({ state: this.view(d) });
@@ -263,6 +297,7 @@ export class League {
       d.picks.push({ teamId, playerId: player.id, pickNo: d.turnNo });
       d.turnNo += 1;
       if (d.picks.length >= d.totalPicks) d.status = "complete";
+      this.runAutopick(d); // cascade through any auto players now up next
       await this.save();
       this.broadcast();
       return json({ state: this.view(d) });
