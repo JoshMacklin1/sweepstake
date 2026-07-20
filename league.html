@@ -3172,6 +3172,8 @@
           <div style={{ maxWidth: 340, margin: "18px auto 0" }}>
             <div style={{ padding: "12px 14px", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, fontSize: 13, color: C.text, wordBreak: "break-all", textAlign: "left" }}>{link}</div>
             <button onClick={share} style={{ width: "100%", marginTop: 10, background: C.card, color: C.text, fontWeight: 700, fontSize: 13, border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px", cursor: "pointer" }}>{copied ? "Copied ✓" : "Share invite link"}</button>
+            <div style={{ marginTop: 12, fontSize: 13, color: C.muted }}>Or read out the code: <strong style={{ color: C.text, letterSpacing: "0.12em", fontSize: 16 }}>{state.code}</strong></div>
+            <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>Others tap “Join a league” and enter it.</div>
           </div>
         )}
 
@@ -3253,8 +3255,16 @@
 
       const submitJoin = (e) => {
         e.preventDefault();
-        const k = typeof leagueMatchGroupCode === "function" ? leagueMatchGroupCode(input) : null;
-        if (k) enter(k); else setBad(true);
+        const raw = input.trim();
+        if (!raw) { setBad(true); return; }
+        // Built-in / previously-created local league? enter it directly.
+        const k = typeof leagueMatchGroupCode === "function" ? leagueMatchGroupCode(raw) : null;
+        if (k) { enter(k); return; }
+        // Otherwise treat it as a hosted-league code — the same path as opening
+        // an invite link. Accepts a bare code or a pasted invite URL (…#j=CODE).
+        const jm = /j=([A-Za-z0-9]+)/i.exec(raw);
+        const code = (jm ? jm[1] : raw).toUpperCase().replace(/[^A-Z0-9]/g, "");
+        if (code) { setBad(false); setHashCode(code); } else { setBad(true); }
       };
       const submitCreate = async (e) => {
         e.preventDefault();
@@ -3310,7 +3320,7 @@
 
       if (mode === "join") {
         return shell(<>
-          <div style={{ color: C.muted, fontSize: 13, margin: "6px 0 22px" }}>Enter the code your league organiser shared.</div>
+          <div style={{ color: C.muted, fontSize: 13, margin: "6px 0 22px" }}>Enter the code your league organiser shared (or paste the invite link).</div>
           <form onSubmit={submitJoin}>
             <input value={input} onChange={e => { setInput(e.target.value); setBad(false); }}
               placeholder="LEAGUE CODE" autoFocus
@@ -3319,7 +3329,7 @@
             <div style={{ marginTop: 12 }}>
               <button type="submit" style={{ background: C.accent, color: C.bg, fontWeight: 800, fontSize: 14, border: "none", borderRadius: 10, padding: "11px 34px", cursor: "pointer" }}>Join</button>
             </div>
-            {bad && <div style={{ color: C.dangerTextBright, fontSize: 12, marginTop: 10 }}>Unknown code — check with whoever runs your league.</div>}
+            {bad && <div style={{ color: C.dangerTextBright, fontSize: 12, marginTop: 10 }}>Enter a league code or invite link.</div>}
           </form>
           {backLink}
         </>);
