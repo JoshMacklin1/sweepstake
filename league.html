@@ -3107,53 +3107,58 @@
       const secsLeft = (!isComplete && state.turnDeadline) ? Math.max(0, Math.ceil((state.turnDeadline - now) / 1000)) : null;
       const fmtClock = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
+      // Shared team card (crest on top, name + coloured pot pill). Clickable in
+      // the Available grid on your turn; static everywhere else.
+      const teamCard = (id, clickable) => {
+        const t = teamMeta(id);
+        const inner = <>
+          <Crest teamId={id} size={34} />
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 13, fontWeight: 700 }}>{t.name}</span>
+            <span style={{ fontSize: 10, fontWeight: 800, color: C.bg, background: POT_COLORS[t.pot] || C.dim, padding: "2px 7px", borderRadius: 999, lineHeight: 1.5 }}>P{t.pot}</span>
+          </div>
+        </>;
+        const base = { textAlign: "left", padding: "10px 12px", borderRadius: 10, background: C.card, color: C.text, border: `1px solid ${C.border}`, display: "flex", flexDirection: "column", gap: 6 };
+        return clickable
+          ? <button key={id} onClick={() => pick(id)} disabled={!isMyTurn || picking} style={{ ...base, cursor: (isMyTurn && !picking) ? "pointer" : "default", opacity: isMyTurn ? 1 : 0.7 }}>{inner}</button>
+          : <div key={id} style={base}>{inner}</div>;
+      };
+      const teamGrid = (children) => <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 8 }}>{children}</div>;
+
+      // Available roster — grouped by competition.
       const availableSection = !isComplete ? (
         <div style={{ marginBottom: 22 }}>
           {compOrder.map(c => (
             <div key={c} style={{ marginBottom: 14 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, marginBottom: 8 }}>{compLabelOf(c)}</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 8 }}>
-                {byComp[c].map(id => {
-                  const t = teamMeta(id);
-                  return <button key={id} onClick={() => pick(id)} disabled={!isMyTurn || picking} style={{
-                    textAlign: "left", padding: "10px 12px", borderRadius: 10, cursor: (isMyTurn && !picking) ? "pointer" : "default",
-                    background: C.card, color: C.text, border: `1px solid ${C.border}`, opacity: isMyTurn ? 1 : 0.7,
-                    display: "flex", flexDirection: "column", gap: 6 }}>
-                    <Crest teamId={id} size={34} />
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                      <span style={{ fontSize: 13, fontWeight: 700 }}>{t.name}</span>
-                      <span style={{ fontSize: 10, fontWeight: 800, color: C.bg, background: POT_COLORS[t.pot] || C.dim, padding: "2px 7px", borderRadius: 999, lineHeight: 1.5 }}>P{t.pot}</span>
-                    </div>
-                  </button>;
-                })}
-              </div>
+              {teamGrid(byComp[c].map(id => teamCard(id, true)))}
             </div>
           ))}
           {available.length === 0 && <div style={{ fontSize: 13, color: C.muted }}>All draftable teams have been picked.</div>}
         </div>
       ) : null;
 
-      const squadsSection = (
+      // Selected teams — same cards, grouped by player.
+      const selectedSection = (
         <div style={{ marginBottom: 20 }}>
-          {isComplete && <div style={{ fontSize: 11, fontWeight: 700, color: C.dim, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>Squads</div>}
-          {state.order.map(pid => (
-            <div key={pid} style={{ padding: "12px 14px", background: C.card, border: `1px solid ${pid === session.playerId ? C.accent : C.border}`, borderRadius: 10, marginBottom: 8 }}>
-              <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 6 }}>{nameOf(pid)}{pid === session.playerId ? " (you)" : ""} <span style={{ color: C.muted, fontWeight: 500 }}>· {(squadOf[pid] || []).length}</span></div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {(squadOf[pid] || []).length === 0
-                  ? <span style={{ fontSize: 12, color: C.muted }}>No picks yet</span>
-                  : squadOf[pid].map(id => <span key={id} style={{ fontSize: 12, fontWeight: 600, padding: "4px 8px", borderRadius: 6, background: C.surface, border: `1px solid ${C.border}` }}>{teamMeta(id).name}</span>)}
+          {state.order.map(pid => {
+            const squad = squadOf[pid] || [];
+            const auto = (state.players.find(p => p.id === pid) || {}).autopick;
+            return (
+              <div key={pid} style={{ marginBottom: 18 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8 }}>{auto ? "🤖 " : ""}{nameOf(pid)}{pid === session.playerId ? " (you)" : ""} <span style={{ color: C.muted, fontWeight: 500 }}>· {squad.length}</span></div>
+                {squad.length === 0
+                  ? <div style={{ fontSize: 12, color: C.muted }}>No picks yet</div>
+                  : teamGrid(squad.map(id => teamCard(id, false)))}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       );
 
-      // Two tabs (app-style segmented control): the draft-so-far and the
-      // available roster. Snap to Available when it's your turn to pick, back
-      // to Picked so far once it isn't — the user can switch freely between.
-      const [draftTab, setDraftTab] = useState(isMyTurn ? "available" : "picked");
-      useEffect(() => { setDraftTab(isMyTurn ? "available" : "picked"); }, [isMyTurn]);
+      // Two tabs (app-style segmented control). No auto-switching — the user
+      // stays on whichever they chose.
+      const [draftTab, setDraftTab] = useState("available");
 
       return <div style={{ maxWidth: 560, margin: "0 auto", padding: "24px 16px 48px" }}>
         <div style={{ textAlign: "center", marginBottom: 10 }}>
@@ -3195,11 +3200,11 @@
 
         {!isComplete && (
           <div className="tab-seg" style={{ marginBottom: 16 }}>
-            <button onClick={() => setDraftTab("picked")} style={{ background: draftTab === "picked" ? C.accent : C.surface, color: draftTab === "picked" ? C.bg : C.dim, fontWeight: 700, fontSize: 13 }}>Picked so far</button>
+            <button onClick={() => setDraftTab("selected")} style={{ background: draftTab === "selected" ? C.accent : C.surface, color: draftTab === "selected" ? C.bg : C.dim, fontWeight: 700, fontSize: 13 }}>Selected</button>
             <button onClick={() => setDraftTab("available")} style={{ background: draftTab === "available" ? C.accent : C.surface, color: draftTab === "available" ? C.bg : C.dim, fontWeight: 700, fontSize: 13 }}>Available ({available.length})</button>
           </div>
         )}
-        {isComplete ? squadsSection : (draftTab === "available" ? availableSection : squadsSection)}
+        {isComplete ? selectedSection : (draftTab === "available" ? availableSection : selectedSection)}
 
         {isComplete && available.length > 0 && (
           <div style={{ marginBottom: 20 }}>
