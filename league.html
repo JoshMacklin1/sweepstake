@@ -2863,19 +2863,13 @@
     // ── group gate (same pattern as the WC app: reassign the roster global
     //    BEFORE App's first render, so every scoring call reads it live) ────
     const CREATED_LEAGUES_KEY = "lsw_created";
+    const HOST_SESSION_KEY = "lsw_host_session"; // server-backed league you created
     function loadCreatedLeagues() {
       if (typeof LEAGUE_GROUPS === "undefined") return;
       try {
         const stored = JSON.parse(localStorage.getItem(CREATED_LEAGUES_KEY) || "{}");
         Object.keys(stored).forEach(code => { if (!LEAGUE_GROUPS[code]) LEAGUE_GROUPS[code] = stored[code]; });
       } catch (e) { /* ignore corrupt storage */ }
-    }
-    function saveCreatedLeague(group) {
-      try {
-        const stored = JSON.parse(localStorage.getItem(CREATED_LEAGUES_KEY) || "{}");
-        stored[group.code] = group;
-        localStorage.setItem(CREATED_LEAGUES_KEY, JSON.stringify(stored));
-      } catch (e) { /* ignore */ }
     }
 
     function GroupGate() {
@@ -2884,13 +2878,25 @@
         const k = localStorage.getItem(GROUP_STORAGE_KEY);
         return (k && typeof LEAGUE_GROUPS !== "undefined" && LEAGUE_GROUPS[k]) ? k : null;
       });
-      const [mode, setMode] = useState("menu"); // menu · join · create
+      const [hosted, setHosted] = useState(() => {
+        try { return JSON.parse(localStorage.getItem(HOST_SESSION_KEY) || "null"); } catch (e) { return null; }
+      });
+      const [mode, setMode] = useState(() => hosted ? "invite" : "menu"); // menu · join · create · invite
       const [input, setInput] = useState("");
       const [bad, setBad] = useState(false);
       // create form
       const [leagueName, setLeagueName] = useState("");
-      const [playersText, setPlayersText] = useState("");
+      const [hostName, setHostName] = useState("");
+      const draftable = typeof lgDraftableCompetitions === "function" && lgDraftableCompetitions().length
+        ? lgDraftableCompetitions() : ["PL", "PD", "SA", "BL1", "FL1"];
+      const [comps, setComps] = useState(() => draftable.slice()); // all selected by default
       const [createErr, setCreateErr] = useState("");
+      const [busy, setBusy] = useState(false);
+      const [copied, setCopied] = useState(false);
+      const toggleComp = (code) => {
+        setCreateErr("");
+        setComps(prev => prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code]);
+      };
 
       const enter = (key) => {
         if (typeof lgEnsureTeams === "function") lgEnsureTeams(LEAGUE_GROUPS[key]);
@@ -2912,25 +2918,46 @@
         const k = typeof leagueMatchGroupCode === "function" ? leagueMatchGroupCode(input) : null;
         if (k) enter(k); else setBad(true);
       };
-      const submitCreate = (e) => {
+      const submitCreate = async (e) => {
         e.preventDefault();
         const name = leagueName.trim();
+        const hn = hostName.trim();
         if (!name) { setCreateErr("Give your league a name."); return; }
-        const names = playersText.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
-        const seen = {}, uniq = [];
-        names.forEach(n => { const k = n.toLowerCase(); if (!seen[k]) { seen[k] = 1; uniq.push(n); } });
-        if (uniq.length < 2) { setCreateErr("Add at least two players (one per line)."); return; }
-        let code = name.toUpperCase().replace(/[^A-Z0-9]+/g, "");
-        if (!code) code = "LEAGUE";
-        while (LEAGUE_GROUPS[code]) code += Math.floor(Math.random() * 10); // avoid clashing an existing code
-        const group = {
-          code, label: name,
-          players: uniq.map(n => ({ name: n })),
-        };
-        if (typeof lgEnsureTeams === "function") lgEnsureTeams(group);
-        LEAGUE_GROUPS[code] = group;
-        saveCreatedLeague(group);
-        enter(code);
+        if (!hn) { setCreateErr("Add your own player name — you're in the draft too."); return; }
+        if (!comps.length) { setCreateErr("Pick at least one competition."); return; }
+        if (typeof LEAGUE_API_URL === "undefined") { setCreateErr("League service isn't configured yet."); return; }
+        const poolTeamIds = typeof lgPoolTeamIds === "function" ? lgPoolTeamIds(comps) : [];
+        if (poolTeamIds.length < 2) { setCreateErr("Those competitions don't have enough teams to draft."); return; }
+        setBusy(true); setCreateErr("");
+        try {
+          const res = await fetch(`${LEAGUE_API_URL}/league`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, competitions: comps, poolTeamIds, hostName: hn }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.error || "create_failed");
+          const session = { code: data.code, hostToken: data.hostToken, playerId: data.playerId, name };
+          localStorage.setItem(HOST_SESSION_KEY, JSON.stringify(session));
+          setHosted(session);
+          setCopied(false);
+          setMode("invite");
+        } catch (err) {
+          setCreateErr("Couldn't create the league — check your connection and try again.");
+        } finally {
+          setBusy(false);
+        }
+      };
+      const leaveHosted = () => {
+        localStorage.removeItem(HOST_SESSION_KEY);
+        setHosted(null); setMode("menu"); setCreateErr(""); setCopied(false);
+        setLeagueName(""); setHostName("");
+      };
+      const inviteLink = hosted ? `${location.origin}${location.pathname}#j=${hosted.code}` : "";
+      const shareInvite = async () => {
+        try {
+          if (navigator.share) { await navigator.share({ title: hosted.name, text: `Join my ${hosted.name} sweepstake`, url: inviteLink }); return; }
+        } catch (e) { /* user cancelled share sheet — fall through to copy */ }
+        try { await navigator.clipboard.writeText(inviteLink); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch (e) { /* clipboard blocked */ }
       };
 
       const shell = (children) => (
@@ -2973,26 +3000,54 @@
         </>);
       }
       if (mode === "create") {
+        const fieldStyle = { width: "100%", boxSizing: "border-box", padding: "11px 13px", marginTop: 6, marginBottom: 16, fontSize: 15, background: C.surface, color: C.text, border: `1px solid ${C.border}`, borderRadius: 10, outline: "none" };
+        const labelStyle = { fontSize: 11, fontWeight: 700, color: C.dim, letterSpacing: "0.08em", textTransform: "uppercase" };
+        const compLabelOf = (code) => (typeof LEAGUE_COMPETITIONS !== "undefined" && LEAGUE_COMPETITIONS[code]) ? LEAGUE_COMPETITIONS[code].label : code;
         return shell(<>
-          <div style={{ color: C.muted, fontSize: 13, margin: "6px 0 20px" }}>Name your league and add the players — we'll draw everyone a balanced spread of teams.</div>
+          <div style={{ color: C.muted, fontSize: 13, margin: "6px 0 20px" }}>Set up your league, then share an invite link so your mates join and draft teams together.</div>
           <form onSubmit={submitCreate} style={{ textAlign: "left", maxWidth: 320, margin: "0 auto" }}>
-            <label style={{ fontSize: 11, fontWeight: 700, color: C.dim, letterSpacing: "0.08em", textTransform: "uppercase" }}>League name</label>
-            <input value={leagueName} onChange={e => { setLeagueName(e.target.value); setCreateErr(""); }} placeholder="e.g. The Office League" autoFocus
-              style={{ width: "100%", boxSizing: "border-box", padding: "11px 13px", marginTop: 6, marginBottom: 16, fontSize: 15, background: C.surface, color: C.text, border: `1px solid ${C.border}`, borderRadius: 10, outline: "none" }} />
-            <label style={{ fontSize: 11, fontWeight: 700, color: C.dim, letterSpacing: "0.08em", textTransform: "uppercase" }}>Players <span style={{ textTransform: "none", fontWeight: 500, color: C.muted }}>(one per line)</span></label>
-            <textarea value={playersText} onChange={e => { setPlayersText(e.target.value); setCreateErr(""); }} placeholder={"Alex\nBen\nCharlie\n…"} rows={6}
-              style={{ width: "100%", boxSizing: "border-box", padding: "11px 13px", marginTop: 6, fontSize: 15, background: C.surface, color: C.text, border: `1px solid ${C.border}`, borderRadius: 10, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
-            {createErr && <div style={{ color: C.dangerTextBright, fontSize: 12, marginTop: 8 }}>{createErr}</div>}
-            <button type="submit" style={{ width: "100%", marginTop: 16, background: C.accent, color: C.bg, fontWeight: 800, fontSize: 14, border: "none", borderRadius: 10, padding: "12px", cursor: "pointer" }}>Create &amp; draw teams</button>
+            <label style={labelStyle}>League name</label>
+            <input value={leagueName} onChange={e => { setLeagueName(e.target.value); setCreateErr(""); }} placeholder="e.g. The Office League" autoFocus style={fieldStyle} />
+            <label style={labelStyle}>Your name <span style={{ textTransform: "none", fontWeight: 500, color: C.muted }}>(you play too)</span></label>
+            <input value={hostName} onChange={e => { setHostName(e.target.value); setCreateErr(""); }} placeholder="e.g. Alex" style={fieldStyle} />
+            <label style={labelStyle}>Competitions <span style={{ textTransform: "none", fontWeight: 500, color: C.muted }}>(pick one or more)</span></label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8, marginBottom: 4 }}>
+              {draftable.map(code => {
+                const on = comps.includes(code);
+                return (
+                  <button type="button" key={code} onClick={() => toggleComp(code)} style={{
+                    padding: "8px 12px", fontSize: 13, fontWeight: 700, cursor: "pointer", borderRadius: 999,
+                    background: on ? C.accent : "transparent", color: on ? C.bg : C.muted,
+                    border: `1px solid ${on ? C.accent : C.border}`,
+                  }}>{on ? "✓ " : ""}{compLabelOf(code)}</button>
+                );
+              })}
+            </div>
+            {createErr && <div style={{ color: C.dangerTextBright, fontSize: 12, marginTop: 10 }}>{createErr}</div>}
+            <button type="submit" disabled={busy} style={{ width: "100%", marginTop: 16, background: C.accent, color: C.bg, fontWeight: 800, fontSize: 14, border: "none", borderRadius: 10, padding: "12px", cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1 }}>{busy ? "Creating…" : "Create league"}</button>
           </form>
           <div style={{ textAlign: "center" }}>{backLink}</div>
         </>);
       }
+      if (mode === "invite" && hosted) {
+        return shell(<>
+          <div style={{ color: C.muted, fontSize: 13, margin: "6px 0 18px" }}>
+            <strong style={{ color: C.text }}>{hosted.name}</strong> is created. Share this link — everyone who opens it sets their name and joins the draft.
+          </div>
+          <div style={{ maxWidth: 340, margin: "0 auto" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 14px", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, fontSize: 13, color: C.text, wordBreak: "break-all", textAlign: "left" }}>{inviteLink}</div>
+            <button onClick={shareInvite} style={{ width: "100%", marginTop: 12, background: C.accent, color: C.bg, fontWeight: 800, fontSize: 14, border: "none", borderRadius: 10, padding: "12px", cursor: "pointer" }}>{copied ? "Copied ✓" : "Share invite link"}</button>
+            <div style={{ marginTop: 16, fontSize: 13, color: C.muted }}>League code: <strong style={{ color: C.text, letterSpacing: "0.06em" }}>{hosted.code}</strong></div>
+            <div style={{ marginTop: 18, fontSize: 12, color: C.dim, lineHeight: 1.5 }}>The live lobby and team draft are coming next — your league is created and the invite link already works.</div>
+          </div>
+          <button onClick={leaveHosted} style={{ marginTop: 22, background: "none", border: "none", color: C.muted, fontSize: 13, cursor: "pointer" }}>Discard this league</button>
+        </>);
+      }
       // menu
       return shell(<>
-        <div style={{ color: C.muted, fontSize: 13, margin: "6px 0 26px" }}>Premier League &amp; Championship sweepstake.</div>
+        <div style={{ color: C.muted, fontSize: 13, margin: "6px 0 26px" }}>Top-flight football sweepstake — create a league and draft teams with your mates.</div>
         {bigBtn("Join a league", "Enter a code you've been given", () => { setMode("join"); }, true)}
-        {bigBtn("Create a league", "Start a new one and draw the teams", () => { setMode("create"); }, false)}
+        {bigBtn("Create a league", "Start one and invite your mates", () => { setMode("create"); }, false)}
       </>);
     }
 

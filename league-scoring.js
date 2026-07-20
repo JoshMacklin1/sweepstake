@@ -20,6 +20,38 @@
 
 var LEAGUE_WORKER_URL = "https://football-proxy.joshmacklin7.workers.dev";
 
+// Live-draft backend (separate Worker — see worker/). Powers create / invite /
+// lobby / snake draft for user-made leagues. Update this if you deploy the
+// Worker under a different name or subdomain.
+var LEAGUE_API_URL = "https://sweepstaker-league.joshmacklin7.workers.dev";
+
+// Competitions a created league can draft from: the domestic top flights that
+// have a scoring matrix. CL is a gamble layer laid over league points, not a
+// draw pool, so it's deliberately excluded.
+function lgDraftableCompetitions() {
+  if (typeof LEAGUE_COMPETITIONS === "undefined") return [];
+  return Object.keys(LEAGUE_COMPETITIONS).filter(function (c) {
+    return typeof LEAGUE_MATCH_PTS !== "undefined" && LEAGUE_MATCH_PTS[c];
+  });
+}
+
+// Every eligible team id for a set of competition codes (scoring leagues only).
+// This is the roster pool the draft picks from — sent to the Worker at create
+// time so LEAGUE_TEAMS stays the single source of truth for football data.
+function lgPoolTeamIds(comps) {
+  if (typeof LEAGUE_TEAMS === "undefined") return [];
+  var set = {};
+  (comps || []).forEach(function (c) { set[c] = 1; });
+  var ids = [];
+  Object.keys(LEAGUE_TEAMS).forEach(function (id) {
+    var t = LEAGUE_TEAMS[id];
+    if (set[t.league] && typeof LEAGUE_MATCH_PTS !== "undefined" && LEAGUE_MATCH_PTS[t.league]) {
+      ids.push(Number(id));
+    }
+  });
+  return ids;
+}
+
 // Replay/testing season. The 2025-26 season is fully played and free-tier
 // accessible, so the whole app can be exercised on real historical data.
 // Flip to 2026 for the live 2026-27 season (PL starts 2026-08-21, ELC 08-14).
