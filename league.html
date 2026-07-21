@@ -102,7 +102,7 @@
 <body>
   <div id="root"></div>
   <!-- Coupled: every league-scoring.js change must bump ?v=N (see SWEEPSTAKE_PROJECT.md cache-bust rule) -->
-  <script src="league-scoring.js?v=19"></script>
+  <script src="league-scoring.js?v=20"></script>
   <script type="text/babel">
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
@@ -2691,7 +2691,7 @@
     }
 
     // ── app shell ───────────────────────────────────────────────────────────
-    function App({ group, onSwitchGroup }) {
+    function App({ group, onSwitchGroup, previewMode, onExitPreview }) {
       const [tab, setTab] = useState("home");
       // League tab's inline top toggle: players · teams · leagues
       const [leagueView, setLeagueView] = useState("players");
@@ -2775,6 +2775,10 @@
         sc.onerror = () => setReplay({ on: false, loading: false, date: REPLAY_END });
         document.body.appendChild(sc);
       };
+
+      // Preview mode opens straight into the last-season simulation so waiting
+      // players immediately see their random squads score across the season.
+      useEffect(() => { if (previewMode) toggleReplay(); }, []);
 
       const matches = useMemo(() => {
         if (replay.on && !replay.loading && typeof LEAGUE_REPLAY_DATA !== "undefined" && typeof leagueMatchesUpTo === "function") {
@@ -2887,6 +2891,14 @@
 
       return (
         <div style={{ paddingBottom: 84 }}>
+          {previewMode && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", background: "#2a2410", borderBottom: `1px solid ${C.gold}` }}>
+              <span style={{ fontSize: 12, color: C.gold, fontWeight: 700, flex: 1, lineHeight: 1.3 }}>
+                👀 Preview — random teams, last season simulated. Not the real draft.
+              </span>
+              <button onClick={onExitPreview} style={{ flexShrink: 0, background: "rgba(255,255,255,0.1)", color: C.text, fontWeight: 700, fontSize: 12, border: `1px solid ${C.gold}`, borderRadius: 8, padding: "6px 12px", cursor: "pointer" }}>Exit preview</button>
+            </div>
+          )}
           <Header group={group} lastUpdated={lastUpdated} refreshing={refreshing}
             onRefresh={() => fetchMatches(true)} replay={replay}
             onReplayDate={(d) => setReplay(r => ({ ...r, date: d }))}
@@ -3093,6 +3105,7 @@
       const [state, setState] = useState(null);
       const [connected, setConnected] = useState(false);
       const [entered, setEntered] = useState(false);
+      const [preview, setPreview] = useState(null);
       const wsRef = useRef(null);
 
       useEffect(() => {
@@ -3137,6 +3150,21 @@
         onLeave();
       };
 
+      // Preview: deal the current lobby everyone a random squad and drop into a
+      // read-only, last-season simulation. Nothing is sent to the server — the
+      // real draft is untouched. Re-seeded each press so it re-rolls.
+      const startPreview = () => {
+        const names = ((state && state.players) || []).map(p => p.name);
+        if (!names.length || typeof lgPreviewDraw !== "function") return;
+        setPreview(lgPreviewDraw(names, state.competitions, session.code + ":" + Date.now()));
+      };
+
+      if (preview) {
+        LEAGUE_PLAYERS = preview.players;
+        const exit = () => setPreview(null);
+        return <App group={preview} previewMode onExitPreview={exit} onSwitchGroup={exit} />;
+      }
+
       if (!state) {
         return <GateShell>
           <div style={{ color: C.muted, fontSize: 13, margin: "16px 0" }}>Connecting to your league…</div>
@@ -3144,7 +3172,7 @@
         </GateShell>;
       }
       if (state.status === "lobby") {
-        return <Lobby state={state} session={session} isHost={isHost} connected={connected} onStart={start} onLeave={leave} />;
+        return <Lobby state={state} session={session} isHost={isHost} connected={connected} onStart={start} onLeave={leave} onPreview={startPreview} />;
       }
       // Completed draft, and the user chose to enter → hand off to the full
       // league App with the drafted squads (roster global set before render,
@@ -3383,7 +3411,7 @@
       </div>;
     }
 
-    function Lobby({ state, session, isHost, connected, onStart, onLeave }) {
+    function Lobby({ state, session, isHost, connected, onStart, onLeave, onPreview }) {
       const [copied, setCopied] = useState(false);
       const link = inviteLinkFor(state.code);
       const share = async () => {
@@ -3425,6 +3453,14 @@
           </div>
         ) : (
           <div style={{ fontSize: 13, color: C.muted, marginTop: 18 }}>Waiting for the organiser to start the draft…</div>
+        )}
+
+        {onPreview && state.players.length >= 1 && (
+          <div style={{ maxWidth: 340, margin: "20px auto 0" }}>
+            <div style={{ height: 1, background: C.border, margin: "0 0 16px" }} />
+            <button onClick={onPreview} style={{ width: "100%", background: C.card, color: C.text, fontWeight: 700, fontSize: 14, border: `1px solid ${C.accent}`, borderRadius: 10, padding: "12px", cursor: "pointer" }}>👀 Preview app</button>
+            <div style={{ fontSize: 12, color: C.dim, marginTop: 8 }}>See a mock version with everyone here dealt random teams, then simulate last season to try out the scoring. Doesn't affect the real draft.</div>
+          </div>
         )}
 
         <button onClick={onLeave} style={{ marginTop: 22, background: "none", border: "none", color: C.muted, fontSize: 13, cursor: "pointer" }}>Leave league</button>

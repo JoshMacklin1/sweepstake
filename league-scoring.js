@@ -546,6 +546,38 @@ function lgEnsureTeams(group) {
   }
 }
 
+// Throwaway "preview" draw for the lobby's Preview-app button: deal each of the
+// given names a random, pot-fair squad from the chosen competitions' pool so
+// players can explore a simulated season before the real draft. Not persisted;
+// `seed` lets the caller re-roll a fresh assignment. Same pot-balancing model as
+// lgEnsureTeams but restricted to `comps` (the lobby's selected leagues).
+function lgPreviewDraw(names, comps, seed) {
+  var players = (names || []).map(function (n) { return { name: n, teamIds: [] }; });
+  if (!players.length || typeof LEAGUE_TEAMS === "undefined") {
+    return { code: "PREVIEW", label: "Preview", players: players };
+  }
+  var rng = lgMulberry32(lgHashStr("LGPREVIEW::" + (seed || "") + "::" + players.map(function (p) { return p.name; }).join(",")));
+  var poolIds = (typeof lgPoolTeamIds === "function") ? lgPoolTeamIds(comps) : [];
+  // Group the eligible pool by league|pot so we can deal pot-fairly.
+  var pools = {};
+  poolIds.forEach(function (id) {
+    var t = LEAGUE_TEAMS[id]; if (!t) return;
+    (pools[t.league + "|" + t.pot] = pools[t.league + "|" + t.pot] || []).push(Number(id));
+  });
+  var poolArrs = Object.keys(pools).map(function (k) { return lgShuffle(pools[k].slice(), rng); });
+  var maxLen = poolArrs.reduce(function (m, a) { return Math.max(m, a.length); }, 0);
+  var seq = [];
+  for (var r = 0; r < maxLen; r++) {
+    lgShuffle(poolArrs, rng).forEach(function (pool) { if (pool[r] !== undefined) seq.push(pool[r]); });
+  }
+  if (!seq.length) return { code: "PREVIEW", label: "Preview", players: players };
+  var perPlayer = Math.max(1, Math.floor(seq.length / players.length));
+  var start = Math.floor(rng() * players.length);
+  var toAssign = perPlayer * players.length;
+  for (var i = 0; i < toAssign; i++) players[(start + i) % players.length].teamIds.push(seq[i]);
+  return { code: "PREVIEW", label: "Preview", players: players };
+}
+
 function leagueOwnerOfTeamId(teamId, players) {
   var roster = players || LEAGUE_PLAYERS;
   for (var i = 0; i < roster.length; i++) {
