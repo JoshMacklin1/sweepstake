@@ -3112,7 +3112,7 @@
     }
 
     // ── live draft board: snake/ABBA picks, roster shrinks in real time ─────
-    function Draft({ state, session, onLeave, onEnter }) {
+    function Draft({ state, session, onLeave, onEnter, onPick, drive, onAutoFill }) {
       const [picking, setPicking] = useState(false);
       const [pickErr, setPickErr] = useState("");
       const isComplete = state.status === "complete";
@@ -3128,6 +3128,8 @@
       const available = poolIds.filter(id => !pickedIds.has(id));
 
       const isMyTurn = !isComplete && state.currentPlayerId === session.playerId;
+      // Demo "drive" mode: one device picks for whoever's up.
+      const canPick = drive ? (!isComplete && !!state.currentPlayerId) : isMyTurn;
       const round = Math.floor(state.turnNo / P) + 1;
 
       const squadOf = {};
@@ -3140,6 +3142,7 @@
       compOrder.forEach(c => byComp[c].sort((a, b) => { const ta = teamMeta(a), tb = teamMeta(b); return (ta.pot - tb.pot) || ta.name.localeCompare(tb.name); }));
 
       const pick = async (teamId) => {
+        if (onPick) { if (canPick && !picking) onPick(teamId); return; }
         if (!isMyTurn || picking) return;
         setPicking(true); setPickErr("");
         try {
@@ -3208,7 +3211,7 @@
         </>;
         const base = { position: "relative", textAlign: "left", padding: "10px 12px", borderRadius: 10, background: C.card, color: C.text, border: `1px solid ${C.border}`, display: "flex", flexDirection: "column", gap: 6 };
         return clickable
-          ? <button key={id} onClick={() => pick(id)} disabled={!isMyTurn || picking} style={{ ...base, cursor: (isMyTurn && !picking) ? "pointer" : "default", opacity: isMyTurn ? 1 : 0.7 }}>{inner}</button>
+          ? <button key={id} onClick={() => pick(id)} disabled={!canPick || picking} style={{ ...base, cursor: (canPick && !picking) ? "pointer" : "default", opacity: canPick ? 1 : 0.7 }}>{inner}</button>
           : <div key={id} style={base}>{inner}</div>;
       };
       const teamGrid = (children) => <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 8 }}>{children}</div>;
@@ -3267,12 +3270,17 @@
 
         {!isComplete && (
           <div style={{ textAlign: "center", padding: "12px 14px", borderRadius: 12, marginBottom: 10, fontWeight: 700, fontSize: 14,
-            background: isMyTurn ? C.accent : C.card, color: isMyTurn ? C.bg : C.text, border: `1px solid ${isMyTurn ? C.accent : C.border}` }}>
-            {myAuto ? "🤖 Auto-pick is on — the robot picks for you" : (isMyTurn ? "Your pick — tap a team" : `${nameOf(state.currentPlayerId)} is picking…`)}
-            {secsLeft != null && <span style={{ marginLeft: 8, fontWeight: 800, color: (isMyTurn && secsLeft <= 10) ? C.dangerTextBright : "inherit" }}>· {fmtClock(secsLeft)}</span>}
+            background: canPick ? C.accent : C.card, color: canPick ? C.bg : C.text, border: `1px solid ${canPick ? C.accent : C.border}` }}>
+            {drive ? `${nameOf(state.currentPlayerId)} — tap a team` : (myAuto ? "🤖 Auto-pick is on — the robot picks for you" : (isMyTurn ? "Your pick — tap a team" : `${nameOf(state.currentPlayerId)} is picking…`))}
+            {secsLeft != null && <span style={{ marginLeft: 8, fontWeight: 800, color: (canPick && secsLeft <= 10) ? C.dangerTextBright : "inherit" }}>· {fmtClock(secsLeft)}</span>}
           </div>
         )}
-        {!isComplete && (
+        {!isComplete && drive && (
+          <div style={{ textAlign: "center", marginBottom: 14 }}>
+            <button onClick={onAutoFill} style={{ fontSize: 12, fontWeight: 700, padding: "7px 14px", borderRadius: 999, cursor: "pointer", background: "transparent", color: C.muted, border: `1px solid ${C.border}` }}>🤖 Auto-fill the rest</button>
+          </div>
+        )}
+        {!isComplete && !drive && (
           <div style={{ textAlign: "center", marginBottom: 14 }}>
             <button onClick={toggleAuto} disabled={autoBusy} style={{
               fontSize: 12, fontWeight: 700, padding: "7px 14px", borderRadius: 999, cursor: autoBusy ? "default" : "pointer",
@@ -3375,8 +3383,56 @@
       </GateShell>;
     }
 
+    // ── demo / pitch mode (#demo): a fully local Rodents draft, one device,
+    //    no server. Drive every pick yourself for screenshots / a recording. ──
+    function DemoLeague({ onLeave }) {
+      const comps = (typeof lgDraftableCompetitions === "function" && lgDraftableCompetitions().length) ? lgDraftableCompetitions() : ["PL", "PD", "SA", "BL1", "FL1"];
+      const pool = useMemo(() => {
+        const ids = typeof lgPoolTeamIds === "function" ? lgPoolTeamIds(comps) : [];
+        return ids.slice().sort((a, b) => { const ta = (typeof LEAGUE_TEAMS !== "undefined" && LEAGUE_TEAMS[a]) || {}, tb = (typeof LEAGUE_TEAMS !== "undefined" && LEAGUE_TEAMS[b]) || {}; return ((ta.pot || 9) - (tb.pot || 9)) || (a - b); });
+      }, []);
+      const [state, setState] = useState(() => {
+        const rodents = (typeof LEAGUE_GROUPS !== "undefined" && LEAGUE_GROUPS.RODENTS && LEAGUE_GROUPS.RODENTS.players) || [];
+        const players = rodents.map((p, i) => ({ id: "d" + i, name: p.name, autopick: false }));
+        return { code: "DEMO", name: "Rodents", competitions: comps, status: "lobby", players, order: [], picks: [], turnNo: 0, perPlayer: 0, totalPicks: 0, hostPlayerId: players[0] ? players[0].id : null, turnDeadline: null, currentPlayerId: null, poolSize: pool.length };
+      });
+      const [entered, setEntered] = useState(false);
+      const session = { playerId: state.players[0] ? state.players[0].id : null, name: state.players[0] ? state.players[0].name : "", demo: true };
+      const at = (order, n) => { const P = order.length; if (!P) return null; const round = Math.floor(n / P); const pos = n % P; return order[round % 2 === 0 ? pos : (P - 1 - pos)]; };
+      const advance = (s, picks, turnNo) => {
+        const status = picks.length >= s.totalPicks ? "complete" : "drafting";
+        return { ...s, picks, turnNo, status, currentPlayerId: status === "drafting" ? at(s.order, turnNo) : null, turnDeadline: status === "drafting" ? Date.now() + 60000 : null };
+      };
+      const start = () => setState(s => {
+        const ids = s.players.map(p => p.id);
+        for (let i = ids.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [ids[i], ids[j]] = [ids[j], ids[i]]; }
+        const perPlayer = Math.floor(pool.length / ids.length), totalPicks = perPlayer * ids.length;
+        const base = { ...s, order: ids, perPlayer, totalPicks, turnNo: 0 };
+        return totalPicks > 0 ? advance(base, [], 0) : { ...base, status: "complete", currentPlayerId: null, turnDeadline: null };
+      });
+      const pick = (teamId) => setState(s => {
+        if (s.status !== "drafting" || s.picks.some(pk => pk.teamId === teamId)) return s;
+        return advance(s, [...s.picks, { teamId, playerId: at(s.order, s.turnNo), pickNo: s.turnNo }], s.turnNo + 1);
+      });
+      const autoFill = () => setState(s => {
+        if (s.status !== "drafting") return s;
+        const picks = s.picks.slice(), taken = new Set(picks.map(p => p.teamId)); let turnNo = s.turnNo;
+        while (picks.length < s.totalPicks) { const id = pool.find(x => !taken.has(x)); if (id === undefined) break; taken.add(id); picks.push({ teamId: id, playerId: at(s.order, turnNo), pickNo: turnNo, auto: true }); turnNo++; }
+        return advance(s, picks, turnNo);
+      });
+      if (state.status === "lobby") return <Lobby state={state} session={session} isHost connected onStart={start} onLeave={onLeave} />;
+      if (state.status === "complete" && entered) {
+        const group = liveGroupFromState(state);
+        LEAGUE_PLAYERS = group.players;
+        return <App group={group} onSwitchGroup={onLeave} />;
+      }
+      return <Draft state={state} session={session} onLeave={onLeave} onPick={pick} drive onAutoFill={autoFill}
+        onEnter={state.status === "complete" ? () => setEntered(true) : null} />;
+    }
+
     function GroupGate() {
       const [ready] = useState(() => { loadCreatedLeagues(); return true; });
+      const [demoOn, setDemoOn] = useState(() => /(?:^|[#&])demo\b/.test(location.hash || ""));
       const [groupKey, setGroupKey] = useState(() => {
         const k = localStorage.getItem(GROUP_STORAGE_KEY);
         return (k && typeof LEAGUE_GROUPS !== "undefined" && LEAGUE_GROUPS[k]) ? k : null;
@@ -3405,6 +3461,10 @@
         setGroupKey(key);
       };
 
+      // Pitch/demo mode (#demo) — a self-contained local Rodents draft.
+      if (demoOn) {
+        return <DemoLeague onLeave={() => { dropJoinHash(); setDemoOn(false); }} />;
+      }
       // A live (server-backed) league takes priority over everything else.
       if (session) {
         return <LiveLeague session={session} onLeave={() => { clearSession(); dropJoinHash(); setSession(null); setHashCode(null); }} />;
