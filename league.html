@@ -1395,12 +1395,22 @@
       const nowMs = Date.now();
       const koPassed = (m) => new Date(m.utcDate).getTime() <= nowMs;
       const isLiveM = (m) => m.status === "IN_PLAY" || m.status === "PAUSED" || ((m.status === "SCHEDULED" || m.status === "TIMED") && koPassed(m));
+      const HOUR = 3600000;
       const liveMatches = matches.filter(isLiveM).sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
       const isLive = liveMatches.length > 0;
       const upcomingSorted = matches.filter(m => (m.status === "SCHEDULED" || m.status === "TIMED") && !koPassed(m)).sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
+      // "Soon" = kicking off within the hour — these join the live games in the
+      // carousel and drive the countdown.
+      const soon = upcomingSorted.filter(m => new Date(m.utcDate).getTime() - nowMs <= HOUR);
       const nextTime = upcomingSorted.length ? new Date(upcomingSorted[0].utcDate).getTime() : null;
       const nextBatch = nextTime ? upcomingSorted.filter(m => Math.abs(new Date(m.utcDate).getTime() - nextTime) < 60000) : [];
-      const games = isLive ? liveMatches : nextBatch;
+      // Live + soon-to-start together; otherwise fall back to the next upcoming
+      // batch (which may be days off — shown without a countdown).
+      const activeGames = [...liveMatches, ...soon];
+      const games = activeGames.length ? activeGames : nextBatch;
+      const countdownTarget = soon[0] || null; // only the within-the-hour kickoff
+      const heading = isLive ? "LIVE NOW" : (soon.length ? "STARTING SOON" : "NEXT MATCH");
+      const headColor = isLive ? C.red : (soon.length ? C.accent : C.muted);
       const count = games.length;
       const multi = count > 1;
       const safeIdx = Math.max(0, Math.min(idx, count - 1));
@@ -1411,15 +1421,15 @@
       const onMove = (e) => { const d = drag.current; if (!d.active || !multi) return; d.dx = e.clientX - d.startX; const edge = (safeIdx === 0 && d.dx > 0) || (safeIdx === count - 1 && d.dx < 0); const eff = edge ? d.dx * 0.35 : d.dx; if (trackRef.current) trackRef.current.style.transform = `translateX(calc(${-safeIdx * 100}% + ${eff}px))`; };
       const onUp = () => { const d = drag.current; if (!d.active) return; d.active = false; const th = Math.max(40, d.w * 0.15); if (d.dx <= -th) settle(safeIdx + 1); else if (d.dx >= th) settle(safeIdx - 1); else settle(safeIdx); };
       React.useEffect(() => {
-        if (isLive || !nextBatch[0]) { setCountdown(""); return; }
+        if (!countdownTarget) { setCountdown(""); return; }
         const tick = () => {
-          const diff = new Date(nextBatch[0].utcDate) - new Date();
-          if (diff <= 0) { setCountdown(""); return; }
-          const hh = Math.floor(diff / 3600000), mm = Math.floor((diff % 3600000) / 60000), ss = Math.floor((diff % 60000) / 1000);
-          setCountdown(hh > 0 ? `${hh}h ${String(mm).padStart(2, "0")}m ${String(ss).padStart(2, "0")}s` : `${mm}m ${String(ss).padStart(2, "0")}s`);
+          const diff = new Date(countdownTarget.utcDate) - new Date();
+          if (diff <= 0 || diff > HOUR) { setCountdown(""); return; } // only within the hour
+          const mm = Math.floor(diff / 60000), ss = Math.floor((diff % 60000) / 1000);
+          setCountdown(`${mm}m ${String(ss).padStart(2, "0")}s`);
         };
         tick(); const id = setInterval(tick, 1000); return () => clearInterval(id);
-      }, [isLive, nextBatch[0] && nextBatch[0].id]);
+      }, [countdownTarget && countdownTarget.id]);
       if (games.length === 0) return null;
       const renderGame = (m) => {
         const hId = m.homeTeam.id, aId = m.awayTeam.id;
@@ -1464,10 +1474,10 @@
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 14px 0" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               {isLive && <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: C.red }} />}
-              <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", color: isLive ? C.red : C.muted }}>{isLive ? "LIVE NOW" : "NEXT MATCH"}</span>
+              <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", color: headColor }}>{heading}</span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              {!isLive && countdown && <span style={{ fontSize: 11, fontFamily: "monospace", color: C.accent }}>{countdown}</span>}
+              {countdown && <span style={{ fontSize: 11, fontFamily: "monospace", color: C.accent }}>⏱ {countdown}</span>}
               {multi && <span style={{ fontSize: 10, fontWeight: 700, color: C.muted }}>{safeIdx + 1}/{count}</span>}
             </div>
           </div>
