@@ -3121,13 +3121,11 @@
       const teamCard = (id, clickable) => {
         const t = teamMeta(id);
         const inner = <>
+          <span style={{ position: "absolute", top: 8, right: 8, fontSize: 10, fontWeight: 800, color: C.bg, background: POT_COLORS[t.pot] || C.dim, padding: "2px 7px", borderRadius: 999, lineHeight: 1.5 }}>P{t.pot}</span>
           <Crest teamId={id} size={34} />
-          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 13, fontWeight: 700 }}>{t.name}</span>
-            <span style={{ fontSize: 10, fontWeight: 800, color: C.bg, background: POT_COLORS[t.pot] || C.dim, padding: "2px 7px", borderRadius: 999, lineHeight: 1.5 }}>P{t.pot}</span>
-          </div>
+          <span style={{ fontSize: 13, fontWeight: 700 }}>{t.name}</span>
         </>;
-        const base = { textAlign: "left", padding: "10px 12px", borderRadius: 10, background: C.card, color: C.text, border: `1px solid ${C.border}`, display: "flex", flexDirection: "column", gap: 6 };
+        const base = { position: "relative", textAlign: "left", padding: "10px 12px", borderRadius: 10, background: C.card, color: C.text, border: `1px solid ${C.border}`, display: "flex", flexDirection: "column", gap: 6 };
         return clickable
           ? <button key={id} onClick={() => pick(id)} disabled={!isMyTurn || picking} style={{ ...base, cursor: (isMyTurn && !picking) ? "pointer" : "default", opacity: isMyTurn ? 1 : 0.7 }}>{inner}</button>
           : <div key={id} style={base}>{inner}</div>;
