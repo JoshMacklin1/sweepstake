@@ -339,21 +339,6 @@ var LEAGUE_BONUS = {
   FL1: { WINNER: [100, 300, 600, 1200], TOP_4: [40, 120, 250, 500], TOP_7: [15, 50, 100, 200], RELEGATED: [-120, -60, -30, -10] },
 };
 
-// League-strength multiplier for SEASON-OUTCOME BONUSES (not weekly match
-// points). A title / top-4 / European place / relegation counts for more in a
-// stronger league — winning the Premier League is a bigger deal than winning
-// Ligue 1. Values = each league's 5-season UEFA country coefficient normalised
-// to England (PL) = 1.00 (UEFA coefficients as of 16 Jul 2026:
-// ENG 101.852, ITA 87.660, ESP 82.368, GER 80.116, FRA 67.653). Tunable.
-// Applied in leagueBonusPts, so it flows through every scoring + history path.
-var LEAGUE_STRENGTH = {
-  PL:  1.00, // England  101.852 (reference)
-  SA:  0.86, // Italy     87.660
-  PD:  0.81, // Spain     82.368
-  BL1: 0.79, // Germany   80.116
-  FL1: 0.66, // France    67.653
-};
-
 var LEAGUE_OUTCOME_LABEL = {
   WINNER: "Champions", TOP_4: "Top 4", TOP_7: "Top 7",
   PROMOTED: "Promoted", PLAYOFF_FINAL: "Playoff finalist",
@@ -782,9 +767,7 @@ function leagueBonusPts(teamId, outcomes) {
   if (!o || !team) return 0;
   var matrix = LEAGUE_BONUS[o.comp];
   if (!matrix || !matrix[o.outcome]) return 0;
-  var base = matrix[o.outcome][team.pot - 1];
-  var strength = (typeof LEAGUE_STRENGTH !== "undefined" && LEAGUE_STRENGTH[o.comp] != null) ? LEAGUE_STRENGTH[o.comp] : 1;
-  return Math.round(base * strength);
+  return matrix[o.outcome][team.pot - 1];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

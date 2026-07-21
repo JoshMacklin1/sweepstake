@@ -106,7 +106,7 @@
 <body>
   <div id="root"></div>
   <!-- Coupled: every league-scoring.js change must bump ?v=N (see SWEEPSTAKE_PROJECT.md cache-bust rule) -->
-  <script src="league-scoring.js?v=21"></script>
+  <script src="league-scoring.js?v=22"></script>
   <script type="text/babel">
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
@@ -2237,7 +2237,7 @@
           )}
           {bonus && refLg && (
             <div style={section}>
-              <div style={h}>Season bonuses <span style={{ fontSize: 11, fontWeight: 500, color: C.muted }}>· Premier League base</span></div>
+              <div style={h}>Season bonuses <span style={{ fontSize: 11, fontWeight: 500, color: C.muted }}>· same in every league</span></div>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead><tr><th style={{ ...th, textAlign: "left" }}></th>{[1, 2, 3, 4].map(p => <th key={p} style={{ ...th, color: POT_COLORS[p] }}>P{p}</th>)}</tr></thead>
                 <tbody>
@@ -2249,22 +2249,6 @@
                   ))}
                 </tbody>
               </table>
-              {typeof LEAGUE_STRENGTH !== "undefined" && (
-                <div style={{ marginTop: 10, borderTop: `1px solid ${C.border}`, paddingTop: 8 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: C.dim, marginBottom: 4 }}>League strength ×</div>
-                  <div style={{ fontSize: 11.5, color: C.dim, lineHeight: 1.5, marginBottom: 6 }}>
-                    Bonuses above are the <strong>Premier League</strong> values. Each league scales them by its strength (UEFA 5-year coefficient), so a title counts for more in a stronger league — winning the Premier League beats winning Ligue 1.
-                  </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 10px" }}>
-                    {topLeagues.map(c => (
-                      <span key={c} style={{ fontSize: 12 }}>
-                        <span style={{ color: C.dim }}>{LEAGUE_COMPETITIONS[c].label}</span>{" "}
-                        <strong style={{ color: (LEAGUE_STRENGTH[c] || 1) >= 1 ? C.accent : C.text }}>×{(LEAGUE_STRENGTH[c] != null ? LEAGUE_STRENGTH[c] : 1).toFixed(2)}</strong>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           )}
           {clGamble && (

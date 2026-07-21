@@ -48,16 +48,12 @@ multipliers would have let Pot 4 dominate over 38/46 games. Jackpot values
 survive only for outcomes with zero cases in three seasons (e.g. P4 league
 title). See the calibration comment block in `league-scoring.js`.
 
-**League-strength multiplier** (`LEAGUE_STRENGTH`): season-outcome bonuses —
-*not* weekly match points — are scaled by each league's 5-season UEFA country
-coefficient, normalised to the Premier League = 1.00 (PL 1.00, Serie A 0.86,
-La Liga 0.81, Bundesliga 0.79, Ligue 1 0.66; UEFA table as of 16 Jul 2026).
-Applied at the single `leagueBonusPts` chokepoint (so it flows through totals,
-win-prob and both history passes), `Math.round(base × strength)`. This is why
-winning the Premier League is worth more than winning Ligue 1 (answers the
-group's "farmers league" feedback). The Rules pop-over shows the PL base bonus
-table plus the per-league × row. Tunable in one place; bump the values if the
-UEFA coefficients move.
+**Deliberately no league-strength multiplier.** Season bonuses are identical
+across leagues (a Ligue 1 title scores the same base as a Premier League
+title). Scaling by UEFA coefficient was built and reverted on purpose:
+weighing which leagues are easier, how many games each plays, and who has
+Champions League places is part of the strategic fun of picking, so that
+judgement is left to the players rather than baked into the scoring.
 
 Key facts: football-data.org free tier covers all six leagues (PL + ELC
 incl. playoff fixtures; PD/SA/BL1/FL1) but **not the domestic cups** —
