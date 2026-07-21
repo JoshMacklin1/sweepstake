@@ -55,7 +55,7 @@ function lgPoolTeamIds(comps) {
 // Replay/testing season. The 2025-26 season is fully played and free-tier
 // accessible, so the whole app can be exercised on real historical data.
 // Flip to 2026 for the live 2026-27 season (PL starts 2026-08-21, ELC 08-14).
-var LEAGUE_SEASON = 2025;
+var LEAGUE_SEASON = 2026;
 
 // `type` selects the season-outcome shape (see deriveSeasonOutcomes):
 //   "top" → WINNER / TOP_4 / TOP_7 / RELEGATED (a country's first tier)

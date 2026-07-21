@@ -88,7 +88,7 @@
 <body>
   <div id="root"></div>
   <!-- Coupled: every league-scoring.js change must bump ?v=N (see SWEEPSTAKE_PROJECT.md cache-bust rule) -->
-  <script src="league-scoring.js?v=17"></script>
+  <script src="league-scoring.js?v=18"></script>
   <script type="text/babel">
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
@@ -511,7 +511,7 @@
     }
 
     // ── TEAM CARD — pop-up card mirroring the WC TeamCardContent ───────────
-    function TeamCardContent({ bodyRef, teamId, matches, ranked, matchPtsById, outcomes, tables, onTeamClick, onOwnerClick, onClose }) {
+    function TeamCardContent({ bodyRef, teamId, matches, ranked, matchPtsById, outcomes, tables, simulateOn, onTeamClick, onOwnerClick, onClose }) {
       const team = typeof LEAGUE_TEAMS !== "undefined" ? LEAGUE_TEAMS[teamId] : null;
       const owner = typeof leagueOwnerOfTeamId === "function" ? leagueOwnerOfTeamId(teamId) : null;
       let teamEntry = null;
@@ -555,6 +555,11 @@
           <button onClick={onClose} aria-label="Close" style={{ background: "transparent", border: "none", color: C.muted, fontSize: 22, cursor: "pointer", lineHeight: 1 }}>✕</button>
         </div>
         <div ref={bodyRef} style={{ flex: 1, overflowY: "auto", padding: "16px 14px 28px" }}>
+          {simulateOn && team && typeof LEAGUE_MATCH_PTS !== "undefined" && LEAGUE_MATCH_PTS[team.league] && teamMatches.length === 0 && (
+            <div style={{ padding: "10px 12px", border: `1px solid ${C.border}`, borderRadius: 12, background: C.surface, marginBottom: 16, fontSize: 12, color: C.muted, lineHeight: 1.5 }}>
+              🚫 Not in the 2025-26 season — this club scores 0 in the simulation.
+            </div>
+          )}
           {owner && (
             <div onClick={onOwnerClick ? () => onOwnerClick(owner.name) : undefined}
               role={onOwnerClick ? "button" : undefined} tabIndex={onOwnerClick ? 0 : undefined}
@@ -2248,7 +2253,27 @@
     }
 
     // ── More menu — WC-style bottom sheet menu ──────────────────────────────
-    function MoreMenu({ replayOn, onToggleReplay, onViewRules, onSwitchGroup, onClose }) {
+    // The World Cup 2026 sweepstake has finished — clicking it shows a holding
+    // notice rather than opening the retired app.
+    const WC_LOGO_SRC = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjYuNDEgMy42NiAyMDIuMTcgMjAwLjY1Ij48Y2lyY2xlIGN4PSIxMzMuNjgiIGN5PSIxOTQuODUiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTA3LjUwIiBjeT0iMTk0Ljg1IiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjgxLjMyIiBjeT0iMTk0Ljg1IiByPSI5LjQ1IiBmaWxsPSIjMEI2RTJDIi8+PGNpcmNsZSBjeD0iMTcyLjk1IiBjeT0iMTcyLjE0IiByPSI5LjQ1IiBmaWxsPSIjRDUyQjFFIi8+PGNpcmNsZSBjeD0iMTQ2Ljc3IiBjeT0iMTcyLjE0IiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjEyMC41OSIgY3k9IjE3Mi4xNCIgcj0iOS40NSIgZmlsbD0iIzBCNkUyQyIvPjxjaXJjbGUgY3g9Ijk0LjQxIiBjeT0iMTcyLjE0IiByPSI5LjQ1IiBmaWxsPSIjMEI2RTJDIi8+PGNpcmNsZSBjeD0iNjguMjMiIGN5PSIxNzIuMTQiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iNDIuMDUiIGN5PSIxNzIuMTQiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTg2LjA0IiBjeT0iMTQ5LjQyIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjE1OS44NiIgY3k9IjE0OS40MiIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxMzMuNjgiIGN5PSIxNDkuNDIiIHI9IjkuNDUiIGZpbGw9IiMwQjZFMkMiLz48Y2lyY2xlIGN4PSIxMDcuNTAiIGN5PSIxNDkuNDIiIHI9IjkuNDUiIGZpbGw9IiMwQjZFMkMiLz48Y2lyY2xlIGN4PSI4MS4zMiIgY3k9IjE0OS40MiIgcj0iOS40NSIgZmlsbD0iIzBCNkUyQyIvPjxjaXJjbGUgY3g9IjU1LjE0IiBjeT0iMTQ5LjQyIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjI4Ljk2IiBjeT0iMTQ5LjQyIiByPSI5LjQ1IiBmaWxsPSIjMUEzRkEwIi8+PGNpcmNsZSBjeD0iMTk5LjEzIiBjeT0iMTI2LjcwIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjE3Mi45NSIgY3k9IjEyNi43MCIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxNDYuNzciIGN5PSIxMjYuNzAiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTIwLjU5IiBjeT0iMTI2LjcwIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9Ijk0LjQxIiBjeT0iMTI2LjcwIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjY4LjIzIiBjeT0iMTI2LjcwIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjQyLjA1IiBjeT0iMTI2LjcwIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjE1Ljg3IiBjeT0iMTI2LjcwIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjE4Ni4wNCIgY3k9IjEwMy45OCIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxNTkuODYiIGN5PSIxMDMuOTgiIHI9IjkuNDUiIGZpbGw9IiMxQTNGQTAiLz48Y2lyY2xlIGN4PSIxMzMuNjgiIGN5PSIxMDMuOTgiIHI9IjkuNDUiIGZpbGw9IiMxQTNGQTAiLz48Y2lyY2xlIGN4PSIxMDcuNTAiIGN5PSIxMDMuOTgiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iODEuMzIiIGN5PSIxMDMuOTgiIHI9IjkuNDUiIGZpbGw9IiNENTJCMUUiLz48Y2lyY2xlIGN4PSI1NS4xNCIgY3k9IjEwMy45OCIgcj0iOS40NSIgZmlsbD0iI0Q1MkIxRSIvPjxjaXJjbGUgY3g9IjI4Ljk2IiBjeT0iMTAzLjk4IiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjE5OS4xMyIgY3k9IjgxLjI3IiByPSI5LjQ1IiBmaWxsPSIjMUEzRkEwIi8+PGNpcmNsZSBjeD0iMTcyLjk1IiBjeT0iODEuMjciIHI9IjkuNDUiIGZpbGw9IiMxQTNGQTAiLz48Y2lyY2xlIGN4PSIxNDYuNzciIGN5PSI4MS4yNyIgcj0iOS40NSIgZmlsbD0iIzFBM0ZBMCIvPjxjaXJjbGUgY3g9IjEyMC41OSIgY3k9IjgxLjI3IiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9Ijk0LjQxIiBjeT0iODEuMjciIHI9IjkuNDUiIGZpbGw9IiNENTJCMUUiLz48Y2lyY2xlIGN4PSI2OC4yMyIgY3k9IjgxLjI3IiByPSI5LjQ1IiBmaWxsPSIjRDUyQjFFIi8+PGNpcmNsZSBjeD0iNDIuMDUiIGN5PSI4MS4yNyIgcj0iOS40NSIgZmlsbD0iI0Q1MkIxRSIvPjxjaXJjbGUgY3g9IjE1Ljg3IiBjeT0iODEuMjciIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTg2LjA0IiBjeT0iNTguNTUiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iMTU5Ljg2IiBjeT0iNTguNTUiIHI9IjkuNDUiIGZpbGw9IiMxQTNGQTAiLz48Y2lyY2xlIGN4PSIxMzMuNjgiIGN5PSI1OC41NSIgcj0iOS40NSIgZmlsbD0iIzFBM0ZBMCIvPjxjaXJjbGUgY3g9IjEwNy41MCIgY3k9IjU4LjU1IiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjgxLjMyIiBjeT0iNTguNTUiIHI9IjkuNDUiIGZpbGw9IiNENTJCMUUiLz48Y2lyY2xlIGN4PSI1NS4xNCIgY3k9IjU4LjU1IiByPSI5LjQ1IiBmaWxsPSIjRDUyQjFFIi8+PGNpcmNsZSBjeD0iMjguOTYiIGN5PSI1OC41NSIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxNzIuOTUiIGN5PSIzNS44MyIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxNDYuNzciIGN5PSIzNS44MyIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxMjAuNTkiIGN5PSIzNS44MyIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSI5NC40MSIgY3k9IjM1LjgzIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjY4LjIzIiBjeT0iMzUuODMiIHI9IjkuNDUiIGZpbGw9IndoaXRlIi8+PGNpcmNsZSBjeD0iNDIuMDUiIGN5PSIzNS44MyIgcj0iOS40NSIgZmlsbD0iI0Q1MkIxRSIvPjxjaXJjbGUgY3g9IjEzMy42OCIgY3k9IjEzLjEyIiByPSI5LjQ1IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjEwNy41MCIgY3k9IjEzLjEyIiByPSI5LjQ1IiBmaWxsPSIjMEI2RTJDIi8+PGNpcmNsZSBjeD0iODEuMzIiIGN5PSIxMy4xMiIgcj0iOS40NSIgZmlsbD0id2hpdGUiLz48L3N2Zz4=";
+    function WorldCupNotice({ onClose }) {
+      return (
+        <div className="detail-backdrop" onClick={onClose} style={{ zIndex: 45, alignItems: "center" }}>
+          <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 360, margin: "0 20px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 18, padding: "28px 22px", textAlign: "center", boxShadow: "0 24px 64px rgba(0,0,0,0.55)" }}>
+            <img src={WC_LOGO_SRC} alt="World Cup Sweepstake" style={{ width: 72, height: 72, display: "block", margin: "0 auto 14px" }} />
+            <div style={{ fontSize: 18, fontWeight: 800, color: C.text }}>World Cup 2026 Sweepstake</div>
+            <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.55, margin: "12px 0 20px" }}>
+              The tournament has finished — thanks for playing! A brand-new version
+              is being lined up for the <strong style={{ color: C.text }}>Euros 27/28</strong>.
+              Keep your eyes peeled. 👀
+            </div>
+            <button onClick={onClose} style={{ background: C.accent, color: C.bg, fontWeight: 800, fontSize: 14, border: "none", borderRadius: 10, padding: "11px 28px", cursor: "pointer" }}>Got it</button>
+          </div>
+        </div>
+      );
+    }
+
+    function MoreMenu({ replayOn, onToggleReplay, onViewRules, onSwitchGroup, onWorldCup, onClose }) {
       const row = { display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "14px 16px", background: "transparent", border: "none", borderBottom: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 600, cursor: "pointer", textAlign: "left" };
       return (
         <div className="detail-backdrop" onClick={onClose} style={{ zIndex: 40 }}>
@@ -2262,13 +2287,13 @@
               <span style={{ fontSize: 18 }}>📖</span> Rules &amp; Info
             </button>
             <button style={row} onClick={() => { onClose(); onToggleReplay(); }}>
-              <span style={{ fontSize: 18 }}>🔁</span> Replay 2025-26 season
+              <span style={{ fontSize: 18 }}>🎬</span> Simulate season <span style={{ fontSize: 11, fontWeight: 500, color: C.muted }}>(last season's results)</span>
               <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, color: replayOn ? C.accent : C.muted }}>{replayOn ? "ON" : "OFF"}</span>
             </button>
             <button style={row} onClick={() => { onClose(); onSwitchGroup(); }}>
               <span style={{ fontSize: 18 }}>👥</span> Switch group
             </button>
-            <button style={{ ...row, borderBottom: "none" }} onClick={() => { window.location.href = "index.html"; }}>
+            <button style={{ ...row, borderBottom: "none" }} onClick={() => { onClose(); onWorldCup(); }}>
               <span style={{ fontSize: 18 }}>🏆</span> World Cup Sweepstake
             </button>
           </div>
@@ -2628,7 +2653,7 @@
           {replay.on && (
             <div style={{ marginTop: 10, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 10px" }}>
               {replay.loading ? (
-                <div style={{ fontSize: 11, color: C.muted }}>Loading replay data…</div>
+                <div style={{ fontSize: 11, color: C.muted }}>Loading simulation…</div>
               ) : (
                 <>
                   <input type="range" min={0} max={1000} value={replayPct * 10}
@@ -2636,7 +2661,7 @@
                       const t = new Date(REPLAY_START).getTime() + (e.target.value / 1000) * (new Date(REPLAY_END) - new Date(REPLAY_START));
                       onReplayDate(new Date(t).toISOString());
                     }} />
-                  <div style={{ fontSize: 11, color: C.gold, textAlign: "center" }}>🔁 Replaying 2025-26 · as of {fmtDay(replay.date)}</div>
+                  <div style={{ fontSize: 11, color: C.gold, textAlign: "center" }}>🎬 Simulating last season · as of {fmtDay(replay.date)}</div>
                 </>
               )}
             </div>
@@ -2663,6 +2688,7 @@
       const [selectedMatch, setSelectedMatch] = useState(null);
       const [showMore, setShowMore] = useState(false);
       const [showRules, setShowRules] = useState(false);
+      const [showWC, setShowWC] = useState(false);
       const [showSearch, setShowSearch] = useState(false);
       const [showNotifications, setShowNotifications] = useState(false);
       const [notifSeenTs, setNotifSeenTs] = useState(() => parseInt(localStorage.getItem(NOTIF_SEEN_KEY) || "0", 10));
@@ -2888,7 +2914,7 @@
                   return <LeagueHeadToHeadCard key={selectedMatch} bodyRef={bodyRef} m={mObj} ranked={ranked} matches={matches} matchPtsById={matchPtsById} onTeamClick={switchToTeam} onPlayerClick={switchToPlayer} onClose={closeCard} />;
                 }
                 if (selectedTeam) {
-                  return <TeamCardContent key={selectedTeam} bodyRef={bodyRef} teamId={selectedTeam} matches={matches} ranked={ranked} matchPtsById={matchPtsById} outcomes={outcomes} tables={tables} onTeamClick={switchToTeam} onOwnerClick={switchToPlayer} onClose={closeCard} />;
+                  return <TeamCardContent key={selectedTeam} bodyRef={bodyRef} teamId={selectedTeam} matches={matches} ranked={ranked} matchPtsById={matchPtsById} outcomes={outcomes} tables={tables} simulateOn={replay.on} onTeamClick={switchToTeam} onOwnerClick={switchToPlayer} onClose={closeCard} />;
                 }
                 const idx = ranked.findIndex(x => x.name === selectedPlayer);
                 const p = ranked[idx];
@@ -2915,8 +2941,10 @@
           {showMore && (
             <MoreMenu replayOn={replay.on} onToggleReplay={toggleReplay}
               onViewRules={() => setShowRules(true)} onSwitchGroup={onSwitchGroup}
+              onWorldCup={() => setShowWC(true)}
               onClose={() => setShowMore(false)} />
           )}
+          {showWC && <WorldCupNotice onClose={() => setShowWC(false)} />}
 
           {showSearch && (
             <LeagueSearchOverlay ranked={ranked}
