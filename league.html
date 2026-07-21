@@ -1525,7 +1525,7 @@
       );
     }
 
-    function HomeTab({ matches, ranked, badges, weekWindow, matchPtsById, hist, outcomes, anchorIso, setTab, openPlayerModal, openTeamModal, openMatchModal }) {
+    function HomeTab({ group, matches, ranked, badges, weekWindow, matchPtsById, hist, outcomes, anchorIso, setTab, openPlayerModal, openTeamModal, openMatchModal }) {
       const real = ranked;
       const newAccolades = useMemo(
         () => (typeof computeNewLeagueBadges === "function" ? computeNewLeagueBadges(badges, matches, anchorIso) : []),
@@ -1601,6 +1601,11 @@
 
       return (
         <div style={{ padding: "0 14px" }}>
+          <div style={{ ...s.card, padding: "14px 16px", marginBottom: 16, textAlign: "center" }}>
+            <div style={{ fontSize: 11, color: C.dim, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>Sweepstaker League</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: C.text, marginTop: 4 }}>{group ? group.label : ""}</div>
+          </div>
+
           <LeagueMatchFocusCard matches={matches} matchPtsById={matchPtsById} onTeamClick={openTeamModal} />
 
           {topThree[0] && (
@@ -2853,7 +2858,7 @@
           <div style={{ height: 8 }} />
           {loading && !replay.on
             ? <div style={{ color: C.muted, textAlign: "center", padding: 40 }}>Loading fixtures…</div>
-            : tab === "home" ? <HomeTab matches={matches} ranked={ranked} badges={badges} weekWindow={weekWindow} matchPtsById={matchPtsById} hist={hist} outcomes={outcomes} anchorIso={anchorIso} setTab={navTo} openPlayerModal={openPlayerModal} openTeamModal={openTeamModal} openMatchModal={openMatchModal} />
+            : tab === "home" ? <HomeTab group={group} matches={matches} ranked={ranked} badges={badges} weekWindow={weekWindow} matchPtsById={matchPtsById} hist={hist} outcomes={outcomes} anchorIso={anchorIso} setTab={navTo} openPlayerModal={openPlayerModal} openTeamModal={openTeamModal} openMatchModal={openMatchModal} />
             : tab === "table" ? (
                 leagueView === "players" ? <SweepsTab ranked={ranked} badges={badges} hist={hist} weekMove={weekMove} outcomes={outcomes} displayRanks={displayRanks} onOpenPlayer={openPlayerModal} />
                 : leagueView === "teams" ? <TeamsLeagueTab matches={matches} ranked={ranked} anchorIso={anchorIso} onTeamClick={openTeamModal} />
