@@ -92,10 +92,14 @@
     .day-strip::-webkit-scrollbar { display: none; }
     .day-nav-arrow { display: none; align-items: center; justify-content: center; }
     @media (min-width: 768px) {
-      .detail-backdrop { align-items: center; }
+      /* Overlays align to the content column (right of the 260px sidebar) so
+         they read as part of the app, not floating over the whole viewport. */
+      .detail-backdrop { align-items: center; left: 260px; right: auto; width: min(760px, calc(100vw - 260px)); }
       .detail-sheet { max-width: 520px; max-height: 80vh; border-radius: 16px; }
       .sheet-handle { display: none; }
       .day-nav-arrow { display: flex; }
+      .info-backdrop { left: 260px; right: auto; width: min(760px, calc(100vw - 260px)); }
+      .notif-panel { left: 260px; right: auto; width: min(760px, calc(100vw - 260px)); margin: 0 auto; border-radius: 0 0 16px 16px; }
     }
   </style>
 </head>
@@ -2500,7 +2504,7 @@
     }
 
     // ── Search overlay — WC-parity search over league players + teams ────────
-    function LeagueSearchOverlay({ ranked, onClose, onSelectPlayer, onSelectTeam }) {
+    function LeagueSearchOverlay({ ranked, onClose, onSelectPlayer, onSelectTeam, isDesktop }) {
       const [query, setQuery] = React.useState("");
       const inputRef = React.useRef(null);
       const [recent, setRecent] = React.useState(() => {
@@ -2548,38 +2552,59 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, transform: "rotate(-90deg)" }}><path d="M6 9l6 6 6-6" stroke={C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </div>
       );
-      return (
-        <div style={{ position: "fixed", inset: 0, zIndex: 50, background: C.bg, display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto" }}>
-          <div style={{ display: "flex", alignItems: "center", padding: "10px 14px", gap: 10, borderBottom: `1px solid ${C.border}` }}>
-            <button onClick={onClose} aria-label="Back" style={{ background: "none", border: "none", color: C.text, cursor: "pointer", padding: 6, display: "flex", flexShrink: 0 }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 5l-7 7 7 7" stroke={C.text} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-            </button>
-            <div style={{ flex: 1, position: "relative" }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
-                <circle cx="11" cy="11" r="8" stroke={C.muted} strokeWidth="2.5" /><path d="M21 21l-4.35-4.35" stroke={C.muted} strokeWidth="2.5" strokeLinecap="round" />
-              </svg>
-              <input ref={inputRef} type="text" inputMode="search" placeholder="Search players or teams…" value={query} onChange={e => setQuery(e.target.value)}
-                style={{ width: "100%", boxSizing: "border-box", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 24, color: C.text, fontSize: 15, padding: "7px 36px 7px 34px", outline: "none", WebkitAppearance: "none", caretColor: C.accent }} />
-              {query && <button onClick={() => setQuery("")} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: C.muted, fontSize: 14, cursor: "pointer", padding: "2px 4px", lineHeight: 1 }}>✕</button>}
+      const headerRow = (
+        <div style={{ display: "flex", alignItems: "center", padding: "10px 14px", gap: 10, borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+          <button onClick={onClose} aria-label={isDesktop ? "Close" : "Back"} style={{ background: "none", border: "none", color: C.text, cursor: "pointer", padding: 6, display: "flex", flexShrink: 0 }}>
+            {isDesktop
+              ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke={C.muted} strokeWidth="2.2" strokeLinecap="round" /></svg>
+              : <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 5l-7 7 7 7" stroke={C.text} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+          </button>
+          <div style={{ flex: 1, position: "relative" }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
+              <circle cx="11" cy="11" r="8" stroke={C.muted} strokeWidth="2.5" /><path d="M21 21l-4.35-4.35" stroke={C.muted} strokeWidth="2.5" strokeLinecap="round" />
+            </svg>
+            <input ref={inputRef} type="text" inputMode="search" placeholder="Search players or teams…" value={query} onChange={e => setQuery(e.target.value)}
+              style={{ width: "100%", boxSizing: "border-box", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 24, color: C.text, fontSize: 15, padding: "7px 36px 7px 34px", outline: "none", WebkitAppearance: "none", caretColor: C.accent }} />
+            {query && <button onClick={() => setQuery("")} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: C.muted, fontSize: 14, cursor: "pointer", padding: "2px 4px", lineHeight: 1 }}>✕</button>}
+          </div>
+        </div>
+      );
+      const resultsBody = (
+        <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
+          {!q ? (
+            recent.length > 0 ? (<>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px 6px" }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: "0.1em", textTransform: "uppercase" }}>Recent</span>
+                <button onClick={clearRecent} style={{ background: "none", border: "none", color: C.muted, fontSize: 12, cursor: "pointer", padding: 4 }}>Clear all</button>
+              </div>
+              {recent.map((item, i) => <Row key={i} item={item} onClick={() => handleSelect(item)} />)}
+            </>) : (
+              <div style={{ color: C.muted, textAlign: "center", padding: "52px 24px", fontSize: 14, lineHeight: 1.6 }}>
+                <div style={{ fontSize: 30, marginBottom: 14 }}>🔍</div>Search for a player or team to open their card
+              </div>
+            )
+          ) : results.length === 0 ? (
+            <div style={{ color: C.muted, textAlign: "center", padding: "52px 24px", fontSize: 14 }}>No results for "{query}"</div>
+          ) : results.map((item, i) => <Row key={i} item={item} onClick={() => handleSelect(item)} />)}
+        </div>
+      );
+      // Desktop: drop a panel over the content column (right of the sidebar),
+      // dimming only that area so it reads as the app's own search — not a
+      // stray phone-width screen floating in the middle.
+      if (isDesktop) {
+        return (
+          <div onClick={onClose} style={{ position: "fixed", top: 0, bottom: 0, left: 260, width: "min(760px, calc(100vw - 260px))", zIndex: 50, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(3px)", WebkitBackdropFilter: "blur(3px)", display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "18px 24px", boxSizing: "border-box" }}>
+            <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 560, maxHeight: "76vh", display: "flex", flexDirection: "column", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 16, overflow: "hidden", boxShadow: "0 24px 64px rgba(0,0,0,0.55)" }}>
+              {headerRow}
+              {resultsBody}
             </div>
           </div>
-          <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
-            {!q ? (
-              recent.length > 0 ? (<>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px 6px" }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: "0.1em", textTransform: "uppercase" }}>Recent</span>
-                  <button onClick={clearRecent} style={{ background: "none", border: "none", color: C.muted, fontSize: 12, cursor: "pointer", padding: 4 }}>Clear all</button>
-                </div>
-                {recent.map((item, i) => <Row key={i} item={item} onClick={() => handleSelect(item)} />)}
-              </>) : (
-                <div style={{ color: C.muted, textAlign: "center", padding: "52px 24px", fontSize: 14, lineHeight: 1.6 }}>
-                  <div style={{ fontSize: 30, marginBottom: 14 }}>🔍</div>Search for a player or team to open their card
-                </div>
-              )
-            ) : results.length === 0 ? (
-              <div style={{ color: C.muted, textAlign: "center", padding: "52px 24px", fontSize: 14 }}>No results for "{query}"</div>
-            ) : results.map((item, i) => <Row key={i} item={item} onClick={() => handleSelect(item)} />)}
-          </div>
+        );
+      }
+      return (
+        <div style={{ position: "fixed", inset: 0, zIndex: 50, background: C.bg, display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto" }}>
+          {headerRow}
+          {resultsBody}
         </div>
       );
     }
@@ -3117,7 +3142,7 @@
           {showWC && <WorldCupNotice onClose={() => setShowWC(false)} />}
 
           {showSearch && (
-            <LeagueSearchOverlay ranked={ranked}
+            <LeagueSearchOverlay ranked={ranked} isDesktop={isDesktop}
               onClose={() => setShowSearch(false)}
               onSelectPlayer={openPlayerModal} onSelectTeam={openTeamModal} />
           )}
