@@ -1233,6 +1233,11 @@
       const hOwner = ownerObj(m.homeTeam.id), aOwner = ownerObj(m.awayTeam.id);
       const rankOf = (name) => { const i = ranked.findIndex(p => p.name === name); return i >= 0 ? i + 1 : null; };
       const totalOf = (name) => { const p = ranked.find(p => p.name === name); return p ? p.total : 0; };
+      // Every team ranked by sweepstake points, for the Teams-tab position/pts.
+      const allTeams = ranked.flatMap(p => p.teams || []);
+      const teamSorted = [...allTeams].sort((a, b) => b.total - a.total);
+      const teamRankOf = (id) => { const i = teamSorted.findIndex(t => t.teamId === id); return i >= 0 ? i + 1 : null; };
+      const teamEntryOf = (id) => allTeams.find(t => t.teamId === id);
       const form = (id) => matches
         .filter(x => (x.homeTeam.id === id || x.awayTeam.id === id) && x.stage === "REGULAR_SEASON" && typeof lgIsSettled === "function" && lgIsSettled(x))
         .sort((a, b) => b.utcDate.localeCompare(a.utcDate)).slice(0, 5).reverse()
@@ -1267,38 +1272,22 @@
         <div ref={bodyRef} style={{ flex: 1, overflowY: "auto", padding: "0 14px 24px" }}>
           <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>{navBtn("teams", "Teams")}{navBtn("players", "Players")}</div>
           {view === "teams" ? (
-            <>
-            <div style={{ background: C.card, border: `1px solid ${banner ? C.gold : C.border}`, borderRadius: 14, padding: "16px 12px", boxShadow: banner ? "0 0 10px #f59e0b44" : "none" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                {teamHeader(m.homeTeam, hOwner)}
-                <div style={{ flexShrink: 0, textAlign: "center", minWidth: 52 }}>
-                  {(fin || live) && hs != null && as_ != null
-                    ? <div style={{ fontSize: 22, fontWeight: 900, color: C.text, lineHeight: 1 }}>{hs} – {as_}</div>
-                    : <div style={{ fontSize: 13, fontWeight: 700, color: C.muted }}>vs</div>}
-                  {live && <div style={{ fontSize: 9, fontWeight: 800, color: C.red, marginTop: 3 }}>LIVE</div>}
-                  {fin && <div style={{ fontSize: 9, fontWeight: 700, color: C.muted, marginTop: 4, textTransform: "uppercase" }}>{m.status === "AWARDED" ? "AWD" : "FT"}</div>}
-                </div>
-                {teamHeader(m.awayTeam, aOwner)}
-              </div>
-              {banner && (
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, marginTop: 12 }}>
-                  <span style={{ fontSize: 14 }}>{banner.icon}</span>
-                  <span style={{ fontSize: 10, fontWeight: 900, color: C.gold, letterSpacing: "0.08em" }}>{banner.label}</span>
-                </div>
-              )}
+            <div style={{ display: "flex", gap: 10 }}>
+              {[m.homeTeam, m.awayTeam].map((t, i) => {
+                const kn = known(t.id);
+                const entry = teamEntryOf(t.id);
+                const rank = teamRankOf(t.id);
+                return (
+                  <button key={i} onClick={kn && onTeamClick ? () => onTeamClick(t.id) : undefined}
+                    style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "14px 8px", cursor: kn && onTeamClick ? "pointer" : "default", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, position: "relative" }}>
+                    <Crest teamId={t.id} size={36} />
+                    <div style={{ fontSize: 13, fontWeight: 800, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%", textAlign: "center" }}>{clubName(t)}</div>
+                    <div style={{ fontSize: 11, color: C.muted }}>{rank ? ord(rank) + " · " : ""}{entry ? entry.total : 0} pts</div>
+                    {kn && onTeamClick && <span style={{ position: "absolute", top: 10, right: 10, fontSize: 14, color: C.muted, lineHeight: 1 }}>›</span>}
+                  </button>
+                );
+              })}
             </div>
-            <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
-              {[m.homeTeam, m.awayTeam].map((t, i) => (
-                known(t.id) && onTeamClick
-                  ? <button key={i} onClick={() => onTeamClick(t.id)} style={{ flex: 1, padding: "11px 8px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, color: C.accent, fontWeight: 700, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                      <Crest teamId={t.id} size={16} />
-                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{clubName(t)}</span>
-                      <span style={{ fontSize: 14, lineHeight: 1, flexShrink: 0 }}>›</span>
-                    </button>
-                  : <div key={i} style={{ flex: 1 }} />
-              ))}
-            </div>
-            </>
           ) : (
             <div style={{ display: "flex", gap: 10 }}>
               {[{ owner: hOwner }, { owner: aOwner }].map(({ owner }, i) => (
