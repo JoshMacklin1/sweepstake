@@ -1072,6 +1072,7 @@ function deriveLeagueMatchPts(matches) {
       if (!t) return;
       var r = lgResultFor(m, side[1]);
       var pts = LEAGUE_MATCH_PTS[t.league];
+      if (!pts) return; // team's league isn't scored (e.g. a since-relegated club)
       if (r === "W") row[side[0]] = pts.win[t.pot - 1];
       else if (r === "D") row[side[0]] = pts.draw[t.pot - 1];
     });

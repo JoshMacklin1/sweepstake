@@ -91,7 +91,7 @@
 <body>
   <div id="root"></div>
   <!-- Coupled: every league-scoring.js change must bump ?v=N (see SWEEPSTAKE_PROJECT.md cache-bust rule) -->
-  <script src="league-scoring.js?v=18"></script>
+  <script src="league-scoring.js?v=19"></script>
   <script type="text/babel">
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
@@ -1188,12 +1188,8 @@
             style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, minWidth: 0, flexDirection: right ? "row-reverse" : "row", cursor: teamClick && known ? "pointer" : "default" }}>
             <Crest teamId={t.id} size={26} />
             <div style={{ minWidth: 0, textAlign: right ? "right" : "left" }}>
-              {owner
-                ? <>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{owner ? owner.name : ""}</div>
-                    <div style={{ fontSize: 11, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{clubName}{potTag(t.id)}</div>
-                  </>
-                : <div style={{ fontSize: 12, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{clubName}{potTag(t.id)}</div>}
+              <div style={{ fontSize: 13, fontWeight: 700, color: owner ? C.text : C.dim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{owner ? owner.name : "Unassigned"}</div>
+              <div style={{ fontSize: 11, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{clubName}{potTag(t.id)}</div>
               {earned > 0 && <div style={{ fontSize: 10, fontWeight: 800, color: C.accent, marginTop: 2 }}>+{earned} pts</div>}
             </div>
           </div>
@@ -1346,12 +1342,8 @@
             style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, cursor: teamClick && known ? "pointer" : "default", minWidth: 0, flexDirection: right ? "row-reverse" : "row" }}>
             <Crest teamId={t.id} size={26} />
             <div style={{ minWidth: 0, textAlign: right ? "right" : "left" }}>
-              {o
-                ? <>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.name}</div>
-                    <div style={{ fontSize: 10, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{clubName}{potTag(t.id)}</div>
-                  </>
-                : <div style={{ fontSize: 12, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{clubName}{potTag(t.id)}</div>}
+              <div style={{ fontSize: 12, fontWeight: 700, color: o ? C.text : C.dim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o ? o.name : "Unassigned"}</div>
+              <div style={{ fontSize: 10, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{clubName}{potTag(t.id)}</div>
               {earned > 0 && <div style={{ fontSize: 10, fontWeight: 800, color: C.accent, marginTop: 1 }}>+{earned}pts</div>}
             </div>
           </div>
@@ -1463,7 +1455,7 @@
             <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
               <Crest teamId={hId} size={24} />
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{hOwner || hN}</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: hOwner ? C.text : C.dim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{hOwner || "Unassigned"}</div>
                 <div style={{ fontSize: 10, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{hN}{hT ? ` (P${hT.pot})` : ""}</div>
                 {livePts && livePts.home > 0 && <div style={{ fontSize: 10, fontWeight: 800, color: C.accent, marginTop: 2 }}>+{livePts.home} pts</div>}
               </div>
@@ -1478,7 +1470,7 @@
             </div>
             <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-end", minWidth: 0 }}>
               <div style={{ textAlign: "right", minWidth: 0 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{aOwner || aN}</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: aOwner ? C.text : C.dim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{aOwner || "Unassigned"}</div>
                 <div style={{ fontSize: 10, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{aN}{aT ? ` (P${aT.pot})` : ""}</div>
                 {livePts && livePts.away > 0 && <div style={{ fontSize: 10, fontWeight: 800, color: C.accent, marginTop: 2 }}>+{livePts.away} pts</div>}
               </div>
