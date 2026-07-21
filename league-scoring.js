@@ -1098,7 +1098,7 @@ function computeNewLeagueBadges(badgesNow, matches, anchorIso) {
   var fresh = [];
   Object.keys(badgesNow).forEach(function (name) {
     badgesNow[name].forEach(function (b) {
-      if (!had[name + "|" + b.label]) fresh.push({ name: name, icon: b.icon, label: b.label, desc: b.desc });
+      if (!had[name + "|" + b.label]) fresh.push({ name: name, icon: b.icon, label: b.label, desc: b.desc, bad: b.bad });
     });
   });
   return fresh;
@@ -1116,8 +1116,8 @@ function computeNewLeagueBadges(badgesNow, matches, anchorIso) {
 // ─────────────────────────────────────────────────────────────────────────────
 function computeLeagueBadges(ranked, matches, anchorIso) {
   var badges = {};
-  function give(name, icon, label, desc) {
-    (badges[name] = badges[name] || []).push({ icon: icon, label: label, desc: desc });
+  function give(name, icon, label, desc, bad) {
+    (badges[name] = badges[name] || []).push({ icon: icon, label: label, desc: desc, bad: !!bad });
   }
   var real = ranked;
   if (real.length === 0) return badges;
@@ -1125,7 +1125,7 @@ function computeLeagueBadges(ranked, matches, anchorIso) {
   var played = matches.some(function (m) { return lgIsSettled(m) && m.stage === "REGULAR_SEASON"; });
   if (played) {
     give(real[0].name, "🏆", "Top Dog", "Top of the table. For now.");
-    give(real[real.length - 1].name, "🥄", "Wooden Spoon", "Somebody has to hold it.");
+    give(real[real.length - 1].name, "🥄", "Wooden Spoon", "Somebody has to hold it.", true);
   }
 
   // ── 7-day window: points gained + table movement ──
@@ -1136,11 +1136,11 @@ function computeLeagueBadges(ranked, matches, anchorIso) {
   var hot = window7.slice().sort(function (a, b) { return b.pts - a.pts; });
   if (hot[0].pts > hot[hot.length - 1].pts) {
     give(hot[0].name, "⚡", "On Fire", "Most points in the last 7 days (+" + hot[0].pts + ").");
-    give(hot[hot.length - 1].name, "🥶", "Ice Cold", "Fewest points in the last 7 days (" + (hot[hot.length - 1].pts > 0 ? "+" : "") + hot[hot.length - 1].pts + ").");
+    give(hot[hot.length - 1].name, "🥶", "Ice Cold", "Fewest points in the last 7 days (" + (hot[hot.length - 1].pts > 0 ? "+" : "") + hot[hot.length - 1].pts + ").", true);
   }
   var movers = window7.slice().sort(function (a, b) { return b.move - a.move; });
   if (movers[0].move > 0) give(movers[0].name, "🚀", "Climber", "Biggest table climb of the week (up " + movers[0].move + ").");
-  if (movers[movers.length - 1].move < 0) give(movers[movers.length - 1].name, "📉", "Sliding", "Biggest table fall of the week (down " + (-movers[movers.length - 1].move) + ").");
+  if (movers[movers.length - 1].move < 0) give(movers[movers.length - 1].name, "📉", "Sliding", "Biggest table fall of the week (down " + (-movers[movers.length - 1].move) + ").", true);
 
   // ── per-owned-team aggregates: goals, streaks, upsets ──
   var ownedIds = {};
@@ -1178,12 +1178,12 @@ function computeLeagueBadges(ranked, matches, anchorIso) {
     var most = byGf.slice().sort(function (a, b) { return gf[b.name] - gf[a.name]; });
     if (gf[most[0].name] > gf[most[most.length - 1].name]) {
       give(most[0].name, "💥", "Firepower", "Most goals scored by their teams (" + gf[most[0].name] + ").");
-      give(most[most.length - 1].name, "💨", "Firing Blanks", "Fewest goals scored by their teams (" + gf[most[most.length - 1].name] + ").");
+      give(most[most.length - 1].name, "💨", "Firing Blanks", "Fewest goals scored by their teams (" + gf[most[most.length - 1].name] + ").", true);
     }
     var tight = byGf.slice().sort(function (a, b) { return ga[a.name] - ga[b.name]; });
     if (ga[tight[0].name] < ga[tight[tight.length - 1].name]) {
       give(tight[0].name, "🧱", "Brick Wall", "Fewest goals conceded by their teams (" + ga[tight[0].name] + ").");
-      give(tight[tight.length - 1].name, "🚰", "Leaky", "Most goals conceded by their teams (" + ga[tight[tight.length - 1].name] + ").");
+      give(tight[tight.length - 1].name, "🚰", "Leaky", "Most goals conceded by their teams (" + ga[tight[tight.length - 1].name] + ").", true);
     }
   }
 
@@ -1196,11 +1196,11 @@ function computeLeagueBadges(ranked, matches, anchorIso) {
     if (s.loss >= 3 && (!worstRun || s.loss > worstRun.n)) worstRun = { n: s.loss, owner: ownedIds[id], team: t.name };
   });
   if (bestRun) give(bestRun.owner, "🛡️", "Unbreakable", bestRun.team + " are " + bestRun.n + " games unbeaten.");
-  if (worstRun) give(worstRun.owner, "🚑", "Crisis Club", worstRun.team + " have lost " + worstRun.n + " on the bounce.");
+  if (worstRun) give(worstRun.owner, "🚑", "Crisis Club", worstRun.team + " have lost " + worstRun.n + " on the bounce.", true);
 
   // ── misc flavour ──
   if (played) {
-    real.forEach(function (p) { if (p.w === 0) give(p.name, "🦆", "Still Quacking", "Yet to see a single win."); });
+    real.forEach(function (p) { if (p.w === 0) give(p.name, "🦆", "Still Quacking", "Yet to see a single win.", true); });
     var gaps = real.map(function (p) {
       var totals = p.teams.map(function (t) { return t.total; });
       return { name: p.name, gap: Math.max.apply(null, totals) - Math.min.apply(null, totals) };
