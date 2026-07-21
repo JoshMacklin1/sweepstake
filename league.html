@@ -2613,49 +2613,54 @@
     //    milestones / leader changes), drops from the top like the WC app.
     //    All items are client-derived; a per-device "last seen" timestamp
     //    drives the unread badge. ─────────────────────────────────────────────
-    function LeagueNotificationsDrawer({ matches, ranked, matchPtsById, onClose, onSeenUpdate }) {
-      const lastSeen = parseInt(localStorage.getItem(NOTIF_SEEN_KEY) || "0", 10);
-      const { frames, history } = React.useMemo(
-        () => (typeof deriveLeagueHistory === "function" ? deriveLeagueHistory(matches) : { frames: [], history: {} }),
-        [matches]
-      );
-      const outcomes = React.useMemo(
-        () => (typeof deriveSeasonOutcomes === "function" ? deriveSeasonOutcomes(matches) : {}),
-        [matches]
-      );
-
-      const matchItems = matches.filter(m => m.status === "FINISHED")
-        .map(m => ({ type: "match", date: new Date(m.utcDate).getTime(), m }));
-
-      const milestoneItems = [];
-      ranked.forEach(p => {
-        (p.teams || []).forEach(t => {
-          const o = outcomes[t.teamId];
-          if (!o) return;
-          const ts = matches.filter(m => (m.homeTeam.id === t.teamId || m.awayTeam.id === t.teamId) && m.status === "FINISHED")
-            .map(m => new Date(m.utcDate).getTime());
-          const date = ts.length ? Math.max(...ts) : 0;
-          if (!date) return;
-          const bonus = typeof leagueBonusPts === "function" ? leagueBonusPts(t.teamId, outcomes) : null;
-          milestoneItems.push({ type: "milestone", date, teamId: t.teamId, name: t.name, owner: p.name, outcome: o.outcome, bonus });
+    // Build the notification feed: season milestones, leader changes and new
+    // accolades (badge awards). Deliberately NO per-match results. Shared by
+    // the drawer (display) and App (unread badge count) so they stay in sync.
+    function buildLeagueNotifItems(matches, ranked, badges, anchorIso) {
+      const items = [];
+      const outcomes = (typeof deriveSeasonOutcomes === "function") ? deriveSeasonOutcomes(matches) : {};
+      const latestMatchDate = (teamId) => {
+        let d = 0;
+        matches.forEach(m => {
+          if ((m.homeTeam.id === teamId || m.awayTeam.id === teamId) && m.status === "FINISHED") d = Math.max(d, new Date(m.utcDate).getTime());
         });
-      });
-
-      const leaderItems = [];
-      if (frames.length && history) {
-        const names = Object.keys(history);
-        let currentLeader = null;
-        frames.forEach((f, i) => {
-          const st = names.map(n => ({ n, v: (history[n] || [])[i] || 0 })).sort((a, b) => b.v - a.v);
-          if (st.length && st[0].v > 0 && (st.length < 2 || st[0].v > st[1].v) && st[0].n !== currentLeader) {
-            leaderItems.push({ type: "leader", date: new Date(f).getTime(), leader: st[0].n, pts: st[0].v, ahead: st[0].v - (st[1] ? st[1].v : 0) });
-            currentLeader = st[0].n;
+        return d;
+      };
+      // Season-outcome milestones (title / top 4 / European place / relegation)
+      ranked.forEach(p => (p.teams || []).forEach(t => {
+        const o = outcomes[t.teamId]; if (!o) return;
+        const date = latestMatchDate(t.teamId); if (!date) return;
+        const bonus = (typeof leagueBonusPts === "function") ? leagueBonusPts(t.teamId, outcomes) : null;
+        items.push({ type: "milestone", date, teamId: t.teamId, name: t.name, owner: p.name, outcome: o.outcome, bonus });
+      }));
+      // Leader changes across the season
+      const hist = (typeof deriveLeagueHistory === "function") ? deriveLeagueHistory(matches) : { frames: [], history: {} };
+      if (hist.frames && hist.frames.length && hist.history) {
+        const names = Object.keys(hist.history); let cur = null;
+        hist.frames.forEach((f, i) => {
+          const st = names.map(n => ({ n, v: (hist.history[n] || [])[i] || 0 })).sort((a, b) => b.v - a.v);
+          if (st.length && st[0].v > 0 && (st.length < 2 || st[0].v > st[1].v) && st[0].n !== cur) {
+            items.push({ type: "leader", date: new Date(f).getTime(), leader: st[0].n, pts: st[0].v, ahead: st[0].v - (st[1] ? st[1].v : 0) });
+            cur = st[0].n;
           }
         });
       }
+      // New accolades (badges gained in the last 7 days), dated to the player's
+      // latest finished match so the timestamp is stable across refreshes.
+      if (typeof computeNewLeagueBadges === "function" && badges && anchorIso) {
+        const latestByPlayer = {};
+        ranked.forEach(p => { let d = 0; (p.teams || []).forEach(t => { d = Math.max(d, latestMatchDate(t.teamId)); }); latestByPlayer[p.name] = d; });
+        computeNewLeagueBadges(badges, matches, anchorIso).forEach(b => {
+          items.push({ type: "accolade", date: latestByPlayer[b.name] || new Date(anchorIso).getTime(), name: b.name, icon: b.icon, label: b.label, desc: b.desc, bad: b.bad });
+        });
+      }
+      return items.sort((a, b) => b.date - a.date);
+    }
 
-      const allItems = [...matchItems, ...milestoneItems, ...leaderItems].sort((a, b) => b.date - a.date);
-      const FILTERS = [{ key: "all", label: "All" }, { key: "match", label: "Results" }, { key: "milestone", label: "Milestones" }, { key: "leader", label: "Leaders" }];
+    function LeagueNotificationsDrawer({ items, onClose, onSeenUpdate }) {
+      const lastSeen = parseInt(localStorage.getItem(NOTIF_SEEN_KEY) || "0", 10);
+      const allItems = items || [];
+      const FILTERS = [{ key: "all", label: "All" }, { key: "milestone", label: "Milestones" }, { key: "leader", label: "Leaders" }, { key: "accolade", label: "Accolades" }];
       const [activeFilter, setActiveFilter] = React.useState("all");
       const visibleItems = activeFilter === "all" ? allItems : allItems.filter(it => it.type === activeFilter);
       const unread = visibleItems.filter(it => it.date > lastSeen);
@@ -2672,35 +2677,6 @@
       const brandRow = (ts) => <div style={{ fontSize: 10, color: C.muted, marginBottom: 3 }}>Sweepstaker · {relTime(ts)}</div>;
       const cardStyle = (dimmed) => ({ padding: "10px 6px", borderBottom: `1px solid ${C.border}`, background: dimmed ? "transparent" : "rgba(34,197,94,0.07)" });
 
-      const teamName = (id) => (typeof LEAGUE_TEAMS !== "undefined" && LEAGUE_TEAMS[id] && LEAGUE_TEAMS[id].name);
-      const ownerName = (id) => { const o = typeof leagueOwnerOfTeamId === "function" ? leagueOwnerOfTeamId(id) : null; return o ? o.name : null; };
-
-      const renderMatch = (m, dimmed) => {
-        const hId = m.homeTeam.id, aId = m.awayTeam.id;
-        const hs = (m.score && m.score.fullTime && m.score.fullTime.home) || 0;
-        const as_ = (m.score && m.score.fullTime && m.score.fullTime.away) || 0;
-        const hN = teamName(hId) || m.homeTeam.shortName || "TBD";
-        const aN = teamName(aId) || m.awayTeam.shortName || "TBD";
-        const hO = ownerName(hId), aO = ownerName(aId);
-        const pts = matchPtsById[m.id];
-        const hL = hO ? `${hO}'s ${hN}` : hN, aL = aO ? `${aO}'s ${aN}` : aN;
-        let icon, title, l1, p1, l2, p2;
-        if (hs > as_) { icon = "🏆"; title = `${hL} beat ${aL}`; l1 = hO || hN; p1 = pts && pts.home; l2 = aO || aN; p2 = pts && pts.away; }
-        else if (as_ > hs) { icon = "🏆"; title = `${aL} beat ${hL}`; l1 = aO || aN; p1 = pts && pts.away; l2 = hO || hN; p2 = pts && pts.home; }
-        else { icon = "🤝"; title = `${hL} and ${aL} draw`; l1 = hO || hN; p1 = pts && pts.home; l2 = aO || aN; p2 = pts && pts.away; }
-        return (
-          <div key={`m-${m.id}`} style={cardStyle(dimmed)}>
-            {brandRow(new Date(m.utcDate).getTime())}
-            <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 2 }}>{icon} {title}</div>
-            <div style={{ fontSize: 12, color: C.dim }}>{hN} {hs}–{as_} {aN}</div>
-            {pts && (
-              <div style={{ fontSize: 11, color: C.muted, marginTop: 3, display: "flex", gap: 10 }}>
-                <span>{l1} {ptsStr(p1)}</span><span>{l2} {ptsStr(p2)}</span>
-              </div>
-            )}
-          </div>
-        );
-      };
       const renderMilestone = (it, dimmed) => (
         <div key={`ms-${it.teamId}`} style={cardStyle(dimmed)}>
           {brandRow(it.date)}
@@ -2717,7 +2693,16 @@
           <div style={{ fontSize: 12, color: C.dim }}>{it.pts} pts · {it.ahead} pt{it.ahead !== 1 ? "s" : ""} clear</div>
         </div>
       );
-      const renderItem = (it, dimmed) => it.type === "milestone" ? renderMilestone(it, dimmed) : it.type === "leader" ? renderLeader(it, dimmed) : renderMatch(it.m, dimmed);
+      const renderAccolade = (it, dimmed) => (
+        <div key={`a-${it.name}-${it.label}`} style={cardStyle(dimmed)}>
+          {brandRow(it.date)}
+          <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 2, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 15 }}>{it.icon}</span> {it.name} earned <strong style={{ color: it.bad ? C.dangerText : C.accent }}>{it.label}</strong>
+          </div>
+          {it.desc && <div style={{ fontSize: 12, color: C.dim }}>{it.desc}</div>}
+        </div>
+      );
+      const renderItem = (it, dimmed) => it.type === "milestone" ? renderMilestone(it, dimmed) : it.type === "leader" ? renderLeader(it, dimmed) : renderAccolade(it, dimmed);
 
       return (
         <>
@@ -3043,11 +3028,15 @@
         setTab(id);
       };
 
-      // Unread badge — finished matches newer than the last time the drawer
-      // was opened (cheap proxy for the drawer's full unread set).
+      // Notification feed (milestones · leaders · accolades — no results),
+      // shared by the drawer and the unread badge so the two always agree.
+      const notifItems = useMemo(
+        () => (typeof buildLeagueNotifItems === "function" ? buildLeagueNotifItems(matches, ranked, badges, anchorIso) : []),
+        [matches, ranked, badges, anchorIso]
+      );
       const unreadCount = useMemo(
-        () => matches.filter(m => m.status === "FINISHED" && new Date(m.utcDate).getTime() > notifSeenTs).length,
-        [matches, notifSeenTs]
+        () => notifItems.filter(it => it.date > notifSeenTs).length,
+        [notifItems, notifSeenTs]
       );
 
       return (
@@ -3148,7 +3137,7 @@
           )}
 
           {showNotifications && (
-            <LeagueNotificationsDrawer matches={matches} ranked={ranked} matchPtsById={matchPtsById}
+            <LeagueNotificationsDrawer items={notifItems}
               onClose={() => setShowNotifications(false)} onSeenUpdate={setNotifSeenTs} />
           )}
 
