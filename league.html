@@ -2376,6 +2376,32 @@
           <circle cx="19" cy="12" r="2" fill={active ? "white" : C.muted}/>
         </svg>
       ),
+      // Desktop-sidebar-only icons for League's flattened sub-destinations.
+      teams: (active) => (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <rect x="3" y="3" width="8" height="8" rx="1.5" stroke={active ? "white" : C.muted} strokeWidth="2"/>
+          <rect x="13" y="3" width="8" height="8" rx="1.5" stroke={active ? "white" : C.muted} strokeWidth="2"/>
+          <rect x="3" y="13" width="8" height="8" rx="1.5" stroke={active ? "white" : C.muted} strokeWidth="2"/>
+          <rect x="13" y="13" width="8" height="8" rx="1.5" stroke={active ? "white" : C.muted} strokeWidth="2"/>
+        </svg>
+      ),
+      leagues: (active) => (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? "white" : C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+          <circle cx="3.5" cy="6" r="1.2" fill={active ? "white" : C.muted} stroke="none"/><circle cx="3.5" cy="12" r="1.2" fill={active ? "white" : C.muted} stroke="none"/><circle cx="3.5" cy="18" r="1.2" fill={active ? "white" : C.muted} stroke="none"/>
+        </svg>
+      ),
+      ucl: (active) => (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? "white" : C.muted} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 3l2.5 5.2 5.5.8-4 3.9 1 5.6-5-2.7-5 2.7 1-5.6-4-3.9 5.5-.8z"/>
+        </svg>
+      ),
+      bell: (active) => (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M6 10.5a6 6 0 1 1 12 0c0 3.2 1 5.1 1.8 6.1.3.35.05.9-.4.9H4.6c-.45 0-.7-.55-.4-.9.8-1 1.8-2.9 1.8-6.1Z" stroke={active ? "white" : C.muted} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M9.5 19.5a2.5 2.5 0 0 0 5 0" stroke={active ? "white" : C.muted} strokeWidth="1.7" strokeLinecap="round" />
+        </svg>
+      ),
     };
     function BottomNav({ tab, showMore, onNav, onMore }) {
       const items = [
@@ -2405,46 +2431,70 @@
       );
     }
 
-    // ── Desktop sidebar — WC-app-style left rail (branding + vertical nav).
-    //    Search + notifications intentionally stay in the content-column
-    //    Header (the WC desktop build dropped them; the league keeps them). ──
-    function SidebarBtn({ id, label, active, onClick }) {
+    // ── Desktop sidebar — WC-app-style left rail. Unlike the WC desktop
+    //    build, ALL navigation lives here (League's Players/Teams/Leagues/UCL
+    //    are flattened into direct destinations, so nothing needs an inline
+    //    toggle inside the content window) plus the search + notifications
+    //    controls the WC desktop dropped. ────────────────────────────────────
+    function SidebarBtn({ iconId, label, active, onClick, badge }) {
       return (
         <button onClick={onClick} onMouseEnter={e => { if (!active) e.currentTarget.style.background = "rgba(255,255,255,0.05)"; }}
           onMouseLeave={e => { if (!active) e.currentTarget.style.background = "transparent"; }}
           style={{
-            display: "flex", alignItems: "center", gap: 13, width: "100%",
-            padding: "12px 14px", borderRadius: 10, border: "none", cursor: "pointer",
+            display: "flex", alignItems: "center", gap: 12, width: "100%",
+            padding: "11px 14px", borderRadius: 10, border: "none", cursor: "pointer",
             background: active ? "rgba(34,197,94,0.16)" : "transparent", transition: "background 0.15s ease",
           }}>
-          <span style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, flexShrink: 0 }}>{navIcons[id](active)}</span>
-          <span style={{ fontSize: 14.5, fontWeight: active ? 700 : 500, color: active ? C.text : C.dim }}>{label}</span>
+          <span style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, flexShrink: 0 }}>{navIcons[iconId](active)}</span>
+          <span style={{ fontSize: 14, fontWeight: active ? 700 : 500, color: active ? C.text : C.muted }}>{label}</span>
+          {badge > 0 && <span style={{ marginLeft: "auto", minWidth: 18, height: 18, borderRadius: 9, background: C.red, color: "white", fontSize: 10, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 5px" }}>{badge > 9 ? "9+" : badge}</span>}
         </button>
       );
     }
 
-    function Sidebar({ group, tab, showMore, onNav, onMore }) {
-      const items = [["home", "Home"], ["table", "League"], ["scores", "Scores"], ["race", "The Race"]];
+    function Sidebar({ group, tab, leagueView, showMore, onNav, onMore, onOpenSearch, onOpenNotifications, unreadCount }) {
+      // [iconId, label, tabId, view]. view only for League sub-destinations.
+      const items = [
+        ["home", "Home", "home", null],
+        ["table", "Players", "table", "players"],
+        ["teams", "Teams", "table", "teams"],
+        ["leagues", "Leagues", "table", "leagues"],
+        ["ucl", "UCL", "table", "ucl"],
+        ["scores", "Scores", "scores", null],
+        ["race", "The Race", "race", null],
+      ];
+      const isActive = (tabId, view) => !showMore && tab === tabId && (view == null || leagueView === view);
       return (
         <div style={{
           position: "sticky", top: 0, alignSelf: "flex-start", height: "100vh", width: 260, flexShrink: 0,
           boxSizing: "border-box", background: "#0a1a0f", borderRight: `1px solid ${C.border}`,
-          display: "flex", flexDirection: "column", padding: "22px 12px 16px",
+          display: "flex", flexDirection: "column", padding: "20px 12px 16px",
         }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "0 8px 20px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "0 8px 16px" }}>
             <img src={LOGO_SRC} alt="Sweepstaker" style={{ width: 42, height: 42, flexShrink: 0 }} />
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 16, fontWeight: 800, lineHeight: 1.15 }}>Sweepstaker <span style={{ color: C.accent }}>26/27</span></div>
               {group && group.label && <div style={{ fontSize: 11.5, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{group.label}</div>}
             </div>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-            {items.map(([id, label]) => (
-              <SidebarBtn key={id} id={id} label={label} active={tab === id && !showMore} onClick={() => onNav(id)} />
+          <div onClick={onOpenSearch} role="button" style={{
+            display: "flex", alignItems: "center", gap: 8, margin: "0 6px 12px", padding: "9px 12px",
+            background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 20, cursor: "pointer",
+          }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+              <circle cx="11" cy="11" r="8" stroke="rgba(255,255,255,0.6)" strokeWidth="2.5" />
+              <path d="M21 21l-4.35-4.35" stroke="rgba(255,255,255,0.6)" strokeWidth="2.5" strokeLinecap="round" />
+            </svg>
+            <span style={{ fontSize: 13, color: "rgba(255,255,255,0.6)" }}>Search…</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            {items.map(([iconId, label, tabId, view]) => (
+              <SidebarBtn key={label} iconId={iconId} label={label} active={isActive(tabId, view)} onClick={() => onNav(tabId, view)} />
             ))}
           </div>
-          <div style={{ flex: 1 }} />
-          <SidebarBtn id="more" label="More" active={showMore} onClick={onMore} />
+          <div style={{ flex: 1, minHeight: 12 }} />
+          <SidebarBtn iconId="bell" label="Notifications" active={false} onClick={onOpenNotifications} badge={unreadCount} />
+          <SidebarBtn iconId="more" label="More" active={showMore} onClick={onMore} />
         </div>
       );
     }
@@ -2684,11 +2734,34 @@
       const replayPct = replay.on
         ? (new Date(replay.date) - new Date(REPLAY_START)) / (new Date(REPLAY_END) - new Date(REPLAY_START)) * 100
         : 0;
+      // On desktop the search + notifications live in the sidebar, so the
+      // header shrinks to just the simulate-season scrubber (when active).
+      if (isDesktop) {
+        if (!replay.on) return null;
+        return (
+          <div style={{ padding: "12px 20px 0" }}>
+            <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 10px" }}>
+              {replay.loading ? (
+                <div style={{ fontSize: 11, color: C.muted }}>Loading simulation…</div>
+              ) : (
+                <>
+                  <input type="range" min={0} max={1000} value={replayPct * 10}
+                    onChange={e => {
+                      const t = new Date(REPLAY_START).getTime() + (e.target.value / 1000) * (new Date(REPLAY_END) - new Date(REPLAY_START));
+                      onReplayDate(new Date(t).toISOString());
+                    }} />
+                  <div style={{ fontSize: 11, color: C.gold, textAlign: "center" }}>🎬 Simulating last season · as of {fmtDay(replay.date)}</div>
+                </>
+              )}
+            </div>
+          </div>
+        );
+      }
       return (
         <div style={{ padding: "10px 14px 6px" }}>
           {/* Search + notifications row — WC-parity top bar */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-            {!isDesktop && <img src={LOGO_SRC} alt="Sweepstaker" style={{ width: 30, height: 30, display: "block", flexShrink: 0 }} />}
+            <img src={LOGO_SRC} alt="Sweepstaker" style={{ width: 30, height: 30, display: "block", flexShrink: 0 }} />
             <div onClick={onOpenSearch} role="button" style={{
               flex: 1, display: "flex", alignItems: "center", gap: 8,
               background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.18)",
@@ -2836,8 +2909,11 @@
       useEffect(() => {
         const root = document.getElementById("root");
         if (!root) return;
+        // Desktop: WC-style left-aligned rail + content (sidebar flush to the
+        // viewport's left edge). Mobile: the default 480px centred column.
         root.style.maxWidth = isDesktop ? "1020px" : "480px";
-        return () => { root.style.maxWidth = "480px"; };
+        root.style.margin = isDesktop ? "0" : "0 auto";
+        return () => { root.style.maxWidth = "480px"; root.style.margin = "0 auto"; };
       }, [isDesktop]);
 
       const matches = useMemo(() => {
@@ -2951,7 +3027,7 @@
 
       return (
         <div style={{ display: isDesktop ? "flex" : "block", alignItems: "flex-start", minHeight: "100vh" }}>
-          {isDesktop && <Sidebar group={group} tab={tab} showMore={showMore} onNav={navTo} onMore={() => setShowMore(true)} />}
+          {isDesktop && <Sidebar group={group} tab={tab} leagueView={leagueView} showMore={showMore} onNav={navTo} onMore={() => setShowMore(true)} onOpenSearch={() => setShowSearch(true)} onOpenNotifications={() => setShowNotifications(true)} unreadCount={unreadCount} />}
           <div style={{ flex: 1, minWidth: 0, paddingBottom: isDesktop ? 40 : 84, background: isDesktop ? C.bg : "transparent", minHeight: isDesktop ? "100vh" : "auto" }}>
           {previewMode && (
             <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", background: "#2a2410", borderBottom: `1px solid ${C.gold}` }}>
@@ -2972,7 +3048,7 @@
               Couldn't reach the match feed ({error}) — showing last known data.
             </div>
           )}
-          {!loading && tab === "table" && (
+          {!loading && tab === "table" && !isDesktop && (
             <div style={{ padding: "0 14px 10px" }}>
               <div className="tab-seg">
                 {[["players", "Players"], ["teams", "Teams"], ["leagues", "Leagues"], ["ucl", "UCL"]].map(([id, label]) => (
