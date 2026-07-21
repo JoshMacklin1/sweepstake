@@ -687,7 +687,7 @@
                   ))}
                 </div>
               </div>
-              <CrestRow teams={p.teams} outcomes={outcomes} />
+              <CrestRow teams={p.teams} outcomes={outcomes} baseHeight={22} />
             </div>
             <div style={{ flexShrink: 0 }}>
               <Sparkline data={hist} width={78} height={56}
@@ -1486,18 +1486,17 @@
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               {countdown && <span style={{ fontSize: 11, fontFamily: "monospace", color: C.accent }}>⏱ {countdown}</span>}
-              {multi && <span style={{ fontSize: 10, fontWeight: 700, color: C.muted }}>{safeIdx + 1}/{count}</span>}
+              {multi && <span style={{ fontSize: 10, fontWeight: 700, color: C.muted }}>{safeIdx > 0 ? "‹ " : ""}{safeIdx + 1}/{count}{safeIdx < count - 1 ? " ›" : ""}</span>}
             </div>
           </div>
           <div onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
-            style={{ padding: "8px 14px 12px", overflow: "hidden", touchAction: multi ? "pan-y" : "auto" }}>
-            <div ref={trackRef} style={{ display: "flex" }}>{games.map(renderGame)}</div>
-          </div>
-          {multi && (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, paddingBottom: 10, height: 16 }}>
-              {games.map((m, i) => (<button key={m.id} onClick={() => settle(i)} aria-label={`Match ${i + 1}`} style={{ width: i === safeIdx ? 8 : 6, height: i === safeIdx ? 8 : 6, padding: 0, border: "none", cursor: "pointer", borderRadius: "50%", background: i === safeIdx ? (isLive ? C.red : C.accent) : C.border, transition: "all 0.2s" }} />))}
+            style={{ padding: "8px 0 14px", touchAction: multi ? "pan-y" : "auto" }}>
+            {/* Inner clip box with horizontal inset so the next card can't peek
+                into the padding — the count "1/10 ›" signals there's more. */}
+            <div style={{ overflow: "hidden", margin: "0 14px" }}>
+              <div ref={trackRef} style={{ display: "flex" }}>{games.map(renderGame)}</div>
             </div>
-          )}
+          </div>
         </div>
       );
     }
