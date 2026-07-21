@@ -1168,13 +1168,16 @@
       const banner = lgResultBanner(m);
       const border = banner ? `2px solid ${C.gold}` : `1px solid ${C.border}`;
       const glow = banner ? "0 0 10px #f59e0b44" : "none";
+      // When the whole card opens the head-to-head, individual team taps are
+      // disabled (matches the WC card) — tap anywhere to open H2H.
+      const teamClick = onMatchClick ? null : onTeamClick;
       const Side = ({ t, right, earned }) => {
         const known = typeof LEAGUE_TEAMS !== "undefined" && LEAGUE_TEAMS[t.id];
         const owner = typeof leagueOwnerOfTeamId === "function" ? leagueOwnerOfTeamId(t.id) : null;
         const clubName = known ? known.name : (t.shortName || "TBD");
         return (
-          <div onClick={onTeamClick && known ? (e) => { e.stopPropagation(); onTeamClick(t.id); } : undefined}
-            style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, minWidth: 0, flexDirection: right ? "row-reverse" : "row", cursor: onTeamClick && known ? "pointer" : "default" }}>
+          <div onClick={teamClick && known ? (e) => { e.stopPropagation(); teamClick(t.id); } : undefined}
+            style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, minWidth: 0, flexDirection: right ? "row-reverse" : "row", cursor: teamClick && known ? "pointer" : "default" }}>
             <Crest teamId={t.id} size={26} />
             <div style={{ minWidth: 0, textAlign: right ? "right" : "left" }}>
               {owner
@@ -1264,6 +1267,7 @@
         <div ref={bodyRef} style={{ flex: 1, overflowY: "auto", padding: "0 14px 24px" }}>
           <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>{navBtn("teams", "Teams")}{navBtn("players", "Players")}</div>
           {view === "teams" ? (
+            <>
             <div style={{ background: C.card, border: `1px solid ${banner ? C.gold : C.border}`, borderRadius: 14, padding: "16px 12px", boxShadow: banner ? "0 0 10px #f59e0b44" : "none" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 {teamHeader(m.homeTeam, hOwner)}
@@ -1283,6 +1287,18 @@
                 </div>
               )}
             </div>
+            <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+              {[m.homeTeam, m.awayTeam].map((t, i) => (
+                known(t.id) && onTeamClick
+                  ? <button key={i} onClick={() => onTeamClick(t.id)} style={{ flex: 1, padding: "11px 8px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, color: C.accent, fontWeight: 700, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                      <Crest teamId={t.id} size={16} />
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{clubName(t)}</span>
+                      <span style={{ fontSize: 14, lineHeight: 1, flexShrink: 0 }}>›</span>
+                    </button>
+                  : <div key={i} style={{ flex: 1 }} />
+              ))}
+            </div>
+            </>
           ) : (
             <div style={{ display: "flex", gap: 10 }}>
               {[{ owner: hOwner }, { owner: aOwner }].map(({ owner }, i) => (
@@ -2668,6 +2684,18 @@
         return liveMatches;
       }, [replay, liveMatches]);
 
+      // Fixture list for the Scores tab + match modal. In replay it also
+      // includes fixtures AFTER the scrubber date, shown as upcoming (result
+      // hidden) so you can browse the schedule ahead — scoring stays on the
+      // clamped `matches` above, so nothing counts these early.
+      const scoresMatches = useMemo(() => {
+        if (replay.on && !replay.loading && typeof LEAGUE_REPLAY_DATA !== "undefined") {
+          return LEAGUE_REPLAY_DATA.matches.map(m => m.utcDate <= replay.date ? m
+            : { ...m, status: "SCHEDULED", score: { ...(m.score || {}), fullTime: { home: null, away: null } } });
+        }
+        return matches;
+      }, [replay.on, replay.loading, replay.date, matches]);
+
       const anchorIso = replay.on ? replay.date : (lastUpdated ? lastUpdated.toISOString() : new Date().toISOString());
 
       // ── shared derived data (guarded per the coupling pattern) ──
@@ -2794,7 +2822,7 @@
                 : leagueView === "ucl" ? <ChampionsLeagueTab matches={matches} tables={tables} outcomes={outcomes} matchPtsById={matchPtsById} onTeamClick={openTeamModal} onMatchClick={openMatchModal} />
                 : <LeaguesTab matches={matches} tables={tables} outcomes={outcomes} onTeamClick={openTeamModal} comp={leaguesComp} setComp={setLeaguesComp} />
               )
-            : tab === "scores" ? <ScoresTab matches={matches} matchPtsById={matchPtsById} anchorIso={anchorIso} onTeamClick={openTeamModal} onMatchClick={openMatchModal} />
+            : tab === "scores" ? <ScoresTab matches={scoresMatches} matchPtsById={matchPtsById} anchorIso={anchorIso} onTeamClick={openTeamModal} onMatchClick={openMatchModal} />
             : tab === "race" ? <RaceTab ranked={ranked} matches={matches} anchorIso={anchorIso} replayOn={replay.on} />
             : null}
 
@@ -2802,7 +2830,7 @@
             <SnapSheet onClose={closeCard}>
               {(bodyRef) => {
                 if (selectedMatch) {
-                  const mObj = matches.find(x => String(x.id) === String(selectedMatch));
+                  const mObj = scoresMatches.find(x => String(x.id) === String(selectedMatch));
                   if (!mObj) return null;
                   return <LeagueHeadToHeadCard key={selectedMatch} bodyRef={bodyRef} m={mObj} ranked={ranked} matches={matches} matchPtsById={matchPtsById} onTeamClick={switchToTeam} onPlayerClick={switchToPlayer} onClose={closeCard} />;
                 }
