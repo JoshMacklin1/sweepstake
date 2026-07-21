@@ -1213,13 +1213,13 @@
               <span style={{ fontSize: 10, color: C.muted, flex: 1, textAlign: "right" }}>{fmtDay(m.utcDate)}</span>
             </div>
             <div style={{ display: "flex", alignItems: "center" }}>
-              <Side t={m.homeTeam} right earned={pts ? pts.home : 0} />
+              <Side t={m.homeTeam} earned={pts ? pts.home : 0} />
               <div style={{ minWidth: 60, textAlign: "center", flexShrink: 0 }}>
                 {fin || live || hasScore
                   ? <><span style={{ fontSize: 18, fontWeight: 800, letterSpacing: 2, color: (live || (hasScore && !fin)) ? C.red : C.text }}>{hs}–{as_}</span>{!fin && <div style={{ fontSize: 9, fontWeight: 800, color: C.red, marginTop: 2 }}>⚡ LIVE</div>}</>
                   : <div><div style={{ fontSize: 12, color: C.muted, marginBottom: 2 }}>vs</div><div style={{ fontSize: 9, color: C.muted }}>{fmtTime(m.utcDate)}</div></div>}
               </div>
-              <Side t={m.awayTeam} earned={pts ? pts.away : 0} />
+              <Side t={m.awayTeam} right earned={pts ? pts.away : 0} />
             </div>
           </div>
         </div>
@@ -1372,7 +1372,7 @@
             </div>
           )}
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <Side t={m.homeTeam} right earned={pts ? pts.home : 0} />
+            <Side t={m.homeTeam} earned={pts ? pts.home : 0} />
             <div style={{ textAlign: "center", flexShrink: 0, minWidth: 44 }}>
               {fin || live
                 ? <span style={{ fontSize: 15, fontWeight: 800, color: live ? C.red : C.text, letterSpacing: 1 }}>{hs}–{as_}</span>
@@ -1381,7 +1381,7 @@
                     <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>{fmtDay(m.utcDate)} {fmtTime(m.utcDate)}</div>
                   </div>}
             </div>
-            <Side t={m.awayTeam} earned={pts ? pts.away : 0} />
+            <Side t={m.awayTeam} right earned={pts ? pts.away : 0} />
           </div>
         </div>
       );
