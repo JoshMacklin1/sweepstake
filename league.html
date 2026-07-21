@@ -1394,7 +1394,7 @@
     //    with a countdown when upcoming. No live/upcoming matches → renders
     //    nothing. Team sides tap through to the team card (the league has no
     //    head-to-head match modal). ───────────────────────────────────────────
-    function LeagueMatchFocusCard({ matches, matchPtsById = {}, onTeamClick }) {
+    function LeagueMatchFocusCard({ matches, matchPtsById = {}, onTeamClick, onMatchClick }) {
       const [countdown, setCountdown] = React.useState("");
       const [idx, setIdx] = React.useState(0);
       const trackRef = React.useRef(null);
@@ -1427,7 +1427,15 @@
       const settle = React.useCallback((i) => { const t = trackRef.current; const c = Math.max(0, Math.min(count - 1, i)); if (t) { t.style.transition = ANIM; t.style.transform = `translateX(${-c * 100}%)`; } setIdx(c); }, [count]);
       const onDown = (e) => { const d = drag.current; d.active = true; d.startX = e.clientX; d.dx = 0; d.w = e.currentTarget.clientWidth; if (multi && trackRef.current) trackRef.current.style.transition = "none"; if (e.currentTarget.setPointerCapture) e.currentTarget.setPointerCapture(e.pointerId); };
       const onMove = (e) => { const d = drag.current; if (!d.active || !multi) return; d.dx = e.clientX - d.startX; const edge = (safeIdx === 0 && d.dx > 0) || (safeIdx === count - 1 && d.dx < 0); const eff = edge ? d.dx * 0.35 : d.dx; if (trackRef.current) trackRef.current.style.transform = `translateX(calc(${-safeIdx * 100}% + ${eff}px))`; };
-      const onUp = () => { const d = drag.current; if (!d.active) return; d.active = false; const th = Math.max(40, d.w * 0.15); if (d.dx <= -th) settle(safeIdx + 1); else if (d.dx >= th) settle(safeIdx - 1); else settle(safeIdx); };
+      const onUp = () => {
+        const d = drag.current; if (!d.active) return; d.active = false;
+        const th = Math.max(40, d.w * 0.15);
+        if (multi && d.dx <= -th) { settle(safeIdx + 1); return; }
+        if (multi && d.dx >= th) { settle(safeIdx - 1); return; }
+        settle(safeIdx);
+        // A tap (no real drag) opens the head-to-head for the shown match.
+        if (Math.abs(d.dx) < 8 && onMatchClick && games[safeIdx]) onMatchClick(games[safeIdx].id);
+      };
       React.useEffect(() => {
         if (!countdownTarget) { setCountdown(""); return; }
         const tick = () => {
@@ -1452,24 +1460,26 @@
         const mKicked = (m.status === "SCHEDULED" || m.status === "TIMED") && new Date(m.utcDate).getTime() <= Date.now();
         return (
           <div key={m.id} style={{ flex: "0 0 100%", display: "flex", alignItems: "center" }}>
-            <div onClick={onTeamClick && hT ? () => onTeamClick(hId) : undefined} style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, cursor: onTeamClick && hT ? "pointer" : "default" }}>
+            <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
               <Crest teamId={hId} size={24} />
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{hOwner || hN}</div>
-                <div style={{ fontSize: 10, color: C.muted }}>{hN}{hT ? ` (P${hT.pot})` : ""}</div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{hOwner || hN}</div>
+                <div style={{ fontSize: 10, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{hN}{hT ? ` (P${hT.pot})` : ""}</div>
                 {livePts && livePts.home > 0 && <div style={{ fontSize: 10, fontWeight: 800, color: C.accent, marginTop: 2 }}>+{livePts.home} pts</div>}
               </div>
             </div>
             <div style={{ textAlign: "center", padding: "0 8px", flexShrink: 0 }}>
               {mHasScore ? <div style={{ fontSize: 16, fontWeight: 800, color: C.red, letterSpacing: 2 }}>{m.score.fullTime.home}–{m.score.fullTime.away}</div>
-                : mKicked ? <div style={{ fontSize: 12, fontWeight: 800, color: C.red, marginBottom: 2, letterSpacing: "0.06em" }}>LIVE</div>
-                  : <div style={{ fontSize: 13, color: C.muted, marginBottom: 4 }}>vs</div>}
-              {mKicked && !mHasScore && <div style={{ fontSize: 8, color: C.muted, marginTop: 3 }}>awaiting score</div>}
+                : mKicked ? <div style={{ fontSize: 12, fontWeight: 800, color: C.red, letterSpacing: "0.06em" }}>LIVE</div>
+                  : <div style={{ fontSize: 13, color: C.muted }}>vs</div>}
+              {mKicked && !mHasScore
+                ? <div style={{ fontSize: 8, color: C.muted, marginTop: 3 }}>awaiting score</div>
+                : !mHasScore && <div style={{ fontSize: 9, color: C.muted, marginTop: 3, whiteSpace: "nowrap" }}>{fmtDay(m.utcDate)} · {fmtTime(m.utcDate)}</div>}
             </div>
-            <div onClick={onTeamClick && aT ? () => onTeamClick(aId) : undefined} style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-end", cursor: onTeamClick && aT ? "pointer" : "default" }}>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{aOwner || aN}</div>
-                <div style={{ fontSize: 10, color: C.muted }}>{aN}{aT ? ` (P${aT.pot})` : ""}</div>
+            <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-end", minWidth: 0 }}>
+              <div style={{ textAlign: "right", minWidth: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{aOwner || aN}</div>
+                <div style={{ fontSize: 10, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{aN}{aT ? ` (P${aT.pot})` : ""}</div>
                 {livePts && livePts.away > 0 && <div style={{ fontSize: 10, fontWeight: 800, color: C.accent, marginTop: 2 }}>+{livePts.away} pts</div>}
               </div>
               <Crest teamId={aId} size={24} />
@@ -1486,17 +1496,22 @@
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               {countdown && <span style={{ fontSize: 11, fontFamily: "monospace", color: C.accent }}>⏱ {countdown}</span>}
-              {multi && <span style={{ fontSize: 10, fontWeight: 700, color: C.muted }}>{safeIdx > 0 ? "‹ " : ""}{safeIdx + 1}/{count}{safeIdx < count - 1 ? " ›" : ""}</span>}
+              {multi && <span style={{ fontSize: 10, fontWeight: 700, color: C.muted }}>{safeIdx + 1}/{count}</span>}
             </div>
           </div>
           <div onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
-            style={{ padding: "8px 0 14px", touchAction: multi ? "pan-y" : "auto" }}>
-            {/* Inner clip box with horizontal inset so the next card can't peek
-                into the padding — the count "1/10 ›" signals there's more. */}
+            style={{ padding: "8px 0 12px", touchAction: multi ? "pan-y" : "auto", cursor: onMatchClick ? "pointer" : "default" }}>
+            {/* Inner clip box with a horizontal inset so the next card can't peek
+                into the padding while swiping. */}
             <div style={{ overflow: "hidden", margin: "0 14px" }}>
               <div ref={trackRef} style={{ display: "flex" }}>{games.map(renderGame)}</div>
             </div>
           </div>
+          {multi && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, paddingBottom: 10, height: 16 }}>
+              {games.map((m, i) => (<button key={m.id} onClick={() => settle(i)} aria-label={`Match ${i + 1}`} style={{ width: i === safeIdx ? 8 : 6, height: i === safeIdx ? 8 : 6, padding: 0, border: "none", cursor: "pointer", borderRadius: "50%", background: i === safeIdx ? (isLive ? C.red : C.accent) : C.border, transition: "all 0.2s" }} />))}
+            </div>
+          )}
         </div>
       );
     }
@@ -1623,7 +1638,7 @@
             <div style={{ fontSize: 20, fontWeight: 800, color: C.text, marginTop: 4 }}>{group ? group.label : ""}</div>
           </div>
 
-          <LeagueMatchFocusCard matches={matches} matchPtsById={matchPtsById} onTeamClick={openTeamModal} />
+          <LeagueMatchFocusCard matches={matches} matchPtsById={matchPtsById} onMatchClick={openMatchModal} />
 
           {topThree[0] && (
             <div onClick={() => openPlayerModal(topThree[0].name)} style={{
