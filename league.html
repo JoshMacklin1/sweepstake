@@ -2405,6 +2405,50 @@
       );
     }
 
+    // ── Desktop sidebar — WC-app-style left rail (branding + vertical nav).
+    //    Search + notifications intentionally stay in the content-column
+    //    Header (the WC desktop build dropped them; the league keeps them). ──
+    function SidebarBtn({ id, label, active, onClick }) {
+      return (
+        <button onClick={onClick} onMouseEnter={e => { if (!active) e.currentTarget.style.background = "rgba(255,255,255,0.05)"; }}
+          onMouseLeave={e => { if (!active) e.currentTarget.style.background = "transparent"; }}
+          style={{
+            display: "flex", alignItems: "center", gap: 13, width: "100%",
+            padding: "12px 14px", borderRadius: 10, border: "none", cursor: "pointer",
+            background: active ? "rgba(34,197,94,0.16)" : "transparent", transition: "background 0.15s ease",
+          }}>
+          <span style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, flexShrink: 0 }}>{navIcons[id](active)}</span>
+          <span style={{ fontSize: 14.5, fontWeight: active ? 700 : 500, color: active ? C.text : C.dim }}>{label}</span>
+        </button>
+      );
+    }
+
+    function Sidebar({ group, tab, showMore, onNav, onMore }) {
+      const items = [["home", "Home"], ["table", "League"], ["scores", "Scores"], ["race", "The Race"]];
+      return (
+        <div style={{
+          position: "sticky", top: 0, alignSelf: "flex-start", height: "100vh", width: 260, flexShrink: 0,
+          boxSizing: "border-box", background: "#0a1a0f", borderRight: `1px solid ${C.border}`,
+          display: "flex", flexDirection: "column", padding: "22px 12px 16px",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "0 8px 20px" }}>
+            <img src={LOGO_SRC} alt="Sweepstaker" style={{ width: 42, height: 42, flexShrink: 0 }} />
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 16, fontWeight: 800, lineHeight: 1.15 }}>Sweepstaker <span style={{ color: C.accent }}>26/27</span></div>
+              {group && group.label && <div style={{ fontSize: 11.5, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{group.label}</div>}
+            </div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            {items.map(([id, label]) => (
+              <SidebarBtn key={id} id={id} label={label} active={tab === id && !showMore} onClick={() => onNav(id)} />
+            ))}
+          </div>
+          <div style={{ flex: 1 }} />
+          <SidebarBtn id="more" label="More" active={showMore} onClick={onMore} />
+        </div>
+      );
+    }
+
     // ── Search overlay — WC-parity search over league players + teams ────────
     function LeagueSearchOverlay({ ranked, onClose, onSelectPlayer, onSelectTeam }) {
       const [query, setQuery] = React.useState("");
@@ -2636,7 +2680,7 @@
     }
 
     // ── header + replay scrubber ────────────────────────────────────────────
-    function Header({ group, lastUpdated, refreshing, onRefresh, replay, onReplayDate, onOpenSearch, onOpenNotifications, unreadCount }) {
+    function Header({ group, lastUpdated, refreshing, onRefresh, replay, onReplayDate, onOpenSearch, onOpenNotifications, unreadCount, isDesktop }) {
       const replayPct = replay.on
         ? (new Date(replay.date) - new Date(REPLAY_START)) / (new Date(REPLAY_END) - new Date(REPLAY_START)) * 100
         : 0;
@@ -2644,7 +2688,7 @@
         <div style={{ padding: "10px 14px 6px" }}>
           {/* Search + notifications row — WC-parity top bar */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-            <img src={LOGO_SRC} alt="Sweepstaker" style={{ width: 30, height: 30, display: "block", flexShrink: 0 }} />
+            {!isDesktop && <img src={LOGO_SRC} alt="Sweepstaker" style={{ width: 30, height: 30, display: "block", flexShrink: 0 }} />}
             <div onClick={onOpenSearch} role="button" style={{
               flex: 1, display: "flex", alignItems: "center", gap: 8,
               background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.18)",
@@ -2712,6 +2756,7 @@
       const [showSearch, setShowSearch] = useState(false);
       const [showNotifications, setShowNotifications] = useState(false);
       const [notifSeenTs, setNotifSeenTs] = useState(() => parseInt(localStorage.getItem(NOTIF_SEEN_KEY) || "0", 10));
+      const [isDesktop, setIsDesktop] = useState(() => window.innerWidth >= 768);
       const matchesRef = useRef([]);
       const replayRef = useRef(replay);
       replayRef.current = replay;
@@ -2779,6 +2824,21 @@
       // Preview mode opens straight into the last-season simulation so waiting
       // players immediately see their random squads score across the season.
       useEffect(() => { if (previewMode) toggleReplay(); }, []);
+
+      // Desktop ⇄ mobile switch. On desktop the app becomes a WC-style
+      // sidebar + wider content column, so lift the global 480px #root cap
+      // while this in-league App is mounted (the group gate keeps the cap).
+      useEffect(() => {
+        const onResize = () => setIsDesktop(window.innerWidth >= 768);
+        window.addEventListener("resize", onResize);
+        return () => window.removeEventListener("resize", onResize);
+      }, []);
+      useEffect(() => {
+        const root = document.getElementById("root");
+        if (!root) return;
+        root.style.maxWidth = isDesktop ? "1020px" : "480px";
+        return () => { root.style.maxWidth = "480px"; };
+      }, [isDesktop]);
 
       const matches = useMemo(() => {
         if (replay.on && !replay.loading && typeof LEAGUE_REPLAY_DATA !== "undefined" && typeof leagueMatchesUpTo === "function") {
@@ -2890,7 +2950,9 @@
       );
 
       return (
-        <div style={{ paddingBottom: 84 }}>
+        <div style={{ display: isDesktop ? "flex" : "block", alignItems: "flex-start", minHeight: "100vh" }}>
+          {isDesktop && <Sidebar group={group} tab={tab} showMore={showMore} onNav={navTo} onMore={() => setShowMore(true)} />}
+          <div style={{ flex: 1, minWidth: 0, paddingBottom: isDesktop ? 40 : 84, background: isDesktop ? C.bg : "transparent", minHeight: isDesktop ? "100vh" : "auto" }}>
           {previewMode && (
             <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", background: "#2a2410", borderBottom: `1px solid ${C.gold}` }}>
               <span style={{ fontSize: 12, color: C.gold, fontWeight: 700, flex: 1, lineHeight: 1.3 }}>
@@ -2904,7 +2966,7 @@
             onReplayDate={(d) => setReplay(r => ({ ...r, date: d }))}
             onOpenSearch={() => setShowSearch(true)}
             onOpenNotifications={() => setShowNotifications(true)}
-            unreadCount={unreadCount} />
+            unreadCount={unreadCount} isDesktop={isDesktop} />
           {error && !replay.on && (
             <div style={{ margin: "6px 14px 10px", padding: 10, background: "#2a1616", border: "1px solid #5b2121", borderRadius: 10, color: C.dangerTextBright, fontSize: 12 }}>
               Couldn't reach the match feed ({error}) — showing last known data.
@@ -2989,7 +3051,8 @@
               onClose={() => setShowNotifications(false)} onSeenUpdate={setNotifSeenTs} />
           )}
 
-          <BottomNav tab={tab} showMore={showMore} onNav={navTo} onMore={() => setShowMore(true)} />
+          {!isDesktop && <BottomNav tab={tab} showMore={showMore} onNav={navTo} onMore={() => setShowMore(true)} />}
+          </div>
         </div>
       );
     }
