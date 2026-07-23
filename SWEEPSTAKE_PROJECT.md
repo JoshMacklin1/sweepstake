@@ -109,9 +109,19 @@ resolve on Join**; new leagues go through the hosted flow below.
   season's games before the real draft begins. `Draft` is the live
   board (turn banner from the server's `currentPlayerId`, available teams by
   competition/pot, tap-to-pick with `expectedTurnNo` guard, live squads,
-  and **Unassigned** leftovers on completion). One active session lives in
-  `localStorage` (`lsw_session`: `code`/`name`/`playerId`/`token`, plus
-  `hostToken` for the host). On completion, **Enter the league →** converts
+  and **Unassigned** leftovers on completion). **Multi-league memberships**:
+  a device can belong to many leagues at once. `GroupGate` stores a **list**
+  of hosted sessions (`lsw_sessions`: each `code`/`name`/`playerId`/`token`,
+  plus `hostToken` for the host) and a list of entered built-in/created group
+  keys (`lsw_mygroups`), with an `lsw_active` pointer (`{ kind:"session"|
+  "group", id }`) marking the one currently open. A one-time
+  `migrateMemberships()` folds the old single `lsw_session`/`lsw_group` keys
+  into the lists so nobody loses their league. **Switching is
+  non-destructive** — "Switch league" (More menu / lobby "‹ My leagues")
+  just clears the active pointer and returns to the **"Your leagues"**
+  chooser on the landing screen (tap a row to open, ✕ to forget); only
+  "Leave league" (lobby) tells the server and drops the membership. On
+  completion, **Enter the league →** converts
   the picks to the standard group shape (`liveGroupFromState` → players with
   `teamIds`), sets `LEAGUE_PLAYERS`, and hands off to the existing `App` —
   so a drafted league scores through `scoreLeaguePlayers` like any other.

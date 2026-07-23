@@ -2315,7 +2315,7 @@
               <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, color: replayOn ? C.accent : C.muted }}>{replayOn ? "ON" : "OFF"}</span>
             </button>
             <button style={row} onClick={() => { onClose(); onSwitchGroup(); }}>
-              <span style={{ fontSize: 18 }}>👥</span> Switch group
+              <span style={{ fontSize: 18 }}>🔀</span> Switch league
             </button>
             <button style={{ ...row, borderBottom: "none" }} onClick={() => { onClose(); onWorldCup(); }}>
               <span style={{ fontSize: 18 }}>🏆</span> World Cup Sweepstake
@@ -3158,14 +3158,45 @@
       } catch (e) { /* ignore corrupt storage */ }
     }
 
-    // ── hosted (server-backed) league session ──────────────────────────────
-    // One active live league at a time. Stored: { code, name, playerId, token,
-    // hostToken? }. `token` authenticates picks; `hostToken` (host only) also
-    // authorises Start. Being host implies hostToken is set.
-    const SESSION_KEY = "lsw_session";
-    function loadSession() { try { return JSON.parse(localStorage.getItem(SESSION_KEY) || "null"); } catch (e) { return null; } }
-    function saveSession(s) { try { localStorage.setItem(SESSION_KEY, JSON.stringify(s)); } catch (e) { /* ignore */ } }
-    function clearSession() { try { localStorage.removeItem(SESSION_KEY); } catch (e) { /* ignore */ } }
+    // ── memberships: this device can belong to MANY leagues ─────────────────
+    // Hosted (server-backed) leagues are session objects { code, name,
+    // playerId, token, hostToken? } held in a list; built-in / created local
+    // groups are held as a list of group keys. `active` ({ kind:"session"|
+    // "group", id }) points at the one currently open — switching just moves
+    // the pointer, so you never leave a league to open another.
+    const SESSION_KEY   = "lsw_session";      // legacy single-session (migrated)
+    const SESSIONS_KEY  = "lsw_sessions";
+    const MY_GROUPS_KEY = "lsw_mygroups";
+    const ACTIVE_KEY    = "lsw_active";
+    const _readJSON  = (k, dflt) => { try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? dflt : v; } catch (e) { return dflt; } };
+    const _writeJSON = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* ignore */ } };
+    function loadSessions() { const v = _readJSON(SESSIONS_KEY, []); return Array.isArray(v) ? v : []; }
+    function saveSessions(list) { _writeJSON(SESSIONS_KEY, list); }
+    function loadMyGroups() { const v = _readJSON(MY_GROUPS_KEY, []); return Array.isArray(v) ? v : []; }
+    function saveMyGroups(list) { _writeJSON(MY_GROUPS_KEY, list); }
+    function loadActive() { return _readJSON(ACTIVE_KEY, null); }
+    function saveActive(a) { if (a) _writeJSON(ACTIVE_KEY, a); else { try { localStorage.removeItem(ACTIVE_KEY); } catch (e) { /* ignore */ } } }
+    // One-time migration from the old single-league storage keys.
+    function migrateMemberships() {
+      try {
+        const oldS = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
+        if (oldS && oldS.code) {
+          const list = loadSessions();
+          if (!list.some(x => x.code === oldS.code)) { list.push(oldS); saveSessions(list); }
+          if (!loadActive()) saveActive({ kind: "session", id: oldS.code });
+          localStorage.removeItem(SESSION_KEY);
+        }
+      } catch (e) { /* ignore */ }
+      try {
+        const oldG = localStorage.getItem(GROUP_STORAGE_KEY);
+        if (oldG) {
+          const gk = loadMyGroups();
+          if (!gk.includes(oldG)) { gk.push(oldG); saveMyGroups(gk); }
+          if (!loadActive()) saveActive({ kind: "group", id: oldG });
+          localStorage.removeItem(GROUP_STORAGE_KEY);
+        }
+      } catch (e) { /* ignore */ }
+    }
     // Invite links look like  league.html#j=CODE
     function parseJoinHash() { const m = /[#&]j=([A-Za-z0-9]+)/.exec(location.hash || ""); return m ? m[1].toUpperCase() : null; }
     function dropJoinHash() { try { history.replaceState(null, "", location.pathname + location.search); } catch (e) { /* ignore */ } }
@@ -3254,7 +3285,7 @@
     }
 
     // ── live league: holds the WebSocket, renders lobby / draft / done ──────
-    function LiveLeague({ session, onLeave }) {
+    function LiveLeague({ session, onLeave, onSwitch }) {
       const [state, setState] = useState(null);
       const [connected, setConnected] = useState(false);
       const [entered, setEntered] = useState(false);
@@ -3321,11 +3352,12 @@
       if (!state) {
         return <GateShell>
           <div style={{ color: C.muted, fontSize: 13, margin: "16px 0" }}>Connecting to your league…</div>
-          <button onClick={leave} style={{ background: "none", border: "none", color: C.muted, fontSize: 13, cursor: "pointer" }}>Leave</button>
+          {onSwitch && <div><button onClick={onSwitch} style={{ background: "none", border: "none", color: C.muted, fontSize: 13, cursor: "pointer" }}>‹ My leagues</button></div>}
+          <button onClick={leave} style={{ marginTop: 8, background: "none", border: "none", color: C.muted, fontSize: 13, cursor: "pointer" }}>Leave</button>
         </GateShell>;
       }
       if (state.status === "lobby") {
-        return <Lobby state={state} session={session} isHost={isHost} connected={connected} onStart={start} onLeave={leave} onPreview={startPreview} />;
+        return <Lobby state={state} session={session} isHost={isHost} connected={connected} onStart={start} onLeave={leave} onPreview={startPreview} onSwitch={onSwitch} />;
       }
       // Completed draft, and the user chose to enter → hand off to the full
       // league App with the drafted squads (roster global set before render,
@@ -3333,7 +3365,7 @@
       if (state.status === "complete" && entered) {
         const group = liveGroupFromState(state);
         LEAGUE_PLAYERS = group.players;
-        return <App group={group} onSwitchGroup={onLeave} />;
+        return <App group={group} onSwitchGroup={onSwitch || onLeave} />;
       }
       // drafting, or complete-but-reviewing → the draft board
       return <Draft state={state} session={session} onLeave={leave}
@@ -3564,7 +3596,7 @@
       </div>;
     }
 
-    function Lobby({ state, session, isHost, connected, onStart, onLeave, onPreview }) {
+    function Lobby({ state, session, isHost, connected, onStart, onLeave, onPreview, onSwitch }) {
       const [copied, setCopied] = useState(false);
       const link = inviteLinkFor(state.code);
       const share = async () => {
@@ -3616,7 +3648,10 @@
           </div>
         )}
 
-        <button onClick={onLeave} style={{ marginTop: 22, background: "none", border: "none", color: C.muted, fontSize: 13, cursor: "pointer" }}>Leave league</button>
+        <div style={{ marginTop: 22, display: "flex", flexDirection: "column", gap: 10 }}>
+          {onSwitch && <button onClick={onSwitch} style={{ background: "none", border: "none", color: C.dim, fontSize: 13, cursor: "pointer" }}>‹ My leagues</button>}
+          <button onClick={onLeave} style={{ background: "none", border: "none", color: C.muted, fontSize: 13, cursor: "pointer" }}>Leave league</button>
+        </div>
       </GateShell>;
     }
 
@@ -3668,13 +3703,11 @@
     }
 
     function GroupGate() {
-      const [ready] = useState(() => { loadCreatedLeagues(); return true; });
+      const [ready] = useState(() => { migrateMemberships(); loadCreatedLeagues(); return true; });
       const [demoOn, setDemoOn] = useState(() => /(?:^|[#&])demo\b/.test(location.hash || ""));
-      const [groupKey, setGroupKey] = useState(() => {
-        const k = localStorage.getItem(GROUP_STORAGE_KEY);
-        return (k && typeof LEAGUE_GROUPS !== "undefined" && LEAGUE_GROUPS[k]) ? k : null;
-      });
-      const [session, setSession] = useState(() => loadSession());
+      const [sessions, setSessions] = useState(() => loadSessions());
+      const [myGroups, setMyGroups] = useState(() => loadMyGroups());
+      const [active, setActive] = useState(() => loadActive());
       const [hashCode, setHashCode] = useState(() => parseJoinHash());
       const [mode, setMode] = useState("menu"); // menu · join · create
       const [input, setInput] = useState("");
@@ -3692,33 +3725,43 @@
         setComps(prev => prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code]);
       };
 
+      // ── membership helpers (persist + update state) ──
+      const goActive = (a) => { saveActive(a); setActive(a); };
+      const addSession = (s) => setSessions(prev => { const next = prev.some(x => x.code === s.code) ? prev.map(x => x.code === s.code ? s : x) : [...prev, s]; saveSessions(next); return next; });
+      const removeSession = (code) => setSessions(prev => { const next = prev.filter(x => x.code !== code); saveSessions(next); return next; });
+      const addGroupKey = (key) => setMyGroups(prev => { const next = prev.includes(key) ? prev : [...prev, key]; saveMyGroups(next); return next; });
+      const removeGroupKey = (key) => setMyGroups(prev => { const next = prev.filter(k => k !== key); saveMyGroups(next); return next; });
       const enter = (key) => {
         if (typeof lgEnsureTeams === "function") lgEnsureTeams(LEAGUE_GROUPS[key]);
-        localStorage.setItem(GROUP_STORAGE_KEY, key);
-        setGroupKey(key);
+        addGroupKey(key);
+        goActive({ kind: "group", id: key });
       };
+      // Non-destructive: back to the "Your leagues" chooser, memberships intact.
+      const switchAway = () => { setMode("menu"); setInput(""); setBad(false); setCreateErr(""); goActive(null); };
 
       // Pitch/demo mode (#demo) — a self-contained local Rodents draft.
       if (demoOn) {
         return <DemoLeague onLeave={() => { dropJoinHash(); setDemoOn(false); }} />;
       }
-      // A live (server-backed) league takes priority over everything else.
-      if (session) {
-        return <LiveLeague session={session} onLeave={() => { clearSession(); dropJoinHash(); setSession(null); setHashCode(null); }} />;
-      }
+      // Opening an invite link always takes priority.
       if (hashCode) {
         return <JoinByLink code={hashCode}
-          onJoined={(s) => { saveSession(s); dropJoinHash(); setSession(s); setHashCode(null); }}
+          onJoined={(s) => { addSession(s); dropJoinHash(); setHashCode(null); goActive({ kind: "session", id: s.code }); }}
           onCancel={() => { dropJoinHash(); setHashCode(null); }} />;
       }
-
-      if (groupKey && typeof LEAGUE_GROUPS !== "undefined" && LEAGUE_GROUPS[groupKey]) {
-        if (typeof lgEnsureTeams === "function") lgEnsureTeams(LEAGUE_GROUPS[groupKey]);
-        LEAGUE_PLAYERS = LEAGUE_GROUPS[groupKey].players;
-        return <App group={LEAGUE_GROUPS[groupKey]} onSwitchGroup={() => {
-          localStorage.removeItem(GROUP_STORAGE_KEY);
-          setGroupKey(null); setMode("menu"); setInput(""); setBad(false);
-        }} />;
+      // The active league — a hosted session or a built-in / created group.
+      if (active && active.kind === "session") {
+        const sess = sessions.find(x => x.code === active.id);
+        if (sess) {
+          return <LiveLeague session={sess}
+            onLeave={() => { removeSession(sess.code); dropJoinHash(); goActive(null); }}
+            onSwitch={switchAway} />;
+        }
+      }
+      if (active && active.kind === "group" && typeof LEAGUE_GROUPS !== "undefined" && LEAGUE_GROUPS[active.id]) {
+        if (typeof lgEnsureTeams === "function") lgEnsureTeams(LEAGUE_GROUPS[active.id]);
+        LEAGUE_PLAYERS = LEAGUE_GROUPS[active.id].players;
+        return <App group={LEAGUE_GROUPS[active.id]} onSwitchGroup={switchAway} />;
       }
 
       const submitJoin = (e) => {
@@ -3759,8 +3802,8 @@
           if (!res.ok) throw new Error(data.error || "create_failed");
           // Host is a player too; the Worker set their player token = hostToken.
           const s = { code: data.code, name, playerId: data.playerId, token: data.hostToken, hostToken: data.hostToken };
-          saveSession(s);
-          setSession(s);
+          addSession(s);
+          goActive({ kind: "session", id: s.code });
         } catch (err) {
           setCreateErr("Couldn't create the league — check your connection and try again.");
         } finally {
@@ -3789,6 +3832,15 @@
       const backLink = (
         <button onClick={() => { setMode("menu"); setBad(false); setCreateErr(""); }}
           style={{ marginTop: 22, background: "none", border: "none", color: C.muted, fontSize: 13, cursor: "pointer" }}>‹ Back</button>
+      );
+      const leagueRow = (key, name, sub, onOpen, onForget) => (
+        <div key={key} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", maxWidth: 320, margin: "10px auto 0", background: C.card, border: `1px solid ${C.border}`, borderRadius: 14 }}>
+          <button onClick={onOpen} style={{ flex: 1, minWidth: 0, background: "none", border: "none", color: C.text, cursor: "pointer", textAlign: "left", display: "flex", flexDirection: "column", gap: 3, padding: "14px 4px 14px 16px" }}>
+            <span style={{ fontSize: 15, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
+            <span style={{ fontSize: 12, color: C.muted }}>{sub}</span>
+          </button>
+          <button onClick={onForget} aria-label={`Forget ${name}`} title="Remove from this device" style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 17, padding: "10px 14px", flexShrink: 0 }}>✕</button>
+        </div>
       );
 
       if (mode === "join") {
@@ -3837,10 +3889,19 @@
           <div style={{ textAlign: "center" }}>{backLink}</div>
         </>);
       }
-      // menu
+      // menu / "Your leagues" chooser
+      const groupList = myGroups.filter(k => typeof LEAGUE_GROUPS !== "undefined" && LEAGUE_GROUPS[k]);
+      const hasLeagues = sessions.length + groupList.length > 0;
       return shell(<>
-        <div style={{ color: C.muted, fontSize: 13, margin: "6px 0 26px" }}>Top-flight football sweepstake — create a league and draft teams with your mates.</div>
-        {bigBtn("Join a league", "Enter a code you've been given", () => { setMode("join"); }, true)}
+        <div style={{ color: C.muted, fontSize: 13, margin: "6px 0 22px" }}>Top-flight football sweepstake — create a league and draft teams with your mates.</div>
+        {hasLeagues && (
+          <div style={{ maxWidth: 320, margin: "0 auto 18px" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.dim, letterSpacing: "0.08em", textTransform: "uppercase", textAlign: "left" }}>Your leagues</div>
+            {sessions.map(s => leagueRow("s-" + s.code, s.name || s.code, "Live league", () => goActive({ kind: "session", id: s.code }), () => removeSession(s.code)))}
+            {groupList.map(k => leagueRow("g-" + k, LEAGUE_GROUPS[k].label || k, "Group", () => enter(k), () => removeGroupKey(k)))}
+          </div>
+        )}
+        {bigBtn("Join a league", "Enter a code you've been given", () => { setMode("join"); }, !hasLeagues)}
         {bigBtn("Create a league", "Start one and invite your mates", () => { setMode("create"); }, false)}
       </>);
     }
