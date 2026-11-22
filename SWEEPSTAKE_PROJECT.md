@@ -114,7 +114,7 @@ switching resets tab/card state.
 
 ### Gameweek (FPL-style weekly view)
 
-The gameweek view is **embedded at the top of Home** (`GameweekTab embedded`;
+The gameweek view is **embedded near the top of Home**, under the live / next-match card (`GameweekTab embedded`;
 Team of the Week and the week standings lists were removed — highest scorer
 and week rank remain in the stat block);
 The Race is back in the bottom nav. The **pitch has one row per league**, each

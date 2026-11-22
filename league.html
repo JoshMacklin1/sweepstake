@@ -2018,9 +2018,9 @@
             {onOpenSwitcher && <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>Tap to switch league</div>}
           </div>
 
-          {gwEmbed}
-
           <LeagueMatchFocusCard matches={matches} matchPtsById={matchPtsById} onMatchClick={openMatchModal} />
+
+          {gwEmbed}
 
           {topThree[0] && (
             <div onClick={() => openPlayerModal(topThree[0].name)} style={{
