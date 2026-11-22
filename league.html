@@ -106,7 +106,7 @@
 <body>
   <div id="root"></div>
   <!-- Coupled: every league-scoring.js change must bump ?v=N (see SWEEPSTAKE_PROJECT.md cache-bust rule) -->
-  <script src="league-scoring.js?v=22"></script>
+  <script src="league-scoring.js?v=23"></script>
   <script type="text/babel">
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
@@ -3209,7 +3209,8 @@
     function liveGroupFromState(state) {
       const players = state.players.map(p => ({
         name: p.name,
-        teamIds: state.picks.filter(pk => pk.playerId === p.id).map(pk => pk.teamId),
+        // Drop picks for clubs no longer in LEAGUE_TEAMS (relegated out of the pool).
+        teamIds: state.picks.filter(pk => pk.playerId === p.id && (typeof LEAGUE_TEAMS === "undefined" || LEAGUE_TEAMS[pk.teamId])).map(pk => pk.teamId),
       }));
       return { code: state.code, label: state.name, players: players };
     }
