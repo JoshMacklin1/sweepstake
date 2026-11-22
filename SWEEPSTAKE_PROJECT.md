@@ -107,7 +107,7 @@ device (hosted sessions + groups), **most recently opened first** (per-device
 leagues it falls back to the original big Join/Create buttons.
 **In-app switcher** (`LeagueSwitcherSheet`): GroupGate publishes the same list
 each render via the `LEAGUE_SWITCHER` global; `App` opens it from the header
-logo, the Home "League Name" card ("Tap to switch league"), the desktop
+logo, the desktop
 sidebar's group label, and More → Switch league. "Join or create a league…"
 returns to the landing screen. Each `App`/`LiveLeague` is keyed by league id so
 switching resets tab/card state.

@@ -2092,12 +2092,6 @@
 
       return (
         <div style={{ padding: "0 14px" }}>
-          <div onClick={onOpenSwitcher} role="button" style={{ ...s.card, padding: "14px 16px", marginBottom: 16, textAlign: "center", cursor: onOpenSwitcher ? "pointer" : "default" }}>
-            <div style={{ fontSize: 11, color: C.dim, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>League Name</div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: C.text, marginTop: 4 }}>{group ? group.label : ""}{onOpenSwitcher && <span style={{ fontSize: 13, color: C.muted, marginLeft: 6 }}>▾</span>}</div>
-            {onOpenSwitcher && <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>Tap to switch league</div>}
-          </div>
-
           <LeagueMatchFocusCard matches={matches} matchPtsById={matchPtsById} onMatchClick={openMatchModal} />
 
           {gwEmbed}
