@@ -72,10 +72,13 @@ end-to-end against the 2025-26 replay data.
 
 The five WC groups (Rodents, Silverstream, Cornwall, Macklins, Caversham — same
 people, minus the Grim Reaper) exist as preset league groups in `LEAGUE_GROUPS`.
-Squads are dealt by `lgEnsureTeams`' **fair draw** (seeded by group code; every
-player within ±1 on each pot, CL clubs, CL tier-1 giants and league; the
-remainder left unowned from Pot 4 non-CL). Silverstream's 21 players get 4
-clubs each. **Share link:** `league.html#g=CODE` drops straight into a group
+Squads are dealt by `lgEnsureTeams`' **fair draw** (seeded by group code). Squad
+size = `lgDraftPerPlayer` (same as the live draft): the largest **equal** split
+per league every league can supply (10 = 2 per league for Rodents/Macklins, 5 =
+1 per league for Cornwall/Caversham); with too many players for one-each
+(Silverstream, 21 → 4) each player misses one league in rotation. Per-player
+league quotas are fixed up front so nobody comes up short; pots / CL clubs are
+within ±1 across players; spare clubs are each league's weakest non-CL sides. **Share link:** `league.html#g=CODE` drops straight into a group
 (adds it to "Your leagues"). Squads are re-dealt whenever pots/rosters change
 until they're frozen (hard-coded `teamIds`).
 

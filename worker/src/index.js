@@ -312,15 +312,24 @@ export class League {
         [ids[i], ids[j]] = [ids[j], ids[i]];
       }
       d.order = ids;
-      // Balanced draft: picks per player = a multiple of the league count when
-      // every league can give each player one (mirrors lgDraftPerPlayer).
+      // Balanced draft: picks per player mirrors lgDraftPerPlayer.
       d.perPlayer = Math.floor(d.pool.length / ids.length);
       if (d.poolLeagues) {
-        const size = {};
+        const size = {}, n = ids.length;
         d.pool.forEach(id => { const L = d.poolLeagues[id]; size[L] = (size[L] || 0) + 1; });
         const Ls = Object.keys(size);
-        const q = Math.min(...Ls.map(L => Math.floor(size[L] / ids.length)));
-        if (Ls.length && q >= 1) d.perPlayer = q * Ls.length;
+        // = lgDraftPerPlayer: largest equal split (multiple of the league
+        // count) every league can supply, else the largest within-one split.
+        const feasible = (k) => {
+          const base = Math.floor(k / Ls.length), extra = k - base * Ls.length;
+          if (Ls.some(L => size[L] < base * n)) return false;
+          return Ls.reduce((a, L) => a + Math.min(n, size[L] - base * n), 0) >= n * extra;
+        };
+        const max = Math.floor(d.pool.length / n);
+        let best = 0;
+        for (let k = max - (max % Ls.length); k >= Ls.length && !best; k -= Ls.length) if (feasible(k)) best = k;
+        for (let k = Math.min(max, Ls.length - 1); k >= 1 && !best; k--) if (feasible(k)) best = k;
+        if (best) d.perPlayer = best;
       }
       d.totalPicks = d.perPlayer * ids.length;
       d.turnNo = 0;
