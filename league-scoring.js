@@ -348,25 +348,48 @@ var LEAGUE_OUTCOME_LABEL = {
 // ─────────────────────────────────────────────────────────────────────────────
 // CHAMPIONS LEAGUE — the overlay gamble
 //
-// Owning a club that ALSO plays in the Champions League is a bet, not free
-// points. The payoff is relative to the club's DOMESTIC pot: a Pot-1 favourite
-// is expected to go deep, so it only earns a modest bonus for doing so and a
-// real DEDUCTION if it flops early; a lower-pot side is playing with house
-// money, so any run is upside and an early exit barely stings. Applied on top
-// of the club's league points (deriveCLProgress → clGamblePts), so a big club
-// that wins its league but bombs in Europe can still bleed points.
+// Owning a club that ALSO plays in the Champions League is a bet laid on top
+// of its league points. Everything here is priced by the club's CL TIER — its
+// pot in UEFA's own league-phase draw (CL_TIER), i.e. European pedigree, NOT
+// its domestic pot (Como/Lens/Stuttgart are domestic heavyweights but CL
+// minnows). Three layers, summed into a club's clPts by clTeamPts():
+//   1. Match points (CL_MATCH_PTS): every CL game, scaled by the tier gap to
+//      the opponent — upsets pay big, a favourite beating a minnow pays little.
+//   2. Giant-killer bonus (CL_GIANT_KILL_PER_TIER): knock a higher-tier club
+//      out of a knockout tie → +N per tier of gap.
+//   3. Stage reached (CL_GAMBLE below): pot-relative — a T1 favourite earns
+//      little for a deep run and loses a little for an early exit; a T4 side
+//      is mostly upside. Penalties were softened when match points arrived
+//      (they now carry most of the drama).
 //
-// Rows = furthest CL stage reached; columns = the club's domestic pot (1-4).
-// Values are hand-set for feel (the API-fit calibration scripts don't cover a
-// knockout cup) — tune freely.
+// Rows = furthest CL stage reached; columns = CL tier (1-4). Hand-set for feel.
 var CL_GAMBLE = {
   WINNER:      [120, 220, 360, 500],  // won the final
   FINAL:       [70, 140, 250, 380],   // runner-up
   SEMI:        [35, 90, 170, 280],    // lost in the semis
   QF:          [10, 45, 110, 200],    // lost in the quarters
-  R16:         [-15, 15, 60, 130],    // lost in the round of 16
-  PLAYOFF:     [-45, -10, 30, 90],    // lost the knockout play-off round
-  LEAGUE_EXIT: [-90, -50, -10, 20],   // eliminated in the league phase
+  R16:         [0, 15, 60, 130],      // lost in the round of 16
+  PLAYOFF:     [-20, 0, 30, 90],      // lost the knockout play-off round
+  LEAGUE_EXIT: [-40, -20, 0, 20],     // eliminated in the league phase
+};
+
+// Per-match CL points: win = base + perGap × gap, draw likewise, loss = 0,
+// where gap = max(0, ownTier − oppTier) (how many tiers BELOW the opponent).
+// T4 beating T1 = 18, T4 drawing T1 = 10; a favourite's win = 3.
+var CL_MATCH_PTS = { winBase: 3, winPerGap: 5, drawBase: 1, drawPerGap: 3 };
+var CL_GIANT_KILL_PER_TIER = 25;
+
+// UEFA 2026-27 league-phase draw pots (football-data ids). Sources: SI / Sky /
+// ESPN / beIN draw coverage (ESPN alone had AEK in pot 3). Refresh each season.
+var CL_TIER = {
+  // Pot 1
+  524: 1, 5: 1, 86: 1, 64: 1, 108: 1, 65: 1, 57: 1, 81: 1, 78: 1,
+  // Pot 2 — Dortmund, Roma, Sporting, Villa, Porto, Man Utd, Brugge, Betis, PSV
+  4: 2, 100: 2, 498: 2, 58: 2, 503: 2, 66: 2, 851: 2, 90: 2, 674: 2,
+  // Pot 3 — Napoli, Leipzig, Villarreal, Lille, Feyenoord, Shakhtar, Galatasaray, Fenerbahçe, Bodø/Glimt
+  113: 3, 721: 3, 94: 3, 521: 3, 675: 3, 1887: 3, 610: 3, 613: 3, 5721: 3,
+  // Pot 4 — Como, Stuttgart, Lens, Slavia, AEK, Slovan, LASK, Viking, Sabah
+  7397: 4, 10: 4, 546: 4, 930: 4, 1899: 4, 7509: 4, 2016: 4, 5720: 4, 10233: 4,
 };
 
 var CL_OUTCOME_LABEL = {
@@ -816,13 +839,59 @@ function deriveCLProgress(matches) {
   return out;
 }
 
-// Pot-relative gamble points for one club's CL run (0 if it isn't in the CL).
+// A club's CL tier (UEFA draw pot); falls back to its domestic pot, then 4,
+// so a club missing from CL_TIER (e.g. a stale season) still scores sensibly.
+function clTierOf(teamId) {
+  if (CL_TIER[teamId]) return CL_TIER[teamId];
+  var t = LEAGUE_TEAMS[teamId];
+  return t ? t.pot : 4;
+}
+
+// Stage-reached points for one club's CL run (0 if it isn't in the CL).
 function clGamblePts(teamId, clProgress) {
   var o = clProgress && clProgress[teamId];
-  var team = LEAGUE_TEAMS[teamId];
-  if (!o || !team) return 0;
+  if (!o || !LEAGUE_TEAMS[teamId]) return 0;
   var row = CL_GAMBLE[o];
-  return row ? (row[team.pot - 1] || 0) : 0;
+  return row ? (row[clTierOf(teamId) - 1] || 0) : 0;
+}
+
+function lgIsCL(m) { return m.competition && m.competition.code === "CL"; }
+
+// Points one side earned from one settled CL match (0 for non-CL / losses).
+function clMatchPtsFor(m, teamId) {
+  if (!lgIsCL(m) || !lgIsSettled(m)) return 0;
+  var r = lgResultFor(m, teamId);
+  if (r !== "W" && r !== "D") return 0;
+  var opp = m.homeTeam.id === teamId ? m.awayTeam.id : m.homeTeam.id;
+  var gap = Math.max(0, clTierOf(teamId) - clTierOf(opp));
+  return r === "W" ? CL_MATCH_PTS.winBase + CL_MATCH_PTS.winPerGap * gap
+                   : CL_MATCH_PTS.drawBase + CL_MATCH_PTS.drawPerGap * gap;
+}
+
+// { teamId: giant-killer bonus } from decided knockout ties (deriveCLBracket).
+function clGiantKills(matches) {
+  var out = {};
+  if (typeof deriveCLBracket !== "function") return out;
+  deriveCLBracket(matches).rounds.forEach(function (round) {
+    round.ties.forEach(function (t) {
+      if (!t.winner) return;
+      var loser = t.winner === t.a ? t.b : t.a;
+      var gap = clTierOf(t.winner) - clTierOf(loser);
+      if (gap > 0) out[t.winner] = (out[t.winner] || 0) + CL_GIANT_KILL_PER_TIER * gap;
+    });
+  });
+  return out;
+}
+
+// Total CL points for one club: match points + giant kills + stage reached.
+// Pass precomputed clProgress / giantKills when scoring many clubs at once.
+function clTeamPts(matches, teamId, clProgress, giantKills) {
+  if (!LEAGUE_TEAMS[teamId]) return 0;
+  var prog = clProgress || deriveCLProgress(matches);
+  var gk = giantKills || clGiantKills(matches);
+  var mp = 0;
+  matches.forEach(function (m) { mp += clMatchPtsFor(m, teamId); });
+  return mp + (gk[teamId] || 0) + clGamblePts(teamId, prog);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -925,6 +994,7 @@ function lgTeamMatchPts(matches, teamId) {
 function scoreLeaguePlayers(matches) {
   var outcomes = deriveSeasonOutcomes(matches);
   var clProgress = deriveCLProgress(matches);
+  var giantKills = clGiantKills(matches);
   var ranked = LEAGUE_PLAYERS.map(function (p) {
     // Skip ids no longer in LEAGUE_TEAMS (e.g. a club drafted before it was
     // relegated out of the pool) rather than crash on t.tla.
@@ -933,7 +1003,7 @@ function scoreLeaguePlayers(matches) {
       var wdl = deriveLeagueWDL(matches, id);
       var matchPts = lgTeamMatchPts(matches, id);
       var bonusPts = leagueBonusPts(id, outcomes);
-      var clPts = clGamblePts(id, clProgress);
+      var clPts = clTeamPts(matches, id, clProgress, giantKills);
       return {
         teamId: id, tla: t.tla, name: t.name, pot: t.pot, league: t.league,
         w: wdl.w, d: wdl.d, l: wdl.l,
@@ -975,6 +1045,7 @@ function deriveLeagueHistory(matches) {
   LEAGUE_PLAYERS.forEach(function (p) { history[p.name] = []; });
   var frames = [];
   var matchPts = {};   // teamId → accumulated W/D points
+  var clPts = {};     // teamId → accumulated CL match points
   var current = [], idx = 0;
   var days = [];
   settled.forEach(function (m) {
@@ -985,7 +1056,11 @@ function deriveLeagueHistory(matches) {
     while (idx < settled.length && settled[idx].utcDate.slice(0, 10) <= day) {
       var m = settled[idx++];
       current.push(m);
-      if (m.stage === "REGULAR_SEASON") {
+      if (lgIsCL(m)) {
+        [m.homeTeam.id, m.awayTeam.id].forEach(function (id) {
+          if (LEAGUE_TEAMS[id]) clPts[id] = (clPts[id] || 0) + clMatchPtsFor(m, id);
+        });
+      } else if (m.stage === "REGULAR_SEASON") {
         [m.homeTeam.id, m.awayTeam.id].forEach(function (id) {
           var t = LEAGUE_TEAMS[id];
           if (!t) return;
@@ -999,11 +1074,13 @@ function deriveLeagueHistory(matches) {
     }
     var outcomes = deriveSeasonOutcomes(current);
     var clProg = deriveCLProgress(current);
+    var gk = clGiantKills(current);
     frames.push(day);
     LEAGUE_PLAYERS.forEach(function (p) {
       var total = 0;
       (p.teamIds || []).forEach(function (id) {
-        total += (matchPts[id] || 0) + leagueBonusPts(id, outcomes) + clGamblePts(id, clProg);
+        if (!LEAGUE_TEAMS[id]) return;
+        total += (matchPts[id] || 0) + leagueBonusPts(id, outcomes) + (clPts[id] || 0) + (gk[id] || 0) + clGamblePts(id, clProg);
       });
       history[p.name].push(total);
     });
@@ -1029,6 +1106,7 @@ function deriveLeagueTeamHistory(matches) {
   Object.keys(LEAGUE_TEAMS).forEach(function (id) { history[id] = []; });
   var frames = [];
   var matchPts = {};  // teamId → accumulated W/D points
+  var clPts = {};    // teamId → accumulated CL match points
   var current = [], idx = 0;
   var days = [];
   settled.forEach(function (m) {
@@ -1039,7 +1117,11 @@ function deriveLeagueTeamHistory(matches) {
     while (idx < settled.length && settled[idx].utcDate.slice(0, 10) <= day) {
       var m = settled[idx++];
       current.push(m);
-      if (m.stage === "REGULAR_SEASON") {
+      if (lgIsCL(m)) {
+        [m.homeTeam.id, m.awayTeam.id].forEach(function (id) {
+          if (LEAGUE_TEAMS[id]) clPts[id] = (clPts[id] || 0) + clMatchPtsFor(m, id);
+        });
+      } else if (m.stage === "REGULAR_SEASON") {
         [m.homeTeam.id, m.awayTeam.id].forEach(function (id) {
           var t = LEAGUE_TEAMS[id];
           if (!t) return;
@@ -1053,9 +1135,10 @@ function deriveLeagueTeamHistory(matches) {
     }
     var outcomes = deriveSeasonOutcomes(current);
     var clProg = deriveCLProgress(current);
+    var gk = clGiantKills(current);
     frames.push(day);
     Object.keys(LEAGUE_TEAMS).forEach(function (id) {
-      history[id].push((matchPts[id] || 0) + leagueBonusPts(Number(id), outcomes) + clGamblePts(Number(id), clProg));
+      history[id].push((matchPts[id] || 0) + leagueBonusPts(Number(id), outcomes) + (clPts[id] || 0) + (gk[id] || 0) + clGamblePts(Number(id), clProg));
     });
   });
   return { frames: frames, history: history };
@@ -1099,6 +1182,14 @@ function computeWeekRankChange(matches, ranked, anchorIso) {
 function deriveLeagueMatchPts(matches) {
   var out = {};
   matches.forEach(function (m) {
+    if (lgIsCL(m)) { // CL games: tier-gap points (owned clubs only)
+      if (!lgIsSettled(m)) return;
+      out[m.id] = {
+        home: LEAGUE_TEAMS[m.homeTeam.id] ? clMatchPtsFor(m, m.homeTeam.id) : 0,
+        away: LEAGUE_TEAMS[m.awayTeam.id] ? clMatchPtsFor(m, m.awayTeam.id) : 0,
+      };
+      return;
+    }
     if (m.stage !== "REGULAR_SEASON" || !lgIsSettled(m)) return;
     var row = { home: 0, away: 0 };
     [["home", m.homeTeam.id], ["away", m.awayTeam.id]].forEach(function (side) {
