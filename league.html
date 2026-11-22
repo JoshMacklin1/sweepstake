@@ -1286,7 +1286,7 @@
         ? `${a.getUTCDate()}–${b.getUTCDate()} ${mon(b)}`
         : `${a.getUTCDate()} ${mon(a)} – ${b.getUTCDate()} ${mon(b)}`;
     };
-    function GameweekTab({ group, matches, ranked, matchPtsById, anchorIso, onTeamClick, onOpenRace }) {
+    function GameweekTab({ group, matches, ranked, matchPtsById, anchorIso, onTeamClick, onOpenRace, embedded }) {
       const code = (group && (group.code || group.label)) || "LEAGUE";
       const weeks = useMemo(() => (typeof lgWeeks === "function" ? lgWeeks(matches) : []), [matches]);
       const teamHist = useMemo(() => (typeof deriveLeagueTeamHistory === "function" ? deriveLeagueTeamHistory(matches) : { frames: [], history: {} }), [matches]);
@@ -1295,6 +1295,7 @@
       const [me, setMe] = useState(() => readMe(code));
       const [viewing, setViewing] = useState(null);
       const [picker, setPicker] = useState(false);
+      const [showAll, setShowAll] = useState({ tow: false, table: false });
       if (!weeks.length || typeof lgGameweek !== "function") {
         return <div style={{ color: C.muted, textAlign: "center", padding: 40 }}>No fixtures yet.</div>;
       }
@@ -1324,7 +1325,7 @@
       );
       const sect = { fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", margin: "20px 0 8px" };
       return (
-        <div style={{ padding: "0 14px" }}>
+        <div style={{ padding: embedded ? 0 : "0 14px" }}>
           {/* Week header */}
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
             {arrowBtn(-1, wi === 0)}
@@ -1368,18 +1369,31 @@
           </div>
           {gw.played === 0 && <div style={{ fontSize: 12, color: C.muted, textAlign: "center", marginBottom: 10 }}>No matches played this week yet.</div>}
           {mode === "pitch" ? (
-            <div style={{ borderRadius: 16, padding: "14px 8px", background: "repeating-linear-gradient(180deg, #1f7a3a 0 44px, #1b6e34 44px 88px)", border: `1px solid ${C.border}`,
-              display: "grid", gridTemplateColumns: `repeat(${pw.teams.length > 9 ? 4 : 3}, 1fr)`, gap: 10 }}>
-              {pw.teams.map(t => (
-                <div key={t.teamId} onClick={() => onTeamClick(t.teamId)} style={{ cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center" }}>
-                  <div style={{ position: "relative", background: "rgba(0,0,0,0.18)", borderRadius: "10px 10px 0 0", padding: "8px 8px 6px", width: "100%", display: "flex", justifyContent: "center", boxSizing: "border-box" }}>
-                    <Crest teamId={t.teamId} size={34} />
-                    {t.clPts !== 0 && <span style={{ position: "absolute", top: 3, right: 4, fontSize: 10 }}>🏆</span>}
+            // One pitch row per league (league order), like the FPL pitch's position rows.
+            <div style={{ borderRadius: 16, padding: "10px 8px", background: "repeating-linear-gradient(180deg, #1f7a3a 0 64px, #1b6e34 64px 128px)", border: `1px solid ${C.border}` }}>
+              {(typeof LEAGUE_COMPETITIONS !== "undefined" ? Object.keys(LEAGUE_COMPETITIONS).filter(c => LEAGUE_COMPETITIONS[c].type !== "cup") : []).map(L => {
+                const row = pw.teams.filter(t => t.league === L);
+                if (!row.length) return null;
+                return (
+                  <div key={L} style={{ marginBottom: 6 }}>
+                    <div style={{ fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,0.78)", letterSpacing: "0.08em", textTransform: "uppercase", margin: "0 0 3px 4px" }}>
+                      {LEAGUE_COMPETITIONS[L].label} <span style={{ color: "rgba(255,255,255,0.55)" }}>· {row.reduce((a, t) => a + t.pts, 0)} pts</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "center", gap: 8 }}>
+                      {row.map(t => (
+                        <div key={t.teamId} onClick={() => onTeamClick(t.teamId)} style={{ cursor: "pointer", flex: "0 1 25%", minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center" }}>
+                          <div style={{ position: "relative", background: "rgba(0,0,0,0.18)", borderRadius: "10px 10px 0 0", padding: "6px 6px 4px", width: "100%", display: "flex", justifyContent: "center", boxSizing: "border-box" }}>
+                            <Crest teamId={t.teamId} size={30} />
+                            {t.clPts !== 0 && <span style={{ position: "absolute", top: 2, right: 3, fontSize: 10 }}>🏆</span>}
+                          </div>
+                          <div style={{ width: "100%", background: "#f4f6f4", color: "#0d1f12", fontSize: 10, fontWeight: 800, textAlign: "center", padding: "3px 2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", boxSizing: "border-box" }}>{t.name}</div>
+                          <div style={{ width: "100%", background: "#0d1f12", color: t.pts < 0 ? C.red : "#fff", fontSize: 12, fontWeight: 900, textAlign: "center", padding: "3px 2px", borderRadius: "0 0 10px 10px", boxSizing: "border-box" }}>{t.results.length || t.pts ? t.pts : "–"}</div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div style={{ width: "100%", background: "#f4f6f4", color: "#0d1f12", fontSize: 10.5, fontWeight: 800, textAlign: "center", padding: "3px 2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", boxSizing: "border-box" }}>{t.name}</div>
-                  <div style={{ width: "100%", background: "#0d1f12", color: t.pts < 0 ? C.red : "#fff", fontSize: 13, fontWeight: 900, textAlign: "center", padding: "3px 2px", borderRadius: "0 0 10px 10px", boxSizing: "border-box" }}>{t.results.length || t.pts ? t.pts : "–"}</div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div style={{ ...s.card, overflow: "hidden" }}>
@@ -1411,7 +1425,7 @@
           <div style={{ ...s.card, overflow: "hidden" }}>
             {gw.teamsOfWeek.filter(t => t.pts > 0).length === 0
               ? <div style={{ padding: 14, fontSize: 12, color: C.muted }}>Nobody's scored yet this week.</div>
-              : gw.teamsOfWeek.filter(t => t.pts > 0).map((t, i, arr) => (
+              : gw.teamsOfWeek.filter(t => t.pts > 0).slice(0, embedded && !showAll.tow ? 3 : 10).map((t, i, arr) => (
                 <div key={t.teamId + t.owner} onClick={() => onTeamClick(t.teamId)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", cursor: "pointer", borderBottom: i < arr.length - 1 ? `1px solid ${C.border}` : "none" }}>
                   <div style={{ width: 18, fontSize: 11, color: C.muted, fontWeight: 700, textAlign: "right" }}>{i + 1}</div>
                   <Crest teamId={t.teamId} size={22} />
@@ -1422,12 +1436,15 @@
                   <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>+{t.pts}</div>
                 </div>
               ))}
+            {embedded && gw.teamsOfWeek.filter(t => t.pts > 0).length > 3 && (
+              <button onClick={() => setShowAll(v => ({ ...v, tow: !v.tow }))} style={{ width: "100%", padding: "10px", background: "transparent", border: "none", borderTop: `1px solid ${C.border}`, color: C.accent, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>{showAll.tow ? "Show top 3" : "Show top 10"} ›</button>
+            )}
           </div>
 
           {/* Week standings */}
           <div style={sect}>Week {week.n} standings</div>
           <div style={{ ...s.card, overflow: "hidden" }}>
-            {gw.players.map((p, i) => (
+            {gw.players.slice(0, embedded && !showAll.table ? 5 : gw.players.length).map((p, i, arr) => (
               <div key={p.name} onClick={() => setViewing(p.name)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", cursor: "pointer",
                 background: p.name === who ? "rgba(34,197,94,0.08)" : "transparent", borderBottom: i < gw.players.length - 1 ? `1px solid ${C.border}` : "none" }}>
                 <div style={{ width: 22, fontSize: 12, color: C.muted, fontWeight: 700, textAlign: "right" }}>{p.rank}</div>
@@ -1436,14 +1453,17 @@
                 <div style={{ fontSize: 14, fontWeight: 900, color: p.pts < 0 ? C.red : C.text, minWidth: 36, textAlign: "right" }}>{p.pts}</div>
               </div>
             ))}
+            {embedded && gw.players.length > 5 && (
+              <button onClick={() => setShowAll(v => ({ ...v, table: !v.table }))} style={{ width: "100%", padding: "10px", background: "transparent", border: "none", borderTop: `1px solid ${C.border}`, color: C.accent, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>{showAll.table ? "Show top 5" : `Show all ${gw.players.length}`} ›</button>
+            )}
           </div>
 
-          {onOpenRace && (
+          {onOpenRace && !embedded && (
             <button onClick={onOpenRace} style={{ ...s.card, width: "100%", marginTop: 16, padding: "14px", color: C.accent, fontWeight: 800, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
               🏁 The Race — season so far ›
             </button>
           )}
-          <div style={{ fontSize: 10, color: C.muted, textAlign: "center", margin: "10px 0 4px" }}>Gameweeks run Monday–Sunday across every league; international breaks are skipped. Weekly points add up to the season total.</div>
+          <div style={{ fontSize: 10, color: C.muted, textAlign: "center", margin: embedded ? "8px 0 18px" : "10px 0 4px" }}>Gameweeks run Monday–Sunday across every league; international breaks are skipped. Weekly points add up to the season total.</div>
 
           {(picker || needsMe) && (
             <div onClick={() => { setPicker(false); if (!me) { writeMe(code, "__browse__"); setMe("__browse__"); } }} style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
@@ -1955,6 +1975,7 @@
     }
 
     function HomeTab({ group, matches, ranked, badges, weekWindow, matchPtsById, hist, outcomes, anchorIso, setTab, openPlayerModal, openTeamModal, openMatchModal, familyRows = [], openFamilyModal, onOpenSwitcher }) {
+      const gwEmbed = <GameweekTab key={group ? group.code : "g"} embedded group={group} matches={matches} ranked={ranked} matchPtsById={matchPtsById} anchorIso={anchorIso} onTeamClick={openTeamModal} />;
       const real = ranked;
       const newAccolades = useMemo(
         () => (typeof computeNewLeagueBadges === "function" ? computeNewLeagueBadges(badges, matches, anchorIso) : []),
@@ -2035,6 +2056,8 @@
             <div style={{ fontSize: 20, fontWeight: 800, color: C.text, marginTop: 4 }}>{group ? group.label : ""}{onOpenSwitcher && <span style={{ fontSize: 13, color: C.muted, marginLeft: 6 }}>▾</span>}</div>
             {onOpenSwitcher && <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>Tap to switch league</div>}
           </div>
+
+          {gwEmbed}
 
           <LeagueMatchFocusCard matches={matches} matchPtsById={matchPtsById} onMatchClick={openMatchModal} />
 
@@ -2935,7 +2958,7 @@
     };
     function BottomNav({ tab, showMore, onNav, onMore }) {
       const items = [
-        ["home", "Home"], ["table", "League"], ["scores", "Scores"], ["gameweek", "Gameweek"], ["more", "More"],
+        ["home", "Home"], ["table", "League"], ["scores", "Scores"], ["race", "The Race"], ["more", "More"],
       ];
       return (
         <div style={{
@@ -2992,7 +3015,6 @@
         ["ucl", "UCL", "table", "ucl"],
         ...(hasFamilies ? [["table", "Families", "table", "families"]] : []),
         ["scores", "Scores", "scores", null],
-        ["gameweek", "Gameweek", "gameweek", null],
         ["race", "The Race", "race", null],
       ];
       const isActive = (tabId, view) => !showMore && tab === tabId && (view == null || leagueView === view);
@@ -3697,10 +3719,7 @@
               )
             : tab === "scores" ? <ScoresTab matches={scoresMatches} matchPtsById={matchPtsById} anchorIso={anchorIso} onTeamClick={openTeamModal} onMatchClick={openMatchModal} />
             : tab === "gameweek" ? <GameweekTab key={group ? group.code : "g"} group={group} matches={matches} ranked={ranked} matchPtsById={matchPtsById} anchorIso={anchorIso} onTeamClick={openTeamModal} onOpenRace={() => navTo("race")} />
-            : tab === "race" ? (<>
-                {!isDesktop && <div style={{ padding: "0 14px 8px" }}><button onClick={() => navTo("gameweek")} style={{ background: "none", border: "none", color: C.accent, fontWeight: 700, fontSize: 13, cursor: "pointer", padding: 0 }}>‹ Gameweek</button></div>}
-                <RaceTab ranked={ranked} matches={matches} anchorIso={anchorIso} replayOn={replay.on} />
-              </>)
+            : tab === "race" ? <RaceTab ranked={ranked} matches={matches} anchorIso={anchorIso} replayOn={replay.on} />
             : null}
 
           {(selectedPlayer || selectedTeam || selectedMatch || selectedFamily) && (

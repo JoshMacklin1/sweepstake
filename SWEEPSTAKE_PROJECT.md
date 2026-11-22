@@ -111,9 +111,10 @@ switching resets tab/card state.
 
 ### Gameweek (FPL-style weekly view)
 
-Bottom-nav **Gameweek** replaces The Race (Race is reached from Gameweek's
-"🏁 The Race" button, with a "‹ Gameweek" link back; still in the desktop
-sidebar). Gameweeks are built from **calendar weeks, Mon–Sun UTC**, identical for every
+The gameweek view is **embedded at the top of Home** (`GameweekTab embedded`:
+Team of the Week shows top 3 and week standings top 5, each with "show all");
+The Race is back in the bottom nav. The **pitch has one row per league**, each
+labelled with that league's points for the week. Gameweeks are built from **calendar weeks, Mon–Sun UTC**, identical for every
 league (`lgWeeks`, `lgWeekIndexOf`); weeks with fewer than `LG_GW_MIN_FIXTURES` (5)
 fixtures — **international breaks** — are folded into the next gameweek (ranges stay
 contiguous, so no points are lost), GW numbers only count real football weeks, the
