@@ -898,11 +898,6 @@
     //    fed by deriveLeagueHistory. No knockouts/eliminations in a league
     //    season, so the stage/elim layers are dropped; frames are calendar
     //    days and team badges come from leagueCrest by teamId. ───────────────
-    function lgChunk(items, size) {
-      const rows = [];
-      for (let i = 0; i < items.length; i += size) rows.push(items.slice(i, i + size));
-      return rows;
-    }
 
     function BumpChart({ history, allRanked, bucketLabels = [] }) {
       const [selected, setSelected] = React.useState(null);
@@ -1057,8 +1052,6 @@
       const TICK = 700;
       const n = history.length;
 
-      const teamsByName = {};
-      allRanked.forEach(p => { teamsByName[p.name] = p.teams || []; });
       const colorOf = name => playerColor(name);
       const prevRanks = React.useRef({});
 
@@ -1114,7 +1107,6 @@
                 if (!s) return null;
                 const topPct = (s.rank / n) * 100;
                 const barW = ((s.value + barOffset) / barRange) * 100;
-                const teams = teamsByName[s.name] || [];
                 return (
                   <div key={s.name} style={{
                     position: "absolute", left: 0, right: 0, height: ROW_H, top: `${topPct}%`,
@@ -1123,16 +1115,8 @@
                     zIndex: s.movingUp ? n + 1 : 1,
                   }}>
                     <div style={{ width: 18, textAlign: "right", fontSize: 11, color: C.muted, flexShrink: 0, fontWeight: 700 }}>{s.rank + 1}</div>
-                    <div style={{ width: 70, textAlign: "right", fontSize: 12, fontWeight: 700, color: C.text, flexShrink: 0, overflow: "hidden", whiteSpace: "nowrap" }}>{s.name}</div>
-                    <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 2, flexShrink: 0, width: 66 }}>
-                      {teams.length === 0
-                        ? <span style={{ fontSize: 12, lineHeight: 1, marginLeft: 2, color: C.muted }}>—</span>
-                        : lgChunk(teams, 3).map((row, ri) => (
-                          <div key={ri} style={{ display: "flex", gap: 3 }}>
-                            {row.map(t => <Crest key={t.teamId} teamId={t.teamId} size={18} />)}
-                          </div>
-                        ))}
-                    </div>
+                    <div style={{ width: 90, textAlign: "right", fontSize: 12, fontWeight: 700, color: C.text, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</div>
+                    {/* No crests in the league race — 10ish clubs per player made it noisy; name + bar only. */}
                     <div style={{ flex: 1, position: "relative", height: "55%", minHeight: 18 }}>
                       <div style={{ position: "absolute", inset: 0, background: C.border, borderRadius: "0 3px 3px 0" }} />
                       <div style={{
