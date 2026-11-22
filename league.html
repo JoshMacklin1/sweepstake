@@ -106,7 +106,7 @@
 <body>
   <div id="root"></div>
   <!-- Coupled: every league-scoring.js change must bump ?v=N (see SWEEPSTAKE_PROJECT.md cache-bust rule) -->
-  <script src="league-scoring.js?v=27"></script>
+  <script src="league-scoring.js?v=28"></script>
   <script type="text/babel">
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
@@ -377,7 +377,7 @@
     }
 
     // ── PLAYER CARD — pop-up card mirroring the WC PlayerCardContent ───────
-    function PlayerCardContent({ bodyRef, player, displayRank, badges = [], matches = [], matchPtsById = {}, hist = [], week, outcomes = {}, onTeamClick, onClose }) {
+    function PlayerCardContent({ bodyRef, player, displayRank, badges = [], matches = [], matchPtsById = {}, hist = [], week, outcomes = {}, onTeamClick, onFamilyClick, onClose }) {
       if (!player) return null;
       const sect = { fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 };
       const statBox = { flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "12px 8px", textAlign: "center" };
@@ -387,6 +387,16 @@
           <div>
             <div style={{ fontSize: 18, fontWeight: 900, color: C.text }}>{player.name}</div>
             <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{`Rank ${displayRank} · ${player.total} pts`}</div>
+            {(() => {
+              const fam = typeof lgFamilyOf === "function" ? lgFamilyOf(player.name) : null;
+              if (!fam) return null;
+              return (
+                <button onClick={onFamilyClick ? () => onFamilyClick(fam.name) : undefined} style={{
+                  marginTop: 6, background: "transparent", border: `1px solid ${C.border}`, borderRadius: 12, padding: "2px 9px",
+                  color: C.accent, fontSize: 11, fontWeight: 700, cursor: onFamilyClick ? "pointer" : "default",
+                }}>👨‍👩‍👧‍👦 {fam.name} family ›</button>
+              );
+            })()}
           </div>
           <button onClick={onClose} aria-label="Close" style={{ background: "transparent", border: "none", color: C.muted, fontSize: 22, cursor: "pointer", lineHeight: 1 }}>✕</button>
         </div>
@@ -763,6 +773,106 @@
           </div>
         </div>
       );
+    }
+
+    // ── Families (family groups only, e.g. Caversham) — ported from the WC
+    //    app. Rows come from lgFamilyStandings (ranked by AVERAGE member pts). ──
+    const famPosPill = (delta) => (
+      <div style={{
+        display: "inline-block", fontSize: 10, fontWeight: 700, padding: "1px 5px", borderRadius: 3,
+        background: delta === 0 ? "rgba(148,163,184,0.12)" : delta > 0 ? C.posBg : C.negBg,
+        color: delta === 0 ? "#94a3b8" : delta > 0 ? C.accent : C.red,
+      }}>{delta === 0 ? "0 pos" : `${delta > 0 ? "▲" : "▼"} ${Math.abs(delta)} pos`}</div>
+    );
+    const FAM_RANK_COLORS = ["#84cc16", "#94a3b8", "#b45309"];
+    function FamilyLeagueTab({ familyRows, onFamilyClick }) {
+      return (
+        <div style={{ padding: "0 14px" }}>
+          {familyRows.map((f, i) => (
+            <div key={f.name} className="player-card" onClick={() => onFamilyClick(f.name)}
+              style={{ ...s.card, display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", marginBottom: 10, cursor: "pointer" }}>
+              <div style={{
+                width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
+                background: i < 3 ? FAM_RANK_COLORS[i] : C.border, display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 13, fontWeight: 800, color: i < 3 ? "#080c18" : C.dim,
+              }}>{i + 1}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: 15, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</div>
+                <div style={{ fontSize: 11, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.members.map(m => m.name).join(" · ")}</div>
+              </div>
+              <Sparkline data={f.combinedHist} width={80} height={40} color={f.avg < 0 ? C.red : C.accent} />
+              <div style={{ textAlign: "right", flexShrink: 0, minWidth: 56 }}>
+                <div style={{ fontSize: 22, fontWeight: 800, color: C.text, lineHeight: 1 }}>{f.avg}</div>
+                <div style={{ fontSize: 10, color: C.muted, marginBottom: 4 }}>avg pts</div>
+                {famPosPill(f.move)}
+              </div>
+              <span aria-hidden="true" style={{ color: C.muted, fontSize: 18, lineHeight: 1, flexShrink: 0 }}>›</span>
+            </div>
+          ))}
+          <div style={{ fontSize: 10, color: C.muted, textAlign: "center", padding: "2px 0 10px" }}>Families ranked by average points per member</div>
+        </div>
+      );
+    }
+    function FamilyCardContent({ bodyRef, familyName, familyRows, ranked, outcomes, onPlayerClick, onClose }) {
+      const idx = familyRows.findIndex(f => f.name === familyName);
+      const fam = familyRows[idx];
+      if (!fam) return null;
+      const byName = {};
+      ranked.forEach(p => { byName[p.name] = p; });
+      const sect = { fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 };
+      const statBox = { flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "12px 8px", textAlign: "center" };
+      return (<>
+        <div className="sheet-handle"><span></span></div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "14px 16px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+          <div>
+            <div style={{ fontSize: 18, fontWeight: 900, color: C.text }}>{fam.name} family</div>
+            <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Rank {idx + 1} of {familyRows.length} · {fam.members.length} members</div>
+          </div>
+          <button onClick={onClose} aria-label="Close" style={{ background: "transparent", border: "none", color: C.muted, fontSize: 22, cursor: "pointer", lineHeight: 1 }}>✕</button>
+        </div>
+        <div ref={bodyRef} style={{ flex: 1, overflowY: "auto", padding: "16px 14px 28px" }}>
+          <div style={{ display: "flex", gap: 10, marginBottom: 18 }}>
+            <div style={statBox}>
+              <div style={{ fontSize: 24, fontWeight: 900, color: C.accent, lineHeight: 1 }}>{fam.avg}</div>
+              <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 4 }}>Avg pts</div>
+            </div>
+            <div style={statBox}>
+              <div style={{ fontSize: 24, fontWeight: 900, color: C.text, lineHeight: 1 }}>{fam.total}</div>
+              <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 4 }}>Total pts</div>
+            </div>
+            <div style={statBox}>
+              <div style={{ fontSize: 24, fontWeight: 900, color: fam.weekPts > 0 ? C.accent : C.muted, lineHeight: 1 }}>{fam.weekPts > 0 ? "+" : ""}{fam.weekPts}</div>
+              <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 4 }}>Pts this week</div>
+            </div>
+          </div>
+          <div style={sect}>Avg points over time</div>
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "12px 8px", marginBottom: 18, display: "flex", justifyContent: "center" }}>
+            <Sparkline data={fam.combinedHist} width={300} height={72} color={fam.avg < 0 ? C.red : C.accent} />
+          </div>
+          <div style={sect}>Members</div>
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, overflow: "hidden" }}>
+            {fam.members.map((m, j) => {
+              const p = byName[m.name];
+              const share = fam.total > 0 ? Math.round((m.total / fam.total) * 100) : null;
+              return (
+                <div key={m.name} className="player-card" onClick={() => onPlayerClick(m.name)}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", cursor: "pointer", borderBottom: j < fam.members.length - 1 ? `1px solid ${C.border}` : "none" }}>
+                  <div style={{ fontSize: 10, color: C.muted, fontWeight: 700, minWidth: 16, textAlign: "right" }}>{m.rank || "—"}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 3 }}>{m.name}</div>
+                    {p && <CrestRow teams={p.teams} outcomes={outcomes} baseHeight={16} />}
+                  </div>
+                  <div style={{ textAlign: "right", flexShrink: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: m.total < 0 ? C.red : C.text }}>{m.total}<span style={{ fontSize: 9, color: C.muted, marginLeft: 2 }}>pts</span></div>
+                    {share != null && <div style={{ fontSize: 10, color: C.muted }}>{share}% of family</div>}
+                  </div>
+                  <span aria-hidden="true" style={{ color: C.muted, fontSize: 18, lineHeight: 1, flexShrink: 0 }}>›</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </>);
     }
 
     function SweepsTab({ ranked, badges, hist, weekMove, outcomes, displayRanks, onOpenPlayer }) {
@@ -1293,7 +1403,7 @@
 
     // ── LeagueHeadToHeadCard — WC-style head-to-head modal opened from any
     //    team-vs-team card. Teams | Players toggle + recent form. ────────────
-    function LeagueHeadToHeadCard({ bodyRef, m, ranked, matches, matchPtsById, onTeamClick, onPlayerClick, onClose }) {
+    function LeagueHeadToHeadCard({ bodyRef, m, ranked, matches, matchPtsById, onTeamClick, onPlayerClick, onClose, familyRows = [], onFamilyClick }) {
       const [view, setView] = useState("teams");
       const fin = m.status === "FINISHED" || m.status === "AWARDED";
       const live = m.status === "IN_PLAY" || m.status === "PAUSED";
@@ -1304,6 +1414,9 @@
       const clubName = (t) => (known(t.id) ? LEAGUE_TEAMS[t.id].name : (t.shortName || "TBD"));
       const ownerObj = (id) => typeof leagueOwnerOfTeamId === "function" ? leagueOwnerOfTeamId(id) : null;
       const hOwner = ownerObj(m.homeTeam.id), aOwner = ownerObj(m.awayTeam.id);
+      // Families toggle only when at least one side's owner is in a family.
+      const h2hFams = familyRows.length > 0 && typeof lgFamilyOf === "function" &&
+        !!((hOwner && lgFamilyOf(hOwner.name)) || (aOwner && lgFamilyOf(aOwner.name)));
       const rankOf = (name) => { const i = ranked.findIndex(p => p.name === name); return i >= 0 ? i + 1 : null; };
       const totalOf = (name) => { const p = ranked.find(p => p.name === name); return p ? p.total : 0; };
       // Every team ranked by sweepstake points, for the Teams-tab position/pts.
@@ -1343,8 +1456,28 @@
           <button onClick={onClose} aria-label="Close" style={{ background: "transparent", border: "none", color: C.muted, fontSize: 22, cursor: "pointer", lineHeight: 1 }}>✕</button>
         </div>
         <div ref={bodyRef} style={{ flex: 1, overflowY: "auto", padding: "0 14px 24px" }}>
-          <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>{navBtn("teams", "Teams")}{navBtn("players", "Players")}</div>
-          {view === "teams" ? (
+          <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>{navBtn("teams", "Teams")}{navBtn("players", "Players")}{h2hFams && navBtn("families", "Families")}</div>
+          {view === "families" && h2hFams ? (
+            <div style={{ display: "flex", gap: 10 }}>
+              {[hOwner, aOwner].map((owner, i) => {
+                const fam = owner ? lgFamilyOf(owner.name) : null;
+                const row = fam ? familyRows.find(r => r.name === fam.name) : null;
+                const rk = row ? familyRows.indexOf(row) + 1 : null;
+                return (
+                  <button key={i} onClick={row && onFamilyClick ? () => onFamilyClick(row.name) : undefined}
+                    style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "14px 8px", cursor: row && onFamilyClick ? "pointer" : "default", display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                    {row
+                      ? <>
+                          <span style={{ fontSize: 26, lineHeight: 1 }}>👨‍👩‍👧‍👦</span>
+                          <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{row.name}</div>
+                          <div style={{ fontSize: 11, color: C.muted }}>{ord(rk)} · {row.avg} avg pts</div>
+                        </>
+                      : <div style={{ fontSize: 12, color: C.muted, padding: "12px 0" }}>{owner ? "No family" : "Unowned"}</div>}
+                  </button>
+                );
+              })}
+            </div>
+          ) : view === "teams" ? (
             <div style={{ display: "flex", gap: 10 }}>
               {[m.homeTeam, m.awayTeam].map((t, i) => {
                 const kn = known(t.id);
@@ -1618,7 +1751,7 @@
       );
     }
 
-    function HomeTab({ group, matches, ranked, badges, weekWindow, matchPtsById, hist, outcomes, anchorIso, setTab, openPlayerModal, openTeamModal, openMatchModal }) {
+    function HomeTab({ group, matches, ranked, badges, weekWindow, matchPtsById, hist, outcomes, anchorIso, setTab, openPlayerModal, openTeamModal, openMatchModal, familyRows = [], openFamilyModal }) {
       const real = ranked;
       const newAccolades = useMemo(
         () => (typeof computeNewLeagueBadges === "function" ? computeNewLeagueBadges(badges, matches, anchorIso) : []),
@@ -1740,6 +1873,29 @@
               );
             })}
           </Section>
+
+          {familyRows.length > 0 && (
+            <Section icon="👨‍👩‍👧‍👦" title="Top Families" onOpen={() => { window.scrollTo(0, 0); setTab("table", "families"); }} linkLabel="View all families">
+              {familyRows.slice(0, 3).map((f, i) => (
+                <div key={f.name} onClick={() => openFamilyModal(f.name)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", cursor: "pointer", borderBottom: i < Math.min(3, familyRows.length) - 1 ? `1px solid ${C.border}` : "none" }}>
+                  <div style={{
+                    width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
+                    background: rankColors[i], display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 12, fontWeight: 800, color: "#080c18",
+                  }}>{i + 1}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</div>
+                    <div style={{ fontSize: 11, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.members.map(m => m.name).join(" · ")}</div>
+                  </div>
+                  <Sparkline data={f.combinedHist} width={64} height={28} color={f.avg < 0 ? C.red : C.accent} />
+                  <div style={{ textAlign: "right", flexShrink: 0, minWidth: 50 }}>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: C.text, lineHeight: 1 }}>{f.avg}<span style={{ fontSize: 9, color: C.muted, fontWeight: 600 }}> avg</span></div>
+                    {posPill(f.move)}
+                  </div>
+                </div>
+              ))}
+            </Section>
+          )}
 
           {topTeam && (
             <div onClick={() => openTeamModal(topTeam.teamId)} style={{
@@ -2612,7 +2768,7 @@
       );
     }
 
-    function Sidebar({ group, tab, leagueView, showMore, onNav, onMore, onOpenSearch, onOpenNotifications, unreadCount }) {
+    function Sidebar({ group, tab, leagueView, showMore, onNav, onMore, onOpenSearch, onOpenNotifications, unreadCount, hasFamilies }) {
       // [iconId, label, tabId, view]. view only for League sub-destinations.
       const items = [
         ["home", "Home", "home", null],
@@ -2620,6 +2776,7 @@
         ["teams", "Teams", "table", "teams"],
         ["leagues", "Leagues", "table", "leagues"],
         ["ucl", "UCL", "table", "ucl"],
+        ...(hasFamilies ? [["table", "Families", "table", "families"]] : []),
         ["scores", "Scores", "scores", null],
         ["race", "The Race", "race", null],
       ];
@@ -2660,7 +2817,7 @@
     }
 
     // ── Search overlay — WC-parity search over league players + teams ────────
-    function LeagueSearchOverlay({ ranked, onClose, onSelectPlayer, onSelectTeam, isDesktop }) {
+    function LeagueSearchOverlay({ ranked, onClose, onSelectPlayer, onSelectTeam, isDesktop, familyRows = [], onSelectFamily }) {
       const [query, setQuery] = React.useState("");
       const inputRef = React.useRef(null);
       const [recent, setRecent] = React.useState(() => {
@@ -2677,7 +2834,9 @@
       };
       const handleSelect = (item) => {
         saveRecent(item); onClose();
-        if (item.type === "player") onSelectPlayer(item.id); else onSelectTeam(item.id);
+        if (item.type === "player") onSelectPlayer(item.id);
+        else if (item.type === "family") { if (onSelectFamily) onSelectFamily(item.id); }
+        else onSelectTeam(item.id);
       };
       const clearRecent = () => { setRecent([]); localStorage.removeItem(SEARCH_RECENT_KEY); };
       const q = query.trim().toLowerCase();
@@ -2687,23 +2846,27 @@
           players.push({ type: "player", id: p.name, label: p.name, sub: `${p.total} pts` });
           (p.teams || []).forEach(t => teams.push({ type: "team", id: t.teamId, label: t.name, sub: `Pot ${t.pot} · ${p.name}` }));
         });
-        return { players, teams };
-      }, [ranked]);
+        const families = familyRows.map(f => ({ type: "family", id: f.name, label: f.name, sub: `${f.avg} avg pts · ${f.members.length} members` }));
+        return { players, teams, families };
+      }, [ranked, familyRows]);
       const results = React.useMemo(() => {
         if (!q) return [];
         const out = [];
         index.players.forEach(p => { if (p.label.toLowerCase().includes(q)) out.push(p); });
         index.teams.forEach(t => { if (t.label.toLowerCase().includes(q)) out.push(t); });
+        index.families.forEach(f => { if (f.label.toLowerCase().includes(q) || "family".includes(q)) out.push(f); });
         return out;
       }, [q, index]);
       const Row = ({ item, onClick }) => (
         <div onClick={onClick} className="player-card" style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", cursor: "pointer", borderBottom: `1px solid ${C.border}` }}>
           {item.type === "team"
             ? <Crest teamId={item.id} size={26} />
+            : item.type === "family"
+            ? <div style={{ width: 26, height: 26, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>👨‍👩‍👧‍👦</div>
             : <div style={{ width: 26, height: 26, borderRadius: "50%", flexShrink: 0, background: C.border, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, color: C.text }}>{item.label[0] || "?"}</div>}
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</div>
-            <div style={{ fontSize: 11, color: C.muted }}>{item.type === "team" ? "Team" : "Player"} · {item.sub}</div>
+            <div style={{ fontSize: 11, color: C.muted }}>{item.type === "team" ? "Team" : item.type === "family" ? "Family" : "Player"} · {item.sub}</div>
           </div>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, transform: "rotate(-90deg)" }}><path d="M6 9l6 6 6-6" stroke={C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </div>
@@ -2772,7 +2935,7 @@
     // Build the notification feed: season milestones, leader changes and new
     // accolades (badge awards). Deliberately NO per-match results. Shared by
     // the drawer (display) and App (unread badge count) so they stay in sync.
-    function buildLeagueNotifItems(matches, ranked, badges, anchorIso) {
+    function buildLeagueNotifItems(matches, ranked, badges, anchorIso, families) {
       const items = [];
       const outcomes = (typeof deriveSeasonOutcomes === "function") ? deriveSeasonOutcomes(matches) : {};
       const latestMatchDate = (teamId) => {
@@ -2801,6 +2964,20 @@
           }
         });
       }
+      // Family leader changes (family groups only) — by average member points.
+      if (families && families.length && hist.frames && hist.frames.length && hist.history) {
+        let curF = null;
+        hist.frames.forEach((f, i) => {
+          const st = families.map(fam => {
+            const sum = fam.members.reduce((a, n) => a + ((hist.history[n] || [])[i] || 0), 0);
+            return { n: fam.name, v: sum / Math.max(1, fam.members.length) };
+          }).sort((a, b) => b.v - a.v);
+          if (st.length && st[0].v > 0 && (st.length < 2 || st[0].v > st[1].v) && st[0].n !== curF) {
+            items.push({ type: "family", date: new Date(f).getTime(), family: st[0].n, avg: Math.round(st[0].v), ahead: Math.round(st[0].v - (st[1] ? st[1].v : 0)) });
+            curF = st[0].n;
+          }
+        });
+      }
       // New accolades (badges gained in the last 7 days), dated to the player's
       // latest finished match so the timestamp is stable across refreshes.
       if (typeof computeNewLeagueBadges === "function" && badges && anchorIso) {
@@ -2816,7 +2993,8 @@
     function LeagueNotificationsDrawer({ items, onClose, onSeenUpdate }) {
       const lastSeen = parseInt(localStorage.getItem(NOTIF_SEEN_KEY) || "0", 10);
       const allItems = items || [];
-      const FILTERS = [{ key: "all", label: "All" }, { key: "milestone", label: "Milestones" }, { key: "leader", label: "Leaders" }, { key: "accolade", label: "Accolades" }];
+      const FILTERS = [{ key: "all", label: "All" }, { key: "milestone", label: "Milestones" }, { key: "leader", label: "Leaders" }, { key: "accolade", label: "Accolades" },
+        ...(items.some(it => it.type === "family") ? [{ key: "family", label: "Families" }] : [])];
       const [activeFilter, setActiveFilter] = React.useState("all");
       const visibleItems = activeFilter === "all" ? allItems : allItems.filter(it => it.type === activeFilter);
       const unread = visibleItems.filter(it => it.date > lastSeen);
@@ -2858,7 +3036,14 @@
           {it.desc && <div style={{ fontSize: 12, color: C.dim }}>{it.desc}</div>}
         </div>
       );
-      const renderItem = (it, dimmed) => it.type === "milestone" ? renderMilestone(it, dimmed) : it.type === "leader" ? renderLeader(it, dimmed) : renderAccolade(it, dimmed);
+      const renderFamily = (it, dimmed) => (
+        <div key={`f-${it.date}`} style={cardStyle(dimmed)}>
+          {brandRow(it.date)}
+          <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 2 }}>👨‍👩‍👧‍👦 New top family: the {it.family}s</div>
+          <div style={{ fontSize: 12, color: C.dim }}>{it.avg} avg pts · {it.ahead} pt{it.ahead !== 1 ? "s" : ""} clear</div>
+        </div>
+      );
+      const renderItem = (it, dimmed) => it.type === "milestone" ? renderMilestone(it, dimmed) : it.type === "leader" ? renderLeader(it, dimmed) : it.type === "family" ? renderFamily(it, dimmed) : renderAccolade(it, dimmed);
 
       return (
         <>
@@ -2975,6 +3160,9 @@
 
     // ── app shell ───────────────────────────────────────────────────────────
     function App({ group, onSwitchGroup, previewMode, onExitPreview }) {
+      // Family pools for this group (Caversham) — global read by the badge engine.
+      const families = (group && group.families && group.families.length) ? group.families : null;
+      LEAGUE_FAMILIES = families;
       const [tab, setTab] = useState("home");
       // League tab's inline top toggle: players · teams · leagues
       const [leagueView, setLeagueView] = useState("players");
@@ -2989,6 +3177,7 @@
       const [selectedPlayer, setSelectedPlayer] = useState(null);
       const [selectedTeam, setSelectedTeam] = useState(null);
       const [selectedMatch, setSelectedMatch] = useState(null);
+      const [selectedFamily, setSelectedFamily] = useState(null);
       const [showMore, setShowMore] = useState(false);
       const [showRules, setShowRules] = useState(false);
       const [showWC, setShowWC] = useState(false);
@@ -3110,6 +3299,7 @@
       const hist = useMemo(() => (typeof deriveLeagueHistory === "function" ? deriveLeagueHistory(matches).history : {}), [matches]);
       const weekWindow = useMemo(() => (typeof lgWeekWindow === "function" ? lgWeekWindow(ranked, matches, anchorIso) : {}), [ranked, matches, anchorIso]);
       const matchPtsById = useMemo(() => (typeof deriveLeagueMatchPts === "function" ? deriveLeagueMatchPts(matches) : {}), [matches]);
+      const familyRows = useMemo(() => (families && typeof lgFamilyStandings === "function" ? lgFamilyStandings(ranked, families, weekWindow, hist) : []), [families, ranked, weekWindow, hist]);
       const tables = useMemo(() => {
         if (typeof deriveLeagueTable !== "function" || typeof LEAGUE_COMPETITIONS === "undefined") return {};
         const out = {};
@@ -3131,7 +3321,15 @@
 
       // ── modal open/close with browser-history integration (device back
       //    button closes the card, same as the WC app) ──
-      const clearCards = () => { setSelectedPlayer(null); setSelectedTeam(null); setSelectedMatch(null); };
+      const clearCards = () => { setSelectedPlayer(null); setSelectedTeam(null); setSelectedMatch(null); setSelectedFamily(null); };
+      const openFamilyModal = (name) => {
+        window.history.pushState({ lgModal: "family", name }, "");
+        clearCards(); setSelectedFamily(name);
+      };
+      const switchToFamily = (name) => {
+        window.history.replaceState({ lgModal: "family", name }, "");
+        clearCards(); setSelectedFamily(name);
+      };
       const openPlayerModal = (name) => {
         window.history.pushState({ lgModal: "player", name }, "");
         clearCards(); setSelectedPlayer(name);
@@ -3163,11 +3361,12 @@
           if (st.lgModal === "player") { clearCards(); setSelectedPlayer(st.name); }
           else if (st.lgModal === "team") { clearCards(); setSelectedTeam(st.teamId); }
           else if (st.lgModal === "match") { clearCards(); setSelectedMatch(st.matchId); }
+          else if (st.lgModal === "family") { clearCards(); setSelectedFamily(st.name); }
           else { clearCards(); setShowMore(false); setShowRules(false); }
         };
         const onKey = (e) => {
           if (e.key !== "Escape") return;
-          if (selectedPlayer || selectedTeam || selectedMatch) closeCard();
+          if (selectedPlayer || selectedTeam || selectedMatch || selectedFamily) closeCard();
           else if (showRules) setShowRules(false);
           else if (showMore) setShowMore(false);
         };
@@ -3179,7 +3378,7 @@
       const navTo = (id, view) => {
         window.scrollTo(0, 0);
         setShowMore(false); setShowRules(false);
-        setSelectedPlayer(null); setSelectedTeam(null);
+        clearCards();
         if (id === "table") setLeagueView(view || "players"); // League opens on Players unless told otherwise
         setTab(id);
       };
@@ -3187,8 +3386,8 @@
       // Notification feed (milestones · leaders · accolades — no results),
       // shared by the drawer and the unread badge so the two always agree.
       const notifItems = useMemo(
-        () => (typeof buildLeagueNotifItems === "function" ? buildLeagueNotifItems(matches, ranked, badges, anchorIso) : []),
-        [matches, ranked, badges, anchorIso]
+        () => (typeof buildLeagueNotifItems === "function" ? buildLeagueNotifItems(matches, ranked, badges, anchorIso, families) : []),
+        [matches, ranked, badges, anchorIso, families]
       );
       const unreadCount = useMemo(
         () => notifItems.filter(it => it.date > notifSeenTs).length,
@@ -3197,7 +3396,7 @@
 
       return (
         <div style={{ display: isDesktop ? "flex" : "block", alignItems: "flex-start", minHeight: "100vh" }}>
-          {isDesktop && <Sidebar group={group} tab={tab} leagueView={leagueView} showMore={showMore} onNav={navTo} onMore={() => setShowMore(true)} onOpenSearch={() => setShowSearch(true)} onOpenNotifications={() => setShowNotifications(true)} unreadCount={unreadCount} />}
+          {isDesktop && <Sidebar group={group} tab={tab} leagueView={leagueView} showMore={showMore} onNav={navTo} onMore={() => setShowMore(true)} onOpenSearch={() => setShowSearch(true)} onOpenNotifications={() => setShowNotifications(true)} unreadCount={unreadCount} hasFamilies={!!families} />}
           <div style={{ flex: 1, minWidth: 0, paddingBottom: isDesktop ? 40 : 84, background: isDesktop ? C.bg : "transparent", minHeight: isDesktop ? "100vh" : "auto" }}>
           {previewMode && (
             <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", background: "#2a2410", borderBottom: `1px solid ${C.gold}` }}>
@@ -3221,10 +3420,10 @@
           {!loading && tab === "table" && !isDesktop && (
             <div style={{ padding: "0 14px 10px" }}>
               <div className="tab-seg">
-                {[["players", "Players"], ["teams", "Teams"], ["leagues", "Leagues"], ["ucl", "UCL"]].map(([id, label]) => (
+                {[["players", "Players"], ["teams", "Teams"], ["leagues", "Leagues"], ["ucl", "UCL"], ...(families ? [["families", "Families"]] : [])].map(([id, label]) => (
                   <button key={id} onClick={() => { window.scrollTo(0, 0); setLeagueView(id); }} style={{
                     background: leagueView === id ? C.accent : C.surface,
-                    color: leagueView === id ? C.bg : C.dim, fontWeight: 700, fontSize: 12,
+                    color: leagueView === id ? C.bg : C.dim, fontWeight: 700, fontSize: families ? 11 : 12,
                     padding: "11px 2px", whiteSpace: "nowrap",
                   }}>{label}</button>
                 ))}
@@ -3234,10 +3433,11 @@
           <div style={{ height: 8 }} />
           {loading && !replay.on
             ? <div style={{ color: C.muted, textAlign: "center", padding: 40 }}>Loading fixtures…</div>
-            : tab === "home" ? <HomeTab group={group} matches={matches} ranked={ranked} badges={badges} weekWindow={weekWindow} matchPtsById={matchPtsById} hist={hist} outcomes={outcomes} anchorIso={anchorIso} setTab={navTo} openPlayerModal={openPlayerModal} openTeamModal={openTeamModal} openMatchModal={openMatchModal} />
+            : tab === "home" ? <HomeTab group={group} matches={matches} ranked={ranked} badges={badges} weekWindow={weekWindow} matchPtsById={matchPtsById} hist={hist} outcomes={outcomes} anchorIso={anchorIso} setTab={navTo} openPlayerModal={openPlayerModal} openTeamModal={openTeamModal} openMatchModal={openMatchModal} familyRows={familyRows} openFamilyModal={openFamilyModal} />
             : tab === "table" ? (
                 leagueView === "players" ? <SweepsTab ranked={ranked} badges={badges} hist={hist} weekMove={weekMove} outcomes={outcomes} displayRanks={displayRanks} onOpenPlayer={openPlayerModal} />
                 : leagueView === "teams" ? <TeamsLeagueTab matches={matches} ranked={ranked} anchorIso={anchorIso} onTeamClick={openTeamModal} comp={leaguesComp} setComp={setLeaguesComp} />
+                : leagueView === "families" && families ? <FamilyLeagueTab familyRows={familyRows} onFamilyClick={openFamilyModal} />
                 : leagueView === "ucl" ? <ChampionsLeagueTab matches={matches} tables={tables} outcomes={outcomes} matchPtsById={matchPtsById} onTeamClick={openTeamModal} onMatchClick={openMatchModal} />
                 : <LeaguesTab matches={matches} tables={tables} outcomes={outcomes} onTeamClick={openTeamModal} comp={leaguesComp} setComp={setLeaguesComp} />
               )
@@ -3245,13 +3445,16 @@
             : tab === "race" ? <RaceTab ranked={ranked} matches={matches} anchorIso={anchorIso} replayOn={replay.on} />
             : null}
 
-          {(selectedPlayer || selectedTeam || selectedMatch) && (
+          {(selectedPlayer || selectedTeam || selectedMatch || selectedFamily) && (
             <SnapSheet onClose={closeCard}>
               {(bodyRef) => {
+                if (selectedFamily) {
+                  return <FamilyCardContent key={selectedFamily} bodyRef={bodyRef} familyName={selectedFamily} familyRows={familyRows} ranked={ranked} outcomes={outcomes} onPlayerClick={switchToPlayer} onClose={closeCard} />;
+                }
                 if (selectedMatch) {
                   const mObj = scoresMatches.find(x => String(x.id) === String(selectedMatch));
                   if (!mObj) return null;
-                  return <LeagueHeadToHeadCard key={selectedMatch} bodyRef={bodyRef} m={mObj} ranked={ranked} matches={matches} matchPtsById={matchPtsById} onTeamClick={switchToTeam} onPlayerClick={switchToPlayer} onClose={closeCard} />;
+                  return <LeagueHeadToHeadCard key={selectedMatch} bodyRef={bodyRef} m={mObj} ranked={ranked} matches={matches} matchPtsById={matchPtsById} onTeamClick={switchToTeam} onPlayerClick={switchToPlayer} onClose={closeCard} familyRows={familyRows} onFamilyClick={switchToFamily} />;
                 }
                 if (selectedTeam) {
                   return <TeamCardContent key={selectedTeam} bodyRef={bodyRef} teamId={selectedTeam} matches={matches} ranked={ranked} matchPtsById={matchPtsById} outcomes={outcomes} tables={tables} simulateOn={replay.on} onTeamClick={switchToTeam} onOwnerClick={switchToPlayer} onClose={closeCard} />;
@@ -3259,7 +3462,7 @@
                 const idx = ranked.findIndex(x => x.name === selectedPlayer);
                 const p = ranked[idx];
                 if (!p) return null;
-                return <PlayerCardContent key={selectedPlayer} bodyRef={bodyRef} player={p} displayRank={displayRanks[idx]} badges={badges[selectedPlayer] || []} matches={matches} matchPtsById={matchPtsById} hist={hist[selectedPlayer] || []} week={weekWindow[selectedPlayer]} outcomes={outcomes} onTeamClick={switchToTeam} onClose={closeCard} />;
+                return <PlayerCardContent key={selectedPlayer} bodyRef={bodyRef} player={p} displayRank={displayRanks[idx]} badges={badges[selectedPlayer] || []} matches={matches} matchPtsById={matchPtsById} hist={hist[selectedPlayer] || []} week={weekWindow[selectedPlayer]} outcomes={outcomes} onTeamClick={switchToTeam} onFamilyClick={families ? switchToFamily : undefined} onClose={closeCard} />;
               }}
             </SnapSheet>
           )}
@@ -3289,7 +3492,8 @@
           {showSearch && (
             <LeagueSearchOverlay ranked={ranked} isDesktop={isDesktop}
               onClose={() => setShowSearch(false)}
-              onSelectPlayer={openPlayerModal} onSelectTeam={openTeamModal} />
+              onSelectPlayer={openPlayerModal} onSelectTeam={openTeamModal}
+              familyRows={familyRows} onSelectFamily={openFamilyModal} />
           )}
 
           {showNotifications && (

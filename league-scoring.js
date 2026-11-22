@@ -467,6 +467,15 @@ var LEAGUE_GROUPS = {
   },
   CAVERSHAM: {
     code: "CAVERSHAM", label: "Caversham",
+    // Family pools (same as the WC app). Families are ranked by AVERAGE member
+    // points so bigger households don't win by headcount.
+    families: [
+      { name: "Hampson",        members: ["Jon", "India", "Delilah"] },
+      { name: "Campbell",       members: ["Aaron", "Katie", "Lily", "Freya C"] },
+      { name: "Macklin",        members: ["Josh", "Candice", "Jasper"] },
+      { name: "Baldwin-Renton", members: ["Yan", "Freya R", "Nora"] },
+      { name: "Rukin",          members: ["Jake", "Helen", "Frank", "Ivo"] },
+    ],
     players: [
       { name: "Aaron" }, { name: "Candice" }, { name: "Katie" }, { name: "Jon" },
       { name: "India" }, { name: "Yan" }, { name: "Freya R" }, { name: "Jake" },
@@ -478,6 +487,58 @@ var LEAGUE_GROUPS = {
 };
 
 var LEAGUE_PLAYERS = LEAGUE_GROUPS.RODENTS.players; // reassigned at runtime by the group gate
+// Active group's families (only family groups, e.g. Caversham, have them) — set
+// by App from group.families, same pattern as LEAGUE_PLAYERS. null = no families.
+var LEAGUE_FAMILIES = null;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FAMILIES — pooled standings for family groups.
+//
+// lgFamilyStandings(ranked, families, weekWindow, hist) → rows sorted by avg:
+//   { name, members: [{ name, total, rank }], total, avg, weekPts, move,
+//     combinedHist }
+// avg = mean member total (rounded); move = 7-day change in FAMILY rank
+// (positive = up), computed from each member's total a week ago (total −
+// weekWindow pts) — the same window the player pills use.
+// ─────────────────────────────────────────────────────────────────────────────
+function lgFamilyStandings(ranked, families, weekWindow, hist) {
+  if (!families || !families.length) return [];
+  var byName = {};
+  ranked.forEach(function (p, i) { byName[p.name] = { p: p, rank: i + 1 }; });
+  var rows = families.map(function (f) {
+    var members = f.members.map(function (n) {
+      var e = byName[n];
+      return { name: n, total: e ? e.p.total : 0, rank: e ? e.rank : null };
+    }).sort(function (a, b) { return b.total - a.total; });
+    var total = 0, weekPts = 0;
+    members.forEach(function (m) { total += m.total; weekPts += (weekWindow && weekWindow[m.name]) ? weekWindow[m.name].pts : 0; });
+    var hs = members.map(function (m) { return (hist && hist[m.name]) || []; }).filter(function (h) { return h.length; });
+    var len = hs.reduce(function (mx, h) { return Math.max(mx, h.length); }, 0);
+    var combinedHist = [];
+    for (var i = 0; i < len; i++) {
+      var sum = 0;
+      hs.forEach(function (h) { sum += (h[i] != null ? h[i] : h[h.length - 1]) || 0; });
+      combinedHist.push(Math.round(sum / Math.max(1, members.length)));
+    }
+    var n = Math.max(1, members.length);
+    return { name: f.name, members: members, total: total, avg: Math.round(total / n),
+      avgBefore: (total - weekPts) / n, weekPts: weekPts, combinedHist: combinedHist.length ? combinedHist : [0] };
+  });
+  var before = rows.slice().sort(function (a, b) { return b.avgBefore - a.avgBefore; });
+  var rankBefore = {};
+  before.forEach(function (r, i) { rankBefore[r.name] = i; });
+  rows.sort(function (a, b) { return (b.avg - a.avg) || (b.total - a.total); });
+  rows.forEach(function (r, i) { r.move = rankBefore[r.name] - i; });
+  return rows;
+}
+
+// The family a player belongs to in the active group (or null).
+function lgFamilyOf(name, families) {
+  var fams = families || LEAGUE_FAMILIES;
+  if (!fams) return null;
+  for (var i = 0; i < fams.length; i++) if (fams[i].members.indexOf(name) !== -1) return fams[i];
+  return null;
+}
 
 function leagueMatchGroupCode(input) {
   var q = String(input || "").trim().toUpperCase();
@@ -1344,6 +1405,30 @@ function computeLeagueBadges(ranked, matches, anchorIso) {
       return { name: p.name, gap: Math.max.apply(null, totals) - Math.min.apply(null, totals) };
     }).sort(function (a, b) { return b.gap - a.gap; });
     if (gaps[0].gap > 0) give(gaps[0].name, "🎸", "One Man Band", "One team doing all the work (" + gaps[0].gap + " pt gap to their worst).");
+  }
+
+  // 🍞 Bread Winner / 🐑 Black Sheep — family groups only. Each family's
+  // top/bottom contributor by SHARE of the family's combined points is a
+  // candidate; the single highest share across all families wins Bread Winner,
+  // the single lowest wins Black Sheep (as the WC app). Families with a
+  // non-positive total or fewer than 2 members are skipped (shares meaningless).
+  if (LEAGUE_FAMILIES && played) {
+    var totalOf = {};
+    real.forEach(function (p) { totalOf[p.name] = p.total; });
+    var tops = [], bottoms = [];
+    LEAGUE_FAMILIES.forEach(function (f) {
+      if (f.members.length < 2) return;
+      var famTotal = 0;
+      f.members.forEach(function (n) { famTotal += totalOf[n] || 0; });
+      if (famTotal <= 0) return;
+      var shares = f.members.map(function (n) { return { name: n, family: f.name, share: (totalOf[n] || 0) / famTotal }; })
+        .sort(function (a, b) { return b.share - a.share; });
+      tops.push(shares[0]); bottoms.push(shares[shares.length - 1]);
+    });
+    tops.sort(function (a, b) { return b.share - a.share; });
+    bottoms.sort(function (a, b) { return a.share - b.share; });
+    if (tops[0]) give(tops[0].name, "🍞", "Bread Winner", "Carrying the " + tops[0].family + " family (" + Math.round(tops[0].share * 100) + "% of their points).");
+    if (bottoms[0]) give(bottoms[0].name, "🐑", "Black Sheep", "Contributing the least to the " + bottoms[0].family + " family (" + Math.round(bottoms[0].share * 100) + "% of their points).", true);
   }
 
   // rarest-first within each player, mirroring the WC app
