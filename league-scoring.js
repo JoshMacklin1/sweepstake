@@ -462,7 +462,6 @@ var LEAGUE_GROUPS = {
     players: [
       { name: "Maggie" }, { name: "Julian" }, { name: "Molly" }, { name: "Josh" },
       { name: "Candice" }, { name: "Jasper" }, { name: "Taco" },
-      { name: "MACK-BOT", isBot: true },
     ],
   },
   CAVERSHAM: {
