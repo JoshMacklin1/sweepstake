@@ -106,7 +106,7 @@
 <body>
   <div id="root"></div>
   <!-- Coupled: every league-scoring.js change must bump ?v=N (see SWEEPSTAKE_PROJECT.md cache-bust rule) -->
-  <script src="league-scoring.js?v=23"></script>
+  <script src="league-scoring.js?v=24"></script>
   <script type="text/babel">
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
@@ -543,7 +543,10 @@
       const bonusPts = teamEntry ? teamEntry.bonusPts : (typeof leagueBonusPts === "function" ? leagueBonusPts(teamId, outcomes) : 0);
       // Champions League overlay gamble (from the scored entry if owned, else computed).
       const clProg = (!teamEntry && typeof deriveCLProgress === "function") ? deriveCLProgress(matches) : null;
-      const clPts = teamEntry ? (teamEntry.clPts || 0) : (clProg && typeof clGamblePts === "function" ? clGamblePts(teamId, clProg) : 0);
+      const clPts = teamEntry ? (teamEntry.clPts || 0)
+        : (clProg && typeof clTeamPts === "function" ? clTeamPts(matches, teamId, clProg)
+          : clProg && typeof clGamblePts === "function" ? clGamblePts(teamId, clProg) : 0);
+      const clTier = typeof clTierOf === "function" && typeof CL_TIER !== "undefined" && CL_TIER[teamId] ? CL_TIER[teamId] : null;
       const clOutcome = teamEntry ? (teamEntry.clOutcome || null) : (clProg ? (clProg[teamId] || null) : null);
       const clLabel = (typeof CL_OUTCOME_LABEL !== "undefined" && clOutcome) ? (CL_OUTCOME_LABEL[clOutcome] || clOutcome) : clOutcome;
       const totalPts = matchPts + bonusPts + clPts;
@@ -619,7 +622,7 @@
               <div style={{ fontSize: 13, fontWeight: 800, color: bonusPts > 0 ? C.accent : C.red, flexShrink: 0 }}>{bonusPts > 0 ? "+" : ""}{bonusPts} pts</div>
             </div>
           )}
-          {clOutcome && (
+          {(clOutcome || clPts !== 0) && (
             <div style={{
               display: "flex", alignItems: "center", gap: 8, padding: "9px 10px", marginBottom: 8, borderRadius: 8,
               border: `1px solid ${clPts >= 0 ? "rgba(34,197,94,0.25)" : "rgba(241,90,90,0.25)"}`,
@@ -627,8 +630,8 @@
             }}>
               <div style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0, background: clPts >= 0 ? C.posBg : C.negBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>🏆</div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{clLabel}</div>
-                <div style={{ fontSize: 10, color: C.muted }}>Champions League gamble · by pot</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{clLabel || "Champions League"}</div>
+                <div style={{ fontSize: 10, color: C.muted }}>CL matches + giant kills + stage reached{clTier ? ` · CL tier ${clTier}` : ""}</div>
               </div>
               <div style={{ fontSize: 13, fontWeight: 800, color: clPts >= 0 ? C.accent : C.red, flexShrink: 0 }}>{clPts > 0 ? "+" : ""}{clPts} pts</div>
             </div>
@@ -2242,9 +2245,9 @@
               draws earn points by pot, and each team banks one flat bonus for the
               best thing it achieves — title, top 4, European place — or a penalty
               for relegation, the moment it's mathematically certain. Own a club
-              that's also in the <strong>Champions League</strong> and it becomes a
-              gamble: a deep run pays out, but a big favourite crashing out early
-              costs you points.
+              that's also in the <strong>Champions League</strong> and every CL game
+              scores too — priced by UEFA's own draw pots, so underdogs beating
+              giants pay big, while a big favourite crashing out early costs you.
             </div>
           </div>
           <div style={section}>
@@ -2285,14 +2288,21 @@
           )}
           {clGamble && (
             <div style={section}>
-              <div style={h}>🏆 Champions League gamble</div>
+              <div style={h}>🏆 Champions League</div>
               <div style={{ fontSize: 12, color: C.dim, lineHeight: 1.5, marginBottom: 8 }}>
-                Laid on top of a club's league points, by its <em>domestic</em> pot.
-                A Pot 1 favourite earns little for a deep run and loses points for an
-                early exit; a lower-pot side is mostly upside.
+                Laid on top of a club's league points and priced by its <em>CL tier</em> —
+                its pot in UEFA's league-phase draw (T1 = favourites, T4 = minnows), not its
+                domestic pot. Three parts:
+              </div>
+              <div style={{ fontSize: 12, color: C.dim, lineHeight: 1.6, marginBottom: 8 }}>
+                <strong>1. Every match</strong> — win = {typeof CL_MATCH_PTS !== "undefined" ? `${CL_MATCH_PTS.winBase} + ${CL_MATCH_PTS.winPerGap}` : "3 + 5"} per tier you're below the opponent;
+                draw = {typeof CL_MATCH_PTS !== "undefined" ? `${CL_MATCH_PTS.drawBase} + ${CL_MATCH_PTS.drawPerGap}` : "1 + 3"} per tier. A T4 side beating a T1 giant = 18.<br />
+                <strong>2. Giant-killer</strong> — knock a higher-tier club out of a knockout tie:
+                +{typeof CL_GIANT_KILL_PER_TIER !== "undefined" ? CL_GIANT_KILL_PER_TIER : 25} per tier of gap.<br />
+                <strong>3. Stage reached</strong> — by CL tier:
               </div>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead><tr><th style={{ ...th, textAlign: "left" }}></th>{[1, 2, 3, 4].map(p => <th key={p} style={{ ...th, color: POT_COLORS[p] }}>P{p}</th>)}</tr></thead>
+                <thead><tr><th style={{ ...th, textAlign: "left" }}></th>{[1, 2, 3, 4].map(p => <th key={p} style={{ ...th, color: POT_COLORS[p] }}>T{p}</th>)}</tr></thead>
                 <tbody>
                   {Object.entries(clGamble).map(([k, vals]) => (
                     <tr key={k} style={{ borderTop: `1px solid ${C.border}` }}>
