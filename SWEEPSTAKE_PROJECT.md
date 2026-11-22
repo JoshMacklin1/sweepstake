@@ -113,8 +113,12 @@ switching resets tab/card state.
 
 Bottom-nav **Gameweek** replaces The Race (Race is reached from Gameweek's
 "🏁 The Race" button, with a "‹ Gameweek" link back; still in the desktop
-sidebar). Weeks are **calendar weeks, Mon–Sun UTC**, identical for every league
-(`lgWeeks`, `lgWeekIndexOf`). `lgGameweek(matches, ranked, teamHist,
+sidebar). Gameweeks are built from **calendar weeks, Mon–Sun UTC**, identical for every
+league (`lgWeeks`, `lgWeekIndexOf`); weeks with fewer than `LG_GW_MIN_FIXTURES` (5)
+fixtures — **international breaks** — are folded into the next gameweek (ranges stay
+contiguous, so no points are lost), GW numbers only count real football weeks, the
+label shows actual fixture dates, and during a break the view opens on the last
+gameweek played. `lgGameweek(matches, ranked, teamHist,
 matchPtsById, week)` gives each player's week: per-club pts = cumulative
 sweepstake total (`deriveLeagueTeamHistory`) at week end minus week start, so
 season bonuses / CL stage payouts / giant kills land in the week they're
