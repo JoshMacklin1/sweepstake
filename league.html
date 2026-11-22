@@ -2060,10 +2060,13 @@
       }, [isCL, matches, table, outcomes]);
       const cols = 5;
       // Order by competition points (the real table) or sweepstake points.
-      // One choice shared by every table, remembered per device.
-      const SORT_KEY = "lsw_table_sort";
+      // Defaults differ: league tables → Sw (who's earning), UCL → Pts (who's
+      // heading for the knockouts). The choice is remembered per device,
+      // separately for the UCL and for the league tables.
+      const SORT_KEY = isCL ? "lsw_table_sort_cl" : "lsw_table_sort_league";
+      const SORT_DEFAULT = isCL ? "pts" : "sw";
       const [sortBy, setSortByState] = useState(() => {
-        try { return localStorage.getItem(SORT_KEY) === "sw" ? "sw" : "pts"; } catch (e) { return "pts"; }
+        try { const v = localStorage.getItem(SORT_KEY); return v === "sw" || v === "pts" ? v : SORT_DEFAULT; } catch (e) { return SORT_DEFAULT; }
       });
       const setSortBy = (v) => { setSortByState(v); try { localStorage.setItem(SORT_KEY, v); } catch (e) {} };
       const bySw = sortBy === "sw";
