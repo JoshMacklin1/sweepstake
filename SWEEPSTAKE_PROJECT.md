@@ -74,7 +74,7 @@ The five WC groups (Rodents, Silverstream, Cornwall, Macklins, Caversham — sam
 people, minus the Grim Reaper) exist as preset league groups in `LEAGUE_GROUPS`.
 Squads are dealt by `lgEnsureTeams`' **fair draw** (seeded by group code; every
 player within ±1 on each pot, CL clubs, CL tier-1 giants and league; the
-remainder left unowned from Pot 4 non-CL). Silverstream's 27 players get 3
+remainder left unowned from Pot 4 non-CL). Silverstream's 21 players get 4
 clubs each. **Share link:** `league.html#g=CODE` drops straight into a group
 (adds it to "Your leagues"). Squads are re-dealt whenever pots/rosters change
 until they're frozen (hard-coded `teamIds`).

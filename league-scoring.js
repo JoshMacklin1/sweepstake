@@ -437,11 +437,11 @@ var LEAGUE_GROUPS = {
   SILVERSTREAM: {
     code: "SILVERSTREAM", label: "Silverstream",
     players: [
-      { name: "Alex B" }, { name: "Ben" }, { name: "Charlotte" }, { name: "Craig" },
-      { name: "Ahmet" }, { name: "Dharma" }, { name: "Gary" }, { name: "Henry" },
-      { name: "Katrina" }, { name: "Luke DF" }, { name: "Marco" }, { name: "Michelle" },
-      { name: "Natalie" }, { name: "Nick S" }, { name: "Ollie P" }, { name: "Paul H" },
-      { name: "Peter W" }, { name: "Ramon" }, { name: "Sam" }, { name: "Stephen" },
+      { name: "Alex B" }, { name: "Ben" }, { name: "Craig" },
+      { name: "Ahmet" }, { name: "Dharma" }, { name: "Henry" },
+      { name: "Katrina" }, { name: "Luke DF" }, { name: "Michelle" },
+      { name: "Nick S" }, { name: "Ollie P" },
+      { name: "Ramon" }, { name: "Sam" }, { name: "Stephen" },
       { name: "Stuart" }, { name: "Wes" }, { name: "Will A" }, { name: "Will B" },
       { name: "Peter H" }, { name: "Alex DL" },
       { name: "Josh" },
