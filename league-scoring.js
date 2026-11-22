@@ -589,17 +589,60 @@ function lgEnsureTeams(group) {
     if (LEAGUE_MATCH_PTS[LEAGUE_TEAMS[id].league]) pool.push(Number(id)); // scoring leagues only
   });
   var tierOf = function (id) { return (typeof CL_TIER !== "undefined" && CL_TIER[id]) || 0; };
-  var k = Math.floor(pool.length / N);
+  var leagueOf = function (id) { return LEAGUE_TEAMS[id].league; };
+  // Same squad size as the live draft (lgDraftPerPlayer): a multiple of the
+  // league count whenever every league can give each player the same number.
+  var k = (typeof lgDraftPerPlayer === "function") ? lgDraftPerPlayer(pool, N, leagueOf) : Math.floor(pool.length / N);
   if (k >= 1) {
-    // FAIR DRAW. Everyone gets k clubs; the remainder (pool mod N) is left
-    // unowned, taken from Pot 4 non-CL clubs so nobody misses a big one.
-    // Clubs are dealt strongest-first (pot asc; within a pot, CL tier 1→4 then
-    // non-CL), each to the player with the fewest so far of — in priority
-    // order — that pot, CL clubs, that CL tier, that league, clubs overall;
-    // seeded random breaks remaining ties. Result: every pot, CL count, T1 CL
-    // giants and per-league counts are within ±1 across players.
-    var drop = pool.length - k * N;
-    var spare = lgShuffle(pool.filter(function (id) { return LEAGUE_TEAMS[id].pot === 4 && !tierOf(id); }), rng).slice(0, drop);
+    // FAIR, LEAGUE-BALANCED DRAW. Each player gets k clubs with an EQUAL count
+    // per league (k / leagues) when possible, otherwise floor/ceil of k /
+    // leagues per league (quotas fixed up front so nobody comes up short). Spare clubs (not dealt) are each league's
+    // weakest non-CL sides. Clubs are dealt strongest-first (pot asc; CL tier
+    // 1→4 then non-CL), each to an eligible player with the fewest so far of
+    // — in priority order — that pot, CL clubs, that CL tier, clubs overall;
+    // seeded random breaks ties. Result: equal per league, and every pot / CL
+    // count within ±1 across players.
+    var Ls = [], size = {};
+    pool.forEach(function (id) { var L = leagueOf(id); if (!size[L]) { size[L] = 0; Ls.push(L); } size[L]++; });
+    // Per-player league quotas: everyone gets `base` from every league, plus
+    // one extra from `extra` leagues (0 when k divides evenly). Which leagues
+    // get the extras is spread so no league is asked for more clubs than it
+    // has (e.g. Silverstream: 21 players × 4 clubs, but BL1/FL1 have only 18).
+    var base = Math.floor(k / Ls.length), extra = k - base * Ls.length;
+    var eL = {};
+    Ls.forEach(function (L) { eL[L] = 0; });
+    for (var x = 0; x < N * extra; x++) { // hand out extras to leagues with the most spare capacity
+      var bestL = null;
+      lgShuffle(Ls.slice(), rng).forEach(function (L) {
+        var spareCap = size[L] - N * base - eL[L];
+        if (spareCap > 0 && eL[L] < N && (bestL === null || spareCap > size[bestL] - N * base - eL[bestL])) bestL = L;
+      });
+      if (bestL === null) break;
+      eL[bestL]++;
+    }
+    var quota = {}; // quota[playerIndex][league]
+    real.forEach(function (p, i) { quota[i] = {}; Ls.forEach(function (L) { quota[i][L] = base; }); });
+    var extrasOf = real.map(function () { return 0; });
+    Ls.slice().sort(function (a, b) { return eL[b] - eL[a]; }).forEach(function (L) {
+      var idxs = lgShuffle(real.map(function (_, i) { return i; }), rng)
+        .sort(function (a, b) { return extrasOf[a] - extrasOf[b]; })
+        .filter(function (i) { return extrasOf[i] < extra; })
+        .slice(0, eL[L]);
+      idxs.forEach(function (i) { quota[i][L]++; extrasOf[i]++; });
+    });
+    // Spare clubs: each league keeps exactly what its quotas need; the rest
+    // (weakest non-CL first) go undealt.
+    var weakFirst = function (arr) {
+      return lgShuffle(arr.slice(), rng).sort(function (a, b) {
+        return (LEAGUE_TEAMS[b].pot - LEAGUE_TEAMS[a].pot) || ((tierOf(a) ? 1 : 0) - (tierOf(b) ? 1 : 0));
+      });
+    };
+    var spare = [];
+    Ls.forEach(function (L) {
+      var need = 0; real.forEach(function (_, i) { need += quota[i][L]; });
+      var inL = pool.filter(function (id) { return leagueOf(id) === L; });
+      spare = spare.concat(weakFirst(inL).slice(0, Math.max(0, inL.length - need)));
+    });
     pool = pool.filter(function (id) { return spare.indexOf(id) === -1; });
     var order = [];
     [1, 2, 3, 4].forEach(function (pot) {
@@ -613,13 +656,14 @@ function lgEnsureTeams(group) {
     order.forEach(function (id) {
       var t = LEAGUE_TEAMS[id], tier = tierOf(id);
       var best = null, bestKey = null;
-      lgShuffle(real.slice(), rng).forEach(function (p) { // shuffled so exact ties fall randomly
+      lgShuffle(real.map(function (p, i) { return i; }), rng).forEach(function (pi) { // shuffled so exact ties fall randomly
+        var p = real[pi];
         if (p.teamIds.length >= k) return;
+        if (count(p, function (i) { return leagueOf(i) === t.league; }) >= quota[pi][t.league]) return;
         var key = [
           count(p, function (i) { return LEAGUE_TEAMS[i].pot === t.pot; }),
           tier ? count(p, function (i) { return tierOf(i) > 0; }) : 0,
           tier ? count(p, function (i) { return tierOf(i) === tier; }) : 0,
-          count(p, function (i) { return LEAGUE_TEAMS[i].league === t.league; }),
           p.teamIds.length,
         ];
         var better = !bestKey;
@@ -648,9 +692,10 @@ function lgEnsureTeams(group) {
 // (server-side enforcement + autopick); keep the two in sync.
 //
 // lgDraftAllowedLeagues(leagueOf, myIds, takenIds, poolIds) → { league: true }
-// lgDraftPerPlayer(poolIds, nPlayers, leagueOf) → picks per player: a multiple
-//   of the league count when every league can give each player at least one
-//   (L × min_L floor(size_L / n)); otherwise floor(pool / n).
+// lgDraftPerPlayer(poolIds, nPlayers, leagueOf) → picks per player: the
+//   largest EQUAL split (a multiple of the league count) every league can
+//   supply; if even one-from-each doesn't fit (too many players), the largest
+//   squad with league counts within one of each other.
 // ─────────────────────────────────────────────────────────────────────────────
 function lgDraftAllowedLeagues(leagueOf, myIds, takenIds, poolIds) {
   var taken = {}, avail = {}, count = {}, allowed = {};
@@ -667,10 +712,24 @@ function lgDraftPerPlayer(poolIds, nPlayers, leagueOf) {
   if (!nPlayers) return 0;
   var size = {};
   (poolIds || []).forEach(function (id) { var L = leagueOf(id); size[L] = (size[L] || 0) + 1; });
-  var Ls = Object.keys(size), q = Infinity;
-  Ls.forEach(function (L) { q = Math.min(q, Math.floor(size[L] / nPlayers)); });
-  if (Ls.length && q >= 1 && q !== Infinity) return q * Ls.length;
-  return Math.floor((poolIds || []).length / nPlayers);
+  var Ls = Object.keys(size);
+  if (!Ls.length) return 0;
+  // k is dealable if every player can hold floor(k/L) from each league plus
+  // one extra from (k mod L) leagues without any league running out.
+  var feasible = function (k) {
+    var base = Math.floor(k / Ls.length), extra = k - base * Ls.length, ok = true, room = 0;
+    Ls.forEach(function (L) {
+      if (size[L] < base * nPlayers) ok = false;
+      else room += Math.min(nPlayers, size[L] - base * nPlayers);
+    });
+    return ok && room >= nPlayers * extra;
+  };
+  var max = Math.floor((poolIds || []).length / nPlayers), k;
+  // Prefer an EQUAL split (a multiple of the league count)…
+  for (k = max - (max % Ls.length); k >= Ls.length; k -= Ls.length) if (feasible(k)) return k;
+  // …else (too many players for one each) the largest within-one split.
+  for (k = Math.min(max, Ls.length - 1); k >= 1; k--) if (feasible(k)) return k;
+  return 0;
 }
 
 // Throwaway "preview" draw for the lobby's Preview-app button: deal each of the
