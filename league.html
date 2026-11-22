@@ -1361,6 +1361,17 @@
       const names = ranked.map(p => p.name);
       const who = (viewing && names.includes(viewing)) ? viewing : (me && names.includes(me)) ? me : (gw.highest ? gw.highest.name : names[0]);
       const pw = gw.players.find(p => p.name === who) || { name: who, pts: 0, clPts: 0, bonusPts: 0, rank: "–", teams: [] };
+      // FPL-style: a club yet to play this gameweek shows its fixture ("HUL (A)")
+      // instead of a score. Unplayed = in this week and not settled/live.
+      const fixturesLeft = (teamId) => matches
+        .filter(m => { const d = m.utcDate.slice(0, 10); return d >= week.start && d < week.end && (m.homeTeam.id === teamId || m.awayTeam.id === teamId) && !(typeof lgIsSettled === "function" && lgIsSettled(m)); })
+        .sort((a, b) => a.utcDate.localeCompare(b.utcDate));
+      const fixtureLabel = (m, teamId) => {
+        const home = m.homeTeam.id === teamId, opp = home ? m.awayTeam : m.homeTeam;
+        const k = typeof LEAGUE_TEAMS !== "undefined" && LEAGUE_TEAMS[opp.id];
+        const tla = ((k && k.tla) || opp.tla || (opp.shortName || "?").slice(0, 3)).trim().toUpperCase();
+        return `${tla} (${home ? "H" : "A"})`;
+      };
       const needsMe = !me && !picker && names.length > 0;
       const statCell = (big, label, onClick) => (
         <div onClick={onClick} style={{ textAlign: "center", padding: "10px 4px", cursor: onClick ? "pointer" : "default" }}>
@@ -1442,7 +1453,13 @@
                             {t.clPts !== 0 && <span style={{ position: "absolute", top: 2, right: 3, fontSize: 10 }}>🏆</span>}
                           </div>
                           <div style={{ width: "100%", background: "#f4f6f4", color: "#0d1f12", fontSize: 10, fontWeight: 800, textAlign: "center", padding: "3px 2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", boxSizing: "border-box" }}>{t.name}</div>
-                          <div style={{ width: "100%", background: "#0d1f12", color: t.pts < 0 ? C.red : "#fff", fontSize: 12, fontWeight: 900, textAlign: "center", padding: "3px 2px", borderRadius: "0 0 10px 10px", boxSizing: "border-box" }}>{t.results.length || t.pts ? t.pts : "–"}</div>
+                          {(() => {
+                            const left = fixturesLeft(t.teamId);
+                            const showFixture = t.results.length === 0 && left.length > 0;
+                            return showFixture
+                              ? <div style={{ width: "100%", background: "#f4f6f4", color: "#0d1f12", fontSize: 11, fontWeight: 800, textAlign: "center", padding: "3px 2px", borderRadius: "0 0 10px 10px", boxSizing: "border-box", borderTop: "1px solid #d6dcd7" }}>{fixtureLabel(left[0], t.teamId)}{left.length > 1 ? " +" + (left.length - 1) : ""}</div>
+                              : <div style={{ width: "100%", background: "#0d1f12", color: t.pts < 0 ? C.red : "#fff", fontSize: 12, fontWeight: 900, textAlign: "center", padding: "3px 2px", borderRadius: "0 0 10px 10px", boxSizing: "border-box" }}>{t.results.length || t.pts ? t.pts : "–"}</div>;
+                          })()}
                         </div>
                       ))}
                     </div>
@@ -1458,7 +1475,9 @@
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{t.name}<span style={{ fontSize: 9, color: C.muted, fontWeight: 600 }}> (P{t.pot})</span></div>
                     <div style={{ fontSize: 11, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {t.results.length === 0 ? "No game this week" : t.results.map(x => {
+                      {t.results.length === 0 ? (fixturesLeft(t.teamId).length
+                        ? fixturesLeft(t.teamId).map(m => `${fixtureLabel(m, t.teamId)} · ${fmtDay(m.utcDate)} ${fmtTime(m.utcDate)}`).join(" · ")
+                        : "No game this week") : t.results.map(x => {
                         const home = x.m.homeTeam.id === t.teamId;
                         const opp = home ? x.m.awayTeam : x.m.homeTeam;
                         const ft = x.m.score && x.m.score.fullTime;
