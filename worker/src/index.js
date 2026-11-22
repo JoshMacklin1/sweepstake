@@ -135,6 +135,21 @@ export class League {
     }
   }
 
+  // Balanced draft (mirrors lgDraftAllowedLeagues in league-scoring.js): the
+  // leagues `pid` may pick from now = those (with clubs left) where they hold
+  // the fewest. null = no restriction (league created without poolLeagues).
+  allowedLeagues(d, pid) {
+    if (!d.poolLeagues) return null;
+    const taken = new Set(d.picks.map(pk => pk.teamId));
+    const count = {};
+    d.pool.forEach(id => { if (!taken.has(id)) count[d.poolLeagues[id]] = 0; });
+    d.picks.forEach(pk => { const L = d.poolLeagues[pk.teamId]; if (pk.playerId === pid && count[L] != null) count[L]++; });
+    const min = Math.min(...Object.values(count));
+    const allowed = new Set();
+    Object.keys(count).forEach(L => { if (count[L] === min) allowed.add(L); });
+    return allowed;
+  }
+
   // While the player whose turn it is has autopick on, the robot claims the
   // best still-available team for them (the pool is stored best-first by the
   // client, so that's just the first unclaimed id) and advances. Cascades
@@ -146,7 +161,8 @@ export class League {
       const player = d.players.find(p => p.id === pid);
       if (!player || !player.autopick) break;
       const taken = new Set(d.picks.map(pk => pk.teamId));
-      const teamId = d.pool.find(id => !taken.has(id));
+      const allowed = this.allowedLeagues(d, pid);
+      const teamId = d.pool.find(id => !taken.has(id) && (!allowed || allowed.has(d.poolLeagues[id])));
       if (teamId === undefined) break;
       d.picks.push({ teamId, playerId: pid, pickNo: d.turnNo, auto: true });
       d.turnNo += 1;
@@ -213,6 +229,9 @@ export class League {
         name: (body.name || "League").trim(),
         competitions: Array.isArray(body.competitions) ? body.competitions : [],
         pool: Array.isArray(body.poolTeamIds) ? body.poolTeamIds.map(Number) : [],
+        // { teamId: leagueCode } — enables the balanced draft (one from every
+        // league before a second). Absent on leagues created by older clients.
+        poolLeagues: (body.poolLeagues && typeof body.poolLeagues === "object") ? body.poolLeagues : null,
         status: "lobby",
         hostToken,
         players: [],
@@ -293,7 +312,16 @@ export class League {
         [ids[i], ids[j]] = [ids[j], ids[i]];
       }
       d.order = ids;
+      // Balanced draft: picks per player = a multiple of the league count when
+      // every league can give each player one (mirrors lgDraftPerPlayer).
       d.perPlayer = Math.floor(d.pool.length / ids.length);
+      if (d.poolLeagues) {
+        const size = {};
+        d.pool.forEach(id => { const L = d.poolLeagues[id]; size[L] = (size[L] || 0) + 1; });
+        const Ls = Object.keys(size);
+        const q = Math.min(...Ls.map(L => Math.floor(size[L] / ids.length)));
+        if (Ls.length && q >= 1) d.perPlayer = q * Ls.length;
+      }
       d.totalPicks = d.perPlayer * ids.length;
       d.turnNo = 0;
       d.status = d.totalPicks > 0 ? "drafting" : "complete";
@@ -330,6 +358,8 @@ export class League {
       const teamId = Number(body.teamId);
       if (!d.pool.includes(teamId)) return json({ error: "not_in_pool" }, 400);
       if (d.picks.some(pk => pk.teamId === teamId)) return json({ error: "taken", state: this.view(d) }, 409);
+      const allowed = this.allowedLeagues(d, player.id);
+      if (allowed && !allowed.has(d.poolLeagues[teamId])) return json({ error: "league_quota", state: this.view(d) }, 409);
       d.picks.push({ teamId, playerId: player.id, pickNo: d.turnNo });
       d.turnNo += 1;
       if (d.picks.length >= d.totalPicks) d.status = "complete";

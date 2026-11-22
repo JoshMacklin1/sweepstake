@@ -142,6 +142,16 @@ from the league app's More menu.
 
 ### Live multiplayer draft (hosted leagues)
 
+**Balanced draft:** a player can't take a second club from a league until they
+hold one from every league that still has clubs (`lgDraftAllowedLeagues`;
+picks per player = league count × the most every league can give everyone,
+`lgDraftPerPlayer`). The client sends `poolLeagues` {teamId: league} at create;
+the Worker enforces it on `/pick` (409 `league_quota`) and in the autopick
+robot, and sizes `perPlayer` the same way. Leagues created before this have no
+`poolLeagues` and draft unrestricted. The Draft board greys out locked leagues
+with a banner; the local `#demo` draft follows the same rule. **Needs a Worker
+redeploy** to be enforced server-side.
+
 Anyone can create a league and invite others to **draft teams together in
 real time** (e.g. everyone on a call watching the roster shrink). This
 replaces the old local-only "Create" path — the previous local draw
