@@ -411,7 +411,8 @@
 
           <>
               <div style={sect}>Teams</div>
-              {player.teams.map(t => {
+              {/* Highest points first; stable sort keeps pot order on ties. Copy so the shared player object isn't mutated. */}
+              {[...player.teams].sort((a, b) => b.total - a.total).map(t => {
                 const dead = t.outcome === "RELEGATED";
                 return (
                   <div key={t.teamId} onClick={onTeamClick ? () => onTeamClick(t.teamId) : undefined}
