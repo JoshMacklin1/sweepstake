@@ -2059,21 +2059,50 @@
         return out;
       }, [isCL, matches, table, outcomes]);
       const cols = 5;
+      // Order by competition points (the real table) or sweepstake points.
+      // One choice shared by every table, remembered per device.
+      const SORT_KEY = "lsw_table_sort";
+      const [sortBy, setSortByState] = useState(() => {
+        try { return localStorage.getItem(SORT_KEY) === "sw" ? "sw" : "pts"; } catch (e) { return "pts"; }
+      });
+      const setSortBy = (v) => { setSortByState(v); try { localStorage.setItem(SORT_KEY, v); } catch (e) {} };
+      const bySw = sortBy === "sw";
+      // Sw order: owned clubs by Sw desc (ties keep table order); unowned last, in table order.
+      const rows = bySw
+        ? [...table].sort((a, b) => {
+            const va = swPts[a.teamId], vb = swPts[b.teamId];
+            if (va == null && vb == null) return 0;
+            if (va == null) return 1;
+            if (vb == null) return -1;
+            return vb - va;
+          })
+        : table;
+      const sortPill = (on) => ({
+        flex: 1, padding: "6px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
+        background: on ? C.accent : "transparent", color: on ? C.bg : C.muted, border: `1px solid ${on ? C.accent : C.border}`,
+      });
+      const arrow = (on) => on ? <span style={{ fontSize: 8, marginLeft: 2 }}>▼</span> : null;
       return (
         <div style={{ padding: "0 10px" }}>
+          <div style={{ display: "flex", gap: 8, padding: "0 4px 10px" }}>
+            <button onClick={() => setSortBy("pts")} aria-pressed={!bySw} style={sortPill(!bySw)}>{isCL ? "CL table" : "League table"}</button>
+            <button onClick={() => setSortBy("sw")} aria-pressed={bySw} style={sortPill(bySw)}>Sweepstake points</button>
+          </div>
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "8px 7px", overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead><tr>
                 <th style={{ ...th, textAlign: "left" }} colSpan={2}>Team</th>
-                <th style={th}>P</th><th style={th}>Pts</th>
-                <th style={{ ...th, color: C.accent }} title="Sweepstake points earned in this competition">Sw</th>
+                <th style={th}>P</th>
+                <th style={{ ...th, cursor: "pointer", color: !bySw ? C.text : C.muted }} onClick={() => setSortBy("pts")}>Pts{arrow(!bySw)}</th>
+                <th style={{ ...th, cursor: "pointer", color: C.accent }} onClick={() => setSortBy("sw")} title="Sweepstake points earned in this competition">Sw{arrow(bySw)}</th>
               </tr></thead>
               <tbody>
-                {table.map((r, i) => {
+                {rows.map((r, i) => {
                   const o = outcomes[r.teamId];
                   const own = owner(r.teamId);
                   const known = typeof LEAGUE_TEAMS !== "undefined" && LEAGUE_TEAMS[r.teamId];
-                  const cut = (i < table.length - 1) ? threshAfter[i + 1] : null;
+                  // Qualification cut-lines only mean something in real table order.
+                  const cut = (!bySw && i < rows.length - 1) ? threshAfter[i + 1] : null;
                   return (
                     <React.Fragment key={r.teamId}>
                     <tr onClick={onTeamClick && known ? () => onTeamClick(r.teamId) : undefined}
