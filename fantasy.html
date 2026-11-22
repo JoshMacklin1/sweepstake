@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sweepstaker Fantasy</title>
+  <meta name="theme-color" content="#0b160e"/>
+  <link rel="icon" type="image/png" href="league-icon-192.png"/>
+  <link rel="apple-touch-icon" href="league-apple-touch.png"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { background: #0b160e; color: #f0faf3; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+    #root { max-width: 480px; margin: 0 auto; }
+    button { font-family: inherit; }
+    .tap { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    .tap:active { transform: scale(0.98); }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <!-- Shared football data + helpers (teams, crests, gameweeks), then the fantasy engine. -->
+  <script src="league-scoring.js?v=30"></script>
+  <script src="fantasy-scoring.js?v=1"></script>
+  <script type="text/babel">
+    const { useState, useEffect, useMemo } = React;
+    const C = {
+      bg: "#0b160e", surface: "#14261b", card: "#193322", border: "#2c5540",
+      muted: "#6b9e7a", dim: "#8fba9a", text: "#f0faf3",
+      accent: "#22c55e", red: "#f15a5a", gold: "#f59e0b", purple: "#a78bfa",
+    };
+    const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 14 };
+    const sect = { fontSize: 11, color: C.dim, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", margin: "18px 0 8px" };
+    const LG = { PL: "Premier League", PD: "La Liga", SA: "Serie A", BL1: "Bundesliga", FL1: "Ligue 1" };
+    const LG_SHORT = { PL: "PL", PD: "Liga", SA: "Serie A", BL1: "Bund", FL1: "L1" };
+    const Crest = ({ id, size = 26 }) => (
+      <img src={typeof leagueCrest === "function" ? leagueCrest(id) : ""} alt="" width={size} height={size} loading="lazy"
+        style={{ objectFit: "contain", flexShrink: 0 }} onError={e => { e.target.style.visibility = "hidden"; }} />
+    );
+    const money = (t) => typeof fpMoney === "function" ? fpMoney(t) : (t / 10).toFixed(1);
+    const btn = (primary, extra) => ({
+      padding: "11px 14px", borderRadius: 12, fontWeight: 800, fontSize: 14, cursor: "pointer",
+      background: primary ? C.accent : C.card, color: primary ? C.bg : C.text,
+      border: `1px solid ${primary ? C.accent : C.border}`, ...(extra || {}),
+    });
+    const fmtDate = (iso) => new Date(iso).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+
+    // ── Save slots: one per mode, on this phone. { entries: {gi: picks}, current, draft }
+    const saveKey = (mode) => "fp_save_" + mode;
+    const loadSave = (mode) => { try { return JSON.parse(localStorage.getItem(saveKey(mode))) || null; } catch (e) { return null; } };
+    const storeSave = (mode, sv) => { try { localStorage.setItem(saveKey(mode), JSON.stringify(sv)); } catch (e) {} };
+
+    // ── Data: practice = the real 2025-26 season (replay file); live = 2026-27 via the proxy.
+    function useMatches(mode) {
+      const [state, setState] = useState({ loading: true, matches: [], error: null });
+      useEffect(() => {
+        let dead = false;
+        if (mode === "practice") {
+          const done = () => !dead && setState({ loading: false, matches: (typeof LEAGUE_REPLAY_DATA !== "undefined" ? LEAGUE_REPLAY_DATA.matches : []), error: null });
+          if (typeof LEAGUE_REPLAY_DATA !== "undefined") { done(); return; }
+          const sc = document.createElement("script"); sc.src = "league-data-2025.js"; sc.onload = done;
+          sc.onerror = () => !dead && setState({ loading: false, matches: [], error: "Couldn't load last season's data." });
+          document.body.appendChild(sc);
+        } else {
+          (async () => {
+            const codes = ["PL", "PD", "SA", "BL1", "FL1", "CL"]; let all = [], fails = 0;
+            for (const c of codes) {
+              try {
+                const r = await fetch(`${LEAGUE_WORKER_URL}/competitions/${c}/matches?season=${LEAGUE_SEASON}`);
+                if (!r.ok) throw new Error(r.status);
+                all = all.concat(((await r.json()).matches || []).map(m => ({ ...m, competition: { code: c } })));
+              } catch (e) { fails++; }
+            }
+            if (!dead) setState({ loading: false, matches: all, error: fails === codes.length ? "Couldn't reach the match feed." : null });
+          })();
+        }
+        return () => { dead = true; };
+      }, [mode]);
+      return state;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    function Landing({ onPick }) {
+      const has = (m) => !!loadSave(m);
+      return (
+        <div style={{ padding: "48px 20px", textAlign: "center" }}>
+          <img src="league-icon-192.png" alt="" width="64" height="64" style={{ borderRadius: 14 }} />
+          <div style={{ fontSize: 26, fontWeight: 900, marginTop: 12 }}>Sweepstaker <span style={{ color: C.accent }}>Fantasy</span></div>
+          <div style={{ color: C.muted, fontSize: 13, margin: "8px 0 26px", lineHeight: 1.5 }}>
+            Fantasy football with <strong style={{ color: C.text }}>clubs</strong>, not players. £100m, 15 clubs, 3 from each of Europe's big five leagues. Transfers, captains, chips — prices move with form.
+          </div>
+          <button className="tap" onClick={() => onPick("practice")} style={{ ...btn(true), width: "100%", textAlign: "left", padding: "16px" }}>
+            <div style={{ fontSize: 16 }}>▶ Practice season {has("practice") ? "· continue" : ""}</div>
+            <div style={{ fontSize: 12, fontWeight: 500, color: "#0d2a17", marginTop: 3 }}>Play last season (2025-26) week by week — you press "Play gameweek".</div>
+          </button>
+          <button className="tap" onClick={() => onPick("live")} style={{ ...btn(false), width: "100%", textAlign: "left", padding: "16px", marginTop: 12 }}>
+            <div style={{ fontSize: 16 }}>Live 2026-27 {has("live") ? "· continue" : ""} <span style={{ fontSize: 11, color: C.gold }}>BETA</span></div>
+            <div style={{ fontSize: 12, fontWeight: 500, color: C.muted, marginTop: 3 }}>Real fixtures and deadlines. Saved on this phone only for now — mini-leagues come next.</div>
+          </button>
+          <a href="league.html" style={{ display: "block", marginTop: 26, color: C.muted, fontSize: 13 }}>‹ Back to Sweepstaker leagues</a>
+        </div>
+      );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    function Game({ mode, onExit }) {
+      const { loading, matches, error } = useMatches(mode);
+      const ctx = useMemo(() => (matches.length && typeof fpContext === "function" ? fpContext(matches, mode === "practice") : null), [matches, mode]);
+      const [save, setSave] = useState(() => loadSave(mode) || { entries: {}, current: 0, draft: null });
+      const [tab, setTab] = useState("team");
+      const [viewGw, setViewGw] = useState(null);
+      const [sheet, setSheet] = useState(null);
+      const persist = (sv) => { setSave(sv); storeSave(mode, sv); };
+
+      if (loading) return <div style={{ padding: 40, textAlign: "center", color: C.muted }}>Loading fixtures…</div>;
+      if (error || !ctx || !ctx.weeks.length) return <div style={{ padding: 40, textAlign: "center", color: C.red }}>{error || "No fixtures."}<div><button onClick={onExit} style={{ ...btn(false), marginTop: 16 }}>‹ Back</button></div></div>;
+
+      // Current gameweek: practice = where you've played up to; live = first GW whose deadline hasn't passed.
+      const now = Date.now();
+      const current = mode === "practice"
+        ? Math.min(save.current, ctx.weeks.length)
+        : (() => { const i = ctx.deadline.findIndex(d => new Date(d).getTime() > now); return i === -1 ? ctx.weeks.length : i; })();
+      const seasonOver = current >= ctx.weeks.length;
+      const entries = Object.assign({}, save.entries);
+      const history = typeof fpReplay === "function" ? fpReplay(ctx, entries, current) : { gws: [], total: 0 };
+      const lastPicks = history.last || null;
+      const draft = save.draft || (lastPicks ? JSON.parse(JSON.stringify(Object.assign({}, lastPicks, { chip: null }))) : null);
+      const gi = Math.min(current, ctx.weeks.length - 1);
+      const price = ctx.price[gi] || {};
+      // Preview the draft as if it were played now: transfers, hits, bank, errors.
+      const preview = draft && !seasonOver ? fpReplay(ctx, Object.assign({}, entries, { [current]: draft }), current + 1).gws[current] : null;
+      const setDraft = (d) => persist({ ...save, draft: d });
+      const playedGws = history.gws.filter(Boolean);
+
+      const playGameweek = () => {
+        if (!preview || preview.errors.length) return;
+        const e = Object.assign({}, save.entries, { [current]: draft });
+        persist({ entries: e, current: current + 1, draft: null });
+        setViewGw(current); setTab("points");
+      };
+      const lockLive = () => { // live: confirm the draft for the upcoming GW
+        if (!preview || preview.errors.length) return;
+        const e = Object.assign({}, save.entries, { [current]: draft });
+        persist({ ...save, entries: e, draft: null });
+      };
+
+      const header = (
+        <div style={{ padding: "12px 14px 8px", display: "flex", alignItems: "center", gap: 10 }}>
+          <button onClick={onExit} style={{ background: "none", border: "none", color: C.muted, fontSize: 22, cursor: "pointer" }}>‹</button>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 16, fontWeight: 900 }}>Sweepstaker <span style={{ color: C.accent }}>Fantasy</span></div>
+            <div style={{ fontSize: 11, color: C.muted }}>{mode === "practice" ? "Practice · 2025-26 season" : "Live · 2026-27 (beta)"}</div>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: 18, fontWeight: 900 }}>{history.total}</div>
+            <div style={{ fontSize: 10, color: C.muted }}>total pts</div>
+          </div>
+        </div>
+      );
+      const nav = (
+        <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, maxWidth: 480, margin: "0 auto", display: "flex", background: C.bg, borderTop: `1px solid ${C.border}`, zIndex: 20, paddingBottom: "env(safe-area-inset-bottom)" }}>
+          {[["points", "Points"], ["team", "Pick Team"], ["transfers", "Transfers"], ["clubs", "Clubs"], ["help", "Rules"]].map(([id, label]) => (
+            <button key={id} onClick={() => { window.scrollTo(0, 0); setTab(id); }} style={{ flex: 1, padding: "14px 2px", background: "none", border: "none", cursor: "pointer",
+              color: tab === id ? C.accent : C.muted, fontWeight: tab === id ? 800 : 600, fontSize: 12, borderTop: `2px solid ${tab === id ? C.accent : "transparent"}` }}>{label}</button>
+          ))}
+        </div>
+      );
+
+      // No squad yet → straight into the squad builder.
+      const needsSquad = !draft;
+      let body;
+      if (needsSquad || (tab === "transfers")) body = <TransfersView ctx={ctx} gi={gi} draft={draft} setDraft={setDraft} preview={preview} history={history} building={needsSquad} seasonOver={seasonOver} />;
+      else if (tab === "team") body = <PickTeamView ctx={ctx} gi={gi} draft={draft} setDraft={setDraft} preview={preview} history={history} mode={mode} current={current}
+        onPlay={mode === "practice" ? playGameweek : lockLive} seasonOver={seasonOver} locked={mode === "live" && !!save.entries[current] && !save.draft} />;
+      else if (tab === "points") body = <PointsView ctx={ctx} history={history} viewGw={viewGw} setViewGw={setViewGw} onClub={(id, g) => setSheet({ id, g })} />;
+      else if (tab === "clubs") body = <ClubsView ctx={ctx} gi={gi} current={current} onClub={(id) => setSheet({ id, g: Math.max(0, current - 1) })} />;
+      else body = <RulesView />;
+
+      return (
+        <div style={{ paddingBottom: 90 }}>
+          {header}
+          {body}
+          {!needsSquad && nav}
+          {sheet && <ClubSheet ctx={ctx} id={sheet.id} g={sheet.g} current={current} onClose={() => setSheet(null)} />}
+        </div>
+      );
+    }
+
+    // ── Squad tiles grouped by league row ─────────────────────────────────
+    function Pitch({ ctx, ids, xi, captain, vice, pointsById, priceById, onTap, dimBench, subs = [] }) {
+      return (
+        <div style={{ borderRadius: 16, padding: "10px 8px", background: "repeating-linear-gradient(180deg, #1f7a3a 0 56px, #1b6e34 56px 112px)", border: `1px solid ${C.border}` }}>
+          {FP_LEAGUES.map(L => {
+            const row = ids.filter(id => ctx.pool[id] && ctx.pool[id].league === L);
+            return (
+              <div key={L} style={{ marginBottom: 6 }}>
+                <div style={{ fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,0.75)", letterSpacing: "0.08em", textTransform: "uppercase", margin: "0 0 3px 4px" }}>{LG[L]}</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+                  {row.map(id => {
+                    const t = ctx.pool[id], bench = xi && xi.indexOf(id) === -1;
+                    const sub = subs.find(s => s[0] === id || s[1] === id);
+                    return (
+                      <div key={id} className="tap" onClick={() => onTap && onTap(id)} style={{ opacity: bench && dimBench ? 0.55 : 1, position: "relative" }}>
+                        <div style={{ background: "rgba(0,0,0,0.2)", borderRadius: "10px 10px 0 0", padding: "6px 4px 4px", display: "flex", justifyContent: "center" }}><Crest id={id} size={30} /></div>
+                        {(id === captain || id === vice) && <span style={{ position: "absolute", top: 3, left: 4, width: 18, height: 18, borderRadius: "50%", background: id === captain ? "#111" : "#444", color: "#fff", fontSize: 10, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>{id === captain ? "C" : "V"}</span>}
+                        {bench && <span style={{ position: "absolute", top: 3, right: 4, fontSize: 8, fontWeight: 900, background: "#0d1f12", color: C.dim, borderRadius: 4, padding: "1px 4px" }}>BENCH</span>}
+                        {sub && <span style={{ position: "absolute", top: 3, right: 4, fontSize: 9, fontWeight: 900, background: sub[1] === id ? C.accent : C.red, color: "#0d1f12", borderRadius: 4, padding: "1px 4px" }}>{sub[1] === id ? "SUB IN" : "OUT"}</span>}
+                        <div style={{ background: "#f4f6f4", color: "#0d1f12", fontSize: 10.5, fontWeight: 800, textAlign: "center", padding: "3px 2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}</div>
+                        <div style={{ background: "#0d1f12", color: "#fff", fontSize: 12, fontWeight: 900, textAlign: "center", padding: "3px 2px", borderRadius: "0 0 10px 10px" }}>
+                          {pointsById ? (pointsById[id] != null ? pointsById[id] : "–") : money(priceById[id])}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // ── PICK TEAM ─────────────────────────────────────────────────────────
+    function PickTeamView({ ctx, gi, draft, setDraft, preview, history, mode, current, onPlay, seasonOver, locked }) {
+      const [sel, setSel] = useState(null);
+      if (seasonOver) return <div style={{ padding: 30, textAlign: "center", color: C.muted }}>Season complete — final score <strong style={{ color: C.text }}>{history.total}</strong>. Check Points for every gameweek.</div>;
+      const w = ctx.weeks[gi], price = ctx.price[gi] || {};
+      const isXi = (id) => draft.xi.indexOf(id) !== -1;
+      const swap = (a, b) => {
+        const d = JSON.parse(JSON.stringify(draft));
+        const [st, bn] = isXi(a) ? [a, b] : [b, a];
+        d.xi[d.xi.indexOf(st)] = bn; d.bench[d.bench.indexOf(bn)] = st;
+        if (d.captain === st) d.captain = d.vice === bn ? d.xi.find(x => x !== bn) : bn;
+        if (d.vice === st) d.vice = d.xi.find(x => x !== d.captain);
+        setDraft(d);
+      };
+      const canSwap = (a, b) => {
+        if (isXi(a) === isXi(b)) return false;
+        const [st, bn] = isXi(a) ? [a, b] : [b, a];
+        const trial = draft.xi.map(x => x === st ? bn : x);
+        return FP_LEAGUES.every(L => trial.filter(id => ctx.pool[id].league === L).length >= FP_MIN_XI_PER_LEAGUE);
+      };
+      const tap = (id) => {
+        if (sel == null) { setSel(id); return; }
+        if (sel === id) { setSel(null); return; }
+        if (canSwap(sel, id)) { swap(sel, id); setSel(null); } else setSel(id);
+      };
+      const setRole = (role) => {
+        const d = JSON.parse(JSON.stringify(draft));
+        if (role === "C") { if (d.vice === sel) d.vice = d.captain; d.captain = sel; }
+        else { if (d.captain === sel) d.captain = d.vice; d.vice = sel; }
+        setDraft(d); setSel(null);
+      };
+      const setChip = (c) => setDraft({ ...draft, chip: draft.chip === c ? null : c });
+      const used = history.chipsUsed || {};
+      const half = Math.floor(ctx.weeks.length / 2);
+      const chipBtns = [["BB", "Bench Boost"], ["TC", "Triple Captain"], ["FH", "Free Hit"], [gi < half ? "WC1" : "WC2", "Wildcard"]];
+      const errs = preview ? preview.errors : [];
+      return (
+        <div style={{ padding: "0 14px" }}>
+          <div style={{ ...card, padding: 12, marginBottom: 10, textAlign: "center" }}>
+            <div style={{ fontSize: 20, fontWeight: 900 }}>Gameweek {w.n}</div>
+            <div style={{ fontSize: 12, color: C.muted }}>Deadline {fmtDate(ctx.deadline[gi])} · {new Date(ctx.deadline[gi]).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</div>
+            {preview && <div style={{ fontSize: 12, color: C.dim, marginTop: 6 }}>Bank {money(preview.bank)} · {preview.transfers} transfer{preview.transfers === 1 ? "" : "s"}{preview.hits ? <span style={{ color: C.red }}> (−{preview.hits} pts)</span> : ""}</div>}
+          </div>
+          <div style={{ fontSize: 11, color: C.muted, textAlign: "center", marginBottom: 8 }}>
+            {sel == null ? "Tap a club, then another to swap starter ⇄ bench." : <>Selected <strong style={{ color: C.text }}>{ctx.pool[sel].name}</strong> — tap another to swap, or make it <button onClick={() => setRole("C")} style={{ ...btn(false, { padding: "2px 8px", fontSize: 11 }) }}>Captain</button> <button onClick={() => setRole("V")} style={{ ...btn(false, { padding: "2px 8px", fontSize: 11 }) }}>Vice</button></>}
+          </div>
+          <Pitch ctx={ctx} ids={draft.squad} xi={draft.xi} captain={draft.captain} vice={draft.vice} priceById={price} onTap={tap} dimBench />
+          {sel != null && <div style={{ fontSize: 11, color: C.gold, textAlign: "center", marginTop: 6 }}>✓ {ctx.pool[sel].name} selected</div>}
+          <div style={sect}>Bench order (auto-subs go first → last)</div>
+          <div style={{ ...card, overflow: "hidden" }}>
+            {draft.bench.map((id, i) => (
+              <div key={id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderBottom: i < draft.bench.length - 1 ? `1px solid ${C.border}` : "none" }}>
+                <span style={{ width: 16, color: C.muted, fontWeight: 800 }}>{i + 1}</span><Crest id={id} size={20} />
+                <span style={{ flex: 1, fontSize: 13, fontWeight: 700 }}>{ctx.pool[id].name} <span style={{ fontSize: 10, color: C.muted }}>{LG_SHORT[ctx.pool[id].league]}</span></span>
+                <button disabled={i === 0} onClick={() => { const d = JSON.parse(JSON.stringify(draft)); [d.bench[i - 1], d.bench[i]] = [d.bench[i], d.bench[i - 1]]; setDraft(d); }} style={{ ...btn(false, { padding: "2px 8px", fontSize: 12, opacity: i === 0 ? 0.3 : 1 }) }}>↑</button>
+              </div>
+            ))}
+          </div>
+          <div style={sect}>Chips</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            {chipBtns.map(([c, label]) => {
+              const isUsed = used[c] != null, on = draft.chip === c;
+              return <button key={c} disabled={isUsed} onClick={() => setChip(c)} style={{ ...btn(on, { opacity: isUsed ? 0.35 : 1, fontSize: 13 }) }}>{label}{isUsed ? " · used" : on ? " ✓" : ""}</button>;
+            })}
+          </div>
+          {errs.length > 0 && <div style={{ ...card, padding: 10, marginTop: 12, borderColor: C.red, color: "#fca5a5", fontSize: 12 }}>{errs.map((e, i) => <div key={i}>• {e}</div>)}</div>}
+          <button onClick={onPlay} disabled={!preview || errs.length > 0 || locked} style={{ ...btn(true, { width: "100%", marginTop: 14, padding: 16, fontSize: 16, opacity: (!preview || errs.length || locked) ? 0.4 : 1 }) }}>
+            {mode === "practice" ? `▶ Play Gameweek ${w.n}` : locked ? `✓ Saved for Gameweek ${w.n}` : `Save team for Gameweek ${w.n}`}
+          </button>
+          {mode === "practice" && <div style={{ fontSize: 11, color: C.muted, textAlign: "center", marginTop: 6 }}>Plays last season's real results for this week. No going back!</div>}
+        </div>
+      );
+    }
+
+    // ── TRANSFERS / SQUAD BUILDER ─────────────────────────────────────────
+    function TransfersView({ ctx, gi, draft, setDraft, preview, history, building, seasonOver }) {
+      const [league, setLeague] = useState("PL");
+      const [selling, setSelling] = useState(null);
+      const [squad, setSquad] = useState([]); // builder only
+      const price = ctx.price[gi] || {};
+      if (seasonOver) return <div style={{ padding: 30, textAlign: "center", color: C.muted }}>Season complete.</div>;
+      const holdings = history.holdings || {};
+      const sell = (id) => holdings[id] != null ? fpSellPrice(holdings[id], price[id]) : price[id];
+      const clubsIn = (L) => Object.keys(ctx.pool).map(Number).filter(id => ctx.pool[id].league === L).sort((a, b) => price[b] - price[a]);
+      const seasonPts = (id) => ctx.gwPts.slice(0, gi).reduce((s, g) => s + (g[id] || 0), 0);
+      const form = (id) => ctx.gwPts.slice(Math.max(0, gi - 3), gi).reduce((s, g) => s + (g[id] || 0), 0);
+
+      if (building) {
+        const cost = squad.reduce((s, id) => s + price[id], 0);
+        const per = (L) => squad.filter(id => ctx.pool[id].league === L).length;
+        const toggle = (id) => setSquad(sq => sq.includes(id) ? sq.filter(x => x !== id) : (per(ctx.pool[id].league) >= FP_PER_LEAGUE ? sq : [...sq, id]));
+        const ready = squad.length === FP_SQUAD && cost <= FP_BUDGET;
+        return (
+          <div style={{ padding: "0 14px" }}>
+            <div style={{ ...card, padding: 12, marginBottom: 10 }}>
+              <div style={{ fontSize: 18, fontWeight: 900 }}>Pick your squad</div>
+              <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>15 clubs · 3 from each league · {money(FP_BUDGET)} budget</div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10, fontSize: 13, fontWeight: 800 }}>
+                <span>{squad.length}/15 picked</span>
+                <span style={{ color: cost > FP_BUDGET ? C.red : C.accent }}>{money(FP_BUDGET - cost)} left</span>
+              </div>
+              <div style={{ height: 6, background: C.surface, borderRadius: 3, marginTop: 6, overflow: "hidden" }}><div style={{ height: "100%", width: `${Math.min(100, cost / FP_BUDGET * 100)}%`, background: cost > FP_BUDGET ? C.red : C.accent }} /></div>
+              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                <button onClick={() => setSquad(fpAutoPick(ctx, gi, Date.now() % 100000).squad)} style={{ ...btn(false, { flex: 1, fontSize: 13 }) }}>🎲 Auto-pick</button>
+                <button onClick={() => setSquad([])} style={{ ...btn(false, { flex: 1, fontSize: 13 }) }}>Reset</button>
+              </div>
+            </div>
+            <LeaguePills league={league} setLeague={setLeague} count={per} />
+            <ClubList ctx={ctx} ids={clubsIn(league)} price={price} picked={squad} onTap={toggle} full={per(league) >= FP_PER_LEAGUE} seasonPts={seasonPts} form={form} />
+            <button disabled={!ready} onClick={() => setDraft(fpDefaultLineup(ctx, gi, squad))} style={{ ...btn(true, { width: "100%", marginTop: 14, padding: 16, fontSize: 16, opacity: ready ? 1 : 0.4 }) }}>
+              {ready ? "Confirm squad →" : squad.length < 15 ? `Pick ${15 - squad.length} more` : "Over budget"}
+            </button>
+          </div>
+        );
+      }
+      // Transfers on an existing squad: sell a club → pick a same-league replacement.
+      const replace = (outId, inId) => {
+        const d = JSON.parse(JSON.stringify(draft));
+        d.squad[d.squad.indexOf(outId)] = inId;
+        if (d.xi.indexOf(outId) !== -1) d.xi[d.xi.indexOf(outId)] = inId; else d.bench[d.bench.indexOf(outId)] = inId;
+        if (d.captain === outId) d.captain = inId; if (d.vice === outId) d.vice = inId;
+        setDraft(d); setSelling(null);
+      };
+      const ft = history.ft != null && history.last ? history.ft : 1;
+      return (
+        <div style={{ padding: "0 14px" }}>
+          <div style={{ ...card, padding: 12, marginBottom: 10, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", textAlign: "center" }}>
+            <div><div style={{ fontSize: 18, fontWeight: 900 }}>{draft.chip === "WC1" || draft.chip === "WC2" || draft.chip === "FH" ? "∞" : ft}</div><div style={{ fontSize: 10, color: C.muted }}>Free transfers</div></div>
+            <div><div style={{ fontSize: 18, fontWeight: 900, color: preview && preview.hits ? C.red : C.text }}>{preview && preview.hits ? `−${preview.hits}` : 0}</div><div style={{ fontSize: 10, color: C.muted }}>Cost (pts)</div></div>
+            <div><div style={{ fontSize: 18, fontWeight: 900, color: preview && preview.bank < 0 ? C.red : C.accent }}>{preview ? money(preview.bank) : "–"}</div><div style={{ fontSize: 10, color: C.muted }}>Bank</div></div>
+          </div>
+          {preview && preview.transfers > 0 && <div style={{ fontSize: 12, color: C.dim, marginBottom: 8 }}>This week: {preview.outs.map(id => ctx.pool[id].name).join(", ")} → {preview.ins.map(id => ctx.pool[id].name).join(", ")}</div>}
+          {selling == null ? (
+            <>
+              <div style={sect}>Your squad — tap a club to sell</div>
+              <div style={{ ...card, overflow: "hidden" }}>
+                {draft.squad.slice().sort((a, b) => FP_LEAGUES.indexOf(ctx.pool[a].league) - FP_LEAGUES.indexOf(ctx.pool[b].league) || price[b] - price[a]).map((id, i) => (
+                  <div key={id} className="tap" onClick={() => { setSelling(id); setLeague(ctx.pool[id].league); }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderBottom: `1px solid ${C.border}` }}>
+                    <Crest id={id} size={24} />
+                    <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 700 }}>{ctx.pool[id].name}</div><div style={{ fontSize: 10, color: C.muted }}>{LG[ctx.pool[id].league]} · {seasonPts(id)} pts · form {form(id)}</div></div>
+                    <div style={{ textAlign: "right" }}><div style={{ fontSize: 13, fontWeight: 800 }}>{money(sell(id))}</div><div style={{ fontSize: 9, color: C.muted }}>sell</div></div>
+                    <span style={{ color: C.red, fontWeight: 800, fontSize: 12 }}>Sell ›</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "8px 0" }}>
+                <div style={{ fontSize: 13 }}>Replacing <strong>{ctx.pool[selling].name}</strong> ({money(sell(selling))})</div>
+                <button onClick={() => setSelling(null)} style={btn(false, { padding: "4px 10px", fontSize: 12 })}>Cancel</button>
+              </div>
+              <ClubList ctx={ctx} ids={clubsIn(ctx.pool[selling].league).filter(id => draft.squad.indexOf(id) === -1)} price={price} picked={[]} onTap={(id) => replace(selling, id)} seasonPts={seasonPts} form={form} />
+            </>
+          )}
+          <div style={{ fontSize: 11, color: C.muted, textAlign: "center", marginTop: 10 }}>Transfers apply when you play / save the gameweek on Pick Team. Wildcard & Free Hit make them free.</div>
+        </div>
+      );
+    }
+    function LeaguePills({ league, setLeague, count }) {
+      return (
+        <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 8, scrollbarWidth: "none" }}>
+          {FP_LEAGUES.map(L => (
+            <button key={L} onClick={() => setLeague(L)} style={{ flexShrink: 0, padding: "7px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: "pointer",
+              background: league === L ? C.accent : "transparent", color: league === L ? C.bg : C.muted, border: `1px solid ${league === L ? C.accent : C.border}` }}>
+              {LG_SHORT[L]}{count ? ` ${count(L)}/3` : ""}
+            </button>
+          ))}
+        </div>
+      );
+    }
+    function ClubList({ ctx, ids, price, picked, onTap, full, seasonPts, form }) {
+      return (
+        <div style={{ ...card, overflow: "hidden" }}>
+          {ids.map(id => {
+            const t = ctx.pool[id], on = picked.indexOf(id) !== -1, delta = price[id] - t.base;
+            return (
+              <div key={id} className="tap" onClick={() => onTap(id)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderBottom: `1px solid ${C.border}`, opacity: full && !on ? 0.4 : 1, background: on ? "rgba(34,197,94,0.1)" : "transparent" }}>
+                <Crest id={id} size={24} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700 }}>{t.name}{t.clTier ? <span style={{ fontSize: 10 }}> 🏆</span> : null}</div>
+                  <div style={{ fontSize: 10, color: C.muted }}>{seasonPts(id)} pts · form {form(id)}{delta ? <span style={{ color: delta > 0 ? C.accent : C.red }}> · {delta > 0 ? "▲" : "▼"}{money(Math.abs(delta)).replace("£", "£")}</span> : ""}</div>
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 900 }}>{money(price[id])}</div>
+                <span style={{ width: 20, textAlign: "center", color: on ? C.accent : C.muted, fontWeight: 900 }}>{on ? "✓" : "+"}</span>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // ── POINTS (gameweek history) ─────────────────────────────────────────
+    function PointsView({ ctx, history, viewGw, setViewGw, onClub }) {
+      const played = history.gws.map((g, i) => g ? i : null).filter(i => i != null);
+      if (!played.length) return <div style={{ padding: 30, textAlign: "center", color: C.muted }}>No gameweeks played yet — head to Pick Team.</div>;
+      const g = viewGw != null && history.gws[viewGw] ? viewGw : played[played.length - 1];
+      const rec = history.gws[g], w = ctx.weeks[g];
+      const pos = played.indexOf(g);
+      const pts = {};
+      rec.lines.forEach(l => { pts[l.id] = l.role === "bench" || l.role === "subOut" ? (rec.picks.chip === "BB" ? l.pts : l.raw) : l.pts; });
+      const xiNow = rec.lines.filter(l => l.role === "xi" || l.role === "subIn").map(l => l.id);
+      return (
+        <div style={{ padding: "0 14px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+            <button disabled={pos <= 0} onClick={() => setViewGw(played[pos - 1])} style={btn(false, { width: 40, height: 40, padding: 0, borderRadius: "50%", opacity: pos <= 0 ? 0.3 : 1 })}>‹</button>
+            <div style={{ flex: 1, textAlign: "center" }}><div style={{ fontSize: 20, fontWeight: 900 }}>Gameweek {w.n}</div><div style={{ fontSize: 11, color: C.muted }}>{fmtDate(w.first || w.start)} – {fmtDate(w.last || w.end)}</div></div>
+            <button disabled={pos >= played.length - 1} onClick={() => setViewGw(played[pos + 1])} style={btn(false, { width: 40, height: 40, padding: 0, borderRadius: "50%", opacity: pos >= played.length - 1 ? 0.3 : 1 })}>›</button>
+          </div>
+          <div style={{ ...card, display: "grid", gridTemplateColumns: "1fr 1.3fr 1fr", alignItems: "center", padding: 8, marginBottom: 10 }}>
+            <div style={{ textAlign: "center" }}><div style={{ fontSize: 20, fontWeight: 900 }}>{rec.total}</div><div style={{ fontSize: 10, color: C.muted }}>Total</div></div>
+            <div style={{ borderRadius: 14, padding: "14px 6px", textAlign: "center", background: "linear-gradient(135deg, #22c55e, #15803d)" }}>
+              <div style={{ fontSize: 40, fontWeight: 900, color: "#06140b", lineHeight: 1 }}>{rec.pts}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#0d2a17" }}>GW points</div>
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 20, fontWeight: 900 }}>{rec.transfers}</div><div style={{ fontSize: 10, color: C.muted }}>Transfers{rec.hits ? ` (−${rec.hits})` : ""}</div>
+            </div>
+          </div>
+          {rec.picks.chip && <div style={{ textAlign: "center", fontSize: 12, fontWeight: 800, color: C.purple, marginBottom: 8 }}>Chip played: {FP_CHIPS[rec.picks.chip]}</div>}
+          {rec.subs.length > 0 && <div style={{ textAlign: "center", fontSize: 11, color: C.dim, marginBottom: 8 }}>Auto-subs: {rec.subs.map(s => `${ctx.pool[s[1]].name} for ${ctx.pool[s[0]].name}`).join(", ")}</div>}
+          <Pitch ctx={ctx} ids={rec.picks.squad} xi={xiNow} captain={rec.capUsed} vice={null} pointsById={pts} onTap={(id) => onClub(id, g)} dimBench subs={rec.subs} />
+          <div style={{ fontSize: 11, color: C.muted, textAlign: "center", marginTop: 6 }}>Tap a club for its matches. Captain points shown doubled.</div>
+          <div style={sect}>Season so far</div>
+          <div style={{ ...card, overflow: "hidden" }}>
+            {played.slice().reverse().map(i => { const r = history.gws[i]; return (
+              <div key={i} className="tap" onClick={() => setViewGw(i)} style={{ display: "flex", padding: "8px 12px", borderBottom: `1px solid ${C.border}`, fontSize: 13, background: i === g ? "rgba(34,197,94,0.08)" : "transparent" }}>
+                <span style={{ width: 54, color: C.muted }}>GW{ctx.weeks[i].n}</span>
+                <span style={{ flex: 1 }}>{r.picks.chip ? <span style={{ color: C.purple, fontSize: 11 }}>{FP_CHIPS[r.picks.chip]} </span> : null}{r.hits ? <span style={{ color: C.red, fontSize: 11 }}>−{r.hits} </span> : null}</span>
+                <span style={{ fontWeight: 800, width: 40, textAlign: "right" }}>{r.pts}</span><span style={{ color: C.muted, width: 56, textAlign: "right" }}>{r.total}</span>
+              </div>); })}
+          </div>
+        </div>
+      );
+    }
+
+    // ── CLUBS (prices, form, points) ──────────────────────────────────────
+    function ClubsView({ ctx, gi, current, onClub }) {
+      const [league, setLeague] = useState("PL");
+      const [sort, setSort] = useState("pts");
+      const price = ctx.price[gi] || {};
+      const seasonPts = (id) => ctx.gwPts.slice(0, current).reduce((s, g) => s + (g[id] || 0), 0);
+      const form = (id) => ctx.gwPts.slice(Math.max(0, current - 3), current).reduce((s, g) => s + (g[id] || 0), 0);
+      const ids = Object.keys(ctx.pool).map(Number).filter(id => ctx.pool[id].league === league);
+      const key = { pts: seasonPts, form: form, price: (id) => price[id], value: (id) => seasonPts(id) / (price[id] / 10) }[sort];
+      ids.sort((a, b) => key(b) - key(a));
+      return (
+        <div style={{ padding: "0 14px" }}>
+          <LeaguePills league={league} setLeague={setLeague} />
+          <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+            {[["pts", "Points"], ["form", "Form"], ["price", "Price"], ["value", "Pts/£m"]].map(([k, l]) => (
+              <button key={k} onClick={() => setSort(k)} style={{ ...btn(sort === k, { padding: "5px 10px", fontSize: 12, flex: 1 }) }}>{l}</button>))}
+          </div>
+          <ClubList ctx={ctx} ids={ids} price={price} picked={[]} onTap={onClub} seasonPts={seasonPts} form={form} />
+          <div style={{ fontSize: 11, color: C.muted, textAlign: "center", marginTop: 8 }}>Prices move with form (results), up to £0.2m a week. 🏆 = in the Champions League.</div>
+        </div>
+      );
+    }
+
+    function ClubSheet({ ctx, id, g, current, onClose }) {
+      const t = ctx.pool[id], ms = (ctx.gwMatches[g] || {})[id] || [];
+      const priceNow = (ctx.price[Math.min(current, ctx.price.length - 1)] || {})[id];
+      return (
+        <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 40, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+          <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 480, background: C.bg, border: `1px solid ${C.border}`, borderRadius: "18px 18px 0 0", padding: 16, maxHeight: "70vh", overflowY: "auto" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <Crest id={id} size={40} />
+              <div style={{ flex: 1 }}><div style={{ fontSize: 18, fontWeight: 900 }}>{t.name}</div><div style={{ fontSize: 12, color: C.muted }}>{LG[t.league]} · {money(priceNow)} (started {money(t.base)}){t.clTier ? " · 🏆 CL" : ""}</div></div>
+              <button onClick={onClose} style={{ background: "none", border: "none", color: C.muted, fontSize: 22, cursor: "pointer" }}>✕</button>
+            </div>
+            <div style={sect}>Gameweek {ctx.weeks[g].n}</div>
+            {ms.length === 0 ? <div style={{ fontSize: 12, color: C.muted }}>No game this gameweek.</div> : ms.map(m => {
+              const home = m.homeTeam.id === id, opp = home ? m.awayTeam : m.homeTeam, ft = (m.score && m.score.fullTime) || {};
+              const oppName = (ctx.pool[opp.id] && ctx.pool[opp.id].name) || opp.shortName || opp.tla || "?";
+              const settled = lgIsSettled(m);
+              return (
+                <div key={m.id} style={{ ...card, padding: 10, marginBottom: 8 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 700 }}>
+                    <span>{home ? "vs" : "@"} {oppName}{m.competition.code === "CL" ? " 🏆" : ""}</span>
+                    <span>{settled ? `${home ? ft.home : ft.away}–${home ? ft.away : ft.home} · ${fpMatchPoints(m, id)} pts` : fmtDate(m.utcDate)}</span>
+                  </div>
+                  {settled && <div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>{fpMatchBreakdown(m, id) || "No points"}</div>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    function RulesView() {
+      const P = FP_POINTS;
+      const row = (a, b) => <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${C.border}`, fontSize: 13 }}><span>{a}</span><strong>{b}</strong></div>;
+      return (
+        <div style={{ padding: "0 14px", fontSize: 13, color: C.dim, lineHeight: 1.6 }}>
+          <div style={sect}>Squad</div>
+          <div>15 clubs, exactly 3 from each league (PL, La Liga, Serie A, Bundesliga, Ligue 1), {money(FP_BUDGET)} budget. Start 11 with at least 2 per league; 4 on the bench in order.</div>
+          <div style={sect}>Scoring — same for every club</div>
+          <div style={{ ...card, padding: "4px 12px" }}>
+            {row("Win", `+${P.win}`)}{row("Draw", `+${P.draw}`)}{row("Each goal scored", `+${P.goal}`)}{row("Clean sheet", `+${P.cleanSheet}`)}
+            {row("Conceded 3 or more", `${P.concede3}`)}{row("Won by 3 or more", `+${P.bigWin}`)}{row("Champions League win (extra)", `+${P.clWin}`)}
+          </div>
+          <div style={{ marginTop: 6 }}>Every league and CL match in the gameweek counts. Captain ×2 (vice if the captain has no game). Starters with no game are auto-subbed from the bench, keeping 2 per league.</div>
+          <div style={sect}>Transfers & chips</div>
+          <div>1 free transfer a gameweek (bank up to {FP_MAX_FT}); extra ones cost −{FP_HIT} pts. Chips, once each: Wildcard (one per half), Free Hit, Bench Boost, Triple Captain.</div>
+          <div style={sect}>Prices</div>
+          <div>Start at £4.5m–£15.0m by club strength (Champions League clubs cost more — they play more). They rise or fall with results, up to £0.2m a week. Sell for the price you paid plus half of any rise.</div>
+          <div style={sect}>Gameweeks</div>
+          <div>Monday–Sunday across every league; international breaks are skipped. The deadline is the first kick-off of the gameweek.</div>
+        </div>
+      );
+    }
+
+    function Root() {
+      const [mode, setMode] = useState(() => { try { return sessionStorage.getItem("fp_mode") || null; } catch (e) { return null; } });
+      const pick = (m) => { try { m ? sessionStorage.setItem("fp_mode", m) : sessionStorage.removeItem("fp_mode"); } catch (e) {} setMode(m); };
+      return mode ? <Game key={mode} mode={mode} onExit={() => pick(null)} /> : <Landing onPick={pick} />;
+    }
+    ReactDOM.createRoot(document.getElementById("root")).render(<Root />);
+  </script>
+</body>
+</html>

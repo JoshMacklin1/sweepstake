@@ -130,6 +130,15 @@ one-time **"Who are you?"** prompt (per league, per device: `localStorage`
 with week pts, 🏆 for CL) / **List** (results + bonuses), Team of the Week, week
 standings (tap to view someone's week).
 
+### Sweepstaker Fantasy (separate game mode, beta)
+
+`fantasy.html` + `fantasy-scoring.js` — FPL with clubs instead of players
+(15 clubs, 3 per league, £100m, captain/vice, auto-subs, transfers & hits,
+chips, form-driven prices). Practice mode plays the real 2025-26 season week by
+week; live mode is phone-only until the server-side deadline lock (phase 2).
+Full rules, price model and calibration in **[FANTASY.md](FANTASY.md)**. Linked
+from the league app's More menu.
+
 ### Live multiplayer draft (hosted leagues)
 
 Anyone can create a league and invite others to **draft teams together in
