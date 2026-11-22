@@ -106,7 +106,7 @@
 <body>
   <div id="root"></div>
   <!-- Coupled: every league-scoring.js change must bump ?v=N (see SWEEPSTAKE_PROJECT.md cache-bust rule) -->
-  <script src="league-scoring.js?v=29"></script>
+  <script src="league-scoring.js?v=30"></script>
   <script type="text/babel">
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
@@ -1278,7 +1278,9 @@
     const readMe = (code) => { try { return (JSON.parse(localStorage.getItem(ME_KEY) || "{}") || {})[code] || null; } catch (e) { return null; } };
     const writeMe = (code, name) => { try { const m = JSON.parse(localStorage.getItem(ME_KEY) || "{}") || {}; if (name) m[code] = name; else delete m[code]; localStorage.setItem(ME_KEY, JSON.stringify(m)); } catch (e) {} };
     const fmtRange = (w) => {
-      const a = new Date(w.start + "T00:00:00Z"), b = new Date(new Date(w.end + "T00:00:00Z").getTime() - 864e5);
+      // Label with the actual fixture dates (a gameweek may span a folded-in break).
+      const a = new Date((w.first || w.start) + "T00:00:00Z"),
+        b = w.last ? new Date(w.last + "T00:00:00Z") : new Date(new Date(w.end + "T00:00:00Z").getTime() - 864e5);
       const mon = (d) => d.toLocaleDateString("en-GB", { month: "short", timeZone: "UTC" });
       return a.getUTCMonth() === b.getUTCMonth()
         ? `${a.getUTCDate()}–${b.getUTCDate()} ${mon(b)}`
@@ -1341,16 +1343,16 @@
           {/* Stats */}
           <div style={{ ...s.card, display: "grid", gridTemplateColumns: "1fr 1.3fr 1fr", alignItems: "center", padding: "6px 4px", marginBottom: 12 }}>
             <div>
-              {statCell(gw.avg, "League avg")}
+              {statCell(gw.played > 0 ? gw.avg : "–", "League avg")}
               <div style={{ borderTop: `1px solid ${C.border}`, margin: "0 8px" }} />
-              {statCell(gw.highest ? gw.highest.pts : 0, gw.highest ? `Highest · ${gw.highest.name}` : "Highest", gw.highest ? () => setViewing(gw.highest.name) : undefined)}
+              {statCell(gw.highest ? gw.highest.pts : "–", gw.highest ? `Highest · ${gw.highest.name}` : "Highest", gw.highest ? () => setViewing(gw.highest.name) : undefined)}
             </div>
             <div style={{ borderRadius: 14, padding: "16px 6px", textAlign: "center", background: "linear-gradient(135deg, #22c55e, #15803d)", boxShadow: "0 8px 24px rgba(34,197,94,0.25)" }}>
               <div style={{ fontSize: 44, fontWeight: 900, color: "#06140b", lineHeight: 1 }}>{pw.pts}</div>
               <div style={{ fontSize: 12, fontWeight: 700, color: "#0d2a17", marginTop: 4 }}>Week points</div>
             </div>
             <div>
-              {statCell(typeof pw.rank === "number" ? ord(pw.rank) : pw.rank, `Week rank of ${gw.players.length}`)}
+              {statCell(gw.played > 0 && typeof pw.rank === "number" ? ord(pw.rank) : "–", `Week rank of ${gw.players.length}`)}
               <div style={{ borderTop: `1px solid ${C.border}`, margin: "0 8px" }} />
               {statCell(`${pw.clPts > 0 ? "+" : ""}${pw.clPts}`, "From CL 🏆")}
             </div>
@@ -1441,7 +1443,7 @@
               🏁 The Race — season so far ›
             </button>
           )}
-          <div style={{ fontSize: 10, color: C.muted, textAlign: "center", margin: "10px 0 4px" }}>Weeks run Monday–Sunday across every league. Weekly points add up to the season total.</div>
+          <div style={{ fontSize: 10, color: C.muted, textAlign: "center", margin: "10px 0 4px" }}>Gameweeks run Monday–Sunday across every league; international breaks are skipped. Weekly points add up to the season total.</div>
 
           {(picker || needsMe) && (
             <div onClick={() => { setPicker(false); if (!me) { writeMe(code, "__browse__"); setMe("__browse__"); } }} style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>

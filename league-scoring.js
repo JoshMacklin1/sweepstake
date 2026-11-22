@@ -1218,12 +1218,14 @@ function deriveLeagueTeamHistory(matches) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GAMEWEEKS — FPL-style week-by-week view. A "week" is a calendar week,
-// Monday 00:00 → Sunday 23:59 UTC, identical for every league (CL midweek
-// games land in the week they're played). Week 1 = the week of the season's
-// first fixture.
+// GAMEWEEKS — FPL-style week-by-week view. A gameweek is built from calendar
+// weeks (Monday 00:00 → Sunday 23:59 UTC, identical for every league; CL
+// midweek games land in the week they're played). International breaks and
+// other near-empty weeks are folded into the next gameweek (LG_GW_MIN_FIXTURES),
+// so GW numbers only count real football weeks.
 //
-// lgWeeks(matches) → [{ n, start, end }]  (ISO dates; end exclusive)
+// lgWeeks(matches) → [{ n, start, end, first, last, count }]  (ISO dates; end
+//   exclusive; first/last = actual fixture dates, used for the label)
 // lgGameweek(matches, ranked, teamHist, matchPtsById, week) → {
 //   players: [{ name, pts, clPts, bonusPts, rank, teams: [{ teamId, name, pot,
 //     league, pts, matchPts, clPts, bonusPts, results: [{ m, r, earned }] }] }],
@@ -1238,6 +1240,11 @@ function lgMondayOf(iso) {
   var day = (d.getUTCDay() + 6) % 7; // 0 = Monday
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - day));
 }
+// Calendar weeks with fewer than this many fixtures (international breaks, a
+// stray rescheduled game) aren't gameweeks: they're folded into the NEXT
+// gameweek (or the previous one at season end), so the ranges stay contiguous
+// and no points are lost — weeks still sum to the season total.
+var LG_GW_MIN_FIXTURES = 5;
 function lgWeeks(matches) {
   if (!matches || !matches.length) return [];
   var first = null, last = null;
@@ -1247,19 +1254,66 @@ function lgWeeks(matches) {
     if (last === null || m.utcDate > last) last = m.utcDate;
   });
   if (!first) return [];
-  var start = lgMondayOf(first), stop = lgMondayOf(last), out = [], n = 1;
-  for (var d = start; d <= stop; d = new Date(d.getTime() + 7 * 864e5)) {
+  var cal = [];
+  for (var d = lgMondayOf(first), stop = lgMondayOf(last); d <= stop; d = new Date(d.getTime() + 7 * 864e5)) {
     var e = new Date(d.getTime() + 7 * 864e5);
-    out.push({ n: n++, start: d.toISOString().slice(0, 10), end: e.toISOString().slice(0, 10) });
+    cal.push({ start: d.toISOString().slice(0, 10), end: e.toISOString().slice(0, 10), count: 0, first: null, last: null });
   }
+  matches.forEach(function (m) {
+    if (!m.utcDate) return;
+    var day = m.utcDate.slice(0, 10);
+    for (var i = 0; i < cal.length; i++) {
+      if (day >= cal[i].start && day < cal[i].end) {
+        var w = cal[i]; w.count++;
+        if (!w.first || day < w.first) w.first = day;
+        if (!w.last || day > w.last) w.last = day;
+        break;
+      }
+    }
+  });
+  var out = [], pending = null; // a sparse run waiting to be folded into the next real week
+  cal.forEach(function (w) {
+    if (w.count < LG_GW_MIN_FIXTURES) {
+      if (!pending) pending = { start: w.start, count: 0, first: null, last: null };
+      pending.count += w.count;
+      if (w.first && (!pending.first || w.first < pending.first)) pending.first = w.first;
+      if (w.last && (!pending.last || w.last > pending.last)) pending.last = w.last;
+      return;
+    }
+    var gw = { start: w.start, end: w.end, count: w.count, first: w.first, last: w.last };
+    if (pending) {
+      gw.start = pending.start; gw.count += pending.count;
+      if (pending.first) gw.first = pending.first < gw.first ? pending.first : gw.first;
+      pending = null;
+    }
+    out.push(gw);
+  });
+  if (pending) { // sparse tail → fold into the last gameweek
+    if (out.length) {
+      var lastGw = out[out.length - 1];
+      lastGw.end = new Date(new Date(cal[cal.length - 1].end).getTime()).toISOString().slice(0, 10);
+      lastGw.count += pending.count;
+      if (pending.last && pending.last > lastGw.last) lastGw.last = pending.last;
+    } else {
+      out.push({ start: pending.start, end: cal[cal.length - 1].end, count: pending.count, first: pending.first, last: pending.last });
+    }
+  }
+  out.forEach(function (w, i) { w.n = i + 1; });
   return out;
 }
-// Index of the week containing iso (clamped to the season's range).
+// Index of the gameweek to open on for date iso: the gameweek containing it,
+// unless that one hasn't kicked off yet (e.g. we're in an international break
+// folded into it) — then the previous gameweek. Clamped to the season.
 function lgWeekIndexOf(weeks, iso) {
   if (!weeks.length) return -1;
   var d = String(iso).slice(0, 10);
-  for (var i = 0; i < weeks.length; i++) if (d >= weeks[i].start && d < weeks[i].end) return i;
-  return d < weeks[0].start ? 0 : weeks.length - 1;
+  if (d < weeks[0].start) return 0;
+  for (var i = 0; i < weeks.length; i++) {
+    if (d >= weeks[i].start && d < weeks[i].end) {
+      return (weeks[i].first && d < weeks[i].first && i > 0) ? i - 1 : i;
+    }
+  }
+  return weeks.length - 1;
 }
 function lgCumAt(series, frames, endExclusive) {
   // value of a cumulative per-frame series at the last frame strictly before endExclusive
@@ -1301,7 +1355,7 @@ function lgGameweek(matches, ranked, teamHist, matchPtsById, week) {
   players.forEach(function (p) { p.teams.forEach(function (t) { tow.push({ teamId: t.teamId, name: t.name, pot: t.pot, owner: p.name, pts: t.pts }); }); });
   tow.sort(function (a, b) { return b.pts - a.pts; });
   return { players: players, avg: players.length ? Math.round(sum / players.length) : 0,
-    highest: players[0] || null, teamsOfWeek: tow.slice(0, 10), played: inWeek.length };
+    highest: (players[0] && players[0].pts !== 0) ? players[0] : null, teamsOfWeek: tow.slice(0, 10), played: inWeek.length };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
