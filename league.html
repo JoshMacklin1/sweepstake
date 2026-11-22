@@ -1157,13 +1157,12 @@
     const lgPotOf = (id) => { const t = typeof LEAGUE_TEAMS !== "undefined" && LEAGUE_TEAMS[id]; return t ? t.pot : null; };
     // CL tier (UEFA draw pot) — every CL club has one, owned or not.
     const lgTierOf = (id) => (typeof CL_TIER !== "undefined" && CL_TIER[id]) ? CL_TIER[id] : null;
-    // Coloured "T1"–"T4" chip used wherever a club appears in a CL context, so
-    // the European pecking order (not the domestic pot) is visible at a glance.
+    // "(T1)"–"(T4)" tag used wherever a club appears in a CL context — styled
+    // exactly like the domestic "(P1)" pot tag so the two read the same way.
     const tierTag = (id) => {
       const tier = lgTierOf(id);
       if (!tier) return potTag(id);
-      const col = POT_COLORS[tier] || C.muted;
-      return <span style={{ fontSize: 9, fontWeight: 800, color: col, border: `1px solid ${col}`, borderRadius: 4, padding: "0 3px", marginLeft: 4, verticalAlign: "1px" }}>T{tier}</span>;
+      return <span style={{ color: C.muted, fontSize: 9, fontWeight: 600 }}> (T{tier})</span>;
     };
     const isCLMatch = (m) => !!(m && m.competition && m.competition.code === "CL");
     // Club tag for a given match: CL tier in Europe, domestic pot otherwise.
@@ -1979,7 +1978,7 @@
                 One 36-team league. <strong style={{ color: C.accent }}>Top 8</strong> go straight to the last 16;
                 <strong style={{ color: C.text }}> 9th–24th</strong> drop into the knockout play-offs;
                 <strong style={{ color: C.dangerText }}> 25th–36th</strong> are out.
-                <br /><strong style={{ color: C.text }}>T1–T4</strong> = UEFA draw tier (T4 = underdog — upsets pay big).
+                <br /><strong style={{ color: C.text }}>(T1)–(T4)</strong> = UEFA draw tier (T4 = underdog — upsets pay big).
                 <strong style={{ color: C.accent }}> Sw</strong> = sweepstake points banked from the CL.
               </div>
               <TablesTab matches={matches} tables={tables} outcomes={outcomes} onTeamClick={onTeamClick} comp="CL"
@@ -2040,25 +2039,34 @@
       const td = { fontSize: 12, textAlign: "right", padding: "10px 3px", whiteSpace: "nowrap" };
       const isCL = comp === "CL";
       const tag = (id) => isCL ? tierTag(id) : potTag(id);
-      // CL only: sweepstake points each owned club has banked from Europe so far.
+      // Sw = sweepstake points each OWNED club has earned in THIS competition:
+      // CL table → CL points (matches + giant kills + stage); league tables →
+      // league match points + season bonus. Unowned clubs show "–".
       const swPts = useMemo(() => {
-        if (!isCL || typeof clTeamPts !== "function") return {};
-        const prog = typeof deriveCLProgress === "function" ? deriveCLProgress(matches) : {};
-        const gk = typeof clGiantKills === "function" ? clGiantKills(matches) : {};
         const out = {};
-        table.forEach(r => { if (owner(r.teamId)) out[r.teamId] = clTeamPts(matches, r.teamId, prog, gk); });
+        if (isCL) {
+          if (typeof clTeamPts !== "function") return out;
+          const prog = typeof deriveCLProgress === "function" ? deriveCLProgress(matches) : {};
+          const gk = typeof clGiantKills === "function" ? clGiantKills(matches) : {};
+          table.forEach(r => { if (owner(r.teamId)) out[r.teamId] = clTeamPts(matches, r.teamId, prog, gk); });
+        } else {
+          if (typeof lgTeamMatchPts !== "function") return out;
+          table.forEach(r => {
+            if (!owner(r.teamId)) return;
+            out[r.teamId] = lgTeamMatchPts(matches, r.teamId) + (typeof leagueBonusPts === "function" && outcomes ? leagueBonusPts(r.teamId, outcomes) : 0);
+          });
+        }
         return out;
-      }, [isCL, matches, table]);
-      const cols = isCL ? 9 : 8;
+      }, [isCL, matches, table, outcomes]);
+      const cols = 5;
       return (
         <div style={{ padding: "0 10px" }}>
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "8px 7px", overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead><tr>
                 <th style={{ ...th, textAlign: "left" }} colSpan={2}>Team</th>
-                <th style={th}>P</th><th style={th}>GD</th><th style={th}>Pts</th>
-                <th style={th}>W</th><th style={th}>D</th><th style={th}>L</th>
-                {isCL && <th style={{ ...th, color: C.accent }} title="Sweepstake points from the Champions League">Sw</th>}
+                <th style={th}>P</th><th style={th}>Pts</th>
+                <th style={{ ...th, color: C.accent }} title="Sweepstake points earned in this competition">Sw</th>
               </tr></thead>
               <tbody>
                 {table.map((r, i) => {
@@ -2082,10 +2090,8 @@
                         </span>
                       </td>
                       <td style={td}>{r.played}</td>
-                      <td style={td}>{r.gd > 0 ? "+" + r.gd : r.gd}</td>
                       <td style={{ ...td, fontWeight: 800 }}>{r.pts}</td>
-                      <td style={td}>{r.w}</td><td style={td}>{r.d}</td><td style={td}>{r.l}</td>
-                      {isCL && (() => { const v = swPts[r.teamId]; return (
+                      {(() => { const v = swPts[r.teamId]; return (
                         <td style={{ ...td, fontWeight: 800, color: v == null ? C.muted : v > 0 ? C.accent : v < 0 ? C.red : C.muted }}>
                           {v == null ? "–" : (v > 0 ? "+" + v : v)}
                         </td>); })()}
