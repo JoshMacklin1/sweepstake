@@ -830,13 +830,27 @@
         rows.forEach(t => { const n = rankNow[t.teamId], pa = rankPast[t.teamId]; out[t.teamId] = (pa != null && n != null) ? pa - n : 0; });
         return out;
       }, [rows, matches, anchorIso]);
+      // Competition filter: a domestic pill matches the club's league; the CL
+      // pill matches any club in this season's Champions League (CL_TIER).
+      // Rank numbers stay the OVERALL sweepstake rank so the 7-day move still lines up.
+      const filter = useCompFilter("lsw_teams_filter");
+      const inComp = (t, code) => code === "CL"
+        ? (typeof CL_TIER !== "undefined" && !!CL_TIER[t.teamId])
+        : t.league === code;
+      const shown = rows
+        .map((t, i) => ({ t, rank: i + 1 }))
+        .filter(({ t }) => filter.active.length === 0 || filter.active.some(c => inComp(t, c)));
       return (
-        <div style={{ padding: "0 14px" }}>
-          {rows.map((t, i) => (
-            <TeamLeagueRow key={t.teamId} row={t} rank={i + 1} hist={teamHist[t.teamId] || [0]}
-              move={move[t.teamId] || 0} onOpen={() => onTeamClick(t.teamId)} />
-          ))}
-          {rows.length === 0 && <div style={{ color: C.muted, textAlign: "center", padding: 40 }}>No teams yet.</div>}
+        <div>
+          <CompFilterPills filter={filter} />
+          <div style={{ padding: "0 14px" }}>
+            {shown.map(({ t, rank }) => (
+              <TeamLeagueRow key={t.teamId} row={t} rank={rank} hist={teamHist[t.teamId] || [0]}
+                move={move[t.teamId] || 0} onOpen={() => onTeamClick(t.teamId)} />
+            ))}
+            {rows.length === 0 && <div style={{ color: C.muted, textAlign: "center", padding: 40 }}>No teams yet.</div>}
+            {rows.length > 0 && shown.length === 0 && <div style={{ color: C.muted, textAlign: "center", padding: 40 }}>No owned teams in {filter.active.map(c => LEAGUE_COMPETITIONS[c].label).join(" / ")}.</div>}
+          </div>
         </div>
       );
     }
@@ -2208,27 +2222,45 @@
       );
     }
 
-    function ScoresTab({ matches, matchPtsById, anchorIso, onTeamClick, onMatchClick }) {
-      const [selectedDay, setSelectedDay] = useState(null);
-      // Competition filter: multi-select pills; empty = All. Remembered per
-      // device (localStorage, guarded — private mode etc. just means no memory).
-      const FILTER_KEY = "lsw_scores_filter";
+    // ── Competition filter (shared by Scores + League → Teams): multi-select
+    //    pills, empty = All, remembered per device under `storageKey`
+    //    (localStorage, guarded — private mode just means no memory). ───────
+    function useCompFilter(storageKey) {
       const [compFilter, setCompFilter] = useState(() => {
-        try { const v = JSON.parse(localStorage.getItem(FILTER_KEY)); return Array.isArray(v) ? v : []; } catch (e) { return []; }
+        try { const v = JSON.parse(localStorage.getItem(storageKey)); return Array.isArray(v) ? v : []; } catch (e) { return []; }
       });
-      const saveFilter = (next) => {
+      const save = (next) => {
         setCompFilter(next);
-        try { localStorage.setItem(FILTER_KEY, JSON.stringify(next)); } catch (e) {}
+        try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch (e) {}
       };
       // CL first (it's the overlay everyone watches midweek), then the domestic leagues.
-      const filterComps = typeof LEAGUE_COMPETITIONS !== "undefined"
+      const comps = typeof LEAGUE_COMPETITIONS !== "undefined"
         ? Object.keys(LEAGUE_COMPETITIONS).sort((a, b) => (LEAGUE_COMPETITIONS[b].type === "cup") - (LEAGUE_COMPETITIONS[a].type === "cup")) : [];
-      const activeFilter = compFilter.filter(c => filterComps.indexOf(c) !== -1); // ignore stale codes
-      const toggleComp = (code) => saveFilter(activeFilter.indexOf(code) !== -1 ? activeFilter.filter(c => c !== code) : [...activeFilter, code]);
+      const active = compFilter.filter(c => comps.indexOf(c) !== -1); // ignore stale codes
+      const toggle = (code) => save(active.indexOf(code) !== -1 ? active.filter(c => c !== code) : [...active, code]);
+      return { comps, active, toggle, clear: () => save([]) };
+    }
+    function CompFilterPills({ filter }) {
+      if (filter.comps.length === 0) return null;
       const pill = (on) => ({
         flexShrink: 0, padding: "7px 14px", borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
         background: on ? C.accent : "transparent", color: on ? C.bg : C.muted, border: `1px solid ${on ? C.accent : C.border}`,
       });
+      return (
+        <div style={{ display: "flex", gap: 8, overflowX: "auto", padding: "0 14px 12px", scrollbarWidth: "none", msOverflowStyle: "none" }}>
+          <button onClick={filter.clear} style={pill(filter.active.length === 0)}>All</button>
+          {filter.comps.map(code => (
+            <button key={code} onClick={() => filter.toggle(code)} aria-pressed={filter.active.indexOf(code) !== -1}
+              style={pill(filter.active.indexOf(code) !== -1)}>{LEAGUE_COMPETITIONS[code].label}</button>
+          ))}
+        </div>
+      );
+    }
+
+    function ScoresTab({ matches, matchPtsById, anchorIso, onTeamClick, onMatchClick }) {
+      const [selectedDay, setSelectedDay] = useState(null);
+      const filter = useCompFilter("lsw_scores_filter");
+      const activeFilter = filter.active;
       // Every calendar day spanned by the loaded matches (so browsing reveals
       // empty days rather than skipping them), mirroring the WC Scores tab.
       const scoreDays = useMemo(() => {
@@ -2254,15 +2286,7 @@
           <div style={{ padding: "0 8px 12px" }}>
             <DayPicker days={scoreDays} selected={effectiveDay} onSelect={setSelectedDay} />
           </div>
-          {filterComps.length > 0 && (
-            <div style={{ display: "flex", gap: 8, overflowX: "auto", padding: "0 14px 12px", scrollbarWidth: "none", msOverflowStyle: "none" }}>
-              <button onClick={() => saveFilter([])} style={pill(activeFilter.length === 0)}>All</button>
-              {filterComps.map(code => (
-                <button key={code} onClick={() => toggleComp(code)} aria-pressed={activeFilter.indexOf(code) !== -1}
-                  style={pill(activeFilter.indexOf(code) !== -1)}>{LEAGUE_COMPETITIONS[code].label}</button>
-              ))}
-            </div>
-          )}
+          <CompFilterPills filter={filter} />
           <div style={{ padding: "0 14px" }}>
             {dayGames.length === 0
               ? <div style={{ color: C.muted, fontSize: 13, padding: "28px 0", textAlign: "center" }}>
