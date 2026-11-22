@@ -589,12 +589,67 @@
       const table = team ? tables[team.league] || [] : [];
       const posIdx = table.findIndex(r => r.teamId === teamId);
       const sect = { fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 };
+      const isLive = (m) => m.status === "IN_PLAY" || m.status === "PAUSED" ||
+        ((m.status === "SCHEDULED" || m.status === "TIMED") && new Date(m.utcDate).getTime() <= Date.now() && !simulateOn);
+      const liveMatch = matches.find(m => (m.homeTeam.id === teamId || m.awayTeam.id === teamId) && isLive(m)) || null;
       const teamMatches = matches
-        .filter(m => (m.homeTeam.id === teamId || m.awayTeam.id === teamId) && typeof lgIsSettled === "function" && lgIsSettled(m))
+        .filter(m => (m.homeTeam.id === teamId || m.awayTeam.id === teamId) && typeof lgIsSettled === "function" && lgIsSettled(m) && m !== liveMatch)
         .sort((a, b) => b.utcDate.localeCompare(a.utcDate));
       const upcomingMatches = matches
-        .filter(m => (m.homeTeam.id === teamId || m.awayTeam.id === teamId) && (m.status === "SCHEDULED" || m.status === "TIMED"))
+        .filter(m => (m.homeTeam.id === teamId || m.awayTeam.id === teamId) && (m.status === "SCHEDULED" || m.status === "TIMED") && m !== liveMatch)
         .sort((a, b) => a.utcDate.localeCompare(b.utcDate));
+      // Hero fixture: the live game if there is one, else the next one.
+      const heroMatch = liveMatch || upcomingMatches[0] || null;
+      const untilText = (iso) => {
+        const ms = new Date(iso).getTime() - Date.now();
+        if (ms <= 0) return "kicking off";
+        const h = Math.floor(ms / 36e5), d = Math.floor(h / 24);
+        return d >= 1 ? `in ${d} day${d > 1 ? "s" : ""}` : h >= 1 ? `in ${h}h ${Math.floor((ms % 36e5) / 6e4)}m` : `in ${Math.max(1, Math.floor(ms / 6e4))} min`;
+      };
+      const heroPanel = heroMatch ? (() => {
+        const live = heroMatch === liveMatch;
+        const comp = heroMatch.competition && heroMatch.competition.code;
+        const compName = comp === "CL" ? "Champions League" : (typeof LEAGUE_COMPETITIONS !== "undefined" && LEAGUE_COMPETITIONS[comp] ? LEAGUE_COMPETITIONS[comp].label : comp);
+        const ft = heroMatch.score && heroMatch.score.fullTime;
+        const side = (t) => {
+          const k = typeof LEAGUE_TEAMS !== "undefined" && LEAGUE_TEAMS[t.id];
+          const o = typeof leagueOwnerOfTeamId === "function" ? leagueOwnerOfTeamId(t.id) : null;
+          return (
+            <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, textAlign: "center" }}>
+              <Crest teamId={t.id} size={36} />
+              <div style={{ fontSize: 13, fontWeight: 800, color: t.id === teamId ? C.text : C.dim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>{k ? k.name : (t.shortName || "TBD")}</div>
+              <div style={{ fontSize: 10, color: C.muted }}>{o ? o.name : "Unowned"}</div>
+            </div>
+          );
+        };
+        return (
+          <div style={{ borderRadius: 14, padding: "12px 12px 14px", marginBottom: 16,
+            border: `1px solid ${live ? "rgba(239,68,68,0.55)" : C.border}`,
+            background: live ? "linear-gradient(135deg, rgba(239,68,68,0.16), rgba(239,68,68,0.04))" : C.card }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: live ? "#f87171" : C.accent }}>
+                {live ? <><span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "#ef4444", marginRight: 6, verticalAlign: "1px" }} />LIVE NOW</> : "NEXT MATCH"}
+              </span>
+              <span style={{ fontSize: 11, color: C.muted }}>{compName}{comp === "CL" ? " 🏆" : ""}</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {side(heroMatch.homeTeam)}
+              <div style={{ flexShrink: 0, textAlign: "center", minWidth: 74 }}>
+                {live
+                  ? <div style={{ fontSize: 26, fontWeight: 900, color: C.text }}>{(ft && ft.home) ?? 0}–{(ft && ft.away) ?? 0}</div>
+                  : <>
+                      <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{fmtTime(heroMatch.utcDate)}</div>
+                      <div style={{ fontSize: 11, color: C.dim }}>{fmtDay(heroMatch.utcDate)}</div>
+                    </>}
+                <div style={{ fontSize: 10, color: live ? "#f87171" : C.muted, marginTop: 2 }}>
+                  {live ? (heroMatch.status === "PAUSED" ? "Half-time" : "In play") : untilText(heroMatch.utcDate)}
+                </div>
+              </div>
+              {side(heroMatch.awayTeam)}
+            </div>
+          </div>
+        );
+      })() : null;
       const name = team ? team.name : "Unknown";
       const ownerRank = owner ? ranked.findIndex(p => p.name === owner.name) + 1 : null;
       return (<>
@@ -629,6 +684,7 @@
               {onOwnerClick && <span aria-hidden="true" style={{ color: C.muted, fontSize: 18, lineHeight: 1, flexShrink: 0 }}>›</span>}
             </div>
           )}
+          {heroPanel}
           <div style={{ display: "flex", gap: 10, marginBottom: 18 }}>
             <div style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "12px 8px", textAlign: "center" }}>
               <div style={{ fontSize: 24, fontWeight: 900, color: totalPts < 0 ? C.red : C.text }}>{totalPts > 0 ? `+${totalPts}` : totalPts}</div>
@@ -694,8 +750,8 @@
               </div>
             );
           })}
-          {upcomingMatches.length > 0 && <div style={{ ...sect, margin: "22px 0 8px" }}>Upcoming</div>}
-          {upcomingMatches.slice(0, 6).map(m => {
+          {upcomingMatches.filter(m => m !== heroMatch).length > 0 && <div style={{ ...sect, margin: "22px 0 8px" }}>Upcoming</div>}
+          {upcomingMatches.filter(m => m !== heroMatch).slice(0, 5).map(m => {
             const opp = m.homeTeam.id === teamId ? m.awayTeam : m.homeTeam;
             const oppKnown = typeof LEAGUE_TEAMS !== "undefined" && LEAGUE_TEAMS[opp.id];
             return (
