@@ -396,6 +396,19 @@
               <div style={{ fontSize: 24, fontWeight: 900, color: player.total < 0 ? C.red : C.text }}>{player.total}</div>
               <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>Points</div>
             </div>
+            {(() => {
+              // Champions League points across this player's clubs (matches +
+              // giant kills + stage), already folded into the total above.
+              const clTotal = (player.teams || []).reduce((sum, t) => sum + (t.clPts || 0), 0);
+              return (
+                <div style={statBox}>
+                  <div style={{ fontSize: 24, fontWeight: 900, color: clTotal > 0 ? C.gold : clTotal < 0 ? C.red : C.muted }}>
+                    {clTotal > 0 ? "+" : ""}{clTotal}
+                  </div>
+                  <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>CL pts 🏆</div>
+                </div>
+              );
+            })()}
             <div style={statBox}>
               <div style={{ fontSize: 24, fontWeight: 900, color: (week && week.pts > 0) ? C.accent : C.muted }}>
                 {week ? `${week.pts > 0 ? "+" : ""}${week.pts}` : "—"}
