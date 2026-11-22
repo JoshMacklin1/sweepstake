@@ -1878,17 +1878,22 @@
       React.useEffect(() => { const t = trackRef.current; if (!t) return; t.style.transition = ANIM; t.style.transform = `translateX(${-safeIdx * 100}%)`; }, [safeIdx, count]);
       React.useEffect(() => { if (idx > count - 1) setIdx(Math.max(0, count - 1)); }, [count]);
       const settle = React.useCallback((i) => { const t = trackRef.current; const c = Math.max(0, Math.min(count - 1, i)); if (t) { t.style.transition = ANIM; t.style.transform = `translateX(${-c * 100}%)`; } setIdx(c); }, [count]);
-      const onDown = (e) => { const d = drag.current; d.active = true; d.startX = e.clientX; d.dx = 0; d.w = e.currentTarget.clientWidth; if (multi && trackRef.current) trackRef.current.style.transition = "none"; if (e.currentTarget.setPointerCapture) e.currentTarget.setPointerCapture(e.pointerId); };
-      const onMove = (e) => { const d = drag.current; if (!d.active || !multi) return; d.dx = e.clientX - d.startX; const edge = (safeIdx === 0 && d.dx > 0) || (safeIdx === count - 1 && d.dx < 0); const eff = edge ? d.dx * 0.35 : d.dx; if (trackRef.current) trackRef.current.style.transform = `translateX(calc(${-safeIdx * 100}% + ${eff}px))`; };
+      const onDown = (e) => { const d = drag.current; d.active = true; d.startX = e.clientX; d.startY = e.clientY; d.dx = 0; d.dy = 0; d.w = e.currentTarget.clientWidth; if (multi && trackRef.current) trackRef.current.style.transition = "none"; if (e.currentTarget.setPointerCapture) e.currentTarget.setPointerCapture(e.pointerId); };
+      const onMove = (e) => { const d = drag.current; if (!d.active) return; d.dy = e.clientY - d.startY; if (!multi) return; d.dx = e.clientX - d.startX; const edge = (safeIdx === 0 && d.dx > 0) || (safeIdx === count - 1 && d.dx < 0); const eff = edge ? d.dx * 0.35 : d.dx; if (trackRef.current) trackRef.current.style.transform = `translateX(calc(${-safeIdx * 100}% + ${eff}px))`; };
       const onUp = () => {
         const d = drag.current; if (!d.active) return; d.active = false;
         const th = Math.max(40, d.w * 0.15);
         if (multi && d.dx <= -th) { settle(safeIdx + 1); return; }
         if (multi && d.dx >= th) { settle(safeIdx - 1); return; }
         settle(safeIdx);
-        // A tap (no real drag) opens the head-to-head for the shown match.
-        if (Math.abs(d.dx) < 8 && onMatchClick && games[safeIdx]) onMatchClick(games[safeIdx].id);
+        // A tap (no real drag in EITHER direction) opens the head-to-head for
+        // the shown match — a vertical page scroll that starts on the card
+        // must not count.
+        if (Math.abs(d.dx) < 8 && Math.abs(d.dy) < 8 && onMatchClick && games[safeIdx]) onMatchClick(games[safeIdx].id);
       };
+      // The browser cancels the pointer when it takes over for a scroll: just
+      // snap back — never treat a cancelled gesture as a tap.
+      const onCancel = () => { const d = drag.current; if (!d.active) return; d.active = false; settle(safeIdx); };
       React.useEffect(() => {
         if (!countdownTarget) { setCountdown(""); return; }
         const tick = () => {
@@ -1952,7 +1957,7 @@
               {multi && <span style={{ fontSize: 10, fontWeight: 700, color: C.muted }}>{safeIdx + 1}/{count}</span>}
             </div>
           </div>
-          <div onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
+          <div onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onCancel}
             style={{ padding: "8px 0 12px", touchAction: multi ? "pan-y" : "auto", cursor: onMatchClick ? "pointer" : "default" }}>
             {/* Inner clip box with a horizontal inset so the next card can't peek
                 into the padding while swiping. */}
