@@ -174,9 +174,9 @@ var LEAGUE_TEAMS = {
   // La Liga — Pot 4
   285:  { id: 285,  name: "Elche",              tla: "ELH", league: "PD",  pot: 4 }, // 19.9
   88:   { id: 88,   name: "Levante",            tla: "LEV", league: "PD",  pot: 4 }, // 19.9
-  5335: { id: 5335, name: "Real Racing Club de Santander",tla: "SAN", league: "PD",  pot: 4 }, // 22.8 (promoted)
-  560:  { id: 560,  name: "RC Deportivo La Coruña",tla: "DEP", league: "PD",  pot: 4 }, // 29.8 (promoted)
-  84:   { id: 84,   name: "Málaga CF",          tla: "MAL", league: "PD",  pot: 4 }, // 30.9 (promoted)
+  5335: { id: 5335, name: "Racing Santander",tla: "SAN", league: "PD",  pot: 4 }, // 22.8 (promoted)
+  560:  { id: 560,  name: "Deportivo",tla: "DEP", league: "PD",  pot: 4 }, // 29.8 (promoted)
+  84:   { id: 84,   name: "Málaga",          tla: "MAL", league: "PD",  pot: 4 }, // 30.9 (promoted)
 
   // Serie A — Pot 1
   108:  { id: 108,  name: "Inter",              tla: "INT", league: "SA",  pot: 1 }, // 1.3
@@ -222,8 +222,8 @@ var LEAGUE_TEAMS = {
   // Bundesliga — Pot 4
   1:    { id: 1,    name: "1. FC Köln",         tla: "KOE", league: "BL1", pot: 4 }, // 16.1
   7:    { id: 7,    name: "Hamburger SV",       tla: "HSV", league: "BL1", pot: 4 }, // 16.9
-  719:  { id: 719,  name: "SV Elversberg",      tla: "ELV", league: "BL1", pot: 4 }, // 22.1 (promoted)
-  29:   { id: 29,   name: "SC Paderborn",       tla: "SCP", league: "BL1", pot: 4 }, // 22.7 (promoted)
+  719:  { id: 719,  name: "Elversberg",      tla: "ELV", league: "BL1", pot: 4 }, // 22.1 (promoted)
+  29:   { id: 29,   name: "Paderborn",       tla: "SCP", league: "BL1", pot: 4 }, // 22.7 (promoted)
   6:    { id: 6,    name: "Schalke 04",         tla: "S04", league: "BL1", pot: 4 }, // 24.7 (promoted)
 
   // Ligue 1 — Pot 1
@@ -488,12 +488,12 @@ function leagueMatchGroupCode(input) {
 // ─────────────────────────────────────────────────────────────────────────────
 // LEAGUE DRAW — assign league teams to a group's players on demand.
 //
-// RODENTS ships a hand-drafted assignment; every other group (and any league
-// created in-app) is drawn here. Deterministic (seeded by the group code) so a
-// given code always shows the same draw, and pot-balanced: each pot pool is
-// dealt round-robin across the players (rotating the start per pool) so no one
-// loads up on favourites or minnows. Teams with no points matrix this season
-// (the 2025-26 League One trio) are left out of the draw — they wouldn't score.
+// Every preset group (and any league created in-app) is FAIR-drawn here:
+// deterministic (seeded by the group code, so a code always shows the same
+// squads on every phone) and balanced within ±1 per player on each pot, CL
+// clubs, CL tier-1 giants and league. A group whose players already carry
+// teamIds (a frozen draw) is left untouched. NB: changing LEAGUE_TEAMS pots or
+// rosters re-deals every un-frozen group — freeze squads before sharing.
 // ─────────────────────────────────────────────────────────────────────────────
 function lgHashStr(s) {
   var h = 2166136261 >>> 0;
@@ -518,54 +518,66 @@ function lgShuffle(arr, rng) {
 function lgEnsureTeams(group) {
   if (!group || !group.players) return;
   var real = group.players.slice(); // every player is drafted a squad
-  // Already drafted (RODENTS, or a group drawn earlier this session) → leave be.
+  // Already drafted (frozen teamIds, or a group drawn earlier this session) → leave be.
   if (real.length && real.every(function (p) { return p.teamIds && p.teamIds.length; })) return;
   real.forEach(function (p) { p.teamIds = []; });
-  var rng = lgMulberry32(lgHashStr("LGDRAW::" + (group.code || group.label || "")));
-  var pools = {};
+  var N = real.length;
+  if (!N) return;
+  var rng = lgMulberry32(lgHashStr("LGFAIR::" + (group.code || group.label || "")));
+  var pool = [];
   Object.keys(LEAGUE_TEAMS).forEach(function (id) {
-    var t = LEAGUE_TEAMS[id];
-    if (!LEAGUE_MATCH_PTS[t.league]) return; // skip non-scoring (2025-26 League One) teams
-    (pools[t.league + "|" + t.pot] = pools[t.league + "|" + t.pot] || []).push(Number(id));
+    if (LEAGUE_MATCH_PTS[LEAGUE_TEAMS[id].league]) pool.push(Number(id)); // scoring leagues only
   });
-  // Everyone gets the SAME number of teams — floor(teams / players); any
-  // remainder is left unowned (no player), exactly like RODENTS' hand draft.
-  // Build a pot-fair sequence one round at a time (one team from each pot pool
-  // per round, pool order re-shuffled each round so nothing lines up with the
-  // player count), then deal the first perPlayer×players of it round-robin.
-  var poolArrs = Object.keys(pools).map(function (k) { return lgShuffle(pools[k].slice(), rng); });
-  var maxLen = poolArrs.reduce(function (m, a) { return Math.max(m, a.length); }, 0);
-  var seq = [];
-  for (var r = 0; r < maxLen; r++) {
-    lgShuffle(poolArrs, rng).forEach(function (pool) {
-      if (pool[r] !== undefined) seq.push(pool[r]);
+  var tierOf = function (id) { return (typeof CL_TIER !== "undefined" && CL_TIER[id]) || 0; };
+  var k = Math.floor(pool.length / N);
+  if (k >= 1) {
+    // FAIR DRAW. Everyone gets k clubs; the remainder (pool mod N) is left
+    // unowned, taken from Pot 4 non-CL clubs so nobody misses a big one.
+    // Clubs are dealt strongest-first (pot asc; within a pot, CL tier 1→4 then
+    // non-CL), each to the player with the fewest so far of — in priority
+    // order — that pot, CL clubs, that CL tier, that league, clubs overall;
+    // seeded random breaks remaining ties. Result: every pot, CL count, T1 CL
+    // giants and per-league counts are within ±1 across players.
+    var drop = pool.length - k * N;
+    var spare = lgShuffle(pool.filter(function (id) { return LEAGUE_TEAMS[id].pot === 4 && !tierOf(id); }), rng).slice(0, drop);
+    pool = pool.filter(function (id) { return spare.indexOf(id) === -1; });
+    var order = [];
+    [1, 2, 3, 4].forEach(function (pot) {
+      [1, 2, 3, 4, 0].forEach(function (tier) {
+        order = order.concat(lgShuffle(pool.filter(function (id) {
+          return LEAGUE_TEAMS[id].pot === pot && tierOf(id) === tier;
+        }), rng));
+      });
     });
-  }
-  var start = Math.floor(rng() * real.length);
-  var perPlayer = Math.floor(seq.length / real.length);
-  if (perPlayer >= 2) {
-    // Enough teams for two-or-more unique each: deal an equal whole number to
-    // every player; any remainder is left unowned (shows in the tables with no
-    // owner), matching RODENTS' hand draft.
-    var toAssign = perPlayer * real.length;
-    for (var i = 0; i < toAssign; i++) real[(start + i) % real.length].teamIds.push(seq[i]);
-  } else {
-    // Too many players for two unique teams each (e.g. Silverstream's 26). No
-    // league should sit at one team per player, so give everyone two and allow a
-    // team to be co-owned rather than shrink the squad. This is the only branch
-    // that shares a team between players — among the preset groups, only
-    // Silverstream reaches it.
-    var slots = 2 * real.length;
-    for (var i = 0; i < slots; i++) {
-      var p = (start + i) % real.length, tids = real[p].teamIds, pick = seq[i % seq.length];
-      if (tids.indexOf(pick) !== -1) { // rare self-collision → give the next unheld team
-        for (var j = 1; j < seq.length; j++) {
-          var alt = seq[(i + j) % seq.length];
-          if (tids.indexOf(alt) === -1) { pick = alt; break; }
+    var count = function (p, f) { var n = 0; p.teamIds.forEach(function (i) { if (f(i)) n++; }); return n; };
+    order.forEach(function (id) {
+      var t = LEAGUE_TEAMS[id], tier = tierOf(id);
+      var best = null, bestKey = null;
+      lgShuffle(real.slice(), rng).forEach(function (p) { // shuffled so exact ties fall randomly
+        if (p.teamIds.length >= k) return;
+        var key = [
+          count(p, function (i) { return LEAGUE_TEAMS[i].pot === t.pot; }),
+          tier ? count(p, function (i) { return tierOf(i) > 0; }) : 0,
+          tier ? count(p, function (i) { return tierOf(i) === tier; }) : 0,
+          count(p, function (i) { return LEAGUE_TEAMS[i].league === t.league; }),
+          p.teamIds.length,
+        ];
+        var better = !bestKey;
+        for (var j = 0; !better && j < key.length; j++) {
+          if (key[j] !== bestKey[j]) { better = key[j] < bestKey[j]; break; }
         }
-      }
-      tids.push(pick);
-    }
+        if (better) { best = p; bestKey = key; }
+      });
+      if (best) best.teamIds.push(id);
+    });
+    return;
+  }
+  // More players than clubs (never hit by the preset groups): two each,
+  // co-owned round-robin from a shuffled pool.
+  var seq = lgShuffle(pool.slice(), rng);
+  for (var i = 0; i < 2 * N; i++) {
+    var pl = real[i % N], pick = seq[i % seq.length];
+    if (pl.teamIds.indexOf(pick) === -1) pl.teamIds.push(pick);
   }
 }
 

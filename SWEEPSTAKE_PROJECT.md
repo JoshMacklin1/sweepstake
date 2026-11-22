@@ -68,6 +68,17 @@ replay snapshots of 2025-26). UI (`league.html`) is built out — full
 group-gated app (Home / Sweeps / Tables / Scores / More) verified rendering
 end-to-end against the 2025-26 replay data.
 
+### Preset groups (teaser) — fair auto-draw + share links
+
+The five WC groups (Rodents, Silverstream, Cornwall, Macklins, Caversham — same
+people, minus the Grim Reaper) exist as preset league groups in `LEAGUE_GROUPS`.
+Squads are dealt by `lgEnsureTeams`' **fair draw** (seeded by group code; every
+player within ±1 on each pot, CL clubs, CL tier-1 giants and league; the
+remainder left unowned from Pot 4 non-CL). Silverstream's 27 players get 3
+clubs each. **Share link:** `league.html#g=CODE` drops straight into a group
+(adds it to "Your leagues"). Squads are re-dealt whenever pots/rosters change
+until they're frozen (hard-coded `teamIds`).
+
 ### Live multiplayer draft (hosted leagues)
 
 Anyone can create a league and invite others to **draft teams together in

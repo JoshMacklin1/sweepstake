@@ -106,7 +106,7 @@
 <body>
   <div id="root"></div>
   <!-- Coupled: every league-scoring.js change must bump ?v=N (see SWEEPSTAKE_PROJECT.md cache-bust rule) -->
-  <script src="league-scoring.js?v=25"></script>
+  <script src="league-scoring.js?v=26"></script>
   <script type="text/babel">
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
@@ -3869,6 +3869,14 @@
       const [myGroups, setMyGroups] = useState(() => loadMyGroups());
       const [active, setActive] = useState(() => loadActive());
       const [hashCode, setHashCode] = useState(() => parseJoinHash());
+      // Group share links look like  league.html#g=CORNWALL  → drop straight into that preset group.
+      const [groupHash] = useState(() => { const m = /[#&]g=([A-Za-z0-9_]+)/.exec(location.hash || ""); return m ? m[1] : null; });
+      useEffect(() => {
+        if (!groupHash) return;
+        dropJoinHash();
+        const k = typeof leagueMatchGroupCode === "function" ? leagueMatchGroupCode(groupHash) : null;
+        if (k) enter(k);
+      }, []);
       const [mode, setMode] = useState("menu"); // menu · join · create
       const [input, setInput] = useState("");
       const [bad, setBad] = useState(false);
