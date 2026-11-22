@@ -109,6 +109,23 @@ sidebar's group label, and More → Switch league. "Join or create a league…"
 returns to the landing screen. Each `App`/`LiveLeague` is keyed by league id so
 switching resets tab/card state.
 
+### Gameweek (FPL-style weekly view)
+
+Bottom-nav **Gameweek** replaces The Race (Race is reached from Gameweek's
+"🏁 The Race" button, with a "‹ Gameweek" link back; still in the desktop
+sidebar). Weeks are **calendar weeks, Mon–Sun UTC**, identical for every league
+(`lgWeeks`, `lgWeekIndexOf`). `lgGameweek(matches, ranked, teamHist,
+matchPtsById, week)` gives each player's week: per-club pts = cumulative
+sweepstake total (`deriveLeagueTeamHistory`) at week end minus week start, so
+season bonuses / CL stage payouts / giant kills land in the week they're
+confirmed and **weeks sum exactly to season totals** (verified on the replay);
+plus CL pts, bonus pts, results, week rank, league avg, highest, and Team of the
+Week (top 10 clubs). `GameweekTab`: ‹ week › header, whose-week picker with a
+one-time **"Who are you?"** prompt (per league, per device: `localStorage`
+`lsw_me`; "Just browsing" allowed), FPL-style stat block, **Pitch** (club tiles
+with week pts, 🏆 for CL) / **List** (results + bonuses), Team of the Week, week
+standings (tap to view someone's week).
+
 ### Live multiplayer draft (hosted leagues)
 
 Anyone can create a league and invite others to **draft teams together in
