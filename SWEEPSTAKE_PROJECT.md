@@ -79,6 +79,22 @@ clubs each. **Share link:** `league.html#g=CODE` drops straight into a group
 (adds it to "Your leagues"). Squads are re-dealt whenever pots/rosters change
 until they're frozen (hard-coded `teamIds`).
 
+### Families (Caversham) — ported from the WC app
+
+`LEAGUE_GROUPS.CAVERSHAM.families` (Hampson, Campbell, Macklin, Baldwin-Renton,
+Rukin — same as the WC app). `App` sets the `LEAGUE_FAMILIES` global from
+`group.families` (null elsewhere). `lgFamilyStandings(ranked, families,
+weekWindow, hist)` ranks families by **average** member points (with total,
+7-day pts, 7-day family-rank move, averaged sparkline); `lgFamilyOf(name)`.
+UI: League → **Families** view (`FamilyLeagueTab`, also in the desktop
+sidebar), **family card** (`FamilyCardContent`: avg/total/week, sparkline,
+members with share %; `lgModal: "family"` history state), **Top Families** on
+Home, a family chip on the player card, **Families** toggle in the H2H card,
+families in search, and **"New top family"** notifications (own filter).
+`computeLeagueBadges` adds **🍞 Bread Winner / 🐑 Black Sheep** (highest/lowest
+share of a family's points across all families). Groups without families are
+unchanged.
+
 ### Live multiplayer draft (hosted leagues)
 
 Anyone can create a league and invite others to **draft teams together in
