@@ -2139,6 +2139,25 @@
 
     function ScoresTab({ matches, matchPtsById, anchorIso, onTeamClick, onMatchClick }) {
       const [selectedDay, setSelectedDay] = useState(null);
+      // Competition filter: multi-select pills; empty = All. Remembered per
+      // device (localStorage, guarded — private mode etc. just means no memory).
+      const FILTER_KEY = "lsw_scores_filter";
+      const [compFilter, setCompFilter] = useState(() => {
+        try { const v = JSON.parse(localStorage.getItem(FILTER_KEY)); return Array.isArray(v) ? v : []; } catch (e) { return []; }
+      });
+      const saveFilter = (next) => {
+        setCompFilter(next);
+        try { localStorage.setItem(FILTER_KEY, JSON.stringify(next)); } catch (e) {}
+      };
+      // CL first (it's the overlay everyone watches midweek), then the domestic leagues.
+      const filterComps = typeof LEAGUE_COMPETITIONS !== "undefined"
+        ? Object.keys(LEAGUE_COMPETITIONS).sort((a, b) => (LEAGUE_COMPETITIONS[b].type === "cup") - (LEAGUE_COMPETITIONS[a].type === "cup")) : [];
+      const activeFilter = compFilter.filter(c => filterComps.indexOf(c) !== -1); // ignore stale codes
+      const toggleComp = (code) => saveFilter(activeFilter.indexOf(code) !== -1 ? activeFilter.filter(c => c !== code) : [...activeFilter, code]);
+      const pill = (on) => ({
+        flexShrink: 0, padding: "7px 14px", borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
+        background: on ? C.accent : "transparent", color: on ? C.bg : C.muted, border: `1px solid ${on ? C.accent : C.border}`,
+      });
       // Every calendar day spanned by the loaded matches (so browsing reveals
       // empty days rather than skipping them), mirroring the WC Scores tab.
       const scoreDays = useMemo(() => {
@@ -2157,15 +2176,27 @@
       const effectiveDay = selectedDay || defaultDay;
       const dayGames = matches
         .filter(m => sameDay(new Date(m.utcDate), effectiveDay))
+        .filter(m => activeFilter.length === 0 || activeFilter.indexOf(m.competition && m.competition.code) !== -1)
         .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
       return (
         <div>
           <div style={{ padding: "0 8px 12px" }}>
             <DayPicker days={scoreDays} selected={effectiveDay} onSelect={setSelectedDay} />
           </div>
+          {filterComps.length > 0 && (
+            <div style={{ display: "flex", gap: 8, overflowX: "auto", padding: "0 14px 12px", scrollbarWidth: "none", msOverflowStyle: "none" }}>
+              <button onClick={() => saveFilter([])} style={pill(activeFilter.length === 0)}>All</button>
+              {filterComps.map(code => (
+                <button key={code} onClick={() => toggleComp(code)} aria-pressed={activeFilter.indexOf(code) !== -1}
+                  style={pill(activeFilter.indexOf(code) !== -1)}>{LEAGUE_COMPETITIONS[code].label}</button>
+              ))}
+            </div>
+          )}
           <div style={{ padding: "0 14px" }}>
             {dayGames.length === 0
-              ? <div style={{ color: C.muted, fontSize: 13, padding: "28px 0", textAlign: "center" }}>No matches on {fmtDay(effectiveDay.toISOString())}.</div>
+              ? <div style={{ color: C.muted, fontSize: 13, padding: "28px 0", textAlign: "center" }}>
+                  No {activeFilter.length ? activeFilter.map(c => LEAGUE_COMPETITIONS[c].label).join(" / ") + " " : ""}matches on {fmtDay(effectiveDay.toISOString())}.
+                </div>
               : dayGames.map(m => (
                   <LeagueMatchCard key={m.id} m={m} matchPtsById={matchPtsById} onMatchClick={onMatchClick} onTeamClick={onTeamClick} />
                 ))}
