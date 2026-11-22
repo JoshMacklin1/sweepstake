@@ -396,19 +396,6 @@
               <div style={{ fontSize: 24, fontWeight: 900, color: player.total < 0 ? C.red : C.text }}>{player.total}</div>
               <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>Points</div>
             </div>
-            {(() => {
-              // Champions League points across this player's clubs (matches +
-              // giant kills + stage), already folded into the total above.
-              const clTotal = (player.teams || []).reduce((sum, t) => sum + (t.clPts || 0), 0);
-              return (
-                <div style={statBox}>
-                  <div style={{ fontSize: 24, fontWeight: 900, color: clTotal > 0 ? C.gold : clTotal < 0 ? C.red : C.muted }}>
-                    {clTotal > 0 ? "+" : ""}{clTotal}
-                  </div>
-                  <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>CL pts 🏆</div>
-                </div>
-              );
-            })()}
             <div style={statBox}>
               <div style={{ fontSize: 24, fontWeight: 900, color: (week && week.pts > 0) ? C.accent : C.muted }}>
                 {week ? `${week.pts > 0 ? "+" : ""}${week.pts}` : "—"}
@@ -421,6 +408,31 @@
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "12px 8px", marginBottom: 18, display: "flex", justifyContent: "center" }}>
             <Sparkline data={hist} width={300} height={72} color={player.total < 0 ? C.red : player.total === 0 ? C.neutral : C.accent} />
           </div>
+
+          {(() => {
+            // Champions League strip — same look as the team card's CL row.
+            // Sum of clPts across this player's clubs (already in the total).
+            const clClubs = (player.teams || []).filter(t => (typeof CL_TIER !== "undefined" && CL_TIER[t.teamId]) || t.clPts);
+            if (clClubs.length === 0) return null;
+            const clTotal = (player.teams || []).reduce((sum, t) => sum + (t.clPts || 0), 0);
+            const pos = clTotal >= 0;
+            return (
+              <div style={{
+                display: "flex", alignItems: "center", gap: 8, padding: "9px 10px", marginBottom: 14, borderRadius: 8,
+                border: `1px solid ${pos ? "rgba(34,197,94,0.25)" : "rgba(241,90,90,0.25)"}`,
+                background: pos ? "rgba(34,197,94,0.07)" : "rgba(241,90,90,0.06)",
+              }}>
+                <div style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0, background: pos ? C.posBg : C.negBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>🏆</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>Champions League</div>
+                  <div style={{ fontSize: 10, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {clClubs.length} club{clClubs.length === 1 ? "" : "s"} · {clClubs.map(t => t.name).join(", ")}
+                  </div>
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: pos ? C.accent : C.red, flexShrink: 0 }}>{clTotal > 0 ? "+" : ""}{clTotal} pts</div>
+              </div>
+            );
+          })()}
 
           <>
               <div style={sect}>Teams</div>
