@@ -106,7 +106,7 @@
 <body>
   <div id="root"></div>
   <!-- Coupled: every league-scoring.js change must bump ?v=N (see SWEEPSTAKE_PROJECT.md cache-bust rule) -->
-  <script src="league-scoring.js?v=24"></script>
+  <script src="league-scoring.js?v=25"></script>
   <script type="text/babel">
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
@@ -426,7 +426,7 @@
                     <div style={{ textAlign: "right", flexShrink: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 700, color: t.total < 0 ? C.red : t.total > 0 ? C.text : C.muted }}>{t.total > 0 ? "+" : ""}{t.total}pts</div>
                       {t.bonusPts !== 0 && <div style={{ fontSize: 10, color: t.bonusPts > 0 ? C.gold : C.red }}>{t.bonusPts > 0 ? "+" : ""}{t.bonusPts} bonus</div>}
-                      {t.clPts ? <div style={{ fontSize: 10, color: t.clPts > 0 ? C.gold : C.red }}>{t.clPts > 0 ? "+" : ""}{t.clPts} 🏆</div> : null}
+                      {t.clPts ? <div style={{ fontSize: 10, color: t.clPts > 0 ? C.gold : C.red }}>{t.clPts > 0 ? "+" : ""}{t.clPts} 🏆{tierTag(t.teamId)}</div> : null}
                     </div>
                     {onTeamClick && <span aria-hidden="true" style={{ marginLeft: 8, color: C.muted, fontSize: 18, lineHeight: 1, flexShrink: 0 }}>›</span>}
                   </div>
@@ -1155,6 +1155,19 @@
       return t ? <span style={{ color: C.muted, fontSize: 9, fontWeight: 600 }}> (P{t.pot})</span> : null;
     };
     const lgPotOf = (id) => { const t = typeof LEAGUE_TEAMS !== "undefined" && LEAGUE_TEAMS[id]; return t ? t.pot : null; };
+    // CL tier (UEFA draw pot) — every CL club has one, owned or not.
+    const lgTierOf = (id) => (typeof CL_TIER !== "undefined" && CL_TIER[id]) ? CL_TIER[id] : null;
+    // Coloured "T1"–"T4" chip used wherever a club appears in a CL context, so
+    // the European pecking order (not the domestic pot) is visible at a glance.
+    const tierTag = (id) => {
+      const tier = lgTierOf(id);
+      if (!tier) return potTag(id);
+      const col = POT_COLORS[tier] || C.muted;
+      return <span style={{ fontSize: 9, fontWeight: 800, color: col, border: `1px solid ${col}`, borderRadius: 4, padding: "0 3px", marginLeft: 4, verticalAlign: "1px" }}>T{tier}</span>;
+    };
+    const isCLMatch = (m) => !!(m && m.competition && m.competition.code === "CL");
+    // Club tag for a given match: CL tier in Europe, domestic pot otherwise.
+    const clubTag = (id, m) => isCLMatch(m) ? tierTag(id) : potTag(id);
 
     // Significant-result banner (pot-gap upset ladder) — mirrors the WC MatchCard.
     // Domestic games use the "upset" ladder; CL knockout ties use the harsher
@@ -1167,13 +1180,15 @@
       const isKO = m.competition && m.competition.code === "CL" && m.stage && m.stage !== "LEAGUE_STAGE" && m.stage !== "GROUP_STAGE";
       if (hs !== as_) {
         const W = hs > as_ ? m.homeTeam.id : m.awayTeam.id, L = hs > as_ ? m.awayTeam.id : m.homeTeam.id;
-        const pw = lgPotOf(W), pl = lgPotOf(L);
+        const potFn = isCLMatch(m) ? (id => lgTierOf(id) || lgPotOf(id)) : lgPotOf;
+        const pw = potFn(W), pl = potFn(L);
         if (pw == null || pl == null) return null;
         const gap = pw - pl; // > 0 when the weaker pot (higher number) won
         if (isKO) { if (gap >= 3) return { icon: "🌋", label: "SEISMIC SHOCK" }; if (gap === 2) return { icon: "😱", label: "SHOCK EXIT" }; if (gap === 1) return { icon: "⚠️", label: "UPSET ALERT" }; return null; }
         if (gap >= 3) return { icon: "🦄", label: "FAIRYTALE" }; if (gap === 2) return { icon: "🔪", label: "GIANT KILLER" }; if (gap === 1) return { icon: "⚠️", label: "UPSET ALERT" }; return null;
       }
-      const pw = lgPotOf(m.homeTeam.id), pl = lgPotOf(m.awayTeam.id);
+      const potFnD = isCLMatch(m) ? (id => lgTierOf(id) || lgPotOf(id)) : lgPotOf;
+      const pw = potFnD(m.homeTeam.id), pl = potFnD(m.awayTeam.id);
       if (pw == null || pl == null) return null;
       const gap = Math.abs(pw - pl);
       if (gap >= 3) return { icon: "🛡️", label: "HEROIC STAND" };
@@ -1208,7 +1223,7 @@
             <Crest teamId={t.id} size={26} />
             <div style={{ minWidth: 0, textAlign: right ? "right" : "left" }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: owner ? C.text : C.dim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{owner ? owner.name : "Unassigned"}</div>
-              <div style={{ fontSize: 11, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{clubName}{potTag(t.id)}</div>
+              <div style={{ fontSize: 11, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{clubName}{clubTag(t.id, m)}</div>
               {earned > 0 && <div style={{ fontSize: 10, fontWeight: 800, color: C.accent, marginTop: 2 }}>+{earned} pts</div>}
             </div>
           </div>
@@ -1268,7 +1283,7 @@
       const teamHeader = (t, owner) => (
         <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, textAlign: "center", minWidth: 0 }}>
           <Crest teamId={t.id} size={34} />
-          <div style={{ fontSize: 13, fontWeight: 800, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>{clubName(t)}{potTag(t.id)}</div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>{clubName(t)}{clubTag(t.id, m)}</div>
           {owner && <div style={{ fontSize: 11, fontWeight: 600, color: C.accent }}>{owner.name}</div>}
         </div>
       );
@@ -1362,7 +1377,7 @@
             <Crest teamId={t.id} size={26} />
             <div style={{ minWidth: 0, textAlign: right ? "right" : "left" }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: o ? C.text : C.dim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o ? o.name : "Unassigned"}</div>
-              <div style={{ fontSize: 10, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{clubName}{potTag(t.id)}</div>
+              <div style={{ fontSize: 10, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{clubName}{clubTag(t.id, m)}</div>
               {earned > 0 && <div style={{ fontSize: 10, fontWeight: 800, color: C.accent, marginTop: 1 }}>+{earned}pts</div>}
             </div>
           </div>
@@ -1805,8 +1820,8 @@
             ) : <div style={{ width: 20, height: 20, background: C.border, borderRadius: 3, flexShrink: 0 }} />}
             {id ? (
               <div style={{ flex: 1, minWidth: 0, opacity: isElim ? 0.5 : 1 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: isWinner ? C.accent : C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{owner ? owner : <>{teamName(id)}{potTag(id)}</>}</div>
-                {owner && <div style={{ fontSize: 10, color: C.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{teamName(id)}{potTag(id)}</div>}
+                <div style={{ fontSize: 12, fontWeight: 700, color: isWinner ? C.accent : C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{owner ? owner : <>{teamName(id)}{tierTag(id)}</>}</div>
+                {owner && <div style={{ fontSize: 10, color: C.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{teamName(id)}{tierTag(id)}</div>}
               </div>
             ) : <span style={{ fontSize: 11, color: C.muted, flex: 1 }}>TBD</span>}
             {score != null && <div style={{ flexShrink: 0, fontSize: 13, fontWeight: 700, color: isWinner ? C.accent : C.dim, opacity: isElim ? 0.5 : 1 }}>{score}</div>}
@@ -1964,6 +1979,8 @@
                 One 36-team league. <strong style={{ color: C.accent }}>Top 8</strong> go straight to the last 16;
                 <strong style={{ color: C.text }}> 9th–24th</strong> drop into the knockout play-offs;
                 <strong style={{ color: C.dangerText }}> 25th–36th</strong> are out.
+                <br /><strong style={{ color: C.text }}>T1–T4</strong> = UEFA draw tier (T4 = underdog — upsets pay big).
+                <strong style={{ color: C.accent }}> Sw</strong> = sweepstake points banked from the CL.
               </div>
               <TablesTab matches={matches} tables={tables} outcomes={outcomes} onTeamClick={onTeamClick} comp="CL"
                 thresholds={[
@@ -2021,6 +2038,18 @@
       };
       const th = { fontSize: 11, color: C.muted, fontWeight: 600, textAlign: "right", padding: "4px 3px" };
       const td = { fontSize: 12, textAlign: "right", padding: "10px 3px", whiteSpace: "nowrap" };
+      const isCL = comp === "CL";
+      const tag = (id) => isCL ? tierTag(id) : potTag(id);
+      // CL only: sweepstake points each owned club has banked from Europe so far.
+      const swPts = useMemo(() => {
+        if (!isCL || typeof clTeamPts !== "function") return {};
+        const prog = typeof deriveCLProgress === "function" ? deriveCLProgress(matches) : {};
+        const gk = typeof clGiantKills === "function" ? clGiantKills(matches) : {};
+        const out = {};
+        table.forEach(r => { if (owner(r.teamId)) out[r.teamId] = clTeamPts(matches, r.teamId, prog, gk); });
+        return out;
+      }, [isCL, matches, table]);
+      const cols = isCL ? 9 : 8;
       return (
         <div style={{ padding: "0 10px" }}>
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "8px 7px", overflowX: "auto" }}>
@@ -2029,6 +2058,7 @@
                 <th style={{ ...th, textAlign: "left" }} colSpan={2}>Team</th>
                 <th style={th}>P</th><th style={th}>GD</th><th style={th}>Pts</th>
                 <th style={th}>W</th><th style={th}>D</th><th style={th}>L</th>
+                {isCL && <th style={{ ...th, color: C.accent }} title="Sweepstake points from the Champions League">Sw</th>}
               </tr></thead>
               <tbody>
                 {table.map((r, i) => {
@@ -2046,8 +2076,8 @@
                         <span style={{ display: "inline-flex", alignItems: "center", gap: 9 }}>
                           <Crest teamId={r.teamId} size={24} />
                           {own
-                            ? <span><span style={{ fontWeight: 700, fontSize: 14 }}>{own}</span> <span style={{ fontSize: 12, color: C.muted }}>{teamName(r.teamId)}{potTag(r.teamId)}</span></span>
-                            : <span style={{ fontSize: 13, color: C.muted }}>{teamName(r.teamId)}{potTag(r.teamId)}</span>}
+                            ? <span><span style={{ fontWeight: 700, fontSize: 14 }}>{own}</span> <span style={{ fontSize: 12, color: C.muted }}>{teamName(r.teamId)}{tag(r.teamId)}</span></span>
+                            : <span style={{ fontSize: 13, color: C.muted }}>{teamName(r.teamId)}{tag(r.teamId)}</span>}
                           {o && o.comp === comp && outcomeChip(o.outcome)}
                         </span>
                       </td>
@@ -2055,10 +2085,14 @@
                       <td style={td}>{r.gd > 0 ? "+" + r.gd : r.gd}</td>
                       <td style={{ ...td, fontWeight: 800 }}>{r.pts}</td>
                       <td style={td}>{r.w}</td><td style={td}>{r.d}</td><td style={td}>{r.l}</td>
+                      {isCL && (() => { const v = swPts[r.teamId]; return (
+                        <td style={{ ...td, fontWeight: 800, color: v == null ? C.muted : v > 0 ? C.accent : v < 0 ? C.red : C.muted }}>
+                          {v == null ? "–" : (v > 0 ? "+" + v : v)}
+                        </td>); })()}
                     </tr>
                     {cut && (
                       <tr aria-hidden="true">
-                        <td colSpan={8} style={{ padding: 0 }}>
+                        <td colSpan={cols} style={{ padding: 0 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 8, borderTop: `2px dashed ${cut.color}`, margin: "2px 0", padding: "4px 3px 0" }}>
                             <span style={{ fontSize: 9, fontWeight: 800, color: cut.color, textTransform: "uppercase", letterSpacing: 0.6 }}>{cut.label}</span>
                           </div>
@@ -2068,7 +2102,7 @@
                     </React.Fragment>
                   );
                 })}
-                {table.length === 0 && <tr><td style={{ ...td, textAlign: "left" }} colSpan={8}>No matches yet.</td></tr>}
+                {table.length === 0 && <tr><td style={{ ...td, textAlign: "left" }} colSpan={cols}>No matches yet.</td></tr>}
               </tbody>
             </table>
           </div>
