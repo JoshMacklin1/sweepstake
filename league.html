@@ -828,7 +828,7 @@
       );
     }
 
-    function TeamsLeagueTab({ matches, ranked, anchorIso, onTeamClick }) {
+    function TeamsLeagueTab({ matches, ranked, anchorIso, onTeamClick, comp, setComp }) {
       // Owned teams (every player's teams) ranked by sweepstake points.
       const rows = React.useMemo(() => {
         const out = [];
@@ -855,26 +855,39 @@
         rows.forEach(t => { const n = rankNow[t.teamId], pa = rankPast[t.teamId]; out[t.teamId] = (pa != null && n != null) ? pa - n : 0; });
         return out;
       }, [rows, matches, anchorIso]);
-      // Competition filter: a domestic pill matches the club's league; the CL
-      // pill matches any club in this season's Champions League (CL_TIER).
-      // Rank numbers stay the OVERALL sweepstake rank so the 7-day move still lines up.
-      const filter = useCompFilter("lsw_teams_filter");
-      const inComp = (t, code) => code === "CL"
-        ? (typeof CL_TIER !== "undefined" && !!CL_TIER[t.teamId])
-        : t.league === code;
+      // League filter — mirrors the Leagues tab: single-select domestic pills
+      // (no CL), styled identically and SHARING its selected league, plus "All"
+      // first. Rank numbers stay the OVERALL sweepstake rank so the 7-day move lines up.
+      const [showAll, setShowAll] = useState(true);
+      const comps = typeof LEAGUE_COMPETITIONS !== "undefined"
+        ? Object.keys(LEAGUE_COMPETITIONS).filter(c => LEAGUE_COMPETITIONS[c].type !== "cup") : [];
+      const active = (comp && comps.indexOf(comp) !== -1) ? comp : (comps[0] || "PL");
       const shown = rows
         .map((t, i) => ({ t, rank: i + 1 }))
-        .filter(({ t }) => filter.active.length === 0 || filter.active.some(c => inComp(t, c)));
+        .filter(({ t }) => showAll || t.league === active);
+      const leaguePill = (on) => ({
+        flexShrink: 0, padding: "7px 14px", borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: "pointer",
+        whiteSpace: "nowrap",
+        background: on ? C.accent : "transparent",
+        color: on ? C.bg : C.muted,
+        border: `1px solid ${on ? C.accent : C.border}`,
+      });
       return (
         <div>
-          <CompFilterPills filter={filter} />
+          <div style={{ display: "flex", gap: 8, overflowX: "auto", padding: "0 14px 10px", scrollbarWidth: "none", msOverflowStyle: "none" }}>
+            <button onClick={() => { window.scrollTo(0, 0); setShowAll(true); }} style={leaguePill(showAll)}>All</button>
+            {comps.map(code => (
+              <button key={code} onClick={() => { window.scrollTo(0, 0); setShowAll(false); if (setComp) setComp(code); }}
+                style={leaguePill(!showAll && active === code)}>{LEAGUE_COMPETITIONS[code].label}</button>
+            ))}
+          </div>
           <div style={{ padding: "0 14px" }}>
             {shown.map(({ t, rank }) => (
               <TeamLeagueRow key={t.teamId} row={t} rank={rank} hist={teamHist[t.teamId] || [0]}
                 move={move[t.teamId] || 0} onOpen={() => onTeamClick(t.teamId)} />
             ))}
             {rows.length === 0 && <div style={{ color: C.muted, textAlign: "center", padding: 40 }}>No teams yet.</div>}
-            {rows.length > 0 && shown.length === 0 && <div style={{ color: C.muted, textAlign: "center", padding: 40 }}>No owned teams in {filter.active.map(c => LEAGUE_COMPETITIONS[c].label).join(" / ")}.</div>}
+            {rows.length > 0 && shown.length === 0 && <div style={{ color: C.muted, textAlign: "center", padding: 40 }}>No owned teams in {LEAGUE_COMPETITIONS[active].label}.</div>}
           </div>
         </div>
       );
@@ -3240,7 +3253,7 @@
             : tab === "home" ? <HomeTab group={group} matches={matches} ranked={ranked} badges={badges} weekWindow={weekWindow} matchPtsById={matchPtsById} hist={hist} outcomes={outcomes} anchorIso={anchorIso} setTab={navTo} openPlayerModal={openPlayerModal} openTeamModal={openTeamModal} openMatchModal={openMatchModal} />
             : tab === "table" ? (
                 leagueView === "players" ? <SweepsTab ranked={ranked} badges={badges} hist={hist} weekMove={weekMove} outcomes={outcomes} displayRanks={displayRanks} onOpenPlayer={openPlayerModal} />
-                : leagueView === "teams" ? <TeamsLeagueTab matches={matches} ranked={ranked} anchorIso={anchorIso} onTeamClick={openTeamModal} />
+                : leagueView === "teams" ? <TeamsLeagueTab matches={matches} ranked={ranked} anchorIso={anchorIso} onTeamClick={openTeamModal} comp={leaguesComp} setComp={setLeaguesComp} />
                 : leagueView === "ucl" ? <ChampionsLeagueTab matches={matches} tables={tables} outcomes={outcomes} matchPtsById={matchPtsById} onTeamClick={openTeamModal} onMatchClick={openMatchModal} />
                 : <LeaguesTab matches={matches} tables={tables} outcomes={outcomes} onTeamClick={openTeamModal} comp={leaguesComp} setComp={setLeaguesComp} />
               )
