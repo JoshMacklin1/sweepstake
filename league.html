@@ -1974,19 +1974,19 @@
           </div>
           {phase === "league" ? (
             <div>
-              <div style={{ fontSize: 11, color: C.muted, padding: "0 14px 10px", lineHeight: 1.5 }}>
-                One 36-team league. <strong style={{ color: C.accent }}>Top 8</strong> go straight to the last 16;
-                <strong style={{ color: C.text }}> 9th–24th</strong> drop into the knockout play-offs;
-                <strong style={{ color: C.dangerText }}> 25th–36th</strong> are out.
-                <br /><strong style={{ color: C.text }}>(T1)–(T4)</strong> = UEFA draw tier (T4 = underdog — upsets pay big).
-                <strong style={{ color: C.accent }}> Sw</strong> = sweepstake points banked from the CL.
-              </div>
               <TablesTab matches={matches} tables={tables} outcomes={outcomes} onTeamClick={onTeamClick} comp="CL"
                 thresholds={[
                   { after: 8, label: "Knockout play-offs · 9th–24th", color: C.muted },
                   { after: 24, label: "Eliminated · 25th–36th", color: C.dangerText },
                 ]} />
               <CLPlayoffsRow matches={matches} matchPtsById={matchPtsById} onTeamClick={onTeamClick} onMatchClick={onMatchClick} />
+              <div style={{ fontSize: 11, color: C.muted, padding: "14px 14px 10px", lineHeight: 1.5 }}>
+                One 36-team league. <strong style={{ color: C.accent }}>Top 8</strong> go straight to the last 16;
+                <strong style={{ color: C.text }}> 9th–24th</strong> drop into the knockout play-offs;
+                <strong style={{ color: C.dangerText }}> 25th–36th</strong> are out.
+                <br /><strong style={{ color: C.text }}>(T1)–(T4)</strong> = UEFA draw tier (T4 = underdog — upsets pay big).
+                <strong style={{ color: C.accent }}> Sw</strong> = sweepstake points banked from the CL.
+              </div>
             </div>
           ) : (
             <CLBracket matches={matches} onTeamClick={onTeamClick} />
