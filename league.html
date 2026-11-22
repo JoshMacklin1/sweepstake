@@ -2077,17 +2077,9 @@
             return vb - va;
           })
         : table;
-      const sortPill = (on) => ({
-        flex: 1, padding: "6px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
-        background: on ? C.accent : "transparent", color: on ? C.bg : C.muted, border: `1px solid ${on ? C.accent : C.border}`,
-      });
       const arrow = (on) => on ? <span style={{ fontSize: 8, marginLeft: 2 }}>▼</span> : null;
       return (
         <div style={{ padding: "0 10px" }}>
-          <div style={{ display: "flex", gap: 8, padding: "0 4px 10px" }}>
-            <button onClick={() => setSortBy("pts")} aria-pressed={!bySw} style={sortPill(!bySw)}>{isCL ? "CL table" : "League table"}</button>
-            <button onClick={() => setSortBy("sw")} aria-pressed={bySw} style={sortPill(bySw)}>Sweepstake points</button>
-          </div>
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "8px 7px", overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead><tr>
