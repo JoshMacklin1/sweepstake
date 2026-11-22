@@ -2133,6 +2133,11 @@
               </tbody>
             </table>
           </div>
+          {table.length > 0 && (
+            <div style={{ fontSize: 10, color: C.muted, textAlign: "center", padding: "6px 0 2px" }}>
+              Tap <strong style={{ color: C.text }}>Pts</strong> or <strong style={{ color: C.accent }}>Sw</strong> to sort
+            </div>
+          )}
         </div>
       );
     }
