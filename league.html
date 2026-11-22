@@ -1295,7 +1295,6 @@
       const [me, setMe] = useState(() => readMe(code));
       const [viewing, setViewing] = useState(null);
       const [picker, setPicker] = useState(false);
-      const [showAll, setShowAll] = useState({ tow: false, table: false });
       if (!weeks.length || typeof lgGameweek !== "function") {
         return <div style={{ color: C.muted, textAlign: "center", padding: 40 }}>No fixtures yet.</div>;
       }
@@ -1419,44 +1418,6 @@
               ))}
             </div>
           )}
-
-          {/* Team of the Week */}
-          <div style={sect}>★ Team of the Week</div>
-          <div style={{ ...s.card, overflow: "hidden" }}>
-            {gw.teamsOfWeek.filter(t => t.pts > 0).length === 0
-              ? <div style={{ padding: 14, fontSize: 12, color: C.muted }}>Nobody's scored yet this week.</div>
-              : gw.teamsOfWeek.filter(t => t.pts > 0).slice(0, embedded && !showAll.tow ? 3 : 10).map((t, i, arr) => (
-                <div key={t.teamId + t.owner} onClick={() => onTeamClick(t.teamId)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", cursor: "pointer", borderBottom: i < arr.length - 1 ? `1px solid ${C.border}` : "none" }}>
-                  <div style={{ width: 18, fontSize: 11, color: C.muted, fontWeight: 700, textAlign: "right" }}>{i + 1}</div>
-                  <Crest teamId={t.teamId} size={22} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}<span style={{ fontSize: 9, color: C.muted, fontWeight: 600 }}> (P{t.pot})</span></div>
-                    <div style={{ fontSize: 11, color: t.owner === me ? C.accent : C.muted }}>{t.owner}</div>
-                  </div>
-                  <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>+{t.pts}</div>
-                </div>
-              ))}
-            {embedded && gw.teamsOfWeek.filter(t => t.pts > 0).length > 3 && (
-              <button onClick={() => setShowAll(v => ({ ...v, tow: !v.tow }))} style={{ width: "100%", padding: "10px", background: "transparent", border: "none", borderTop: `1px solid ${C.border}`, color: C.accent, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>{showAll.tow ? "Show top 3" : "Show top 10"} ›</button>
-            )}
-          </div>
-
-          {/* Week standings */}
-          <div style={sect}>Week {week.n} standings</div>
-          <div style={{ ...s.card, overflow: "hidden" }}>
-            {gw.players.slice(0, embedded && !showAll.table ? 5 : gw.players.length).map((p, i, arr) => (
-              <div key={p.name} onClick={() => setViewing(p.name)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", cursor: "pointer",
-                background: p.name === who ? "rgba(34,197,94,0.08)" : "transparent", borderBottom: i < gw.players.length - 1 ? `1px solid ${C.border}` : "none" }}>
-                <div style={{ width: 22, fontSize: 12, color: C.muted, fontWeight: 700, textAlign: "right" }}>{p.rank}</div>
-                <div style={{ flex: 1, fontSize: 13, fontWeight: 700, color: C.text }}>{p.name}{p.name === me ? <span style={{ fontSize: 10, color: C.accent }}> · you</span> : null}</div>
-                {p.clPts !== 0 && <div style={{ fontSize: 10, color: C.gold }}>{p.clPts > 0 ? "+" : ""}{p.clPts} 🏆</div>}
-                <div style={{ fontSize: 14, fontWeight: 900, color: p.pts < 0 ? C.red : C.text, minWidth: 36, textAlign: "right" }}>{p.pts}</div>
-              </div>
-            ))}
-            {embedded && gw.players.length > 5 && (
-              <button onClick={() => setShowAll(v => ({ ...v, table: !v.table }))} style={{ width: "100%", padding: "10px", background: "transparent", border: "none", borderTop: `1px solid ${C.border}`, color: C.accent, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>{showAll.table ? "Show top 5" : `Show all ${gw.players.length}`} ›</button>
-            )}
-          </div>
 
           {onOpenRace && !embedded && (
             <button onClick={onOpenRace} style={{ ...s.card, width: "100%", marginTop: 16, padding: "14px", color: C.accent, fontWeight: 800, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>

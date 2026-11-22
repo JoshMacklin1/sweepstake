@@ -114,8 +114,9 @@ switching resets tab/card state.
 
 ### Gameweek (FPL-style weekly view)
 
-The gameweek view is **embedded at the top of Home** (`GameweekTab embedded`:
-Team of the Week shows top 3 and week standings top 5, each with "show all");
+The gameweek view is **embedded at the top of Home** (`GameweekTab embedded`;
+Team of the Week and the week standings lists were removed — highest scorer
+and week rank remain in the stat block);
 The Race is back in the bottom nav. The **pitch has one row per league**, each
 labelled with that league's points for the week. Gameweeks are built from **calendar weeks, Mon–Sun UTC**, identical for every
 league (`lgWeeks`, `lgWeekIndexOf`); weeks with fewer than `LG_GW_MIN_FIXTURES` (5)
