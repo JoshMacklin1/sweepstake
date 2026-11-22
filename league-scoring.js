@@ -641,6 +641,38 @@ function lgEnsureTeams(group) {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// BALANCED LIVE DRAFT — a player can't take a second club from a league until
+// they hold one from every league (that still has clubs left), so squads end
+// with an equal number from each league. Mirrored in worker/src/index.js
+// (server-side enforcement + autopick); keep the two in sync.
+//
+// lgDraftAllowedLeagues(leagueOf, myIds, takenIds, poolIds) → { league: true }
+// lgDraftPerPlayer(poolIds, nPlayers, leagueOf) → picks per player: a multiple
+//   of the league count when every league can give each player at least one
+//   (L × min_L floor(size_L / n)); otherwise floor(pool / n).
+// ─────────────────────────────────────────────────────────────────────────────
+function lgDraftAllowedLeagues(leagueOf, myIds, takenIds, poolIds) {
+  var taken = {}, avail = {}, count = {}, allowed = {};
+  (takenIds || []).forEach(function (id) { taken[id] = 1; });
+  (poolIds || []).forEach(function (id) { if (!taken[id]) avail[leagueOf(id)] = 1; });
+  Object.keys(avail).forEach(function (L) { count[L] = 0; });
+  (myIds || []).forEach(function (id) { var L = leagueOf(id); if (count[L] != null) count[L]++; });
+  var min = Infinity;
+  Object.keys(count).forEach(function (L) { if (count[L] < min) min = count[L]; });
+  Object.keys(count).forEach(function (L) { if (count[L] === min) allowed[L] = true; });
+  return allowed;
+}
+function lgDraftPerPlayer(poolIds, nPlayers, leagueOf) {
+  if (!nPlayers) return 0;
+  var size = {};
+  (poolIds || []).forEach(function (id) { var L = leagueOf(id); size[L] = (size[L] || 0) + 1; });
+  var Ls = Object.keys(size), q = Infinity;
+  Ls.forEach(function (L) { q = Math.min(q, Math.floor(size[L] / nPlayers)); });
+  if (Ls.length && q >= 1 && q !== Infinity) return q * Ls.length;
+  return Math.floor((poolIds || []).length / nPlayers);
+}
+
 // Throwaway "preview" draw for the lobby's Preview-app button: deal each of the
 // given names a random, pot-fair squad from the chosen competitions' pool so
 // players can explore a simulated season before the real draft. Not persisted;

@@ -106,7 +106,7 @@
 <body>
   <div id="root"></div>
   <!-- Coupled: every league-scoring.js change must bump ?v=N (see SWEEPSTAKE_PROJECT.md cache-bust rule) -->
-  <script src="league-scoring.js?v=31"></script>
+  <script src="league-scoring.js?v=32"></script>
   <script type="text/babel">
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
@@ -4036,6 +4036,12 @@
       state.order.forEach(pid => { squadOf[pid] = []; });
       state.picks.forEach(pk => { (squadOf[pk.playerId] = squadOf[pk.playerId] || []).push(pk.teamId); });
 
+      // Balanced draft: the picker may only take from leagues where they hold
+      // the fewest clubs (one from every league before a second).
+      const pickerId = drive ? state.currentPlayerId : session.playerId;
+      const allowedL = (typeof lgDraftAllowedLeagues === "function" && !isComplete)
+        ? lgDraftAllowedLeagues(id => teamMeta(id).league, squadOf[pickerId] || [], state.picks.map(p => p.teamId), poolIds) : null;
+      const leagueOk = (id) => !allowedL || !!allowedL[teamMeta(id).league];
       const byComp = {};
       available.forEach(id => { const t = teamMeta(id); (byComp[t.league] = byComp[t.league] || []).push(id); });
       const compOrder = Object.keys(byComp).sort();
@@ -4053,7 +4059,8 @@
           const data = await res.json().catch(() => ({}));
           if (!res.ok) {
             const m = String(data.error || "");
-            setPickErr(m === "taken" ? "Someone just took that team."
+            setPickErr(m === "league_quota" ? "Take one club from every league before a second from the same league."
+              : m === "taken" ? "Someone just took that team."
               : (m === "not_your_turn" || m === "stale_turn") ? "The turn just moved on — hang on for yours."
               : "Couldn't pick — try again.");
           }
@@ -4110,8 +4117,9 @@
           <span style={{ fontSize: 13, fontWeight: 700 }}>{t.name}</span>
         </>;
         const base = { position: "relative", textAlign: "left", padding: "10px 12px", borderRadius: 10, background: C.card, color: C.text, border: `1px solid ${C.border}`, display: "flex", flexDirection: "column", gap: 6 };
+        const ok = leagueOk(id);
         return clickable
-          ? <button key={id} onClick={() => pick(id)} disabled={!canPick || picking} style={{ ...base, cursor: (canPick && !picking) ? "pointer" : "default", opacity: canPick ? 1 : 0.7 }}>{inner}</button>
+          ? <button key={id} onClick={() => ok && pick(id)} disabled={!canPick || picking || !ok} style={{ ...base, cursor: (canPick && !picking && ok) ? "pointer" : "default", opacity: !ok ? 0.35 : canPick ? 1 : 0.7 }}>{inner}</button>
           : <div key={id} style={base}>{inner}</div>;
       };
       const teamGrid = (children) => <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 8 }}>{children}</div>;
@@ -4119,9 +4127,14 @@
       // Available roster — grouped by competition.
       const availableSection = !isComplete ? (
         <div style={{ marginBottom: 22 }}>
+          {allowedL && compOrder.some(c => !allowedL[c]) && (
+            <div style={{ fontSize: 12, color: C.gold, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 10, padding: "8px 10px", marginBottom: 12 }}>
+              ⚖️ Balanced draft: {drive ? "the picker needs" : "you need"} a club from {compOrder.filter(c => allowedL[c]).map(compLabelOf).join(" / ")} before another from the rest.
+            </div>
+          )}
           {compOrder.map(c => (
             <div key={c} style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, marginBottom: 8 }}>{compLabelOf(c)}</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: allowedL && !allowedL[c] ? C.border : C.muted, marginBottom: 8 }}>{compLabelOf(c)}{allowedL && !allowedL[c] ? " · locked for now" : ""}</div>
               {teamGrid(byComp[c].map(id => teamCard(id, true)))}
             </div>
           ))}
@@ -4317,18 +4330,24 @@
       const start = () => setState(s => {
         const ids = s.players.map(p => p.id);
         for (let i = ids.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [ids[i], ids[j]] = [ids[j], ids[i]]; }
-        const perPlayer = Math.floor(pool.length / ids.length), totalPicks = perPlayer * ids.length;
+        const lg = (id) => (LEAGUE_TEAMS[id] || {}).league;
+        const perPlayer = typeof lgDraftPerPlayer === "function" ? lgDraftPerPlayer(pool, ids.length, lg) : Math.floor(pool.length / ids.length), totalPicks = perPlayer * ids.length;
         const base = { ...s, order: ids, perPlayer, totalPicks, turnNo: 0 };
         return totalPicks > 0 ? advance(base, [], 0) : { ...base, status: "complete", currentPlayerId: null, turnDeadline: null };
       });
+      const lgOf = (id) => (LEAGUE_TEAMS[id] || {}).league;
+      const allowedFor = (s, pid, picks) => typeof lgDraftAllowedLeagues === "function"
+        ? lgDraftAllowedLeagues(lgOf, picks.filter(p => p.playerId === pid).map(p => p.teamId), picks.map(p => p.teamId), pool) : null;
       const pick = (teamId) => setState(s => {
         if (s.status !== "drafting" || s.picks.some(pk => pk.teamId === teamId)) return s;
+        const al = allowedFor(s, at(s.order, s.turnNo), s.picks);
+        if (al && !al[lgOf(teamId)]) return s;
         return advance(s, [...s.picks, { teamId, playerId: at(s.order, s.turnNo), pickNo: s.turnNo }], s.turnNo + 1);
       });
       const autoFill = () => setState(s => {
         if (s.status !== "drafting") return s;
         const picks = s.picks.slice(), taken = new Set(picks.map(p => p.teamId)); let turnNo = s.turnNo;
-        while (picks.length < s.totalPicks) { const id = pool.find(x => !taken.has(x)); if (id === undefined) break; taken.add(id); picks.push({ teamId: id, playerId: at(s.order, turnNo), pickNo: turnNo, auto: true }); turnNo++; }
+        while (picks.length < s.totalPicks) { const al = allowedFor(s, at(s.order, turnNo), picks); const id = pool.find(x => !taken.has(x) && (!al || al[lgOf(x)])); if (id === undefined) break; taken.add(id); picks.push({ teamId: id, playerId: at(s.order, turnNo), pickNo: turnNo, auto: true }); turnNo++; }
         return advance(s, picks, turnNo);
       });
       if (state.status === "lobby") return <Lobby state={state} session={session} isHost connected onStart={start} onLeave={onLeave} />;
@@ -4471,7 +4490,8 @@
         try {
           const res = await fetch(`${LEAGUE_API_URL}/league`, {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, competitions: comps, poolTeamIds, hostName: hn }),
+            body: JSON.stringify({ name, competitions: comps, poolTeamIds, hostName: hn,
+              poolLeagues: Object.fromEntries(poolTeamIds.map(id => [id, (LEAGUE_TEAMS[id] || {}).league])) }),
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok) throw new Error(data.error || "create_failed");
