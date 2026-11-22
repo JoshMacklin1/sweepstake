@@ -1751,7 +1751,7 @@
       );
     }
 
-    function HomeTab({ group, matches, ranked, badges, weekWindow, matchPtsById, hist, outcomes, anchorIso, setTab, openPlayerModal, openTeamModal, openMatchModal, familyRows = [], openFamilyModal }) {
+    function HomeTab({ group, matches, ranked, badges, weekWindow, matchPtsById, hist, outcomes, anchorIso, setTab, openPlayerModal, openTeamModal, openMatchModal, familyRows = [], openFamilyModal, onOpenSwitcher }) {
       const real = ranked;
       const newAccolades = useMemo(
         () => (typeof computeNewLeagueBadges === "function" ? computeNewLeagueBadges(badges, matches, anchorIso) : []),
@@ -1827,9 +1827,10 @@
 
       return (
         <div style={{ padding: "0 14px" }}>
-          <div style={{ ...s.card, padding: "14px 16px", marginBottom: 16, textAlign: "center" }}>
+          <div onClick={onOpenSwitcher} role="button" style={{ ...s.card, padding: "14px 16px", marginBottom: 16, textAlign: "center", cursor: onOpenSwitcher ? "pointer" : "default" }}>
             <div style={{ fontSize: 11, color: C.dim, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>League Name</div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: C.text, marginTop: 4 }}>{group ? group.label : ""}</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: C.text, marginTop: 4 }}>{group ? group.label : ""}{onOpenSwitcher && <span style={{ fontSize: 13, color: C.muted, marginLeft: 6 }}>▾</span>}</div>
+            {onOpenSwitcher && <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>Tap to switch league</div>}
           </div>
 
           <LeagueMatchFocusCard matches={matches} matchPtsById={matchPtsById} onMatchClick={openMatchModal} />
@@ -2768,7 +2769,7 @@
       );
     }
 
-    function Sidebar({ group, tab, leagueView, showMore, onNav, onMore, onOpenSearch, onOpenNotifications, unreadCount, hasFamilies }) {
+    function Sidebar({ group, tab, leagueView, showMore, onNav, onMore, onOpenSearch, onOpenNotifications, unreadCount, hasFamilies, onOpenSwitcher }) {
       // [iconId, label, tabId, view]. view only for League sub-destinations.
       const items = [
         ["home", "Home", "home", null],
@@ -2791,7 +2792,7 @@
             <img src={LOGO_SRC} alt="Sweepstaker" style={{ width: 42, height: 42, flexShrink: 0 }} />
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 16, fontWeight: 800, lineHeight: 1.15 }}>Sweepstaker <span style={{ color: C.accent }}>26/27</span></div>
-              {group && group.label && <div style={{ fontSize: 11.5, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{group.label}</div>}
+              {group && group.label && <div onClick={onOpenSwitcher} role="button" title="Switch league" style={{ fontSize: 11.5, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "pointer" }}>{group.label} ▾</div>}
             </div>
           </div>
           <div onClick={onOpenSearch} role="button" style={{
@@ -3081,7 +3082,43 @@
     }
 
     // ── header + replay scrubber ────────────────────────────────────────────
-    function Header({ group, lastUpdated, refreshing, onRefresh, replay, onReplayDate, onOpenSearch, onOpenNotifications, unreadCount, isDesktop }) {
+    // ── League switcher — published by GroupGate each render (same global
+    //    pattern as LEAGUE_PLAYERS) so App can jump between the device's
+    //    leagues without going back to the landing screen. ─────────────────
+    let LEAGUE_SWITCHER = null; // { items: [{ id, name, sub, active, open }], toMenu }
+    function LeagueSwitcherSheet({ onClose }) {
+      const sw = LEAGUE_SWITCHER;
+      const items = sw ? sw.items : [];
+      return (
+        <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+          <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 480, maxHeight: "75vh", display: "flex", flexDirection: "column", background: C.bg, border: `1px solid ${C.border}`, borderRadius: "18px 18px 0 0", boxShadow: "0 -12px 40px rgba(0,0,0,0.5)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+              <div style={{ fontSize: 16, fontWeight: 900, color: C.text }}>Switch league</div>
+              <button onClick={onClose} aria-label="Close" style={{ background: "transparent", border: "none", color: C.muted, fontSize: 20, cursor: "pointer", lineHeight: 1 }}>✕</button>
+            </div>
+            <div style={{ overflowY: "auto", padding: "4px 0" }}>
+              {items.map(it => (
+                <button key={it.id} onClick={() => { onClose(); if (!it.active) it.open(); }} style={{
+                  width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", background: it.active ? "rgba(34,197,94,0.08)" : "transparent",
+                  border: "none", borderBottom: `1px solid ${C.border}`, color: C.text, cursor: "pointer", textAlign: "left",
+                }}>
+                  <span style={{ width: 18, color: C.accent, fontWeight: 900, flexShrink: 0 }}>{it.active ? "✓" : ""}</span>
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ display: "block", fontSize: 14, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.name}</span>
+                    <span style={{ display: "block", fontSize: 11, color: C.muted }}>{it.sub}</span>
+                  </span>
+                </button>
+              ))}
+              <button onClick={() => { onClose(); if (sw) sw.toMenu(); }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", background: "transparent", border: "none", color: C.accent, fontWeight: 700, fontSize: 14, cursor: "pointer", textAlign: "left" }}>
+                <span style={{ width: 18, flexShrink: 0 }}>+</span> Join or create a league…
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function Header({ group, lastUpdated, refreshing, onRefresh, replay, onReplayDate, onOpenSearch, onOpenNotifications, unreadCount, isDesktop, onOpenSwitcher }) {
       const replayPct = replay.on
         ? (new Date(replay.date) - new Date(REPLAY_START)) / (new Date(REPLAY_END) - new Date(REPLAY_START)) * 100
         : 0;
@@ -3112,7 +3149,7 @@
         <div style={{ padding: "10px 14px 6px" }}>
           {/* Search + notifications row — WC-parity top bar */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-            <img src={LOGO_SRC} alt="Sweepstaker" style={{ width: 30, height: 30, display: "block", flexShrink: 0 }} />
+            <img src={LOGO_SRC} alt="Switch league" title="Switch league" onClick={onOpenSwitcher} role="button" style={{ width: 30, height: 30, display: "block", flexShrink: 0, cursor: onOpenSwitcher ? "pointer" : "default" }} />
             <div onClick={onOpenSearch} role="button" style={{
               flex: 1, display: "flex", alignItems: "center", gap: 8,
               background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.18)",
@@ -3178,6 +3215,9 @@
       const [selectedTeam, setSelectedTeam] = useState(null);
       const [selectedMatch, setSelectedMatch] = useState(null);
       const [selectedFamily, setSelectedFamily] = useState(null);
+      const [showSwitcher, setShowSwitcher] = useState(false);
+      // Switcher only for real leagues (not the throwaway lobby preview).
+      const openSwitcher = (!previewMode && LEAGUE_SWITCHER && LEAGUE_SWITCHER.items.length > 0) ? () => setShowSwitcher(true) : undefined;
       const [showMore, setShowMore] = useState(false);
       const [showRules, setShowRules] = useState(false);
       const [showWC, setShowWC] = useState(false);
@@ -3396,7 +3436,7 @@
 
       return (
         <div style={{ display: isDesktop ? "flex" : "block", alignItems: "flex-start", minHeight: "100vh" }}>
-          {isDesktop && <Sidebar group={group} tab={tab} leagueView={leagueView} showMore={showMore} onNav={navTo} onMore={() => setShowMore(true)} onOpenSearch={() => setShowSearch(true)} onOpenNotifications={() => setShowNotifications(true)} unreadCount={unreadCount} hasFamilies={!!families} />}
+          {isDesktop && <Sidebar group={group} tab={tab} leagueView={leagueView} showMore={showMore} onNav={navTo} onMore={() => setShowMore(true)} onOpenSearch={() => setShowSearch(true)} onOpenNotifications={() => setShowNotifications(true)} unreadCount={unreadCount} hasFamilies={!!families} onOpenSwitcher={openSwitcher} />}
           <div style={{ flex: 1, minWidth: 0, paddingBottom: isDesktop ? 40 : 84, background: isDesktop ? C.bg : "transparent", minHeight: isDesktop ? "100vh" : "auto" }}>
           {previewMode && (
             <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", background: "#2a2410", borderBottom: `1px solid ${C.gold}` }}>
@@ -3411,7 +3451,7 @@
             onReplayDate={(d) => setReplay(r => ({ ...r, date: d }))}
             onOpenSearch={() => setShowSearch(true)}
             onOpenNotifications={() => setShowNotifications(true)}
-            unreadCount={unreadCount} isDesktop={isDesktop} />
+            unreadCount={unreadCount} isDesktop={isDesktop} onOpenSwitcher={openSwitcher} />
           {error && !replay.on && (
             <div style={{ margin: "6px 14px 10px", padding: 10, background: "#2a1616", border: "1px solid #5b2121", borderRadius: 10, color: C.dangerTextBright, fontSize: 12 }}>
               Couldn't reach the match feed ({error}) — showing last known data.
@@ -3433,7 +3473,7 @@
           <div style={{ height: 8 }} />
           {loading && !replay.on
             ? <div style={{ color: C.muted, textAlign: "center", padding: 40 }}>Loading fixtures…</div>
-            : tab === "home" ? <HomeTab group={group} matches={matches} ranked={ranked} badges={badges} weekWindow={weekWindow} matchPtsById={matchPtsById} hist={hist} outcomes={outcomes} anchorIso={anchorIso} setTab={navTo} openPlayerModal={openPlayerModal} openTeamModal={openTeamModal} openMatchModal={openMatchModal} familyRows={familyRows} openFamilyModal={openFamilyModal} />
+            : tab === "home" ? <HomeTab group={group} matches={matches} ranked={ranked} badges={badges} weekWindow={weekWindow} matchPtsById={matchPtsById} hist={hist} outcomes={outcomes} anchorIso={anchorIso} setTab={navTo} openPlayerModal={openPlayerModal} openTeamModal={openTeamModal} openMatchModal={openMatchModal} familyRows={familyRows} openFamilyModal={openFamilyModal} onOpenSwitcher={openSwitcher} />
             : tab === "table" ? (
                 leagueView === "players" ? <SweepsTab ranked={ranked} badges={badges} hist={hist} weekMove={weekMove} outcomes={outcomes} displayRanks={displayRanks} onOpenPlayer={openPlayerModal} />
                 : leagueView === "teams" ? <TeamsLeagueTab matches={matches} ranked={ranked} anchorIso={anchorIso} onTeamClick={openTeamModal} comp={leaguesComp} setComp={setLeaguesComp} />
@@ -3483,11 +3523,12 @@
 
           {showMore && (
             <MoreMenu replayOn={replay.on} onToggleReplay={toggleReplay}
-              onViewRules={() => setShowRules(true)} onSwitchGroup={onSwitchGroup}
+              onViewRules={() => setShowRules(true)} onSwitchGroup={openSwitcher || onSwitchGroup}
               onWorldCup={() => setShowWC(true)}
               onClose={() => setShowMore(false)} />
           )}
           {showWC && <WorldCupNotice onClose={() => setShowWC(false)} />}
+          {showSwitcher && <LeagueSwitcherSheet onClose={() => setShowSwitcher(false)} />}
 
           {showSearch && (
             <LeagueSearchOverlay ranked={ranked} isDesktop={isDesktop}
@@ -4065,6 +4106,7 @@
 
     function GroupGate() {
       const [ready] = useState(() => { migrateMemberships(); loadCreatedLeagues(); return true; });
+      const [editing, setEditing] = useState(false); // landing list: show ✕ remove buttons
       const [demoOn, setDemoOn] = useState(() => /(?:^|[#&])demo\b/.test(location.hash || ""));
       const [sessions, setSessions] = useState(() => loadSessions());
       const [myGroups, setMyGroups] = useState(() => loadMyGroups());
@@ -4095,7 +4137,12 @@
       };
 
       // ── membership helpers (persist + update state) ──
-      const goActive = (a) => { saveActive(a); setActive(a); };
+      // Most-recently-opened first: { "g-CAVERSHAM": ts, "s-ABC123": ts } per device.
+      const RECENT_KEY = "lsw_recent";
+      const goActive = (a) => {
+        if (a) { const r = _readJSON(RECENT_KEY, {}) || {}; r[(a.kind === "session" ? "s-" : "g-") + a.id] = Date.now(); _writeJSON(RECENT_KEY, r); }
+        saveActive(a); setActive(a);
+      };
       const addSession = (s) => setSessions(prev => { const next = prev.some(x => x.code === s.code) ? prev.map(x => x.code === s.code ? s : x) : [...prev, s]; saveSessions(next); return next; });
       const removeSession = (code) => setSessions(prev => { const next = prev.filter(x => x.code !== code); saveSessions(next); return next; });
       const addGroupKey = (key) => setMyGroups(prev => { const next = prev.includes(key) ? prev : [...prev, key]; saveMyGroups(next); return next; });
@@ -4107,6 +4154,28 @@
       };
       // Non-destructive: back to the "Your leagues" chooser, memberships intact.
       const switchAway = () => { setMode("menu"); setInput(""); setBad(false); setCreateErr(""); goActive(null); };
+
+      // Every league on this device (hosted sessions + preset/created groups),
+      // most recently opened first — feeds both the landing list and the
+      // in-app switcher (published via LEAGUE_SWITCHER).
+      const recentTs = _readJSON(RECENT_KEY, {}) || {};
+      const leagueItems = [
+        ...sessions.map(x => ({
+          id: "s-" + x.code, name: x.name || x.code, sub: "Live league",
+          active: !!(active && active.kind === "session" && active.id === x.code),
+          open: () => goActive({ kind: "session", id: x.code }), forget: () => removeSession(x.code),
+        })),
+        ...myGroups.filter(k => typeof LEAGUE_GROUPS !== "undefined" && LEAGUE_GROUPS[k]).map(k => {
+          const g = LEAGUE_GROUPS[k];
+          return {
+            id: "g-" + k, name: g.label || k,
+            sub: `Group · ${(g.players || []).length} players${g.families ? " · families" : ""}`,
+            active: !!(active && active.kind === "group" && active.id === k),
+            open: () => enter(k), forget: () => removeGroupKey(k),
+          };
+        }),
+      ].sort((a, b) => (recentTs[b.id] || 0) - (recentTs[a.id] || 0));
+      LEAGUE_SWITCHER = { items: leagueItems, toMenu: switchAway };
 
       // Pitch/demo mode (#demo) — a self-contained local Rodents draft.
       if (demoOn) {
@@ -4122,7 +4191,7 @@
       if (active && active.kind === "session") {
         const sess = sessions.find(x => x.code === active.id);
         if (sess) {
-          return <LiveLeague session={sess}
+          return <LiveLeague key={"s-" + sess.code} session={sess}
             onLeave={() => { removeSession(sess.code); dropJoinHash(); goActive(null); }}
             onSwitch={switchAway} />;
         }
@@ -4130,7 +4199,7 @@
       if (active && active.kind === "group" && typeof LEAGUE_GROUPS !== "undefined" && LEAGUE_GROUPS[active.id]) {
         if (typeof lgEnsureTeams === "function") lgEnsureTeams(LEAGUE_GROUPS[active.id]);
         LEAGUE_PLAYERS = LEAGUE_GROUPS[active.id].players;
-        return <App group={LEAGUE_GROUPS[active.id]} onSwitchGroup={switchAway} />;
+        return <App key={"g-" + active.id} group={LEAGUE_GROUPS[active.id]} onSwitchGroup={switchAway} />;
       }
 
       const submitJoin = (e) => {
@@ -4202,15 +4271,6 @@
         <button onClick={() => { setMode("menu"); setBad(false); setCreateErr(""); }}
           style={{ marginTop: 22, background: "none", border: "none", color: C.muted, fontSize: 13, cursor: "pointer" }}>‹ Back</button>
       );
-      const leagueRow = (key, name, sub, onOpen, onForget) => (
-        <div key={key} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", maxWidth: 320, margin: "10px auto 0", background: C.card, border: `1px solid ${C.border}`, borderRadius: 14 }}>
-          <button onClick={onOpen} style={{ flex: 1, minWidth: 0, background: "none", border: "none", color: C.text, cursor: "pointer", textAlign: "left", display: "flex", flexDirection: "column", gap: 3, padding: "14px 4px 14px 16px" }}>
-            <span style={{ fontSize: 15, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
-            <span style={{ fontSize: 12, color: C.muted }}>{sub}</span>
-          </button>
-          <button onClick={onForget} aria-label={`Forget ${name}`} title="Remove from this device" style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 17, padding: "10px 14px", flexShrink: 0 }}>✕</button>
-        </div>
-      );
 
       if (mode === "join") {
         return shell(<>
@@ -4258,21 +4318,60 @@
           <div style={{ textAlign: "center" }}>{backLink}</div>
         </>);
       }
-      // menu / "Your leagues" chooser
-      const groupList = myGroups.filter(k => typeof LEAGUE_GROUPS !== "undefined" && LEAGUE_GROUPS[k]);
-      const hasLeagues = sessions.length + groupList.length > 0;
-      return shell(<>
-        <div style={{ color: C.muted, fontSize: 13, margin: "6px 0 22px" }}>Top-flight football sweepstake — create a league and draft teams with your mates.</div>
-        {hasLeagues && (
-          <div style={{ maxWidth: 320, margin: "0 auto 18px" }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: C.dim, letterSpacing: "0.08em", textTransform: "uppercase", textAlign: "left" }}>Your leagues</div>
-            {sessions.map(s => leagueRow("s-" + s.code, s.name || s.code, "Live league", () => goActive({ kind: "session", id: s.code }), () => removeSession(s.code)))}
-            {groupList.map(k => leagueRow("g-" + k, LEAGUE_GROUPS[k].label || k, "Group", () => enter(k), () => removeGroupKey(k)))}
+      // menu / "Your leagues" chooser — compact rows (≈8–10 fit), recent first,
+      // ✕ remove only in Edit mode; Join/Create side by side once you have leagues.
+      const hasLeagues = leagueItems.length > 0;
+      const smallBtn = (label, onClick, primary) => (
+        <button onClick={onClick} style={{
+          flex: 1, padding: "12px 10px", cursor: "pointer", fontSize: 14, fontWeight: 800, borderRadius: 12,
+          background: primary ? C.accent : C.card, color: primary ? C.bg : C.text,
+          border: `1px solid ${primary ? C.accent : C.border}`,
+        }}>{label}</button>
+      );
+      if (!hasLeagues) {
+        return shell(<>
+          <div style={{ color: C.muted, fontSize: 13, margin: "6px 0 22px" }}>Top-flight football sweepstake — create a league and draft teams with your mates.</div>
+          {bigBtn("Join a league", "Enter a code you've been given", () => { setMode("join"); }, true)}
+          {bigBtn("Create a league", "Start one and invite your mates", () => { setMode("create"); }, false)}
+        </>);
+      }
+      return (
+        <div style={{ minHeight: "100vh", padding: "28px 18px 32px", maxWidth: 480, margin: "0 auto", boxSizing: "border-box" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "center", marginBottom: 20 }}>
+            <img src={LOGO_SRC} alt="Sweepstaker" style={{ width: 40, height: 40, display: "block" }} />
+            <div style={{ fontSize: 22, fontWeight: 800 }}>Sweepstaker <span style={{ color: C.accent }}>26/27</span></div>
           </div>
-        )}
-        {bigBtn("Join a league", "Enter a code you've been given", () => { setMode("join"); }, !hasLeagues)}
-        {bigBtn("Create a league", "Start one and invite your mates", () => { setMode("create"); }, false)}
-      </>);
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", padding: "0 4px 8px" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.dim, letterSpacing: "0.08em", textTransform: "uppercase" }}>Your leagues · {leagueItems.length}</div>
+            <button onClick={() => setEditing(e => !e)} style={{ background: "none", border: "none", color: C.accent, fontSize: 13, fontWeight: 700, cursor: "pointer", padding: 2 }}>{editing ? "Done" : "Edit"}</button>
+          </div>
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, overflow: "hidden" }}>
+            {leagueItems.map((it, i) => (
+              <div key={it.id} style={{ display: "flex", alignItems: "center", borderBottom: i < leagueItems.length - 1 ? `1px solid ${C.border}` : "none" }}>
+                <button onClick={editing ? undefined : it.open} style={{
+                  flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 10, padding: "12px 14px",
+                  background: "none", border: "none", color: C.text, cursor: editing ? "default" : "pointer", textAlign: "left",
+                }}>
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ display: "block", fontSize: 15, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.name}</span>
+                    <span style={{ display: "block", fontSize: 11, color: C.muted, marginTop: 1 }}>{it.sub}</span>
+                  </span>
+                  {!editing && <span aria-hidden="true" style={{ color: C.muted, fontSize: 18, lineHeight: 1 }}>›</span>}
+                </button>
+                {editing && (
+                  <button onClick={it.forget} aria-label={`Remove ${it.name}`} title="Remove from this device"
+                    style={{ background: "none", border: "none", color: C.dangerText, cursor: "pointer", fontSize: 13, fontWeight: 700, padding: "12px 14px", flexShrink: 0 }}>Remove</button>
+                )}
+              </div>
+            ))}
+          </div>
+          {editing && <div style={{ fontSize: 11, color: C.muted, textAlign: "center", marginTop: 8 }}>Removing only takes it off this phone — rejoin any time with its code.</div>}
+          <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+            {smallBtn("+ Join a league", () => { setEditing(false); setMode("join"); }, false)}
+            {smallBtn("+ Create", () => { setEditing(false); setMode("create"); }, false)}
+          </div>
+        </div>
+      );
     }
 
     ReactDOM.createRoot(document.getElementById("root")).render(<GroupGate />);

@@ -95,6 +95,20 @@ families in search, and **"New top family"** notifications (own filter).
 share of a family's points across all families). Groups without families are
 unchanged.
 
+### Organising many leagues — compact list + in-app switcher
+
+Landing (`GroupGate` menu): one compact card listing every league on the
+device (hosted sessions + groups), **most recently opened first** (per-device
+`localStorage` `lsw_recent`), with an **Edit** toggle that reveals "Remove"
+(takes it off this phone only); Join / Create sit side by side below. With no
+leagues it falls back to the original big Join/Create buttons.
+**In-app switcher** (`LeagueSwitcherSheet`): GroupGate publishes the same list
+each render via the `LEAGUE_SWITCHER` global; `App` opens it from the header
+logo, the Home "League Name" card ("Tap to switch league"), the desktop
+sidebar's group label, and More → Switch league. "Join or create a league…"
+returns to the landing screen. Each `App`/`LiveLeague` is keyed by league id so
+switching resets tab/card state.
+
 ### Live multiplayer draft (hosted leagues)
 
 Anyone can create a league and invite others to **draft teams together in
