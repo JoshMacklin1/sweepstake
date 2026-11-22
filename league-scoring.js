@@ -1218,6 +1218,93 @@ function deriveLeagueTeamHistory(matches) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// GAMEWEEKS — FPL-style week-by-week view. A "week" is a calendar week,
+// Monday 00:00 → Sunday 23:59 UTC, identical for every league (CL midweek
+// games land in the week they're played). Week 1 = the week of the season's
+// first fixture.
+//
+// lgWeeks(matches) → [{ n, start, end }]  (ISO dates; end exclusive)
+// lgGameweek(matches, ranked, teamHist, matchPtsById, week) → {
+//   players: [{ name, pts, clPts, bonusPts, rank, teams: [{ teamId, name, pot,
+//     league, pts, matchPts, clPts, bonusPts, results: [{ m, r, earned }] }] }],
+//   avg, highest, teamsOfWeek: [{ teamId, name, pot, owner, pts }] (top 10) }
+// A club's week pts = its cumulative sweepstake total (deriveLeagueTeamHistory)
+// at the week's end minus at its start, so season bonuses / CL stage payouts /
+// giant kills count in the week they're confirmed and weekly totals always sum
+// to the season total. bonusPts = that delta minus the per-match points.
+// ─────────────────────────────────────────────────────────────────────────────
+function lgMondayOf(iso) {
+  var d = new Date(iso);
+  var day = (d.getUTCDay() + 6) % 7; // 0 = Monday
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - day));
+}
+function lgWeeks(matches) {
+  if (!matches || !matches.length) return [];
+  var first = null, last = null;
+  matches.forEach(function (m) {
+    if (!m.utcDate) return;
+    if (first === null || m.utcDate < first) first = m.utcDate;
+    if (last === null || m.utcDate > last) last = m.utcDate;
+  });
+  if (!first) return [];
+  var start = lgMondayOf(first), stop = lgMondayOf(last), out = [], n = 1;
+  for (var d = start; d <= stop; d = new Date(d.getTime() + 7 * 864e5)) {
+    var e = new Date(d.getTime() + 7 * 864e5);
+    out.push({ n: n++, start: d.toISOString().slice(0, 10), end: e.toISOString().slice(0, 10) });
+  }
+  return out;
+}
+// Index of the week containing iso (clamped to the season's range).
+function lgWeekIndexOf(weeks, iso) {
+  if (!weeks.length) return -1;
+  var d = String(iso).slice(0, 10);
+  for (var i = 0; i < weeks.length; i++) if (d >= weeks[i].start && d < weeks[i].end) return i;
+  return d < weeks[0].start ? 0 : weeks.length - 1;
+}
+function lgCumAt(series, frames, endExclusive) {
+  // value of a cumulative per-frame series at the last frame strictly before endExclusive
+  var v = 0;
+  for (var i = 0; i < frames.length; i++) {
+    if (frames[i] < endExclusive) v = series[i] != null ? series[i] : v; else break;
+  }
+  return v;
+}
+function lgGameweek(matches, ranked, teamHist, matchPtsById, week) {
+  var frames = (teamHist && teamHist.frames) || [], hist = (teamHist && teamHist.history) || {};
+  var inWeek = matches.filter(function (m) {
+    var d = m.utcDate.slice(0, 10);
+    return d >= week.start && d < week.end && lgIsSettled(m);
+  });
+  var players = ranked.map(function (p) {
+    var teams = (p.teams || []).map(function (t) {
+      var series = hist[t.teamId] || [];
+      var delta = lgCumAt(series, frames, week.end) - lgCumAt(series, frames, week.start);
+      var matchPts = 0, clPts = 0, results = [];
+      inWeek.forEach(function (m) {
+        if (m.homeTeam.id !== t.teamId && m.awayTeam.id !== t.teamId) return;
+        var row = matchPtsById && matchPtsById[m.id];
+        var earned = row ? (m.homeTeam.id === t.teamId ? row.home : row.away) : 0;
+        matchPts += earned;
+        if (m.competition && m.competition.code === "CL") clPts += earned;
+        results.push({ m: m, r: lgResultFor(m, t.teamId), earned: earned });
+      });
+      return { teamId: t.teamId, name: t.name, pot: t.pot, league: t.league,
+        pts: delta, matchPts: matchPts, clPts: clPts, bonusPts: delta - matchPts, results: results };
+    }).sort(function (a, b) { return b.pts - a.pts; });
+    var pts = 0, clPts = 0, bonusPts = 0;
+    teams.forEach(function (t) { pts += t.pts; clPts += t.clPts; bonusPts += t.bonusPts; });
+    return { name: p.name, pts: pts, clPts: clPts, bonusPts: bonusPts, teams: teams };
+  }).sort(function (a, b) { return b.pts - a.pts; });
+  players.forEach(function (p, i) { p.rank = (i > 0 && players[i - 1].pts === p.pts) ? players[i - 1].rank : i + 1; });
+  var sum = 0; players.forEach(function (p) { sum += p.pts; });
+  var tow = [];
+  players.forEach(function (p) { p.teams.forEach(function (t) { tow.push({ teamId: t.teamId, name: t.name, pot: t.pot, owner: p.name, pts: t.pts }); }); });
+  tow.sort(function (a, b) { return b.pts - a.pts; });
+  return { players: players, avg: players.length ? Math.round(sum / players.length) : 0,
+    highest: players[0] || null, teamsOfWeek: tow.slice(0, 10), played: inWeek.length };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // 7-day window: points gained + table movement per player. The league's
 // answer to the WC app's rolling 24h window — a league weekend is the
 // natural rhythm, and `anchorIso` keeps it working in replay mode.

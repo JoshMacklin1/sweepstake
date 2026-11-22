@@ -106,7 +106,7 @@
 <body>
   <div id="root"></div>
   <!-- Coupled: every league-scoring.js change must bump ?v=N (see SWEEPSTAKE_PROJECT.md cache-bust rule) -->
-  <script src="league-scoring.js?v=28"></script>
+  <script src="league-scoring.js?v=29"></script>
   <script type="text/babel">
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
@@ -1267,6 +1267,207 @@
               </button>
             </div>
           </div>
+        </div>
+      );
+    }
+
+    // ── GAMEWEEK — FPL-style week-by-week view (calendar weeks, Mon–Sun).
+    //    Numbers come from lgGameweek (league-scoring.js). "This is me" is
+    //    per league, per device (localStorage lsw_me). ─────────────────────
+    const ME_KEY = "lsw_me";
+    const readMe = (code) => { try { return (JSON.parse(localStorage.getItem(ME_KEY) || "{}") || {})[code] || null; } catch (e) { return null; } };
+    const writeMe = (code, name) => { try { const m = JSON.parse(localStorage.getItem(ME_KEY) || "{}") || {}; if (name) m[code] = name; else delete m[code]; localStorage.setItem(ME_KEY, JSON.stringify(m)); } catch (e) {} };
+    const fmtRange = (w) => {
+      const a = new Date(w.start + "T00:00:00Z"), b = new Date(new Date(w.end + "T00:00:00Z").getTime() - 864e5);
+      const mon = (d) => d.toLocaleDateString("en-GB", { month: "short", timeZone: "UTC" });
+      return a.getUTCMonth() === b.getUTCMonth()
+        ? `${a.getUTCDate()}–${b.getUTCDate()} ${mon(b)}`
+        : `${a.getUTCDate()} ${mon(a)} – ${b.getUTCDate()} ${mon(b)}`;
+    };
+    function GameweekTab({ group, matches, ranked, matchPtsById, anchorIso, onTeamClick, onOpenRace }) {
+      const code = (group && (group.code || group.label)) || "LEAGUE";
+      const weeks = useMemo(() => (typeof lgWeeks === "function" ? lgWeeks(matches) : []), [matches]);
+      const teamHist = useMemo(() => (typeof deriveLeagueTeamHistory === "function" ? deriveLeagueTeamHistory(matches) : { frames: [], history: {} }), [matches]);
+      const [weekIdx, setWeekIdx] = useState(null);
+      const [mode, setMode] = useState("pitch");
+      const [me, setMe] = useState(() => readMe(code));
+      const [viewing, setViewing] = useState(null);
+      const [picker, setPicker] = useState(false);
+      if (!weeks.length || typeof lgGameweek !== "function") {
+        return <div style={{ color: C.muted, textAlign: "center", padding: 40 }}>No fixtures yet.</div>;
+      }
+      const defaultIdx = typeof lgWeekIndexOf === "function" ? lgWeekIndexOf(weeks, anchorIso) : weeks.length - 1;
+      const wi = Math.max(0, Math.min(weeks.length - 1, weekIdx == null ? defaultIdx : weekIdx));
+      const week = weeks[wi];
+      const gw = lgGameweek(matches, ranked, teamHist, matchPtsById, week);
+      const names = ranked.map(p => p.name);
+      const who = (viewing && names.includes(viewing)) ? viewing : (me && names.includes(me)) ? me : (gw.highest ? gw.highest.name : names[0]);
+      const pw = gw.players.find(p => p.name === who) || { name: who, pts: 0, clPts: 0, bonusPts: 0, rank: "–", teams: [] };
+      const needsMe = !me && !picker && names.length > 0;
+      const statCell = (big, label, onClick) => (
+        <div onClick={onClick} style={{ textAlign: "center", padding: "10px 4px", cursor: onClick ? "pointer" : "default" }}>
+          <div style={{ fontSize: 22, fontWeight: 900, color: C.text, lineHeight: 1.1 }}>{big}</div>
+          <div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>{label}{onClick ? " ›" : ""}</div>
+        </div>
+      );
+      const arrowBtn = (dir, disabled) => (
+        <button disabled={disabled} onClick={() => setWeekIdx(wi + dir)} aria-label={dir < 0 ? "Previous week" : "Next week"} style={{
+          width: 40, height: 40, borderRadius: "50%", border: "none", background: disabled ? "transparent" : "rgba(255,255,255,0.08)",
+          color: disabled ? C.border : C.text, fontSize: 20, fontWeight: 800, cursor: disabled ? "default" : "pointer", flexShrink: 0,
+        }}>{dir < 0 ? "‹" : "›"}</button>
+      );
+      const segBtn = (id, label) => (
+        <button onClick={() => setMode(id)} style={{ flex: 1, padding: "9px 6px", border: "none", borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: "pointer",
+          background: mode === id ? C.accent : "transparent", color: mode === id ? C.bg : C.dim }}>{label}</button>
+      );
+      const sect = { fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", margin: "20px 0 8px" };
+      return (
+        <div style={{ padding: "0 14px" }}>
+          {/* Week header */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+            {arrowBtn(-1, wi === 0)}
+            <div style={{ flex: 1, textAlign: "center" }}>
+              <div style={{ fontSize: 22, fontWeight: 900, color: C.text }}>Gameweek {week.n}</div>
+              <div style={{ fontSize: 12, color: C.muted }}>{fmtRange(week)}{wi === defaultIdx ? " · this week" : ""}</div>
+            </div>
+            {arrowBtn(1, wi === weeks.length - 1)}
+          </div>
+          {/* Whose week */}
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8, marginBottom: 12 }}>
+            <button onClick={() => setPicker(true)} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 16, padding: "5px 12px", color: C.text, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+              {who}{who === me ? " (you)" : ""} ▾
+            </button>
+          </div>
+          {/* Stats */}
+          <div style={{ ...s.card, display: "grid", gridTemplateColumns: "1fr 1.3fr 1fr", alignItems: "center", padding: "6px 4px", marginBottom: 12 }}>
+            <div>
+              {statCell(gw.avg, "League avg")}
+              <div style={{ borderTop: `1px solid ${C.border}`, margin: "0 8px" }} />
+              {statCell(gw.highest ? gw.highest.pts : 0, gw.highest ? `Highest · ${gw.highest.name}` : "Highest", gw.highest ? () => setViewing(gw.highest.name) : undefined)}
+            </div>
+            <div style={{ borderRadius: 14, padding: "16px 6px", textAlign: "center", background: "linear-gradient(135deg, #22c55e, #15803d)", boxShadow: "0 8px 24px rgba(34,197,94,0.25)" }}>
+              <div style={{ fontSize: 44, fontWeight: 900, color: "#06140b", lineHeight: 1 }}>{pw.pts}</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#0d2a17", marginTop: 4 }}>Week points</div>
+            </div>
+            <div>
+              {statCell(typeof pw.rank === "number" ? ord(pw.rank) : pw.rank, `Week rank of ${gw.players.length}`)}
+              <div style={{ borderTop: `1px solid ${C.border}`, margin: "0 8px" }} />
+              {statCell(`${pw.clPts > 0 ? "+" : ""}${pw.clPts}`, "From CL 🏆")}
+            </div>
+          </div>
+          {pw.bonusPts !== 0 && (
+            <div style={{ fontSize: 11, color: pw.bonusPts > 0 ? C.gold : C.red, textAlign: "center", marginBottom: 10 }}>
+              Includes {pw.bonusPts > 0 ? "+" : ""}{pw.bonusPts} in season / CL stage bonuses confirmed this week
+            </div>
+          )}
+          {/* Pitch / List */}
+          <div style={{ display: "flex", gap: 4, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 4, marginBottom: 12 }}>
+            {segBtn("pitch", "Pitch")}{segBtn("list", "List")}
+          </div>
+          {gw.played === 0 && <div style={{ fontSize: 12, color: C.muted, textAlign: "center", marginBottom: 10 }}>No matches played this week yet.</div>}
+          {mode === "pitch" ? (
+            <div style={{ borderRadius: 16, padding: "14px 8px", background: "repeating-linear-gradient(180deg, #1f7a3a 0 44px, #1b6e34 44px 88px)", border: `1px solid ${C.border}`,
+              display: "grid", gridTemplateColumns: `repeat(${pw.teams.length > 9 ? 4 : 3}, 1fr)`, gap: 10 }}>
+              {pw.teams.map(t => (
+                <div key={t.teamId} onClick={() => onTeamClick(t.teamId)} style={{ cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                  <div style={{ position: "relative", background: "rgba(0,0,0,0.18)", borderRadius: "10px 10px 0 0", padding: "8px 8px 6px", width: "100%", display: "flex", justifyContent: "center", boxSizing: "border-box" }}>
+                    <Crest teamId={t.teamId} size={34} />
+                    {t.clPts !== 0 && <span style={{ position: "absolute", top: 3, right: 4, fontSize: 10 }}>🏆</span>}
+                  </div>
+                  <div style={{ width: "100%", background: "#f4f6f4", color: "#0d1f12", fontSize: 10.5, fontWeight: 800, textAlign: "center", padding: "3px 2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", boxSizing: "border-box" }}>{t.name}</div>
+                  <div style={{ width: "100%", background: "#0d1f12", color: t.pts < 0 ? C.red : "#fff", fontSize: 13, fontWeight: 900, textAlign: "center", padding: "3px 2px", borderRadius: "0 0 10px 10px", boxSizing: "border-box" }}>{t.results.length || t.pts ? t.pts : "–"}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ ...s.card, overflow: "hidden" }}>
+              {pw.teams.map((t, i) => (
+                <div key={t.teamId} onClick={() => onTeamClick(t.teamId)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", cursor: "pointer", borderBottom: i < pw.teams.length - 1 ? `1px solid ${C.border}` : "none" }}>
+                  <Crest teamId={t.teamId} size={26} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{t.name}<span style={{ fontSize: 9, color: C.muted, fontWeight: 600 }}> (P{t.pot})</span></div>
+                    <div style={{ fontSize: 11, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {t.results.length === 0 ? "No game this week" : t.results.map(x => {
+                        const home = x.m.homeTeam.id === t.teamId;
+                        const opp = home ? x.m.awayTeam : x.m.homeTeam;
+                        const ft = x.m.score && x.m.score.fullTime;
+                        const sc = ft ? (home ? `${ft.home}–${ft.away}` : `${ft.away}–${ft.home}`) : "";
+                        const oppName = (typeof LEAGUE_TEAMS !== "undefined" && LEAGUE_TEAMS[opp.id]) ? LEAGUE_TEAMS[opp.id].name : (opp.shortName || opp.tla || "?");
+                        return `${x.r} ${sc} v ${oppName}${x.m.competition && x.m.competition.code === "CL" ? " 🏆" : ""}`;
+                      }).join(" · ")}
+                      {t.bonusPts !== 0 ? ` · ${t.bonusPts > 0 ? "+" : ""}${t.bonusPts} bonus` : ""}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 900, color: t.pts < 0 ? C.red : t.pts > 0 ? C.text : C.muted, flexShrink: 0 }}>{t.pts > 0 ? "+" : ""}{t.pts}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Team of the Week */}
+          <div style={sect}>★ Team of the Week</div>
+          <div style={{ ...s.card, overflow: "hidden" }}>
+            {gw.teamsOfWeek.filter(t => t.pts > 0).length === 0
+              ? <div style={{ padding: 14, fontSize: 12, color: C.muted }}>Nobody's scored yet this week.</div>
+              : gw.teamsOfWeek.filter(t => t.pts > 0).map((t, i, arr) => (
+                <div key={t.teamId + t.owner} onClick={() => onTeamClick(t.teamId)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", cursor: "pointer", borderBottom: i < arr.length - 1 ? `1px solid ${C.border}` : "none" }}>
+                  <div style={{ width: 18, fontSize: 11, color: C.muted, fontWeight: 700, textAlign: "right" }}>{i + 1}</div>
+                  <Crest teamId={t.teamId} size={22} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}<span style={{ fontSize: 9, color: C.muted, fontWeight: 600 }}> (P{t.pot})</span></div>
+                    <div style={{ fontSize: 11, color: t.owner === me ? C.accent : C.muted }}>{t.owner}</div>
+                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>+{t.pts}</div>
+                </div>
+              ))}
+          </div>
+
+          {/* Week standings */}
+          <div style={sect}>Week {week.n} standings</div>
+          <div style={{ ...s.card, overflow: "hidden" }}>
+            {gw.players.map((p, i) => (
+              <div key={p.name} onClick={() => setViewing(p.name)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", cursor: "pointer",
+                background: p.name === who ? "rgba(34,197,94,0.08)" : "transparent", borderBottom: i < gw.players.length - 1 ? `1px solid ${C.border}` : "none" }}>
+                <div style={{ width: 22, fontSize: 12, color: C.muted, fontWeight: 700, textAlign: "right" }}>{p.rank}</div>
+                <div style={{ flex: 1, fontSize: 13, fontWeight: 700, color: C.text }}>{p.name}{p.name === me ? <span style={{ fontSize: 10, color: C.accent }}> · you</span> : null}</div>
+                {p.clPts !== 0 && <div style={{ fontSize: 10, color: C.gold }}>{p.clPts > 0 ? "+" : ""}{p.clPts} 🏆</div>}
+                <div style={{ fontSize: 14, fontWeight: 900, color: p.pts < 0 ? C.red : C.text, minWidth: 36, textAlign: "right" }}>{p.pts}</div>
+              </div>
+            ))}
+          </div>
+
+          {onOpenRace && (
+            <button onClick={onOpenRace} style={{ ...s.card, width: "100%", marginTop: 16, padding: "14px", color: C.accent, fontWeight: 800, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+              🏁 The Race — season so far ›
+            </button>
+          )}
+          <div style={{ fontSize: 10, color: C.muted, textAlign: "center", margin: "10px 0 4px" }}>Weeks run Monday–Sunday across every league. Weekly points add up to the season total.</div>
+
+          {(picker || needsMe) && (
+            <div onClick={() => { setPicker(false); if (!me) { writeMe(code, "__browse__"); setMe("__browse__"); } }} style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+              <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 480, maxHeight: "75vh", display: "flex", flexDirection: "column", background: C.bg, border: `1px solid ${C.border}`, borderRadius: "18px 18px 0 0" }}>
+                <div style={{ padding: "14px 16px", borderBottom: `1px solid ${C.border}` }}>
+                  <div style={{ fontSize: 16, fontWeight: 900, color: C.text }}>{needsMe ? "Who are you?" : "View whose week?"}</div>
+                  <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{needsMe ? "Pick yourself once — Gameweek will open on your week (saved on this phone)." : "Tap a name to view their week. ★ marks you."}</div>
+                </div>
+                <div style={{ overflowY: "auto" }}>
+                  {names.map(n => (
+                    <div key={n} style={{ display: "flex", alignItems: "center", borderBottom: `1px solid ${C.border}` }}>
+                      <button onClick={() => { if (needsMe) { writeMe(code, n); setMe(n); } setViewing(n); setPicker(false); }} style={{ flex: 1, textAlign: "left", padding: "12px 16px", background: "none", border: "none", color: C.text, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
+                        {n === me ? "★ " : ""}{n}
+                      </button>
+                      {!needsMe && n !== me && (
+                        <button onClick={() => { writeMe(code, n); setMe(n); setViewing(n); setPicker(false); }} style={{ background: "none", border: "none", color: C.accent, fontSize: 12, fontWeight: 700, padding: "12px 16px", cursor: "pointer" }}>This is me</button>
+                      )}
+                    </div>
+                  ))}
+                  <button onClick={() => { if (needsMe) { writeMe(code, "__browse__"); setMe("__browse__"); } setPicker(false); }} style={{ width: "100%", padding: "14px 16px", background: "none", border: "none", color: C.muted, fontSize: 13, cursor: "pointer", textAlign: "left" }}>
+                    {needsMe ? "Just browsing" : "Cancel"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       );
     }
@@ -2686,6 +2887,13 @@
           </g>
         </svg>
       ),
+      gameweek: (active) => (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? "white" : C.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="5" width="18" height="16" rx="2" />
+          <path d="M16 3v4M8 3v4M3 10h18" />
+          <path d="M8 14h3v3H8z" fill={active ? "white" : C.muted} stroke="none" />
+        </svg>
+      ),
       more: (active) => (
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
           <circle cx="5" cy="12" r="2" fill={active ? "white" : C.muted}/>
@@ -2722,7 +2930,7 @@
     };
     function BottomNav({ tab, showMore, onNav, onMore }) {
       const items = [
-        ["home", "Home"], ["table", "League"], ["scores", "Scores"], ["race", "The Race"], ["more", "More"],
+        ["home", "Home"], ["table", "League"], ["scores", "Scores"], ["gameweek", "Gameweek"], ["more", "More"],
       ];
       return (
         <div style={{
@@ -2779,6 +2987,7 @@
         ["ucl", "UCL", "table", "ucl"],
         ...(hasFamilies ? [["table", "Families", "table", "families"]] : []),
         ["scores", "Scores", "scores", null],
+        ["gameweek", "Gameweek", "gameweek", null],
         ["race", "The Race", "race", null],
       ];
       const isActive = (tabId, view) => !showMore && tab === tabId && (view == null || leagueView === view);
@@ -3482,7 +3691,11 @@
                 : <LeaguesTab matches={matches} tables={tables} outcomes={outcomes} onTeamClick={openTeamModal} comp={leaguesComp} setComp={setLeaguesComp} />
               )
             : tab === "scores" ? <ScoresTab matches={scoresMatches} matchPtsById={matchPtsById} anchorIso={anchorIso} onTeamClick={openTeamModal} onMatchClick={openMatchModal} />
-            : tab === "race" ? <RaceTab ranked={ranked} matches={matches} anchorIso={anchorIso} replayOn={replay.on} />
+            : tab === "gameweek" ? <GameweekTab key={group ? group.code : "g"} group={group} matches={matches} ranked={ranked} matchPtsById={matchPtsById} anchorIso={anchorIso} onTeamClick={openTeamModal} onOpenRace={() => navTo("race")} />
+            : tab === "race" ? (<>
+                {!isDesktop && <div style={{ padding: "0 14px 8px" }}><button onClick={() => navTo("gameweek")} style={{ background: "none", border: "none", color: C.accent, fontWeight: 700, fontSize: 13, cursor: "pointer", padding: 0 }}>‹ Gameweek</button></div>}
+                <RaceTab ranked={ranked} matches={matches} anchorIso={anchorIso} replayOn={replay.on} />
+              </>)
             : null}
 
           {(selectedPlayer || selectedTeam || selectedMatch || selectedFamily) && (
