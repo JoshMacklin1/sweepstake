@@ -96,28 +96,33 @@ var GROUPS = {
   SILVERSTREAM: {
     code: "SILVERSTREAM",
     label: "Silverstream",
+    // 21 players × 2 clubs = 42 slots for 36 clubs: everyone has one club from
+    // Pots 1–2 and one from Pots 3–4 (clTwoEach, keeping each player's original
+    // single-club draw). All 36 are owned; 6 are shared — the second owner is
+    // flagged lateB ("B" badge) and both score it in full.
+    twoEach: true,
     players: [
-      { name: "Alex B", teams: ["Club Brugge"], codes: ["BRU"], lateB: [false] },
-      { name: "Ben", teams: ["Fenerbahçe"], codes: ["FEN"], lateB: [false] },
-      { name: "Craig", teams: ["Porto"], codes: ["POR"], lateB: [false] },
-      { name: "Ahmet", teams: ["Barcelona"], codes: ["BAR"], lateB: [false] },
-      { name: "Dharma", teams: ["PSV"], codes: ["PSV"], lateB: [false] },
-      { name: "Henry", teams: ["Aston Villa"], codes: ["AVL"], lateB: [false] },
-      { name: "Katrina", teams: ["Galatasaray"], codes: ["GAL"], lateB: [false] },
-      { name: "Luke DF", teams: ["Inter"], codes: ["INT"], lateB: [false] },
-      { name: "Michelle", teams: ["Real Betis"], codes: ["BET"], lateB: [false] },
-      { name: "Nick S", teams: ["Real Madrid"], codes: ["RMA"], lateB: [false] },
-      { name: "Ollie P", teams: ["Bayern München"], codes: ["FCB"], lateB: [false] },
-      { name: "Ramon", teams: ["Sporting CP"], codes: ["SPO"], lateB: [false] },
-      { name: "Sam", teams: ["Shakhtar"], codes: ["SHA"], lateB: [false] },
-      { name: "Stephen", teams: ["Man City"], codes: ["MCI"], lateB: [false] },
-      { name: "Stuart", teams: ["Roma"], codes: ["ROM"], lateB: [false] },
-      { name: "Wes", teams: ["Paris SG"], codes: ["PSG"], lateB: [false] },
-      { name: "Will A", teams: ["Liverpool"], codes: ["LIV"], lateB: [false] },
-      { name: "Will B", teams: ["Dortmund"], codes: ["BVB"], lateB: [false] },
-      { name: "Peter H", teams: ["Man United"], codes: ["MUN"], lateB: [false] },
-      { name: "Alex DL", teams: ["Arsenal"], codes: ["ARS"], lateB: [false] },
-      { name: "Josh", teams: ["Atlético Madrid"], codes: ["ATM"], lateB: [false] },
+      { name: "Alex B", teams: ["Club Brugge", "AEK Athens"], codes: ["BRU", "AEK"], lateB: [false, false] },
+      { name: "Ben", teams: ["Fenerbahçe", "Inter"], codes: ["FEN", "INT"], lateB: [false, true] },
+      { name: "Craig", teams: ["Porto", "Feyenoord"], codes: ["POR", "FEY"], lateB: [false, false] },
+      { name: "Ahmet", teams: ["Barcelona", "RB Leipzig"], codes: ["BAR", "RBL"], lateB: [false, false] },
+      { name: "Dharma", teams: ["PSV", "VfB Stuttgart"], codes: ["PSV", "VFB"], lateB: [false, false] },
+      { name: "Henry", teams: ["Aston Villa", "Como"], codes: ["AVL", "COM"], lateB: [false, true] },
+      { name: "Katrina", teams: ["Galatasaray", "Porto"], codes: ["GAL", "POR"], lateB: [false, true] },
+      { name: "Luke DF", teams: ["Inter", "Villarreal"], codes: ["INT", "VIL"], lateB: [false, false] },
+      { name: "Michelle", teams: ["Real Betis", "Lens"], codes: ["BET", "RCL"], lateB: [false, true] },
+      { name: "Nick S", teams: ["Real Madrid", "Sabah"], codes: ["RMA", "SAB"], lateB: [false, false] },
+      { name: "Ollie P", teams: ["Bayern München", "Lille"], codes: ["FCB", "LOS"], lateB: [false, true] },
+      { name: "Ramon", teams: ["Sporting CP", "Como"], codes: ["SPO", "COM"], lateB: [false, false] },
+      { name: "Sam", teams: ["Shakhtar", "Dortmund"], codes: ["SHA", "BVB"], lateB: [false, true] },
+      { name: "Stephen", teams: ["Man City", "LASK"], codes: ["MCI", "LAS"], lateB: [false, false] },
+      { name: "Stuart", teams: ["Roma", "Bodø/Glimt"], codes: ["ROM", "BOD"], lateB: [false, false] },
+      { name: "Wes", teams: ["Paris SG", "Slovan Bratislava"], codes: ["PSG", "SLO"], lateB: [false, false] },
+      { name: "Will A", teams: ["Liverpool", "Slavia Praha"], codes: ["LIV", "SLA"], lateB: [false, false] },
+      { name: "Will B", teams: ["Dortmund", "Lille"], codes: ["BVB", "LOS"], lateB: [false, false] },
+      { name: "Peter H", teams: ["Man United", "Viking"], codes: ["MUN", "VIK"], lateB: [false, false] },
+      { name: "Alex DL", teams: ["Arsenal", "Lens"], codes: ["ARS", "RCL"], lateB: [false, false] },
+      { name: "Josh", teams: ["Atlético Madrid", "Napoli"], codes: ["ATM", "NAP"], lateB: [false, false] },
       { name: "Grim Reaper", teams: [], codes: [], grimReaper: true },
     ],
   },
@@ -2180,3 +2185,100 @@ function clScoringView(ms) {
   const wdl = g.deriveWDL;
   if (typeof wdl === "function") g.deriveWDL = function (ms) { return wdl.call(this, (ms && ms._clRaw) || ms); };
 })();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAST-SEASON SIMULATION (sim-seasons.js) — swap the club registry for a past
+// season's 36 and give every group a FRESH fair draw over them (deterministic
+// per group + season). Pots are UEFA's real league-phase pots for that season:
+// by football-data id where known, else by name. Anything unmatched falls to
+// Pot 4 and is returned so the UI can say so.
+// ─────────────────────────────────────────────────────────────────────────────
+var CL_SIM_POTS = {
+  "2025": { ids: {
+    524: 1, 86: 1, 65: 1, 5: 1, 64: 1, 108: 1, 61: 1, 4: 1, 81: 1,              // PSG, Real, City, Bayern, Liverpool, Inter, Chelsea, Dortmund, Barça
+    57: 2, 3: 2, 78: 2, 1903: 2, 102: 2, 94: 2, 109: 2, 19: 2, 851: 2,          // Arsenal, Leverkusen, Atlético, Benfica, Atalanta, Villarreal, Juve, Frankfurt, Brugge
+    73: 3, 674: 3, 678: 3, 113: 3, 498: 3, 654: 3, 930: 3, 5721: 3, 516: 3,     // Spurs, PSV, Ajax, Napoli, Sporting, Olympiacos, Slavia, Bodø/Glimt, Marseille
+    1876: 4, 548: 4, 610: 4, 3929: 4, 611: 4, 77: 4, 67: 4, 11034: 4, 10601: 4, // Copenhagen, Monaco, Galatasaray, Union SG, Qarabağ, Athletic, Newcastle, Pafos, Kairat
+  }, names: [] },
+  "2024": { ids: {
+    65: 1, 5: 1, 86: 1, 524: 1, 64: 1, 108: 1, 4: 1, 721: 1, 81: 1,             // City, Bayern, Real, PSG, Liverpool, Inter, Dortmund, Leipzig, Barça
+    3: 2, 78: 2, 102: 2, 109: 2, 1903: 2, 57: 2, 851: 2, 1887: 2, 98: 2,        // Leverkusen, Atlético, Atalanta, Juve, Benfica, Arsenal, Brugge, Shakhtar, Milan
+    675: 3, 498: 3, 674: 3, 521: 3,                                             // Feyenoord, Sporting, PSV, Lille (+ Zagreb, Salzburg, Crvena zvezda, Young Boys, Celtic by name)
+    7509: 4, 548: 4, 58: 4, 103: 4, 298: 4, 10: 4, 512: 4,                      // Slovan, Monaco, Villa, Bologna, Girona, Stuttgart, Brest (+ Sparta, Sturm by name)
+  }, names: [
+    [/milan/, 2], [/shakhtar/, 2], [/zagreb/, 3], [/salzburg/, 3], [/zvezda|red star|crvena/, 3], [/young boys/, 3],
+    [/celtic/, 3], [/sparta/, 4], [/sturm/, 4], [/brest/, 4], [/girona/, 4], [/bologna/, 4], [/slovan/, 4],
+  ] },
+};
+
+function clUseSeason(season, rawMatches) {
+  const potCfg = CL_SIM_POTS[season] || { ids: {}, names: [] };
+  const clubs = {};
+  (rawMatches || []).forEach(m => {
+    const st = (m.stage || "").toUpperCase();
+    if (st !== "LEAGUE_STAGE" && st !== "LEAGUE_PHASE" && st !== "GROUP_STAGE") return;
+    [m.homeTeam, m.awayTeam].forEach(t => { if (t && t.id != null) clubs[t.id] = t; });
+  });
+  const norm = s => (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const unmatched = [];
+  Object.keys(CL_CLUBS).forEach(k => delete CL_CLUBS[k]);
+  Object.keys(CL_CODE_BY_ID).forEach(k => delete CL_CODE_BY_ID[k]);
+  Object.values(clubs).sort((a, b) => a.id - b.id).forEach(t => {
+    const name = t.shortName || t.name || ("#" + t.id);
+    let pot = potCfg.ids[t.id];
+    if (!pot) { const hit = potCfg.names.find(([re]) => re.test(norm(name))); pot = hit ? hit[1] : null; }
+    if (!pot) { pot = 4; unmatched.push(name); }
+    let code = (t.tla || "").toUpperCase() || name.slice(0, 3).toUpperCase();
+    if (CL_CLUBS[code]) code = name.replace(/[^A-Za-z]/g, "").slice(0, 3).toUpperCase();
+    let n = 2; const base = code; while (CL_CLUBS[code]) code = base.slice(0, 2) + (n++);
+    CL_CLUBS[code] = { id: t.id, name, pot };
+    CL_CODE_BY_ID[t.id] = code;
+  });
+  Object.keys(POT).forEach(k => delete POT[k]);
+  Object.keys(CL_CLUBS).forEach(c => { POT[c] = CL_CLUBS[c].pot; });
+  GROUP_ASSIGNMENTS.LP = Object.keys(CL_CLUBS);
+  const pool = Object.keys(CL_CLUBS).map(c => ({ key: c, pot: CL_CLUBS[c].pot }));
+  Object.keys(GROUPS).forEach(gk => {
+    const real = GROUPS[gk].players.filter(p => !p.grimReaper);
+    const k = Math.max(1, Math.floor(pool.length / Math.max(1, real.length)));
+    const two = GROUPS[gk].twoEach ? clTwoEach(real.length, pool, "CLSIM::" + gk + "::" + season) : null;
+    const hands = two ? two.hands : simFairDeal(pool, real.length, k, "CLSIM::" + gk + "::" + season);
+    real.forEach((p, i) => {
+      p.codes = hands[i] || [];
+      p.teams = p.codes.map(c => CL_CLUBS[c].name);
+      p.lateB = two ? two.lateB[i] : p.codes.map(() => false);
+    });
+  });
+  return unmatched;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TWO CLUBS EACH, SHARING ALLOWED — for groups with more players than half the
+// field (Silverstream: 21 players, 36 clubs). Everyone gets one club from Pots
+// 1–2 and one from Pots 3–4. Every club gets an owner before any is doubled up;
+// a club's second owner is flagged lateB (the WC app's co-owned "B" badge) and
+// both owners score it in full. `keep[i]` = a club player i already holds.
+// ─────────────────────────────────────────────────────────────────────────────
+function clTwoEach(n, pool, seedStr, keep) {
+  const rng = simRng(simHash(seedStr));
+  const band = c => (pool.find(x => x.key === c) || { pot: 4 }).pot <= 2 ? "H" : "L";
+  const owned = {};
+  const hands = [], lateB = [];
+  for (let i = 0; i < n; i++) {
+    const k = keep && keep[i];
+    hands.push(k ? [k] : []); lateB.push(k ? [false] : []);
+    if (k) owned[k] = (owned[k] || 0) + 1;
+  }
+  const pick = (b) => {
+    const cands = simShuffle(pool.filter(x => band(x.key) === b), rng)
+      .sort((x, y) => (owned[x.key] || 0) - (owned[y.key] || 0));
+    const c = cands[0].key;
+    owned[c] = (owned[c] || 0) + 1;
+    return { c, shared: owned[c] > 1 };
+  };
+  const order = simShuffle(hands.map((_, i) => i), rng);
+  // Fresh hands: half start in each band so both bands fill evenly.
+  order.forEach((i, j) => { if (!hands[i].length) { const p = pick(j % 2 ? "L" : "H"); hands[i].push(p.c); lateB[i].push(p.shared); } });
+  order.forEach(i => { const p = pick(band(hands[i][0]) === "H" ? "L" : "H"); hands[i].push(p.c); lateB[i].push(p.shared); });
+  return { hands, lateB };
+}
