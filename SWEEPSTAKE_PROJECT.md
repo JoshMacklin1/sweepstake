@@ -151,7 +151,7 @@ Clubs only: no Players or Family views. Top to bottom:
    - an upcoming game shows **what's at stake** (`clStakes`): win / draw points plus the clean-sheet and win-by-3+ bonuses, or "Win the tie → next round".
 
    The open match starts expanded.
-3. Buttons to each club's card.
+3. Tap either club (badge, name, owner) in the top card to open its team card. There are no separate club buttons.
 
 `clScoringView` tags an unplayed 2nd leg `_leg: 2` as a display hint ("2nd leg").
 
