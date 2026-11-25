@@ -4160,26 +4160,6 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
           </div>
         );
       })()}
-      {/* Accolades carousel — new (last 24h) first, then everyone's current ones */}
-      {(() => {
-        const newKeys = new Set(newAccolades.map(b => b.name + "|" + b.label));
-        const items = [
-          ...newAccolades.map(b => ({ ...b, isNew: true })),
-          ...Object.entries(badges || {}).flatMap(([name, list]) => (list || []).map(b => ({ ...b, name })))
-            .filter(b => !newKeys.has(b.name + "|" + b.label) && b.label !== "Grim Reaper" && b.label !== "Definitely Not Human"),
-        ];
-        return (
-          <>
-            <div style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", margin:"2px 2px 8px" }}>
-              <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase" }}>🏅 Accolades</div>
-              <button onClick={() => setShowAllAccolades(true)} style={{ background:"none", border:"none", color:C.accent, fontSize:12, fontWeight:700, cursor:"pointer", padding:0 }}>View all ›</button>
-            </div>
-            {items.length === 0
-              ? <div style={{ ...s.card, padding:"14px", fontSize:12, color:C.muted, marginBottom:16 }}>No accolades yet.</div>
-              : <AccoladeCarousel items={items} onOpen={openPlayer} />}
-          </>
-        );
-      })()}
       {/* Top Players ⇄ Top Teams — swipe (or tap the titles) between the two */}
       <SwipePanes panes={[
         { icon: "🏆", title: "Top Players", linkLabel: "View all players", empty: topThree.length === 0 ? "No standings yet" : null,
@@ -4241,6 +4221,26 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
         })}
           </>) },
       ]} />
+      {/* Accolades carousel — new (last 24h) first, then everyone's current ones */}
+      {(() => {
+        const newKeys = new Set(newAccolades.map(b => b.name + "|" + b.label));
+        const items = [
+          ...newAccolades.map(b => ({ ...b, isNew: true })),
+          ...Object.entries(badges || {}).flatMap(([name, list]) => (list || []).map(b => ({ ...b, name })))
+            .filter(b => !newKeys.has(b.name + "|" + b.label) && b.label !== "Grim Reaper" && b.label !== "Definitely Not Human"),
+        ];
+        return (
+          <>
+            <div style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", margin:"2px 2px 8px" }}>
+              <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase" }}>🏅 Accolades</div>
+              <button onClick={() => setShowAllAccolades(true)} style={{ background:"none", border:"none", color:C.accent, fontSize:12, fontWeight:700, cursor:"pointer", padding:0 }}>View all ›</button>
+            </div>
+            {items.length === 0
+              ? <div style={{ ...s.card, padding:"14px", fontSize:12, color:C.muted, marginBottom:16 }}>No accolades yet.</div>
+              : <AccoladeCarousel items={items} onOpen={openPlayer} />}
+          </>
+        );
+      })()}
 
       {topFamily && (
         <div className="player-card" onClick={() => openFamilyModal(topFamily.name)} style={{
