@@ -123,7 +123,7 @@ league-app CL share links included).
   touch pauses 8s; new-in-24h first with a NEW tag, then everyone's current
   accolades) → **Top Players ⇄ Top Teams** (`SwipePanes`: swipe or tap a title;
   dots underneath; no auto-advance; strip height follows the visible pane) →
-  Families → **Recent Results ⇄ Up Next** (same `SwipePanes`) (no Currently Leading /
+  Families → **Recent Results ⇄ Up Next** (same `SwipePanes`; Results starts with any live games, then the last 24h) (no Currently Leading /
   Leading Team / Top Teams / Table & Knockouts — those live under League); 1st legs never trigger exit
   banners; CL rules/tour copy; **push alerts hidden** (the alert Worker and
   `sw.js` are World Cup only) and no service-worker registration.
