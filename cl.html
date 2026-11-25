@@ -3062,41 +3062,17 @@ function StatRow({ label, hVal, aVal, hColor, aColor }) {
   );
 }
 
-// ── Head-to-head extras: the NEXT meeting between the two clubs (countdown)
-//    and every meeting between them this season (results). ────────────────────
+// ── Head-to-head: "Meetings this season" — the next meeting between the two
+//    clubs (one row, ticking countdown) above every result between them. ───────
 const h2hPair = (x, h, a) => { const xh = x.homeTeam?.tla, xa = x.awayTeam?.tla; return (xh === h && xa === a) || (xh === a && xa === h); };
-function H2HNextMeeting({ h, a, m, matches = [], onMatchClick }) {
+function H2HMeetings({ h, a, m, matches = [], onMatchClick }) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
   if (!h || !a) return null;
-  const isLive = (x) => x.status === "IN_PLAY" || x.status === "PAUSED";
-  const next = matches.filter(x => h2hPair(x, h, a) && (isLive(x) || x.status === "SCHEDULED" || x.status === "TIMED"))
-    .sort((x, y) => (isLive(y) - isLive(x)) || (new Date(x.utcDate) - new Date(y.utcDate)))[0];
-  const box = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: "10px 12px", marginBottom: 12 };
-  if (!next) return <div style={{ ...box, fontSize: 12, color: C.muted, textAlign: "center" }}>No further meeting scheduled between these two</div>;
-  const live = isLive(next) || new Date(next.utcDate).getTime() <= now;
-  const self = next.id === m.id;
-  const clickable = onMatchClick && !self;
-  const d = new Date(next.utcDate);
-  return (
-    <div className={clickable ? "player-card" : undefined} onClick={clickable ? () => onMatchClick(next.id) : undefined}
-      style={{ ...box, cursor: clickable ? "pointer" : "default", borderColor: live ? C.red + "88" : C.border, display: "flex", alignItems: "center", gap: 10 }}>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: live ? C.red : C.dim }}>
-          {live ? "● Live now" : self ? "Kick-off in" : "Next meeting"}
-        </div>
-        <div style={{ fontSize: 11, color: C.muted, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          {clStageText(next)} · {d.toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}{clickable ? " ›" : ""}
-        </div>
-      </div>
-      <div style={{ fontSize: 15, fontWeight: 800, fontVariantNumeric: "tabular-nums", color: live ? C.red : C.accent, flexShrink: 0 }}>
-        {live ? (next.score?.fullTime?.home != null ? `${next.score.fullTime.home}–${next.score.fullTime.away}` : "LIVE") : fmtCountdown(d.getTime() - now)}
-      </div>
-    </div>
-  );
-}
-function H2HMeetings({ h, a, m, matches = [], onMatchClick }) {
-  if (!h || !a) return null;
+  // Next meeting (the open match itself if it hasn't kicked off) — one row with
+  // a ticking countdown, above the results.
+  const next = matches.filter(x => h2hPair(x, h, a) && (x.status === "SCHEDULED" || x.status === "TIMED") && new Date(x.utcDate).getTime() > now)
+    .sort((x, y) => new Date(x.utcDate) - new Date(y.utcDate))[0];
   const played = matches.filter(x => h2hPair(x, h, a) && (x.status === "FINISHED" || x.status === "IN_PLAY" || x.status === "PAUSED") && x.score?.fullTime?.home != null)
     .sort((x, y) => new Date(y.utcDate) - new Date(x.utcDate));
   const tally = { [h]: 0, [a]: 0, d: 0 };
@@ -3112,8 +3088,29 @@ function H2HMeetings({ h, a, m, matches = [], onMatchClick }) {
         {played.length > 0 && <div style={{ fontSize: 11, color: C.muted }}>{name(h)} {tally[h]} · {tally.d} D · {tally[a]} {name(a)}</div>}
       </div>
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, overflow: "hidden" }}>
+        {next && (() => {
+          const self = next.id === m.id, clickable = onMatchClick && !self;
+          return (
+            <div className={clickable ? "player-card" : undefined} onClick={clickable ? () => onMatchClick(next.id) : undefined}
+              style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", borderBottom: played.length ? `1px solid ${C.border}` : "none", cursor: clickable ? "pointer" : "default", background: self ? "rgba(34,197,94,0.06)" : "transparent" }}>
+              <div style={{ width: 74, flexShrink: 0 }}>
+                <div style={{ fontSize: 10, color: C.accent, fontWeight: 800 }}>{self ? "Kick-off in" : "Next"}</div>
+                <div style={{ fontSize: 9, color: C.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{clStageText(next)}</div>
+              </div>
+              <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{next.homeTeam.name || next.homeTeam.tla}</span>
+                <Flag code={next.homeTeam.tla} size={16} />
+              </div>
+              <span style={{ fontSize: 11, fontWeight: 800, color: C.accent, minWidth: 64, textAlign: "center", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{fmtCountdown(new Date(next.utcDate).getTime() - now)}</span>
+              <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 6 }}>
+                <Flag code={next.awayTeam.tla} size={16} />
+                <span style={{ fontSize: 12, fontWeight: 700, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{next.awayTeam.name || next.awayTeam.tla}</span>
+              </div>
+            </div>
+          );
+        })()}
         {played.length === 0
-          ? <div style={{ padding: "12px 14px", fontSize: 12, color: C.muted }}>They haven't met yet this season.</div>
+          ? (!next && <div style={{ padding: "12px 14px", fontSize: 12, color: C.muted }}>They haven't met yet this season.</div>)
           : played.map((x, i) => {
             const self = x.id === m.id, live = x.status !== "FINISHED";
             const clickable = onMatchClick && !self;
@@ -3263,9 +3260,6 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, matches = [], onMatc
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "14px 16px 12px", flexShrink: 0 }}>
           <div style={{ fontSize: 18, fontWeight: 900, color: C.text }}>Head to Head</div>
           <button onClick={onClose} aria-label="Close" style={{ background: "transparent", border: "none", color: C.muted, fontSize: 22, cursor: "pointer", lineHeight: 1 }}>✕</button>
-        </div>
-        <div style={{ padding: "0 14px" }}>
-          <H2HNextMeeting h={h} a={a} m={m} matches={matches} onMatchClick={onMatchClick} />
         </div>
 
         {/* Match block: teams view = single card with score; players/family view = two tappable cards */}
