@@ -76,7 +76,7 @@ end-to-end against the 2025-26 replay data.
 | **Sweepstaker Top 5** | `league.html` (`window.SWEEP_MODE = "top5"`) | Five domestic leagues, **no Champions League**: `league-scoring.js` drops `CL` from `LEAGUE_COMPETITIONS` (never fetched/scored/drawn on), the page strips CL fixtures from replay data, and the UI hides everything CL (`lgHasCL()`): UCL tab/sidebar, player-card CL strip, gameweek "From CL" (→ "Season total") and CL column, Rules CL section. |
 | **Champions League Edition** | `ucl.html` → `league.html?ed=cl` | 36 CL clubs drawn by UEFA tier — see below |
 
-Hub page: **`editions.html`** links all three (also More → Other editions).
+Hub page: **`editions.html`** links all three. In-app switching: **Edition pills** (Top 5 · Champions League · World Cup) in the league switcher sheet (tap header logo / league name) and on the league landing/join screens; More → Other editions; WC app More menu links Top 5, Champions League and All editions.
 
 ### Champions League Edition
 
