@@ -2058,6 +2058,70 @@
       );
     }
 
+    // ── New-accolades carousel — full-width cards that advance on their own
+    //    every AUTO_MS (looping) and can be swiped (native scroll-snap). Any
+    //    touch / scroll by the user pauses auto-advance for PAUSE_MS. ─────────
+    function AccoladeCarousel({ items, onOpen }) {
+      const AUTO_MS = 4000, PAUSE_MS = 8000;
+      const ref = useRef(null);
+      const [idx, setIdx] = useState(0);
+      const pausedUntil = useRef(0);
+      const programmatic = useRef(false);
+      const n = items.length;
+      const goTo = (i) => {
+        const el = ref.current; if (!el || !n) return;
+        programmatic.current = true;
+        el.scrollTo({ left: (i % n) * el.clientWidth, behavior: "smooth" });
+        setTimeout(() => { programmatic.current = false; }, 700);
+      };
+      useEffect(() => {
+        if (n < 2) return;
+        const t = setInterval(() => {
+          if (Date.now() < pausedUntil.current || document.hidden) return;
+          const el = ref.current; if (!el) return;
+          const cur = Math.round(el.scrollLeft / Math.max(1, el.clientWidth));
+          goTo((cur + 1) % n);
+        }, AUTO_MS);
+        return () => clearInterval(t);
+      }, [n]);
+      const pause = () => { pausedUntil.current = Date.now() + PAUSE_MS; };
+      const onScroll = () => {
+        const el = ref.current; if (!el) return;
+        if (!programmatic.current) pause();
+        setIdx(Math.round(el.scrollLeft / Math.max(1, el.clientWidth)));
+      };
+      return (
+        <div style={{ marginBottom: 16 }}>
+          <div ref={ref} onScroll={onScroll} onTouchStart={pause} onPointerDown={pause}
+            style={{ display: "flex", overflowX: "auto", scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", msOverflowStyle: "none", borderRadius: 14 }}>
+            {items.map((b, i) => (
+              <div key={i} onClick={() => onOpen(b.name)} style={{
+                flex: "0 0 100%", boxSizing: "border-box", scrollSnapAlign: "start", scrollSnapStop: "always", cursor: "pointer",
+                background: b.bad ? "linear-gradient(135deg, rgba(241,90,90,0.18), rgba(241,90,90,0.04))" : "linear-gradient(135deg, rgba(34,197,94,0.18), rgba(34,197,94,0.04))",
+                border: `1px solid ${b.bad ? "rgba(241,90,90,0.35)" : "rgba(34,197,94,0.35)"}`, borderRadius: 14, padding: "14px 16px",
+                display: "flex", gap: 14, alignItems: "center", minHeight: 84,
+              }}>
+                <span style={{ fontSize: 36, lineHeight: 1 }}>{b.icon}</span>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 16, fontWeight: 900, color: C.text }}>{b.name} · <span style={{ color: b.bad ? C.red : C.accent }}>{b.label}</span></div>
+                  <div style={{ fontSize: 12, color: C.muted, marginTop: 3, lineHeight: 1.35 }}>{b.desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          {n > 1 && (
+            <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 8 }}>
+              {items.map((_, i) => (
+                <button key={i} aria-label={`Accolade ${i + 1}`} onClick={() => { pause(); goTo(i); }}
+                  style={{ width: i === idx ? 18 : 7, height: 7, borderRadius: 4, border: "none", padding: 0, cursor: "pointer", transition: "width 0.2s ease",
+                    background: i === idx ? C.accent : C.border }} />
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
     function HomeTab({ group, matches, ranked, badges, weekWindow, matchPtsById, hist, outcomes, anchorIso, setTab, openPlayerModal, openTeamModal, openMatchModal, familyRows = [], openFamilyModal, onOpenSwitcher }) {
       const gwEmbed = <GameweekTab key={group ? group.code : "g"} embedded group={group} matches={matches} ranked={ranked} matchPtsById={matchPtsById} anchorIso={anchorIso} onTeamClick={openTeamModal} onMatchClick={openMatchModal} />;
       const newAccolades = useMemo(
@@ -2111,23 +2175,7 @@
           {newAccolades.length === 0 ? (
             <div style={{ ...s.card, padding: "14px", fontSize: 12, color: C.muted, marginBottom: 16 }}>No new accolades in the last 7 days.</div>
           ) : (
-            <div style={{ display: "flex", gap: 10, overflowX: "auto", scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", msOverflowStyle: "none", margin: "0 0 16px", padding: "0 0 2px" }}>
-              {newAccolades.map((b, i) => (
-                <div key={i} onClick={() => openPlayerModal(b.name)} style={{
-                  flex: "0 0 72%", maxWidth: 300, scrollSnapAlign: "start", cursor: "pointer",
-                  background: b.bad ? "linear-gradient(135deg, rgba(241,90,90,0.16), rgba(241,90,90,0.03))" : "linear-gradient(135deg, rgba(34,197,94,0.16), rgba(34,197,94,0.03))",
-                  border: `1px solid ${b.bad ? "rgba(241,90,90,0.35)" : "rgba(34,197,94,0.35)"}`, borderRadius: 14, padding: "12px 14px",
-                  display: "flex", gap: 10, alignItems: "flex-start",
-                }}>
-                  <span style={{ fontSize: 28, lineHeight: 1 }}>{b.icon}</span>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 15, fontWeight: 900, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.name}</div>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: b.bad ? C.red : C.accent }}>{b.label}</div>
-                    <div style={{ fontSize: 11, color: C.muted, marginTop: 3, lineHeight: 1.35 }}>{b.desc}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <AccoladeCarousel items={newAccolades} onOpen={openPlayerModal} />
           )}
 
           {gwEmbed}
