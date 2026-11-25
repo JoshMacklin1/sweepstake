@@ -3145,7 +3145,7 @@ function fmtCountdown(ms) {
 function PtsBits({ m, side, matchPts, align = "left" }) {
   const b = clMatchBreakdown(m, side, matchPts);
   if (!b || !b.items.length || b.items.length < 2) return null; // a lone "Win 4" is already the +pts
-  return <div style={{ fontSize: 9, color: C.muted, marginTop: 1, textAlign: align, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{b.items.map(x => `${x.label} ${x.pts}`).join(" · ")}</div>;
+  return <div style={{ fontSize: 9, color: C.muted, marginTop: 1, textAlign: align, lineHeight: 1.35 }}>{b.items.map(x => `${x.label} ${x.pts}`).join(" · ")}</div>;
 }
 
 function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, matches = [], onMatchClick, onTeamClick, onPlayerClick, onFamilyClick, groupKey, defaultView, onClose }) {
@@ -4049,14 +4049,24 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
   // rolling window rank24hChange/rank24hPtsChange already use, so every
   // section on the page is answering the same question consistently.
   const cutoffMs = Date.now() - 24 * 60 * 60 * 1000;
-  const recentResults = matches
-    .filter(m => m.status === "FINISHED" && new Date(m.utcDate).getTime() >= cutoffMs)
-    .sort((a, b) => new Date(b.utcDate) - new Date(a.utcDate));
+  // Live games first (feed says IN_PLAY/PAUSED, or kick-off has passed and the
+  // feed hasn't caught up — same rule as the match card up top), then the
+  // last 24h of results, newest first.
+  const nowMs = Date.now();
+  const isLiveHome = (m) => m.status === "IN_PLAY" || m.status === "PAUSED" ||
+    ((m.status === "SCHEDULED" || m.status === "TIMED") && new Date(m.utcDate).getTime() <= nowMs && m.homeTeam?.tla && m.awayTeam?.tla);
+  const liveNow = matches.filter(isLiveHome).sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
+  const recentResults = [
+    ...liveNow,
+    ...matches.filter(m => m.status === "FINISHED" && new Date(m.utcDate).getTime() >= cutoffMs)
+      .sort((a, b) => new Date(b.utcDate) - new Date(a.utcDate)),
+  ];
 
   const real = ranked.filter(p => !p.grimReaper);
   const topThree = real.slice(0, 3);
 
   const upNext = [...upcoming]
+    .filter(m => !isLiveHome(m))
     .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate))
     .slice(0, 6);
 
@@ -4263,7 +4273,7 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
 
       {/* Recent Results ⇄ Up Next — same swipe card as Top Players ⇄ Top Teams */}
       <SwipePanes panes={[
-        { icon: "📋", title: "Recent Results", linkLabel: "View all scores", empty: recentResults.length === 0 ? "No matches in the last 24h" : null,
+        { icon: "📋", title: "Recent Results", linkLabel: "View all scores", empty: recentResults.length === 0 ? "No live matches or results in the last 24h" : null,
           onOpen: () => { window.history.pushState({ appTab: "scores", appModal: null }, ""); window.scrollTo(0, 0); setTab("scores"); },
           body: recentResults.map((m, i) => (
             <HomeMatchRow key={m.id} m={m} ranked={ranked} pts={matchPtsById[m.id]} onMatchClick={openMatchModal} isLast={i === recentResults.length - 1} banners />
