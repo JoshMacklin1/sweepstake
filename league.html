@@ -2103,7 +2103,32 @@
 
       return (
         <div style={{ padding: "0 14px" }}>
-          <LeagueMatchFocusCard matches={matches} matchPtsById={matchPtsById} onMatchClick={openMatchModal} />
+          {/* New accolades (last 7 days) — horizontally scrolling cards at the top of Home */}
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", margin: "2px 2px 8px" }}>
+            <div style={{ ...s.label, margin: 0, display: "flex", alignItems: "center", gap: 6 }}><span>🏅</span>New accolades</div>
+            <button onClick={() => setShowAllAccolades(true)} style={{ background: "none", border: "none", color: C.accent, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0 }}>View all ›</button>
+          </div>
+          {newAccolades.length === 0 ? (
+            <div style={{ ...s.card, padding: "14px", fontSize: 12, color: C.muted, marginBottom: 16 }}>No new accolades in the last 7 days.</div>
+          ) : (
+            <div style={{ display: "flex", gap: 10, overflowX: "auto", scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", msOverflowStyle: "none", margin: "0 0 16px", padding: "0 0 2px" }}>
+              {newAccolades.map((b, i) => (
+                <div key={i} onClick={() => openPlayerModal(b.name)} style={{
+                  flex: "0 0 72%", maxWidth: 300, scrollSnapAlign: "start", cursor: "pointer",
+                  background: b.bad ? "linear-gradient(135deg, rgba(241,90,90,0.16), rgba(241,90,90,0.03))" : "linear-gradient(135deg, rgba(34,197,94,0.16), rgba(34,197,94,0.03))",
+                  border: `1px solid ${b.bad ? "rgba(241,90,90,0.35)" : "rgba(34,197,94,0.35)"}`, borderRadius: 14, padding: "12px 14px",
+                  display: "flex", gap: 10, alignItems: "flex-start",
+                }}>
+                  <span style={{ fontSize: 28, lineHeight: 1 }}>{b.icon}</span>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 15, fontWeight: 900, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.name}</div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: b.bad ? C.red : C.accent }}>{b.label}</div>
+                    <div style={{ fontSize: 11, color: C.muted, marginTop: 3, lineHeight: 1.35 }}>{b.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           {gwEmbed}
 
@@ -2130,20 +2155,6 @@
             </Section>
           )}
 
-          <Section icon="🏅" title="New Accolades" onOpen={() => setShowAllAccolades(true)} linkLabel="View all accolades"
-            empty={newAccolades.length === 0 ? "No new accolades in the last 7 days" : null}>
-            {newAccolades.map((b, i) => (
-              <div key={i} onClick={() => openPlayerModal(b.name)} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 14px", cursor: "pointer", borderBottom: i < newAccolades.length - 1 ? `1px solid ${C.border}` : "none" }}>
-                <span style={{ fontSize: 18, lineHeight: 1.3 }}>{b.icon}</span>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>
-                    {b.name} — <span style={{ color: b.bad ? C.red : C.accent }}>{b.label}</span>
-                  </div>
-                  <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{b.desc}</div>
-                </div>
-              </div>
-            ))}
-          </Section>
           {showAllAccolades && (
             <LeagueAllAccoladesModal ranked={ranked} badges={badges}
               onClose={() => setShowAllAccolades(false)}
