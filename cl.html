@@ -730,6 +730,39 @@ function clMatchBreakdown(m, side, matchPts) {
   return { items, note: null };
 }
 
+// Centre of a played/live match row: the SWEEPSTAKE score is the headline
+// (each club's points from this game, like a scoreline), the football score is
+// the context line underneath. Falls back to the plain score with no points data.
+function SweepScore({ m, pts, big = false }) {
+  const fin = m.status === "FINISHED";
+  const live = !fin;
+  const hs = m.score?.fullTime?.home ?? 0, as_ = m.score?.fullTime?.away ?? 0;
+  const pens = fin && m.score?.penalties?.home != null ? ` · pens ${m.score.penalties.home}–${m.score.penalties.away}` : "";
+  const fmtP = (v) => (v > 0 ? `+${v}` : "0");
+  if (!pts) {
+    return (
+      <>
+        <span style={{ fontSize: big ? 18 : 15, fontWeight: 800, color: live ? C.red : C.text, letterSpacing: 1 }}>{hs}–{as_}</span>
+        {pens && <div style={{ fontSize: 9, color: C.muted, marginTop: 1 }}>{pens.slice(3)}</div>}
+        {live && <div style={{ fontSize: 9, fontWeight: 800, color: C.red, marginTop: 2 }}>⚡ LIVE</div>}
+      </>
+    );
+  }
+  const col = (v) => (v > 0 ? C.accent : C.muted);
+  return (
+    <>
+      <div style={{ fontSize: big ? 22 : 18, fontWeight: 900, lineHeight: 1, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+        <span style={{ color: col(pts.home) }}>{fmtP(pts.home)}</span>
+        <span style={{ color: C.muted, fontWeight: 700, margin: "0 5px" }}>–</span>
+        <span style={{ color: col(pts.away) }}>{fmtP(pts.away)}</span>
+      </div>
+      <div style={{ fontSize: 10, fontWeight: 700, color: live ? C.red : C.dim, marginTop: 4, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
+        {live ? "⚡ " : ""}{hs}–{as_} {live ? "live" : "FT"}{pens}
+      </div>
+    </>
+  );
+}
+
 function MatchCard({ m, ranked, upcoming = [], pts, onPlayerClick, onTeamClick, onMatchClick }) {
   const h = m.homeTeam?.tla?.toUpperCase();
   const a = m.awayTeam?.tla?.toUpperCase();
@@ -886,23 +919,12 @@ function MatchCard({ m, ranked, upcoming = [], pts, onPlayerClick, onTeamClick, 
             <div>
               <div style={{ fontSize:13, fontWeight:700, color: C.text }}>{ownerOf(h, ranked) || ""}</div>
               <div style={{ fontSize:11, color: C.muted }}>{m.homeTeam?.name || "TBD"}{POT[h] ? <span style={{ color:C.muted, fontSize:9 }}> (P{potOf(h)})</span> : ""}</div>
-              {pts && <div style={{ fontSize:10, fontWeight:800, color: pts.home > 0 ? C.accent : C.muted, marginTop:2 }}>+{pts.home} pt{pts.home === 1 ? "" : "s"}</div>}
               {pts && <PtsBits m={m} side="home" matchPts={pts} />}
             </div>
           </div>
-          <div style={{ minWidth:64, textAlign:"center" }}>
+          <div style={{ minWidth:84, textAlign:"center" }}>
             {fin || live || hasScore
-              ? <>
-                  <span style={{ fontSize:18, fontWeight:800, letterSpacing:2, color: (live || (hasScore && !fin)) ? C.red : C.text }}>
-                    {m.score?.fullTime?.home ?? 0}–{m.score?.fullTime?.away ?? 0}
-                  </span>
-                  {fin && m.score?.penalties?.home != null && (
-                    <div style={{ fontSize:10, color:C.muted, marginTop:2 }}>
-                      pens {m.score.penalties.home}–{m.score.penalties.away}
-                    </div>
-                  )}
-                  {!fin && <div style={{ fontSize:9, fontWeight:800, color:C.red, marginTop:2, letterSpacing:"0.05em" }}>⚡ LIVE</div>}
-                </>
+              ? <SweepScore m={m} pts={pts} big />
               : <div>
                   {kickedOff
                     ? <div style={{ fontSize:11, fontWeight:800, color:C.red, marginBottom:5, letterSpacing:"0.05em" }}>LIVE</div>
@@ -924,7 +946,6 @@ function MatchCard({ m, ranked, upcoming = [], pts, onPlayerClick, onTeamClick, 
             <div style={{ textAlign:"right" }}>
               <div style={{ fontSize:13, fontWeight:700, color: C.text }}>{ownerOf(a, ranked) || ""}</div>
               <div style={{ fontSize:11, color: C.muted }}>{m.awayTeam?.name || "TBD"}{POT[a] ? <span style={{ color:C.muted, fontSize:9 }}> (P{potOf(a)})</span> : ""}</div>
-              {pts && <div style={{ fontSize:10, fontWeight:800, color: pts.away > 0 ? C.accent : C.muted, marginTop:2 }}>+{pts.away} pt{pts.away === 1 ? "" : "s"}</div>}
               {pts && <PtsBits m={m} side="away" matchPts={pts} align="right" />}
             </div>
             <Flag code={a} size={22} />
@@ -3144,7 +3165,7 @@ function fmtCountdown(ms) {
 // Compact per-side breakdown for match rows: "Win 4 · Clean sheet 2".
 function PtsBits({ m, side, matchPts, align = "left" }) {
   const b = clMatchBreakdown(m, side, matchPts);
-  if (!b || !b.items.length || b.items.length < 2) return null; // a lone "Win 4" is already the +pts
+  if (!b || !b.items.length) return null;
   return <div style={{ fontSize: 9, color: C.muted, marginTop: 1, textAlign: align, lineHeight: 1.35 }}>{b.items.map(x => `${x.label} ${x.pts}`).join(" · ")}</div>;
 }
 
@@ -3424,18 +3445,12 @@ function HomeMatchRow({ m, ranked, pts, onTeamClick, onMatchClick, isLast, banne
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{hOwner || m.homeTeam?.name || "TBD"}</div>
             {hOwner && <div style={{ fontSize: 10, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.homeTeam?.name}{POT[h] ? <span style={{ fontSize: 9 }}> (P{POT[h]})</span> : ""}</div>}
-            {pts?.home > 0 && <div style={{ fontSize: 10, fontWeight: 800, color: C.accent, marginTop: 1 }}>+{pts.home} pt{pts.home === 1 ? "" : "s"}</div>}
               {pts && <PtsBits m={m} side="home" matchPts={pts} />}
           </div>
         </div>
-        <div style={{ textAlign: "center", flexShrink: 0, minWidth: 44 }}>
+        <div style={{ textAlign: "center", flexShrink: 0, minWidth: 70 }}>
           {fin || live
-            ? <>
-                <span style={{ fontSize: 15, fontWeight: 800, color: live ? C.red : C.text, letterSpacing: 1 }}>{hs}–{as_}</span>
-                {fin && m.score?.penalties?.home != null && (
-                  <div style={{ fontSize: 9, color: C.muted, marginTop: 1 }}>pens {m.score.penalties.home}–{m.score.penalties.away}</div>
-                )}
-              </>
+            ? <SweepScore m={m} pts={pts} />
             : <div>
                 <div style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>vs</div>
                 <div style={{ fontSize: 10, marginTop: 2 }}><KickoffCountdown iso={m.utcDate} /></div>
@@ -3448,7 +3463,6 @@ function HomeMatchRow({ m, ranked, pts, onTeamClick, onMatchClick, isLast, banne
           <div style={{ textAlign: "right", minWidth: 0 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{aOwner || m.awayTeam?.name || "TBD"}</div>
             {aOwner && <div style={{ fontSize: 10, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.awayTeam?.name}{POT[a] ? <span style={{ fontSize: 9 }}> (P{POT[a]})</span> : ""}</div>}
-            {pts?.away > 0 && <div style={{ fontSize: 10, fontWeight: 800, color: C.accent, marginTop: 1 }}>+{pts.away} pt{pts.away === 1 ? "" : "s"}</div>}
               {pts && <PtsBits m={m} side="away" matchPts={pts} align="right" />}
           </div>
           <Flag code={a} size={20} />
