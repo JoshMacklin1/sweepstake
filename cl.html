@@ -4004,6 +4004,50 @@ function AccoladeCarousel({ items, onOpen }) {
   );
 }
 
+// ── Swipeable section (Home): several titled cards side by side — swipe, or
+//    tap a title, to switch. No auto-advance (unlike the accolades carousel).
+function SwipePanes({ panes }) {
+  const ref = React.useRef(null);
+  const [idx, setIdx] = useState(0);
+  const go = (i) => { const el = ref.current; if (el) el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" }); };
+  const onScroll = () => { const el = ref.current; if (el) setIdx(Math.round(el.scrollLeft / Math.max(1, el.clientWidth))); };
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ ...s.label, display: "flex", alignItems: "center", gap: 14 }}>
+        {panes.map((p, i) => (
+          <button key={p.title} onClick={() => go(i)} style={{
+            background: "none", border: "none", padding: "0 0 3px", cursor: "pointer", font: "inherit", letterSpacing: "inherit", textTransform: "inherit",
+            color: i === idx ? C.dim : C.muted, opacity: i === idx ? 1 : 0.6, display: "flex", alignItems: "center", gap: 6,
+            borderBottom: `2px solid ${i === idx ? C.accent : "transparent"}`, transition: "all 0.2s",
+          }}><span>{p.icon}</span>{p.title}</button>
+        ))}
+        <span style={{ marginLeft: "auto", fontSize: 10, color: C.muted, letterSpacing: 0, textTransform: "none", fontWeight: 600 }}>swipe ‹ ›</span>
+      </div>
+      <div ref={ref} onScroll={onScroll} style={{ display: "flex", overflowX: "auto", scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", msOverflowStyle: "none", gap: 12 }}>
+        {panes.map(p => (
+          <div key={p.title} style={{ flex: "0 0 100%", scrollSnapAlign: "start", scrollSnapStop: "always", minWidth: 0 }}>
+            <div style={{ ...s.card, marginBottom: 0 }}>
+              {p.empty ? <div style={{ padding: "14px", fontSize: 12, color: C.muted }}>{p.empty}</div> : p.body}
+              {p.onOpen && (
+                <button onClick={p.onOpen} style={{
+                  width: "100%", padding: "10px 14px", background: "transparent", border: "none",
+                  borderTop: `1px solid ${C.border}`, color: C.accent, fontSize: 12, fontWeight: 700,
+                  cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
+                }}>{p.linkLabel} <span style={{ fontSize: 14, lineHeight: 1 }}>›</span></button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 8 }}>
+        {panes.map((p, i) => (
+          <button key={p.title} aria-label={p.title} onClick={() => go(i)} style={{ width: i === idx ? 18 : 7, height: 7, borderRadius: 4, border: "none", padding: 0, cursor: "pointer", transition: "width 0.2s ease", background: i === idx ? C.accent : C.border }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, matchPtsById, upcoming, setTab, setLeagueView, openPlayerModal, openTeamModal, openMatchModal, openFamilyModal, groupKey }) {
   const openPlayer = (name, scrollToBottom = false) => openPlayerModal(name, scrollToBottom);
   const [showAllAccolades, setShowAllAccolades] = React.useState(false);
@@ -4117,8 +4161,11 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
           </>
         );
       })()}
-      <Section icon="🏆" title="Top Players" onOpen={() => { window.history.pushState({ appTab: "table", appModal: null }, ""); window.scrollTo(0, 0); setTab("table"); setLeagueView("league"); }} linkLabel="View all players"
-        empty={topThree.length === 0 ? "No standings yet" : null}>
+      {/* Top Players ⇄ Top Teams — swipe (or tap the titles) between the two */}
+      <SwipePanes panes={[
+        { icon: "🏆", title: "Top Players", linkLabel: "View all players", empty: topThree.length === 0 ? "No standings yet" : null,
+          onOpen: () => { window.history.pushState({ appTab: "table", appModal: null }, ""); window.scrollTo(0, 0); setTab("table"); setLeagueView("league"); },
+          body: (<>
         {topThree.map((p, i) => {
           const delta = rank24hChange.get(p.name) || 0;
           return (
@@ -4144,7 +4191,37 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
             </div>
           );
         })}
-      </Section>
+          </>) },
+        { icon: "⚽", title: "Top Teams", linkLabel: "View all teams", empty: topTeamThree.length === 0 ? "No standings yet" : null,
+          onOpen: () => { window.history.pushState({ appTab: "table", appModal: null }, ""); window.scrollTo(0, 0); setTab("table"); setLeagueView("teams"); },
+          body: (<>
+        {topTeamThree.map((t, i) => {
+          const delta = teamRankChange.get(t.code) || 0;
+          return (
+            <div key={t.code} className="player-card" onClick={() => openTeamModal(t.code)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", cursor: "pointer", borderBottom: i < topTeamThree.length - 1 ? `1px solid ${C.border}` : "none" }}>
+              <div style={{
+                width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
+                background: rankColors[i], display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 12, fontWeight: 800, color: "#080c18",
+              }}>{i + 1}</div>
+              <Flag code={t.code} size={20} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}<span style={{ fontSize: 11, fontWeight: 600, color: C.muted }}> (P{t.pot})</span></div>
+                <div style={{ fontSize: 11, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.owner || "—"}</div>
+              </div>
+              <Sparkline data={t.hist} width={64} height={28} color={t.pts < 0 ? C.red : t.pts === 0 ? C.neutral : C.accent} />
+              <div style={{ textAlign: "right", flexShrink: 0, minWidth: 50 }}>
+                <div style={{ fontSize: 16, fontWeight: 800, color: t.pts < 0 ? C.red : C.text, lineHeight: 1 }}>{t.pts}</div>
+                <div style={{
+                  display: "inline-block", visibility: delta === 0 ? "hidden" : "visible", fontSize: 9, fontWeight: 700, padding: "1px 4px", borderRadius: 3, marginTop: 3,
+                  background: delta > 0 ? C.posBg : C.negBg, color: delta > 0 ? C.accent : C.red,
+                }}>{delta === 0 ? "0 pos" : `${delta > 0 ? "▲" : "▼"} ${Math.abs(delta)} pos`}</div>
+              </div>
+            </div>
+          );
+        })}
+          </>) },
+      ]} />
 
       {topFamily && (
         <div className="player-card" onClick={() => openFamilyModal(topFamily.name)} style={{

@@ -121,7 +121,8 @@ league-app CL share links included).
   card shows the top 10 until the play-off draw; Home is trimmed to match card →
   **accolades carousel** (`AccoladeCarousel`: auto-advances every 4s, swipeable,
   touch pauses 8s; new-in-24h first with a NEW tag, then everyone's current
-  accolades) → Top Players → Families → results / up next (no Currently Leading /
+  accolades) → **Top Players ⇄ Top Teams** (`SwipePanes`: swipe or tap a title;
+  dots underneath; no auto-advance) → Families → results / up next (no Currently Leading /
   Leading Team / Top Teams / Table & Knockouts — those live under League); 1st legs never trigger exit
   banners; CL rules/tour copy; **push alerts hidden** (the alert Worker and
   `sw.js` are World Cup only) and no service-worker registration.
