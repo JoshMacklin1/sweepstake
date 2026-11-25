@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sweepstaker — 2026/27</title>
+  <title>Sweepstaker Top 5 — 2026/27</title>
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
@@ -15,12 +15,12 @@
   <!-- Link preview when the invite is shared into WhatsApp / Messages etc. -->
   <meta property="og:type" content="website"/>
   <meta property="og:site_name" content="Sweepstaker"/>
-  <meta property="og:title" content="Sweepstaker 26/27"/>
+  <meta property="og:title" content="Sweepstaker Top 5"/>
   <meta property="og:description" content="Join the football sweepstake — draft teams and go head-to-head with your mates."/>
   <meta property="og:image" content="https://joshmacklin1.github.io/sweepstake/league-og.png"/>
   <meta property="og:url" content="https://joshmacklin1.github.io/sweepstake/league.html"/>
   <meta name="twitter:card" content="summary_large_image"/>
-  <meta name="twitter:title" content="Sweepstaker 26/27"/>
+  <meta name="twitter:title" content="Sweepstaker Top 5"/>
   <meta name="twitter:description" content="Join the football sweepstake — draft teams and go head-to-head with your mates."/>
   <meta name="twitter:image" content="https://joshmacklin1.github.io/sweepstake/league-og.png"/>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
@@ -106,7 +106,8 @@
 <body>
   <div id="root"></div>
   <!-- Coupled: every league-scoring.js change must bump ?v=N (see SWEEPSTAKE_PROJECT.md cache-bust rule) -->
-  <script src="league-scoring.js?v=33"></script>
+  <script>window.SWEEP_MODE = "top5";</script>
+  <script src="league-scoring.js?v=34"></script>
   <script type="text/babel">
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
@@ -422,6 +423,7 @@
           {(() => {
             // Champions League strip — same look as the team card's CL row.
             // Sum of clPts across this player's clubs (already in the total).
+            if (!(typeof lgHasCL === "function" && lgHasCL())) return null;
             const clClubs = (player.teams || []).filter(t => (typeof CL_TIER !== "undefined" && CL_TIER[t.teamId]) || t.clPts);
             if (clClubs.length === 0) return null;
             const clTotal = (player.teams || []).reduce((sum, t) => sum + (t.clPts || 0), 0);
@@ -1421,7 +1423,9 @@
             <div>
               {statCell(gw.played > 0 && typeof pw.rank === "number" ? ord(pw.rank) : "–", `Week rank of ${gw.players.length}`)}
               <div style={{ borderTop: `1px solid ${C.border}`, margin: "0 8px" }} />
-              {statCell(`${pw.clPts > 0 ? "+" : ""}${pw.clPts}`, "From CL 🏆")}
+              {(typeof lgHasCL === "function" && lgHasCL())
+                ? statCell(`${pw.clPts > 0 ? "+" : ""}${pw.clPts}`, "From CL 🏆")
+                : statCell(((ranked.find(r => r.name === who) || {}).total) ?? 0, "Season total")}
             </div>
           </div>
           {pw.bonusPts !== 0 && (
@@ -1500,14 +1504,14 @@
           <div style={sect}>Gameweek {week.n} table</div>
           <div style={{ ...s.card, overflow: "hidden" }}>
             <div style={{ display: "flex", padding: "7px 12px", fontSize: 10, color: C.muted, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", borderBottom: `1px solid ${C.border}` }}>
-              <span style={{ width: 28 }}>Pos</span><span style={{ flex: 1 }}>Player</span><span style={{ width: 52, textAlign: "right" }}>CL</span><span style={{ width: 44, textAlign: "right" }}>Pts</span>
+              <span style={{ width: 28 }}>Pos</span><span style={{ flex: 1 }}>Player</span>{(typeof lgHasCL === "function" && lgHasCL()) && <span style={{ width: 52, textAlign: "right" }}>CL</span>}<span style={{ width: 44, textAlign: "right" }}>Pts</span>
             </div>
             {gw.players.map((p, i) => (
               <div key={p.name} onClick={() => (onPlayerClick ? onPlayerClick(p.name) : setViewing(p.name))} style={{ display: "flex", alignItems: "center", padding: "9px 12px", cursor: "pointer",
                 background: p.name === who ? "rgba(34,197,94,0.08)" : "transparent", borderBottom: i < gw.players.length - 1 ? `1px solid ${C.border}` : "none" }}>
                 <span style={{ width: 28, fontSize: 13, color: C.muted, fontWeight: 800 }}>{gw.played > 0 ? p.rank : "–"}</span>
                 <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}{p.name === me ? <span style={{ fontSize: 10, color: C.accent }}> · you</span> : null}</span>
-                <span style={{ width: 52, textAlign: "right", fontSize: 11, color: p.clPts ? C.gold : C.border }}>{p.clPts ? `${p.clPts > 0 ? "+" : ""}${p.clPts} 🏆` : "–"}</span>
+                {(typeof lgHasCL === "function" && lgHasCL()) && <span style={{ width: 52, textAlign: "right", fontSize: 11, color: p.clPts ? C.gold : C.border }}>{p.clPts ? `${p.clPts > 0 ? "+" : ""}${p.clPts} 🏆` : "–"}</span>}
                 <span style={{ width: 44, textAlign: "right", fontSize: 15, fontWeight: 900, color: p.pts < 0 ? C.red : C.text }}>{p.pts}</span>
               </div>
             ))}
@@ -2748,7 +2752,7 @@
       const topLeagues = typeof LEAGUE_COMPETITIONS !== "undefined"
         ? Object.keys(LEAGUE_COMPETITIONS).filter(c => LEAGUE_COMPETITIONS[c].type === "top") : [];
       const refLg = topLeagues[0];
-      const clGamble = typeof CL_GAMBLE !== "undefined" ? CL_GAMBLE : null;
+      const clGamble = ((typeof lgHasCL === "function" && lgHasCL()) && typeof CL_GAMBLE !== "undefined") ? CL_GAMBLE : null;
       const clLabel = typeof CL_OUTCOME_LABEL !== "undefined" ? CL_OUTCOME_LABEL : {};
       return (
         <div>
@@ -2759,10 +2763,11 @@
               the Premier League, La Liga, Serie A, Bundesliga and Ligue 1. Wins and
               draws earn points by pot, and each team banks one flat bonus for the
               best thing it achieves — title, top 4, European place — or a penalty
-              for relegation, the moment it's mathematically certain. Own a club
+              for relegation, the moment it's mathematically certain.
+              {(typeof lgHasCL === "function" && lgHasCL()) && <> Own a club
               that's also in the <strong>Champions League</strong> and every CL game
               scores too — priced by UEFA's own draw pots, so underdogs beating
-              giants pay big, while a big favourite crashing out early costs you.
+              giants pay big, while a big favourite crashing out early costs you.</>}
             </div>
           </div>
           <div style={section}>
@@ -2870,9 +2875,6 @@
             <button style={row} onClick={() => { onClose(); onToggleReplay(); }}>
               <span style={{ fontSize: 18 }}>🎬</span> Simulate season <span style={{ fontSize: 11, fontWeight: 500, color: C.muted }}>(last season's results)</span>
               <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, color: replayOn ? C.accent : C.muted }}>{replayOn ? "ON" : "OFF"}</span>
-            </button>
-            <button style={row} onClick={() => { onClose(); window.location.href = "fantasy.html"; }}>
-              <span style={{ fontSize: 18 }}>🎮</span> Sweepstaker Fantasy <span style={{ fontSize: 10, color: C.gold, fontWeight: 800 }}>BETA</span>
             </button>
             <button style={row} onClick={() => { onClose(); onSwitchGroup(); }}>
               <span style={{ fontSize: 18 }}>🔀</span> Switch league
@@ -3030,7 +3032,7 @@
         ["table", "Players", "table", "players"],
         ["teams", "Teams", "table", "teams"],
         ["leagues", "Leagues", "table", "leagues"],
-        ["ucl", "UCL", "table", "ucl"],
+        ...((typeof lgHasCL === "function" && lgHasCL()) ? [["ucl", "UCL", "table", "ucl"]] : []),
         ...(hasFamilies ? [["table", "Families", "table", "families"]] : []),
         ["scores", "Scores", "scores", null],
         ["race", "The Race", "race", null],
@@ -3045,7 +3047,7 @@
           <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "0 8px 16px" }}>
             <img src={LOGO_SRC} alt="Sweepstaker" style={{ width: 42, height: 42, flexShrink: 0 }} />
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 16, fontWeight: 800, lineHeight: 1.15 }}>Sweepstaker <span style={{ color: C.accent }}>26/27</span></div>
+              <div style={{ fontSize: 16, fontWeight: 800, lineHeight: 1.15 }}>Sweepstaker <span style={{ color: C.accent }}>Top 5</span></div>
               {group && group.label && <div onClick={onOpenSwitcher} role="button" title="Switch league" style={{ fontSize: 11.5, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "pointer" }}>{group.label} ▾</div>}
             </div>
           </div>
@@ -3565,11 +3567,13 @@
         return () => { root.style.maxWidth = "480px"; root.style.margin = "0 auto"; };
       }, [isDesktop]);
 
+      // Top 5 edition: drop any Champions League fixtures (the replay file has them).
+      const keepComp = (m) => !(m && m.competition && m.competition.code === "CL") || (typeof lgHasCL === "function" && lgHasCL());
       const matches = useMemo(() => {
         if (replay.on && !replay.loading && typeof LEAGUE_REPLAY_DATA !== "undefined" && typeof leagueMatchesUpTo === "function") {
-          return leagueMatchesUpTo(LEAGUE_REPLAY_DATA.matches, replay.date);
+          return leagueMatchesUpTo(LEAGUE_REPLAY_DATA.matches.filter(keepComp), replay.date);
         }
-        return liveMatches;
+        return liveMatches.filter(keepComp);
       }, [replay, liveMatches]);
 
       // Fixture list for the Scores tab + match modal. In replay it also
@@ -3578,7 +3582,7 @@
       // clamped `matches` above, so nothing counts these early.
       const scoresMatches = useMemo(() => {
         if (replay.on && !replay.loading && typeof LEAGUE_REPLAY_DATA !== "undefined") {
-          return LEAGUE_REPLAY_DATA.matches.map(m => m.utcDate <= replay.date ? m
+          return LEAGUE_REPLAY_DATA.matches.filter(keepComp).map(m => m.utcDate <= replay.date ? m
             : { ...m, status: "SCHEDULED", score: { ...(m.score || {}), fullTime: { home: null, away: null } } });
         }
         return matches;
@@ -3714,7 +3718,7 @@
           {!loading && tab === "table" && !isDesktop && (
             <div style={{ padding: "0 14px 10px" }}>
               <div className="tab-seg">
-                {[["players", "Players"], ["teams", "Teams"], ["leagues", "Leagues"], ["ucl", "UCL"], ...(families ? [["families", "Families"]] : [])].map(([id, label]) => (
+                {[["players", "Players"], ["teams", "Teams"], ["leagues", "Leagues"], ...((typeof lgHasCL === "function" && lgHasCL()) ? [["ucl", "UCL"]] : []), ...(families ? [["families", "Families"]] : [])].map(([id, label]) => (
                   <button key={id} onClick={() => { window.scrollTo(0, 0); setLeagueView(id); }} style={{
                     background: leagueView === id ? C.accent : C.surface,
                     color: leagueView === id ? C.bg : C.dim, fontWeight: 700, fontSize: families ? 11 : 12,
@@ -3875,7 +3879,7 @@
       return (
         <div style={{ padding: "64px 24px 40px", textAlign: "center", maxWidth: 480, margin: "0 auto" }}>
           <img src={LOGO_SRC} alt="Sweepstaker" style={{ width: 72, height: 72, display: "block", margin: "0 auto 14px" }} />
-          <div style={{ fontSize: 26, fontWeight: 800, marginBottom: 4 }}>Sweepstaker <span style={{ color: C.accent }}>26/27</span></div>
+          <div style={{ fontSize: 26, fontWeight: 800, marginBottom: 4 }}>Sweepstaker <span style={{ color: C.accent }}>Top 5</span></div>
           {children}
         </div>
       );
@@ -4527,7 +4531,7 @@
       const shell = (children) => (
         <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", justifyContent: "center", padding: "40px 24px", textAlign: "center", maxWidth: 480, margin: "0 auto" }}>
           <img src={LOGO_SRC} alt="Sweepstaker" style={{ width: 72, height: 72, display: "block", margin: "0 auto 14px" }} />
-          <div style={{ fontSize: 26, fontWeight: 800, marginBottom: 4 }}>Sweepstaker <span style={{ color: C.accent }}>26/27</span></div>
+          <div style={{ fontSize: 26, fontWeight: 800, marginBottom: 4 }}>Sweepstaker <span style={{ color: C.accent }}>Top 5</span></div>
           {children}
         </div>
       );
@@ -4614,7 +4618,7 @@
         <div style={{ minHeight: "100vh", padding: "28px 18px 32px", maxWidth: 480, margin: "0 auto", boxSizing: "border-box" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "center", marginBottom: 20 }}>
             <img src={LOGO_SRC} alt="Sweepstaker" style={{ width: 40, height: 40, display: "block" }} />
-            <div style={{ fontSize: 22, fontWeight: 800 }}>Sweepstaker <span style={{ color: C.accent }}>26/27</span></div>
+            <div style={{ fontSize: 22, fontWeight: 800 }}>Sweepstaker <span style={{ color: C.accent }}>Top 5</span></div>
           </div>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", padding: "0 4px 8px" }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: C.dim, letterSpacing: "0.08em", textTransform: "uppercase" }}>Your leagues · {leagueItems.length}</div>
