@@ -3344,14 +3344,16 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, matches = [], onMatc
           <div style={{ padding: "0 14px 12px" }}>
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "16px 12px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, textAlign: "center", minWidth: 0 }}>
+                <div className={h && onTeamClick ? "player-card" : undefined} onClick={h && onTeamClick ? () => onTeamClick(h) : undefined}
+                  style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, textAlign: "center", minWidth: 0, cursor: h && onTeamClick ? "pointer" : "default", borderRadius: 10, padding: "4px 2px" }}>
                   <Flag code={h} size={32} />
                   <div style={{ fontSize: 13, fontWeight: 800, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>{m.homeTeam?.name || h}{POT[h] ? <span style={{ fontSize: 10, fontWeight: 600, color: C.muted }}> (P{POT[h]})</span> : ""}</div>
                   {hOwner && <div style={{ fontSize: 11, fontWeight: 600, color: C.accent }}>{hOwner}</div>}
                 </div>
                 {/* No score here — the club stats card; scores live in Results & fixtures below */}
                 <div style={{ flexShrink: 0, textAlign: "center", minWidth: 32, fontSize: 13, fontWeight: 700, color: C.muted }}>vs</div>
-                <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, textAlign: "center", minWidth: 0 }}>
+                <div className={a && onTeamClick ? "player-card" : undefined} onClick={a && onTeamClick ? () => onTeamClick(a) : undefined}
+                  style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, textAlign: "center", minWidth: 0, cursor: a && onTeamClick ? "pointer" : "default", borderRadius: 10, padding: "4px 2px" }}>
                   <Flag code={a} size={32} />
                   <div style={{ fontSize: 13, fontWeight: 800, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>{m.awayTeam?.name || a}{POT[a] ? <span style={{ fontSize: 10, fontWeight: 600, color: C.muted }}> (P{POT[a]})</span> : ""}</div>
                   {aOwner && <div style={{ fontSize: 11, fontWeight: 600, color: C.accent }}>{aOwner}</div>}
@@ -3418,22 +3420,6 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, matches = [], onMatc
 
       <div ref={contentRef} style={{ flex: 1, padding: "16px 14px 28px", touchAction: "none" }}>
         <H2HMeetings h={h} a={a} m={m} matches={matches} matchPtsById={matchPtsById} />
-        <div style={{ display: "flex", gap: 10 }}>
-          {h && onTeamClick && (
-            <button onClick={() => onTeamClick(h)} style={navBtnStyle}>
-              <Flag code={h} size={14} />
-              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.homeTeam?.name || h}</span>
-              <span style={{ fontSize: 14, lineHeight: 1, flexShrink: 0 }}>›</span>
-            </button>
-          )}
-          {a && onTeamClick && (
-            <button onClick={() => onTeamClick(a)} style={navBtnStyle}>
-              <Flag code={a} size={14} />
-              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.awayTeam?.name || a}</span>
-              <span style={{ fontSize: 14, lineHeight: 1, flexShrink: 0 }}>›</span>
-            </button>
-          )}
-        </div>
       </div>
     </>
   );
