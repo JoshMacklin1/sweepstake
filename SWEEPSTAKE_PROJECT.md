@@ -184,11 +184,10 @@ goal or on pens), 🧘 Steady Eddie (highest share of club games that earned poi
 - League phase: Win / Draw (by pot) + Clean sheet + Win by 3+.
 - Knockouts: "Reached <next round>", or "Champions" for the final winner. A 1st leg gets the note that the tie pays out on the 2nd leg.
 
-Where it shows: **`SweepScore`** is the centre of every played or live match row (Scores `MatchCard`, Home `HomeMatchRow`, the head-to-head lists).
-- **Headline:** the sweepstake points each club earned from the game, set out like a scoreline ("+15 – 0", green when above 0).
-- **Context:** the football score in small type underneath ("3–0 FT", red "⚡ 2–0 live", "· pens 4–3").
-- **Breakdown:** under each side, the `PtsBits` line ("Win 6 · Clean sheet 3 · Win by 3+ 6") whenever that club scored.
-- **Fallback:** the plain score is shown when there's no points data.
+Where it shows: every played or live match row (Scores `MatchCard`, Home `HomeMatchRow`, the head-to-head lists).
+- **Centre:** the football score stays the big number (`SweepScore` in its plain mode).
+- **Each side:** if the club scored, the owner gets a **green "+N pts" pill** (`SidePts`).
+- **Breakdown:** the `PtsBits` line ("Win 6 · Clean sheet 3 · Win by 3+ 6") sits under the pill whenever more than one part contributed.
 
 ### Simulate a past season (both CL and Top 5)
 
