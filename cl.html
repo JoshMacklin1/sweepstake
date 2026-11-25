@@ -3433,7 +3433,7 @@ function HomeMatchRow({ m, ranked, pts, onTeamClick, onMatchClick, isLast, banne
       className={rowClickable ? "player-card" : undefined}
       onClick={rowClickable ? () => onMatchClick(m.id) : undefined}
       style={{ padding: "10px 14px", borderBottom: isLast ? "none" : `1px solid ${C.border}`, boxShadow: banner ? `inset 3px 0 0 ${C.gold}` : "none", cursor: rowClickable ? "pointer" : "default" }}>
-      {banners ? (
+      {live ? null : banners ? (
         <div style={{ display: "flex", alignItems: "center", marginBottom: 7 }}>
           <span style={{ fontSize: 9, color: live ? C.red : C.dim, fontWeight: 700, letterSpacing: "0.08em", flex: 1, textTransform: "uppercase", animation: live ? "pulse-red 1.5s infinite" : "none" }}>{live ? "⚡ LIVE" : clStageText(m)}</span>
           <div style={{ display: "flex", alignItems: "center", gap: 4, justifyContent: "center", flex: 1 }}>
