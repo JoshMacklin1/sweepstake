@@ -82,8 +82,8 @@ Hub page: **`editions.html`** links all three. In-app switching: **Edition pills
 
 **`cl.html` + `cl-scoring.js`** — modelled on the World Cup app (same tabs,
 look, scoring structure, Grim Reaper, badges, race, win %), not the league
-app. `ucl.html` and `league.html?ed=cl` redirect to `cl.html` (a league-app CL
-share link with `#g=`/`#j=` still opens the old league-app CL mode).
+app. `ucl.html` and `league.html?ed=cl` always redirect to `cl.html` (old
+league-app CL share links included).
 
 - **`cl-scoring.js`** is generated from `scoring.js` (build script kept out of
   the repo; edit `cl-scoring.js` directly now) with CL pieces swapped in:
@@ -126,8 +126,8 @@ share link with `#g=`/`#j=` still opens the old league-app CL mode).
   race frames aligned; tie logic unit-tested (aggregate, shoot-out, live 2nd
   leg, unplayed 2nd leg).
 - The old league-app CL mode (`SWEEP_MODE = "cl"`, `CL_TIER`, `clTeamPts`)
-  is still in `league.html`/`league-scoring.js` but only reachable via old
-  share links.
+  is still in `league.html`/`league-scoring.js` but unreachable (every
+  `?ed=cl` redirects) — dead code, safe to delete later.
 
 ### Preset groups (teaser) — fair auto-draw + share links
 
