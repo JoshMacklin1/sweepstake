@@ -3376,6 +3376,13 @@ function UpcomingMatchRow({ m, onMatchClick, isLast }) {
   );
 }
 
+// Ticking countdown to a kick-off ("2d 4h 05m" → "4h 05m 21s" → "Kick-off").
+function KickoffCountdown({ iso }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
+  return <span style={{ color: C.accent, fontWeight: 800, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{fmtCountdown(new Date(iso).getTime() - now)}</span>;
+}
+
 function HomeMatchRow({ m, ranked, pts, onTeamClick, onMatchClick, isLast, banners = false }) {
   const h = m.homeTeam?.tla?.toUpperCase();
   const a = m.awayTeam?.tla?.toUpperCase();
@@ -3401,7 +3408,7 @@ function HomeMatchRow({ m, ranked, pts, onTeamClick, onMatchClick, isLast, banne
               <span style={{ fontSize: 9, fontWeight: 900, color: C.gold, letterSpacing: "0.06em" }}>{banner.label}</span>
             </>}
           </div>
-          <span style={{ fontSize: 9, color: C.muted, flex: 1, textAlign: "right" }}>{fmt(m.utcDate)}</span>
+          <span style={{ fontSize: 9, color: C.muted, flex: 1, textAlign: "right" }}>{!fin && !live && new Date(m.utcDate).getTime() > Date.now() ? "" : fmt(m.utcDate)}</span>
         </div>
       ) : m.stage && (
         <div style={{ marginBottom: 6 }}>
@@ -3431,7 +3438,7 @@ function HomeMatchRow({ m, ranked, pts, onTeamClick, onMatchClick, isLast, banne
               </>
             : <div>
                 <div style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>vs</div>
-                <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>{fmt(m.utcDate)}</div>
+                <div style={{ fontSize: 10, marginTop: 2 }}><KickoffCountdown iso={m.utcDate} /></div>
               </div>}
         </div>
         <div
