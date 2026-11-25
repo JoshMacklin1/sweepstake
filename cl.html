@@ -3417,6 +3417,12 @@ function KickoffCountdown({ iso }) {
   return <span style={{ color: C.accent, fontWeight: 800, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{fmtCountdown(new Date(iso).getTime() - now)}</span>;
 }
 
+// Compact "+N" pill that sits beside an owner's name (Home rows).
+function PtsPill({ v }) {
+  if (!(v > 0)) return null;
+  return <span style={{ flexShrink: 0, background: C.posBg, color: C.accent, border: `1px solid ${C.accent}55`, borderRadius: 999, padding: "0 6px", fontSize: 10, fontWeight: 900, lineHeight: "16px", fontVariantNumeric: "tabular-nums" }}>+{v}</span>;
+}
+
 function HomeMatchRow({ m, ranked, pts, onTeamClick, onMatchClick, isLast, banners = false }) {
   const h = m.homeTeam?.tla?.toUpperCase();
   const a = m.awayTeam?.tla?.toUpperCase();
@@ -3442,7 +3448,7 @@ function HomeMatchRow({ m, ranked, pts, onTeamClick, onMatchClick, isLast, banne
               <span style={{ fontSize: 9, fontWeight: 900, color: C.gold, letterSpacing: "0.06em" }}>{banner.label}</span>
             </>}
           </div>
-          <span style={{ fontSize: 9, color: C.muted, flex: 1, textAlign: "right" }}>{!fin && !live && new Date(m.utcDate).getTime() > Date.now() ? "" : fmt(m.utcDate)}</span>
+          <span style={{ flex: 1 }} />
         </div>
       ) : m.stage && (
         <div style={{ marginBottom: 6 }}>
@@ -3456,9 +3462,11 @@ function HomeMatchRow({ m, ranked, pts, onTeamClick, onMatchClick, isLast, banne
           style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, cursor: !rowClickable && onTeamClick && h ? "pointer" : "default", minWidth: 0 }}>
           <Flag code={h} size={20} />
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{hOwner || m.homeTeam?.name || "TBD"}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{hOwner || m.homeTeam?.name || "TBD"}</span>
+              <PtsPill v={pts?.home} />
+            </div>
             {hOwner && <div style={{ fontSize: 10, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.homeTeam?.name}{POT[h] ? <span style={{ fontSize: 9 }}> (P{POT[h]})</span> : ""}</div>}
-              {pts && <SidePts m={m} side="home" matchPts={pts} />}
           </div>
         </div>
         <div style={{ textAlign: "center", flexShrink: 0, minWidth: 70 }}>
@@ -3474,9 +3482,11 @@ function HomeMatchRow({ m, ranked, pts, onTeamClick, onMatchClick, isLast, banne
           onClick={!rowClickable && onTeamClick && a ? () => onTeamClick(a) : undefined}
           style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-end", cursor: !rowClickable && onTeamClick && a ? "pointer" : "default", minWidth: 0 }}>
           <div style={{ textAlign: "right", minWidth: 0 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{aOwner || m.awayTeam?.name || "TBD"}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, justifyContent: "flex-end" }}>
+              <PtsPill v={pts?.away} />
+              <span style={{ fontSize: 12, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{aOwner || m.awayTeam?.name || "TBD"}</span>
+            </div>
             {aOwner && <div style={{ fontSize: 10, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.awayTeam?.name}{POT[a] ? <span style={{ fontSize: 9 }}> (P{POT[a]})</span> : ""}</div>}
-              {pts && <SidePts m={m} side="away" matchPts={pts} align="right" />}
           </div>
           <Flag code={a} size={20} />
         </div>

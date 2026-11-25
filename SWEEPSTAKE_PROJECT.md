@@ -186,7 +186,7 @@ goal or on pens), 🧘 Steady Eddie (highest share of club games that earned poi
 
 Where it shows: every played or live match row (Scores `MatchCard`, Home `HomeMatchRow`, the head-to-head lists).
 - **Centre:** the football score stays the big number (`SweepScore` in its plain mode).
-- **Each side:** if the club scored, the owner gets a **green "+N pts" pill** (`SidePts`).
+- **Each side:** if the club scored, the owner gets a **green "+N pts" pill** (`SidePts`). Home rows are slimmer and laid out like Up Next: a small "+N" `PtsPill` inline beside the owner, no breakdown line, no date in the header (just the stage and any banner). The full breakdown is in Scores and in the head-to-head card.
 - **Breakdown:** the `PtsBits` line ("Win 6 · Clean sheet 3 · Win by 3+ 6") sits under the pill whenever more than one part contributed.
 
 ### Simulate a past season (both CL and Top 5)
