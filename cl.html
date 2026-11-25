@@ -3921,6 +3921,77 @@ function AllAccoladesModal({ ranked, badges, onClose, onPlayerClick }) {
 // next, mirroring the daily email's sections so the two feel like the same
 // product. Pure read-only summary view; "Open the full table" hands off to
 // the League tab for anything that needs deeper interaction.
+// ── Accolades carousel (Home) — full-width cards that advance on their own
+//    every AUTO_MS (looping) and can be swiped (native scroll-snap). Any touch
+//    or scroll by the user pauses auto-advance for PAUSE_MS. ─────────────────
+function AccoladeCarousel({ items, onOpen }) {
+  const AUTO_MS = 4000, PAUSE_MS = 8000;
+  const ref = React.useRef(null);
+  const [idx, setIdx] = useState(0);
+  const pausedUntil = React.useRef(0);
+  const programmatic = React.useRef(false);
+  const n = items.length;
+  const goTo = (i) => {
+    const el = ref.current; if (!el || !n) return;
+    programmatic.current = true;
+    el.scrollTo({ left: (i % n) * el.clientWidth, behavior: "smooth" });
+    setTimeout(() => { programmatic.current = false; }, 700);
+  };
+  useEffect(() => {
+    if (n < 2) return;
+    const t = setInterval(() => {
+      if (Date.now() < pausedUntil.current || document.hidden) return;
+      const el = ref.current; if (!el) return;
+      goTo((Math.round(el.scrollLeft / Math.max(1, el.clientWidth)) + 1) % n);
+    }, AUTO_MS);
+    return () => clearInterval(t);
+  }, [n]);
+  const pause = () => { pausedUntil.current = Date.now() + PAUSE_MS; };
+  const onScroll = () => {
+    const el = ref.current; if (!el) return;
+    if (!programmatic.current) pause();
+    setIdx(Math.round(el.scrollLeft / Math.max(1, el.clientWidth)));
+  };
+  const dots = n <= 12;
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div ref={ref} onScroll={onScroll} onTouchStart={pause} onPointerDown={pause}
+        style={{ display:"flex", overflowX:"auto", scrollSnapType:"x mandatory", WebkitOverflowScrolling:"touch", scrollbarWidth:"none", msOverflowStyle:"none", borderRadius:14 }}>
+        {items.map((b, i) => {
+          const bad = b.tone === "bad";
+          return (
+            <div key={i} onClick={() => onOpen(b.name)} style={{
+              flex:"0 0 100%", boxSizing:"border-box", scrollSnapAlign:"start", scrollSnapStop:"always", cursor:"pointer",
+              background: bad ? "linear-gradient(135deg, rgba(241,90,90,0.18), rgba(241,90,90,0.04))" : "linear-gradient(135deg, rgba(34,197,94,0.18), rgba(34,197,94,0.04))",
+              border:`1px solid ${bad ? "rgba(241,90,90,0.35)" : "rgba(34,197,94,0.35)"}`, borderRadius:14, padding:"14px 16px",
+              display:"flex", gap:14, alignItems:"center", minHeight:84,
+            }}>
+              <span style={{ fontSize:36, lineHeight:1 }}>{b.icon}</span>
+              <div style={{ minWidth:0 }}>
+                <div style={{ fontSize:16, fontWeight:900, color:C.text }}>
+                  {b.name} · <span style={{ color: bad ? C.red : C.accent }}>{b.label}</span>
+                  {b.isNew && <span style={{ marginLeft:6, fontSize:9, fontWeight:800, color:C.gold, border:`1px solid ${C.gold}66`, borderRadius:4, padding:"1px 4px", verticalAlign:"middle" }}>NEW</span>}
+                </div>
+                <div style={{ fontSize:12, color:C.muted, marginTop:3, lineHeight:1.35 }}>{b.desc}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {n > 1 && (dots ? (
+        <div style={{ display:"flex", justifyContent:"center", gap:6, marginTop:8 }}>
+          {items.map((_, i) => (
+            <button key={i} aria-label={`Accolade ${i + 1}`} onClick={() => { pause(); goTo(i); }}
+              style={{ width: i === idx ? 18 : 7, height:7, borderRadius:4, border:"none", padding:0, cursor:"pointer", transition:"width 0.2s ease", background: i === idx ? C.accent : C.border }} />
+          ))}
+        </div>
+      ) : (
+        <div style={{ textAlign:"center", fontSize:10, color:C.muted, marginTop:6 }}>{idx + 1} / {n}</div>
+      ))}
+    </div>
+  );
+}
+
 function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, matchPtsById, upcoming, setTab, setLeagueView, openPlayerModal, openTeamModal, openMatchModal, openFamilyModal, groupKey }) {
   const openPlayer = (name, scrollToBottom = false) => openPlayerModal(name, scrollToBottom);
   const [showAllAccolades, setShowAllAccolades] = React.useState(false);
@@ -4014,22 +4085,26 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
   return (
     <div>
       <MatchFocusCard matches={matches} ranked={ranked} matchPtsById={matchPtsById} onMatchClick={openMatchModal} />
-      {/* Headline leader card(s) */}
-      {topThree[0] && (
-        <div className="player-card" onClick={() => openPlayer(topThree[0].name)} style={{
-          ...s.card, padding: "18px 16px", marginBottom: 16, textAlign: "center", cursor: "pointer",
-          background: "linear-gradient(135deg, rgba(34,197,94,0.14), rgba(34,197,94,0.02))",
-        }}>
-          <div style={{ fontSize: 11, color: C.dim, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>{topFamily ? "Leading Player" : "Currently Leading"}</div>
-          <div style={{ marginBottom: 6 }}>
-            <span style={{ fontSize: 20, fontWeight: 900, color: C.text }}>{topThree[0].name}</span>
-          </div>
-          <div style={{ fontSize: 30, fontWeight: 900, color: C.accent, lineHeight: 1 }}>
-            {topThree[0].total}<span style={{ fontSize: 14, fontWeight: 700, color: C.muted }}> pts</span>
-          </div>
-        </div>
-      )}
-
+      {/* Accolades carousel — new (last 24h) first, then everyone's current ones */}
+      {(() => {
+        const newKeys = new Set(newAccolades.map(b => b.name + "|" + b.label));
+        const items = [
+          ...newAccolades.map(b => ({ ...b, isNew: true })),
+          ...Object.entries(badges || {}).flatMap(([name, list]) => (list || []).map(b => ({ ...b, name })))
+            .filter(b => !newKeys.has(b.name + "|" + b.label) && b.label !== "Grim Reaper" && b.label !== "Definitely Not Human"),
+        ];
+        return (
+          <>
+            <div style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", margin:"2px 2px 8px" }}>
+              <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase" }}>🏅 Accolades</div>
+              <button onClick={() => setShowAllAccolades(true)} style={{ background:"none", border:"none", color:C.accent, fontSize:12, fontWeight:700, cursor:"pointer", padding:0 }}>View all ›</button>
+            </div>
+            {items.length === 0
+              ? <div style={{ ...s.card, padding:"14px", fontSize:12, color:C.muted, marginBottom:16 }}>No accolades yet.</div>
+              : <AccoladeCarousel items={items} onOpen={openPlayer} />}
+          </>
+        );
+      })()}
       <Section icon="🏆" title="Top Players" onOpen={() => { window.history.pushState({ appTab: "table", appModal: null }, ""); window.scrollTo(0, 0); setTab("table"); setLeagueView("league"); }} linkLabel="View all players"
         empty={topThree.length === 0 ? "No standings yet" : null}>
         {topThree.map((p, i) => {
@@ -4104,65 +4179,6 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
         </Section>
       )}
 
-      {topTeam && (
-        <div className="player-card" onClick={() => openTeamModal(topTeam.code)} style={{
-          ...s.card, padding: "18px 16px", marginBottom: 16, textAlign: "center", cursor: "pointer",
-          background: "linear-gradient(135deg, rgba(34,197,94,0.14), rgba(34,197,94,0.02))",
-        }}>
-          <div style={{ fontSize: 11, color: C.dim, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Leading Team</div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 8 }}>
-            <Flag code={topTeam.code} size={24} />
-            <span style={{ fontSize: 20, fontWeight: 900, color: C.text }}>{topTeam.name}<span style={{ fontSize: 13, fontWeight: 700, color: C.muted }}> (P{topTeam.pot})</span></span>
-          </div>
-          <div style={{ fontSize: 30, fontWeight: 900, color: topTeam.pts < 0 ? C.red : C.accent, lineHeight: 1 }}>
-            {topTeam.pts}<span style={{ fontSize: 14, fontWeight: 700, color: C.muted }}> pts</span>
-          </div>
-        </div>
-      )}
-      <Section icon="⚽" title="Top Teams" onOpen={() => { window.history.pushState({ appTab: "table", appModal: null }, ""); window.scrollTo(0, 0); setTab("table"); setLeagueView("teams"); }} linkLabel="View all teams"
-        empty={topTeamThree.length === 0 ? "No standings yet" : null}>
-        {topTeamThree.map((t, i) => {
-          const delta = teamRankChange.get(t.code) || 0;
-          return (
-            <div key={t.code} className="player-card" onClick={() => openTeamModal(t.code)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", cursor: "pointer", borderBottom: i < topTeamThree.length - 1 ? `1px solid ${C.border}` : "none" }}>
-              <div style={{
-                width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
-                background: rankColors[i], display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 12, fontWeight: 800, color: "#080c18",
-              }}>{i + 1}</div>
-              <Flag code={t.code} size={20} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}<span style={{ fontSize: 11, fontWeight: 600, color: C.muted }}> (P{t.pot})</span></div>
-                <div style={{ fontSize: 11, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.owner || "—"}</div>
-              </div>
-              <Sparkline data={t.hist} width={64} height={28} color={t.pts < 0 ? C.red : t.pts === 0 ? C.neutral : C.accent} />
-              <div style={{ textAlign: "right", flexShrink: 0, minWidth: 50 }}>
-                <div style={{ fontSize: 16, fontWeight: 800, color: t.pts < 0 ? C.red : C.text, lineHeight: 1 }}>{t.pts}</div>
-                <div style={{
-                  display: "inline-block", fontSize: 9, fontWeight: 700, padding: "1px 4px", borderRadius: 3, marginTop: 3,
-                  background: delta === 0 ? "rgba(148,163,184,0.12)" : delta > 0 ? C.posBg : C.negBg,
-                  color: delta === 0 ? "#94a3b8" : delta > 0 ? C.accent : C.red,
-                }}>{delta === 0 ? "0 pos" : `${delta > 0 ? "▲" : "▼"} ${Math.abs(delta)} pos`}</div>
-              </div>
-            </div>
-          );
-        })}
-      </Section>
-
-      <Section icon="🏅" title="New Accolades" onOpen={() => setShowAllAccolades(true)} linkLabel="View all accolades"
-        empty={newAccolades.length === 0 ? "No new accolades in the last 24h" : null}>
-        {newAccolades.map((b, i) => (
-          <div key={i} className="player-card" onClick={() => openPlayer(b.name)} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 14px", cursor: "pointer", borderBottom: i < newAccolades.length - 1 ? `1px solid ${C.border}` : "none" }}>
-            <span style={{ fontSize: 18, lineHeight: 1.3 }}>{b.icon}</span>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>
-                {b.name} — <span style={{ color: b.tone === "bad" ? C.red : C.accent }}>{b.label}</span>
-              </div>
-              <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{b.desc}</div>
-            </div>
-          </div>
-        ))}
-      </Section>
       {showAllAccolades && (
         <AllAccoladesModal ranked={ranked} badges={badges} onClose={() => setShowAllAccolades(false)}
           onPlayerClick={(name) => { setShowAllAccolades(false); openPlayer(name); }} />
