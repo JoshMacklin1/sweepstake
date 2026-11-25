@@ -118,8 +118,8 @@ league-app CL share links included).
   `objectFit:contain`; **Table & KO** view = `LeaguePhaseTable` (cut lines at 8
   and 24) + a two-legged `KnockoutBracket` (Play-offs 8 · Last 16 8 · QF · SF ·
   Final; aggregate on the card, legs underneath); Home "Table & Knockouts"
-  card shows the top 10 until the play-off draw; Home is trimmed to match card →
-  **accolades carousel** (`AccoladeCarousel`: auto-advances every 4s, swipeable,
+  card shows the top 10 until the play-off draw; Home is trimmed to the
+  **accolades carousel** (no live/next-match card — live games lead Recent Results) (`AccoladeCarousel`: auto-advances every 4s, swipeable,
   touch pauses 8s; new-in-24h first with a NEW tag, then everyone's current
   accolades) → **Top Players ⇄ Top Teams** (`SwipePanes`: swipe or tap a title;
   dots underneath; no auto-advance; strip height follows the visible pane) →

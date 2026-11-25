@@ -4144,7 +4144,7 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
 
   return (
     <div>
-      <MatchFocusCard matches={matches} ranked={ranked} matchPtsById={matchPtsById} onMatchClick={openMatchModal} />
+      {/* No live/next-match card here: live games lead Recent Results, Up Next has countdowns */}
       {/* Accolades carousel — new (last 24h) first, then everyone's current ones */}
       {(() => {
         const newKeys = new Set(newAccolades.map(b => b.name + "|" + b.label));
