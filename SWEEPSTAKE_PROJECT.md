@@ -120,11 +120,12 @@ league-app CL share links included).
   Final; aggregate on the card, legs underneath); Home "Table & Knockouts"
   card shows the top 10 until the play-off draw. **Home order:** slim **Next**
   strip (only when the next game kicks off within 24h: game + ticking countdown,
-  tap to open) → **Top Players ⇄ Top Teams** (`SwipePanes`: swipe or tap a
-  title; dots; no auto-advance; strip height follows the visible pane) →
+  tap to open) → **Top Players ⇄ Top Teams ⇄ Families** (`SwipePanes`: swipe or tap a
+  title; dots; no auto-advance; strip height follows the visible pane; Families
+  pane only in family groups — Caversham; no separate Leading Family card) →
   **accolades carousel** (`AccoladeCarousel`: auto-advances every 4s, swipeable,
   touch pauses 8s; new-in-24h first with a NEW tag, then everyone's current
-  accolades) → Families → **Recent Results ⇄ Up Next** (same `SwipePanes`;
+  accolades) → **Recent Results ⇄ Up Next** (same `SwipePanes`;
   Results starts with any live games, then the last 24h; Up Next rows show a
   ticking `KickoffCountdown` instead of the date) (no Currently Leading /
   Leading Team / Top Teams / Table & Knockouts — those live under League); 1st legs never trigger exit
