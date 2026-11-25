@@ -3093,74 +3093,116 @@ function StatRow({ label, hVal, aVal, hColor, aColor }) {
 // ── Head-to-head: "Meetings this season" — the next meeting between the two
 //    clubs (one row, ticking countdown) above every result between them. ───────
 const h2hPair = (x, h, a) => { const xh = x.homeTeam?.tla, xa = x.awayTeam?.tla; return (xh === h && xa === a) || (xh === a && xa === h); };
-function H2HMeetings({ h, a, m, matches = [], onMatchClick }) {
+// Stakes for an upcoming game, per side: what each result would be worth.
+function clStakes(m, side) {
+  const code = side === "home" ? m.homeTeam?.tla : m.awayTeam?.tla;
+  if (!code) return [];
+  const pot = potOf(code) - 1;
+  const st = (m.stage || "").toUpperCase();
+  if (st.includes("GROUP")) {
+    const out = [{ label: "Win", pts: GROUP_WIN_PTS[pot] }];
+    if (GROUP_DRAW_PTS[pot]) out.push({ label: "Draw", pts: GROUP_DRAW_PTS[pot] });
+    out.push({ label: "Clean sheet", pts: CLEAN_SHEET_PTS[pot], bonus: true });
+    out.push({ label: `Win by ${THRASHING_MARGIN}+`, pts: THRASHING_PTS[pot], bonus: true });
+    return out;
+  }
+  const map = { LAST_32: ["LAST_32", "LAST_16", "Last 16"], LAST_16: ["LAST_16", "QUARTER_FINALS", "Quarter-final"], QUARTER_FINALS: ["QUARTER_FINALS", "SEMI_FINALS", "Semi-final"], SEMI_FINALS: ["SEMI_FINALS", "FINALIST", "Final"], FINAL: ["FINALIST", "WINNER", "Champions"] }[st];
+  if (!map) return [];
+  const v = ptsTotal(code, map[1]) - ptsTotal(code, map[0]);
+  return [{ label: st === "FINAL" ? "Win the final" : `Win the tie → ${map[2]}`, pts: v }];
+}
+
+// Head-to-head: every meeting between the two clubs this season — the next one
+// (countdown) on top, then results, newest first. Tap a row to open it: a
+// played game shows each club's scoring contributions, an upcoming one the
+// stakes. The open match starts expanded; one row open at a time.
+function H2HMeetings({ h, a, m, matches = [], matchPtsById = {} }) {
   const [now, setNow] = useState(Date.now());
+  const [open, setOpen] = useState(m.id);
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
   if (!h || !a) return null;
-  // Next meeting (the open match itself if it hasn't kicked off) — one row with
-  // a ticking countdown, above the results.
+  const settled = (x) => x.status === "FINISHED" || x.status === "IN_PLAY" || x.status === "PAUSED";
   const next = matches.filter(x => h2hPair(x, h, a) && (x.status === "SCHEDULED" || x.status === "TIMED") && new Date(x.utcDate).getTime() > now)
     .sort((x, y) => new Date(x.utcDate) - new Date(y.utcDate))[0];
-  const played = matches.filter(x => h2hPair(x, h, a) && (x.status === "FINISHED" || x.status === "IN_PLAY" || x.status === "PAUSED") && x.score?.fullTime?.home != null)
+  const played = matches.filter(x => h2hPair(x, h, a) && settled(x) && x.score?.fullTime?.home != null)
     .sort((x, y) => new Date(y.utcDate) - new Date(x.utcDate));
+  const rows = [...(next ? [next] : []), ...played];
   const tally = { [h]: 0, [a]: 0, d: 0 };
   played.filter(x => x.status === "FINISHED").forEach(x => {
     const hs = x.score.fullTime.home, as_ = x.score.fullTime.away;
     if (hs === as_) tally.d++; else tally[hs > as_ ? x.homeTeam.tla : x.awayTeam.tla]++;
   });
   const name = (c) => (CL_CLUBS[c] && CL_CLUBS[c].name) || c;
+  const detail = (x) => {
+    const isPlayed = settled(x);
+    const mp = matchPtsById[x.id];
+    const side = (sd, align) => {
+      const code = sd === "home" ? x.homeTeam.tla : x.awayTeam.tla;
+      const items = isPlayed ? ((clMatchBreakdown(x, sd, mp) || {}).items || []) : clStakes(x, sd);
+      const tot = items.reduce((t, it) => t + it.pts, 0);
+      return (
+        <div style={{ flex: 1, minWidth: 0, textAlign: align }}>
+          <div style={{ fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name(code)}</div>
+          {items.map((it, i) => (
+            <div key={i} style={{ fontSize: 11, color: it.bonus ? C.muted : C.dim, lineHeight: 1.55 }}>
+              {align === "right" ? <>{it.label} <b style={{ color: C.accent }}>+{it.pts}</b></> : <><b style={{ color: C.accent }}>+{it.pts}</b> {it.label}</>}
+            </div>
+          ))}
+          {!items.length && <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.55 }}>{isPlayed ? "No points" : "—"}</div>}
+          {isPlayed && <div style={{ fontSize: 12, fontWeight: 800, color: tot > 0 ? C.text : C.muted, marginTop: 2 }}>{tot > 0 ? `+${tot}` : "0"} pts</div>}
+        </div>
+      );
+    };
+    const b = isPlayed ? clMatchBreakdown(x, "home", mp) : null;
+    const drought = isPlayed && (x.stage || "").includes("GROUP") && x.status === "FINISHED" && x.score.fullTime.home === 0 && x.score.fullTime.away === 0;
+    return (
+      <div style={{ padding: "8px 12px 12px", background: "rgba(0,0,0,0.12)" }}>
+        <div style={{ fontSize: 9, fontWeight: 800, color: C.muted, letterSpacing: "0.1em", textTransform: "uppercase", textAlign: "center", marginBottom: 6 }}>
+          {isPlayed ? `Sweepstake points${x.status !== "FINISHED" ? " · as it stands" : ""}` : "What's at stake"}
+        </div>
+        <div style={{ display: "flex", gap: 12 }}>{side("home", "left")}{side("away", "right")}</div>
+        {!isPlayed && (x.stage || "").includes("GROUP") && <div style={{ fontSize: 10, color: C.muted, textAlign: "center", marginTop: 6 }}>Bonuses stack on top of the result</div>}
+        {b && b.note && <div style={{ fontSize: 10, color: C.muted, textAlign: "center", marginTop: 6 }}>{b.note}</div>}
+        {drought && <div style={{ fontSize: 10, color: C.dangerText, textAlign: "center", marginTop: 6 }}>💀 0-0: +3 to the Grim Reaper</div>}
+      </div>
+    );
+  };
   return (
     <div style={{ marginBottom: 18 }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8 }}>
-        <div style={{ fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}>Meetings this season</div>
+        <div style={{ fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}>Results &amp; fixtures</div>
         {played.length > 0 && <div style={{ fontSize: 11, color: C.muted }}>{name(h)} {tally[h]} · {tally.d} D · {tally[a]} {name(a)}</div>}
       </div>
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, overflow: "hidden" }}>
-        {next && (() => {
-          const self = next.id === m.id, clickable = onMatchClick && !self;
+        {rows.length === 0 && <div style={{ padding: "12px 14px", fontSize: 12, color: C.muted }}>No meetings this season.</div>}
+        {rows.map((x, i) => {
+          const isNext = next && x.id === next.id, self = x.id === m.id, isOpen = open === x.id;
+          const live = x.status === "IN_PLAY" || x.status === "PAUSED";
           return (
-            <div className={clickable ? "player-card" : undefined} onClick={clickable ? () => onMatchClick(next.id) : undefined}
-              style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", borderBottom: played.length ? `1px solid ${C.border}` : "none", cursor: clickable ? "pointer" : "default", background: self ? "rgba(34,197,94,0.06)" : "transparent" }}>
-              <div style={{ width: 62, flexShrink: 0 }}>
-                <div style={{ fontSize: 10, color: C.accent, fontWeight: 800 }}>{self ? "Kick-off in" : "Next"}</div>
-                <div style={{ fontSize: 9, color: C.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{clStageText(next)}</div>
-              </div>
-              <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{next.homeTeam.name || next.homeTeam.tla}</span>
-                <Flag code={next.homeTeam.tla} size={16} />
-              </div>
-              <span style={{ fontSize: 11, fontWeight: 800, color: C.accent, minWidth: 58, textAlign: "center", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{fmtCountdown(new Date(next.utcDate).getTime() - now)}</span>
-              <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 6 }}>
-                <Flag code={next.awayTeam.tla} size={16} />
-                <span style={{ fontSize: 12, fontWeight: 700, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{next.awayTeam.name || next.awayTeam.tla}</span>
-              </div>
-            </div>
-          );
-        })()}
-        {played.length === 0
-          ? (!next && <div style={{ padding: "12px 14px", fontSize: 12, color: C.muted }}>They haven't met yet this season.</div>)
-          : played.map((x, i) => {
-            const self = x.id === m.id, live = x.status !== "FINISHED";
-            const clickable = onMatchClick && !self;
-            return (
-              <div key={x.id} className={clickable ? "player-card" : undefined} onClick={clickable ? () => onMatchClick(x.id) : undefined}
-                style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", borderBottom: i < played.length - 1 ? `1px solid ${C.border}` : "none", cursor: clickable ? "pointer" : "default", background: self ? "rgba(34,197,94,0.06)" : "transparent" }}>
+            <div key={x.id} style={{ borderBottom: i < rows.length - 1 ? `1px solid ${C.border}` : "none" }}>
+              <div className="player-card" onClick={() => setOpen(isOpen ? null : x.id)}
+                style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", cursor: "pointer", background: self ? "rgba(34,197,94,0.06)" : "transparent" }}>
                 <div style={{ width: 62, flexShrink: 0 }}>
-                  <div style={{ fontSize: 10, color: C.muted }}>{new Date(x.utcDate).toLocaleDateString(undefined, { day: "numeric", month: "short" })}</div>
+                  <div style={{ fontSize: 10, color: isNext ? C.accent : C.muted, fontWeight: isNext ? 800 : 400 }}>{isNext ? (self ? "Kick-off in" : "Next") : new Date(x.utcDate).toLocaleDateString(undefined, { day: "numeric", month: "short" })}</div>
                   <div style={{ fontSize: 9, color: C.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{clStageText(x)}</div>
                 </div>
                 <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6 }}>
                   <span style={{ fontSize: 12, fontWeight: 700, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{x.homeTeam.name || x.homeTeam.tla}</span>
                   <Flag code={x.homeTeam.tla} size={16} />
                 </div>
-                <span style={{ fontSize: 14, fontWeight: 800, color: live ? C.red : C.text, minWidth: 40, textAlign: "center", fontVariantNumeric: "tabular-nums" }}>{x.score.fullTime.home}–{x.score.fullTime.away}</span>
+                <span style={{ fontSize: isNext ? 11 : 14, fontWeight: 800, color: isNext ? C.accent : live ? C.red : C.text, minWidth: 58, textAlign: "center", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+                  {isNext ? fmtCountdown(new Date(x.utcDate).getTime() - now) : `${x.score.fullTime.home}–${x.score.fullTime.away}`}
+                </span>
                 <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 6 }}>
                   <Flag code={x.awayTeam.tla} size={16} />
                   <span style={{ fontSize: 12, fontWeight: 700, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{x.awayTeam.name || x.awayTeam.tla}</span>
                 </div>
+                <span style={{ color: C.muted, fontSize: 11, flexShrink: 0, transform: isOpen ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>›</span>
               </div>
-            );
-          })}
+              {isOpen && detail(x)}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -3257,7 +3299,7 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, matches = [], onMatc
   const hFamilyAlive = hFamilyTeams.filter(t => !t.eliminated).length;
   const aFamilyAlive = aFamilyTeams.filter(t => !t.eliminated).length;
 
-  const [view, setView] = React.useState(defaultView || "teams");
+  const view = "teams"; // CL: clubs only (no Players / Family views)
 
   const contentRef = React.useRef(null);
   React.useEffect(() => {
@@ -3320,37 +3362,32 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, matches = [], onMatc
                   {aOwner && <div style={{ fontSize: 11, fontWeight: 600, color: C.accent }}>{aOwner}</div>}
                 </div>
               </div>
-              {(() => {
-                const mp = matchPtsById && matchPtsById[m.id];
-                const hb = clMatchBreakdown(m, "home", mp), ab = clMatchBreakdown(m, "away", mp);
-                if (!hb && !ab) return null;
-                const col = (b, align) => {
-                  const tot = (b?.items || []).reduce((t, x) => t + x.pts, 0);
-                  return (
-                    <div style={{ flex: 1, minWidth: 0, textAlign: align }}>
-                      {(b?.items || []).map((x, i) => (
-                        <div key={i} style={{ fontSize: 11, color: C.dim, lineHeight: 1.6 }}>
-                          {align === "right" ? <>{x.label} <b style={{ color: C.accent }}>+{x.pts}</b></> : <><b style={{ color: C.accent }}>+{x.pts}</b> {x.label}</>}
-                        </div>
-                      ))}
-                      {!(b?.items || []).length && <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.6 }}>No points</div>}
-                      <div style={{ fontSize: 12, fontWeight: 800, color: tot > 0 ? C.text : C.muted, marginTop: 2 }}>{tot > 0 ? `+${tot}` : "0"} pts</div>
-                    </div>
-                  );
-                };
-                const note = (hb && hb.note) || (ab && ab.note);
-                const drought = (m.stage || "").includes("GROUP") && fin && hs === 0 && as_ === 0;
-                return (
-                  <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${C.border}` }}>
-                    <div style={{ fontSize: 9, fontWeight: 800, color: C.muted, letterSpacing: "0.1em", textTransform: "uppercase", textAlign: "center", marginBottom: 6 }}>
-                      Sweepstake points{live ? " · as it stands" : ""}
-                    </div>
-                    <div style={{ display: "flex", gap: 12 }}>{col(hb, "left")}{col(ab, "right")}</div>
-                    {note && <div style={{ fontSize: 10, color: C.muted, textAlign: "center", marginTop: 6 }}>{note}</div>}
-                    {drought && <div style={{ fontSize: 10, color: C.dangerText, textAlign: "center", marginTop: 6 }}>💀 0-0: +3 to the Grim Reaper</div>}
-                  </div>
-                );
-              })()}
+              {(hEntry || aEntry) && (
+                <div style={{ marginTop: 12, borderTop: `1px solid ${C.border}` }}>
+                  <StatRow
+                    label="Status"
+                    hVal={hEntry ? <StatusPill won={hEntry.won} eliminated={hEntry.eliminated} small /> : "—"}
+                    aVal={aEntry ? <StatusPill won={aEntry.won} eliminated={aEntry.eliminated} small /> : "—"}
+                  />
+                  <StatRow
+                    label="Stage"
+                    hVal={hEntry ? (hEntry.stage ? (STAGE_LABEL[hEntry.stage] || hEntry.stage.replace(/_/g, " ")) : "League") : "—"}
+                    aVal={aEntry ? (aEntry.stage ? (STAGE_LABEL[aEntry.stage] || aEntry.stage.replace(/_/g, " ")) : "League") : "—"}
+                  />
+                  <StatRow
+                    label="Total Pts"
+                    hVal={hEntry ? `${hEntry.pts > 0 ? "+" : ""}${hEntry.pts}` : "—"}
+                    aVal={aEntry ? `${aEntry.pts > 0 ? "+" : ""}${aEntry.pts}` : "—"}
+                    hColor={hEntry ? (hEntry.pts < 0 ? C.red : C.text) : C.muted}
+                    aColor={aEntry ? (aEntry.pts < 0 ? C.red : C.text) : C.muted}
+                  />
+                  <StatRow
+                    label="Record"
+                    hVal={hEntry ? `${hEntry.w}W ${hEntry.d}D ${hEntry.l}L` : "—"}
+                    aVal={aEntry ? `${aEntry.w}W ${aEntry.d}D ${aEntry.l}L` : "—"}
+                  />
+                </div>
+              )}
             </div>
           </div>
         ) : view === "players" ? (
@@ -3381,148 +3418,27 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, matches = [], onMatc
           </div>
         )}
 
-        {/* Teams / Players / Family toggle */}
-        <div style={{ display: "flex", gap: 8, padding: "0 14px 12px" }}>
-          {["teams", "players", ...(showFamilyTab ? ["family"] : [])].map(v => (
-            <button key={v} onClick={() => setView(v)} style={{ flex: 1, padding: "7px 0", background: view === v ? C.accent : C.card, color: view === v ? "#0d1117" : C.muted, border: `1px solid ${view === v ? C.accent : C.border}`, borderRadius: 10, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
-              {v === "teams" ? "Teams" : v === "players" ? "Players" : "Family"}
-            </button>
-          ))}
-        </div>
-
         <div style={{ borderBottom: `1px solid ${C.border}` }} />
       </div>
 
       <div ref={contentRef} style={{ flex: 1, padding: "16px 14px 28px", touchAction: "none" }}>
-        <H2HMeetings h={h} a={a} m={m} matches={matches} onMatchClick={onMatchClick} />
-        {view === "teams" ? (
-          <>
-            {(hEntry || aEntry) && (
-              <>
-                <div style={{ fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Sweepstake Stats</div>
-                <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "0 12px", marginBottom: 18 }}>
-                  <StatRow
-                    label="Status"
-                    hVal={hEntry ? <StatusPill won={hEntry.won} eliminated={hEntry.eliminated} small /> : "—"}
-                    aVal={aEntry ? <StatusPill won={aEntry.won} eliminated={aEntry.eliminated} small /> : "—"}
-                  />
-                  <StatRow
-                    label="Stage"
-                    hVal={hEntry ? (hEntry.stage ? (STAGE_LABEL[hEntry.stage] || hEntry.stage.replace(/_/g, " ")) : "League") : "—"}
-                    aVal={aEntry ? (aEntry.stage ? (STAGE_LABEL[aEntry.stage] || aEntry.stage.replace(/_/g, " ")) : "League") : "—"}
-                  />
-                  <StatRow
-                    label="Total Pts"
-                    hVal={hEntry ? `${hEntry.pts > 0 ? "+" : ""}${hEntry.pts}` : "—"}
-                    aVal={aEntry ? `${aEntry.pts > 0 ? "+" : ""}${aEntry.pts}` : "—"}
-                    hColor={hEntry ? (hEntry.pts < 0 ? C.red : C.text) : C.muted}
-                    aColor={aEntry ? (aEntry.pts < 0 ? C.red : C.text) : C.muted}
-                  />
-                  <StatRow
-                    label="Record"
-                    hVal={hEntry ? `${hEntry.w}W ${hEntry.d}D ${hEntry.l}L` : "—"}
-                    aVal={aEntry ? `${aEntry.w}W ${aEntry.d}D ${aEntry.l}L` : "—"}
-                  />
-                </div>
-              </>
-            )}
-            <div style={{ display: "flex", gap: 10 }}>
-              {h && onTeamClick && (
-                <button onClick={() => onTeamClick(h)} style={navBtnStyle}>
-                  <Flag code={h} size={14} />
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.homeTeam?.name || h}</span>
-                  <span style={{ fontSize: 14, lineHeight: 1, flexShrink: 0 }}>›</span>
-                </button>
-              )}
-              {a && onTeamClick && (
-                <button onClick={() => onTeamClick(a)} style={navBtnStyle}>
-                  <Flag code={a} size={14} />
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.awayTeam?.name || a}</span>
-                  <span style={{ fontSize: 14, lineHeight: 1, flexShrink: 0 }}>›</span>
-                </button>
-              )}
-            </div>
-          </>
-        ) : view === "players" ? (
-          <>
-            {(hPlayer || aPlayer) ? (
-              <>
-                <div style={{ fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Sweepstake Stats</div>
-                <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "0 12px", marginBottom: 18 }}>
-                  <StatRow
-                    label="Status"
-                    hVal={hPlayer ? <StatusPill won={hWon} eliminated={!hStillIn && !hWon ? true : null} small /> : "—"}
-                    aVal={aPlayer ? <StatusPill won={aWon} eliminated={!aStillIn && !aWon ? true : null} small /> : "—"}
-                  />
-                  <StatRow
-                    label="Stage"
-                    hVal={hBestStage ? (STAGE_LABEL[hBestStage] || "League") : (hPlayer ? "League" : "—")}
-                    aVal={aBestStage ? (STAGE_LABEL[aBestStage] || "League") : (aPlayer ? "League" : "—")}
-                  />
-                  <StatRow
-                    label="Total Pts"
-                    hVal={hPlayer ? `${hPlayer.total > 0 ? "+" : ""}${hPlayer.total}` : "—"}
-                    aVal={aPlayer ? `${aPlayer.total > 0 ? "+" : ""}${aPlayer.total}` : "—"}
-                    hColor={hPlayer ? (hPlayer.total < 0 ? C.red : C.text) : C.muted}
-                    aColor={aPlayer ? (aPlayer.total < 0 ? C.red : C.text) : C.muted}
-                  />
-                  <StatRow
-                    label="Teams Alive"
-                    hVal={hPlayer ? `${(hPlayer.teams || []).filter(t => !t.eliminated).length} / ${(hPlayer.codes || []).length}` : "—"}
-                    aVal={aPlayer ? `${(aPlayer.teams || []).filter(t => !t.eliminated).length} / ${(aPlayer.codes || []).length}` : "—"}
-                  />
-                </div>
-                {hOwner === aOwner && (
-                  <div style={{ fontSize: 11, color: C.muted, textAlign: "center", marginBottom: 14 }}>Both teams owned by the same player</div>
-                )}
-              </>
-            ) : (
-              <div style={{ color: C.muted, fontSize: 13, textAlign: "center", padding: "20px 0" }}>No sweepstake owners for this match</div>
-            )}
-          </>
-        ) : (
-          <>
-            {(hFamilyData || aFamilyData) ? (
-              <>
-                <div style={{ fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Family Stats</div>
-                <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "0 12px", marginBottom: 18 }}>
-                  <StatRow
-                    label="Status"
-                    hVal={hFamilyDef ? <StatusPill won={hFamilyWon} eliminated={!hFamilyStillIn && !hFamilyWon} small /> : "—"}
-                    aVal={aFamilyDef ? <StatusPill won={aFamilyWon} eliminated={!aFamilyStillIn && !aFamilyWon} small /> : "—"}
-                  />
-                  <StatRow
-                    label="Stage"
-                    hVal={hFamilyDef ? (hFamilyBestStage ? (STAGE_LABEL[hFamilyBestStage] || "League") : "League") : "—"}
-                    aVal={aFamilyDef ? (aFamilyBestStage ? (STAGE_LABEL[aFamilyBestStage] || "League") : "League") : "—"}
-                  />
-                  <StatRow
-                    label="Avg Pts"
-                    hVal={hFamilyData ? `+${hFamilyData.avg}` : "—"}
-                    aVal={aFamilyData ? `+${aFamilyData.avg}` : "—"}
-                    hColor={hFamilyData ? C.accent : C.muted}
-                    aColor={aFamilyData ? C.accent : C.muted}
-                  />
-                  <StatRow
-                    label="Total Pts"
-                    hVal={hFamilyData ? hFamilyData.total : "—"}
-                    aVal={aFamilyData ? aFamilyData.total : "—"}
-                  />
-                  <StatRow
-                    label="Teams Alive"
-                    hVal={hFamilyDef ? `${hFamilyAlive} / ${hFamilyTeams.length}` : "—"}
-                    aVal={aFamilyDef ? `${aFamilyAlive} / ${aFamilyTeams.length}` : "—"}
-                  />
-                  {hFamilyDef?.name === aFamilyDef?.name && hFamilyDef && (
-                    <div style={{ fontSize: 11, color: C.muted, textAlign: "center", padding: "10px 0" }}>Both players are in the same family</div>
-                  )}
-                </div>
-              </>
-            ) : (
-              <div style={{ color: C.muted, fontSize: 13, textAlign: "center", padding: "20px 0" }}>No family data for this match</div>
-            )}
-          </>
-        )}
+        <H2HMeetings h={h} a={a} m={m} matches={matches} matchPtsById={matchPtsById} />
+        <div style={{ display: "flex", gap: 10 }}>
+          {h && onTeamClick && (
+            <button onClick={() => onTeamClick(h)} style={navBtnStyle}>
+              <Flag code={h} size={14} />
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.homeTeam?.name || h}</span>
+              <span style={{ fontSize: 14, lineHeight: 1, flexShrink: 0 }}>›</span>
+            </button>
+          )}
+          {a && onTeamClick && (
+            <button onClick={() => onTeamClick(a)} style={navBtnStyle}>
+              <Flag code={a} size={14} />
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.awayTeam?.name || a}</span>
+              <span style={{ fontSize: 14, lineHeight: 1, flexShrink: 0 }}>›</span>
+            </button>
+          )}
+        </div>
       </div>
     </>
   );
