@@ -109,6 +109,9 @@
   <script>
     // Edition: ?ed=cl → Champions League Edition (ucl.html redirects here), else Sweepstaker Top 5.
     window.SWEEP_MODE = /[?&]ed=cl\b/.test(location.search) ? "cl" : "top5";
+    // The Champions League Edition now lives in cl.html (modelled on the WC app).
+    // Only league-app CL share links (#g=/#j=) stay in this CL mode.
+    if (window.SWEEP_MODE === "cl" && !location.hash) location.replace("cl.html");
     if (window.SWEEP_MODE === "cl") document.title = "Sweepstaker — Champions League Edition";
   </script>
   <script src="league-scoring.js?v=35"></script>
@@ -3373,7 +3376,7 @@
     // all three; each edition keeps its own leagues & squads.
     const EDITIONS = [
       { id: "top5", label: "Top 5",           href: "league.html" },
-      { id: "cl",   label: "Champions League", href: "league.html?ed=cl" },
+      { id: "cl",   label: "Champions League", href: "cl.html" },
       { id: "wc",   label: "World Cup",        href: "index.html" },
     ];
     function EditionPills({ style }) {

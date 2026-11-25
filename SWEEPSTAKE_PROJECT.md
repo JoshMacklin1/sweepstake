@@ -74,28 +74,60 @@ end-to-end against the 2025-26 replay data.
 |---|---|---|
 | **World Cup Edition** | `index.html` + `scoring.js` | WC 2026 (unchanged) |
 | **Sweepstaker Top 5** | `league.html` (`window.SWEEP_MODE = "top5"`) | Five domestic leagues, **no Champions League**: `league-scoring.js` drops `CL` from `LEAGUE_COMPETITIONS` (never fetched/scored/drawn on), the page strips CL fixtures from replay data, and the UI hides everything CL (`lgHasCL()`): UCL tab/sidebar, player-card CL strip, gameweek "From CL" (→ "Season total") and CL column, Rules CL section. |
-| **Champions League Edition** | `ucl.html` → `league.html?ed=cl` | 36 CL clubs drawn by UEFA tier — see below |
+| **Champions League Edition** | `cl.html` + `cl-scoring.js` | Fork of the WC app: same rules/look, CL league phase + two-legged knockouts — see below |
 
-Hub page: **`editions.html`** links all three. In-app switching: **Edition pills** (Top 5 · Champions League · World Cup) in the league switcher sheet (tap header logo / league name) and on the league landing/join screens; More → Other editions; WC app More menu links Top 5, Champions League and All editions.
+Hub page: **`editions.html`** links all three. In-app switching: **Edition pills** (Top 5 · Champions League · World Cup) in the league switcher sheet (tap header logo / league name) and on the league landing/join screens; More → Other editions; WC app More menu links Top 5, Champions League and All editions; CL app More menu links World Cup, Top 5 and All editions (plus links under its group-code screen).
 
 ### Champions League Edition
 
-`ucl.html` redirects to `league.html?ed=cl` (keeping any `#g=`/`#j=` share
-fragment); the inline head script sets `window.SWEEP_MODE = "cl"`. In
-`league-scoring.js` the CL edition keeps only `CL` in `LEAGUE_COMPETITIONS` and
-**replaces `LEAGUE_TEAMS` with the 36 clubs in `CL_TIER`** (league `"CL"`,
-`pot` = UEFA tier, `domestic`/`country` for labels; non-big-five clubs from
-`CL_EXTRA_CLUBS`). `lgScoringLeague` / `lgIsLeagueGame` let the existing draw,
-W/D/L and badge code treat CL fixtures as the competition. Scoring is CL-only
-(`clTeamPts`: tier-gap match points + giant kills + stage reached). Same preset
-groups (Silverstream's 21): Rodents 4 each = one per tier, Macklins 5,
-Cornwall/Caversham 2, Silverstream 1 (15 unowned). UI (`CL_ED`): own
-per-phone storage (every key prefixed `ucl_`), "Champions League Edition"
-branding, **Matchday** instead of Gameweek, pitch rows by tier (Tier 1 ·
-favourites … Tier 4 · underdogs), "(T#)" tags, League tab = Players · Teams ·
-Table (league phase + knockouts) · Families, no Leagues tab / league pills /
-Scores filter, CL rules copy and tier tables. Verified on the 2025-26 replay:
-history and matchday totals both sum to season totals.
+**`cl.html` + `cl-scoring.js`** — modelled on the World Cup app (same tabs,
+look, scoring structure, Grim Reaper, badges, race, win %), not the league
+app. `ucl.html` and `league.html?ed=cl` redirect to `cl.html` (a league-app CL
+share link with `#g=`/`#j=` still opens the old league-app CL mode).
+
+- **`cl-scoring.js`** is generated from `scoring.js` (build script kept out of
+  the repo; edit `cl-scoring.js` directly now) with CL pieces swapped in:
+  - `CL_CLUBS` (code → football-data id, name, UEFA pot) / `CL_CODE_BY_ID`.
+    Codes are pinned per id at ingest — the feed's TLAs collide (Bayern and
+    Barcelona are both `FCB`). `POT` derives from `CL_CLUBS`.
+  - `GROUPS` = the same five groups, **frozen** from the league app's fair CL
+    draw (Rodents 4 each = one per pot, Macklins 5, Cornwall/Caversham 2,
+    Silverstream's 21 × 1 → 15 clubs unowned). Josh is a real player in every
+    group, so each group's **Grim Reaper is anonymous**.
+  - `clNormalizeMatches` (ingest): `LEAGUE_STAGE` → `GROUP_STAGE`,
+    `PLAYOFFS` → `LAST_32`, club codes by id, leg tags (`_leg`, and
+    `_tieWinner/_tieLoser` on a finished 2nd leg). `clUnknownClubs` lists feed
+    clubs missing from `CL_CLUBS` — shown as a warning above the league table.
+  - **League phase** (`lpResolve`): one 36-club table, 8 games. Top 8 →
+    `LAST_16`, 9–24 → `LAST_32` (play-off), 25–36 → `GROUP_ELIM`. Credited only
+    when mathematically certain (pessimistic on ties; final table on pts → GD →
+    GF once all 8 are played). Replaces the WC group/4th/best-third logic in
+    every derive function.
+  - **Two-legged ties** (`clScoringView`): all match-taking scoring functions
+    are wrapped so they see leg 1 as SCHEDULED and leg 2 carrying the
+    **aggregate** (+ shoot-out / feed winner). W/D/L records use the raw legs.
+  - Win sim plays out the league phase (pot-weighted) then each knockout rung.
+  - Crests (`crests.football-data.org/{id}.png`) instead of flags; broadcast
+    tag defaults to TNT; `MOCK_MATCHES` empty (dev mode has no mock season).
+- **Points:** knockout `PTS_INC` and league-phase-exit penalty identical to
+  the WC. League-phase per game (8 games vs WC's 3, so ~halved):
+  win **1 / 2 / 4 / 6**, draw **0 / 1 / 2 / 3** (Pot 1–4).
+- **`cl.html`** = `index.html` with: `cl-scoring.js`; every localStorage key
+  prefixed `cl_` (head shim; the WC group choice carries over once); CL ingest
+  in `fetchMatches` (pre-penalty score = regular + extra time); crests
+  `objectFit:contain`; **Table & KO** view = `LeaguePhaseTable` (cut lines at 8
+  and 24) + a two-legged `KnockoutBracket` (Play-offs 8 · Last 16 8 · QF · SF ·
+  Final; aggregate on the card, legs underneath); Home "Table & Knockouts"
+  card shows the top 10 until the play-off draw; 1st legs never trigger exit
+  banners; CL rules/tour copy; **push alerts hidden** (the alert Worker and
+  `sw.js` are World Cup only) and no service-worker registration.
+- Verified on the 2025-26 CL replay (clubs remapped onto 2026-27 ids) at 9
+  cut-off dates: sparkline / team-history / bump endpoints = scored totals,
+  race frames aligned; tie logic unit-tested (aggregate, shoot-out, live 2nd
+  leg, unplayed 2nd leg).
+- The old league-app CL mode (`SWEEP_MODE = "cl"`, `CL_TIER`, `clTeamPts`)
+  is still in `league.html`/`league-scoring.js` but only reachable via old
+  share links.
 
 ### Preset groups (teaser) — fair auto-draw + share links
 
@@ -264,6 +296,7 @@ resolve on Join**; new leagues go through the hosted flow below.
 |------|---------|
 | `index.html` | The app shell + all React components (Babel-compiled inline) |
 | `scoring.js` | **Single source of truth** for rosters, pots, scoring rules, and all `derive*`/`score*`/`compute*` functions. Loaded as a plain `<script>` before the app script |
+| `cl.html` / `cl-scoring.js` | Champions League Edition — the WC app forked for the CL (see Editions). Deploy together, same guard pattern |
 | `sw.js` | Service worker — registers push, shows goal notifications (uses `GROUPS`/`ownerOfTeamCode` via `importScripts('./scoring.js')`), passthrough fetch |
 | `worker-email.js` | Cloudflare Worker for the daily digest email — `import`s `scoring.js` so the email scores identically to the app *(not in this repo snapshot; lives in the Worker)* |
 | `manifest.json` | PWA manifest (name, theme `#0d1f12`, icons) |
