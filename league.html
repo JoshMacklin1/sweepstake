@@ -1342,7 +1342,7 @@
         ? `${a.getUTCDate()}–${b.getUTCDate()} ${mon(b)}`
         : `${a.getUTCDate()} ${mon(a)} – ${b.getUTCDate()} ${mon(b)}`;
     };
-    function GameweekTab({ group, matches, ranked, matchPtsById, anchorIso, onTeamClick, onMatchClick, onOpenRace, embedded }) {
+    function GameweekTab({ group, matches, ranked, matchPtsById, anchorIso, onTeamClick, onMatchClick, onPlayerClick, afterPitch, onOpenRace, embedded }) {
       const code = (group && (group.code || group.label)) || "LEAGUE";
       const weeks = useMemo(() => (typeof lgWeeks === "function" ? lgWeeks(matches) : []), [matches]);
       const teamHist = useMemo(() => (typeof deriveLeagueTeamHistory === "function" ? deriveLeagueTeamHistory(matches) : { frames: [], history: {} }), [matches]);
@@ -1412,7 +1412,7 @@
             <div>
               {statCell(gw.played > 0 ? gw.avg : "–", "League avg")}
               <div style={{ borderTop: `1px solid ${C.border}`, margin: "0 8px" }} />
-              {statCell(gw.highest ? gw.highest.pts : "–", gw.highest ? `Highest · ${gw.highest.name}` : "Highest", gw.highest ? () => setViewing(gw.highest.name) : undefined)}
+              {statCell(gw.highest ? gw.highest.pts : "–", gw.highest ? `Highest · ${gw.highest.name}` : "Highest", gw.highest ? () => (onPlayerClick ? onPlayerClick(gw.highest.name) : setViewing(gw.highest.name)) : undefined)}
             </div>
             <div style={{ borderRadius: 14, padding: "16px 6px", textAlign: "center", background: "linear-gradient(135deg, #22c55e, #15803d)", boxShadow: "0 8px 24px rgba(34,197,94,0.25)" }}>
               <div style={{ fontSize: 44, fontWeight: 900, color: "#06140b", lineHeight: 1 }}>{pw.pts}</div>
@@ -1494,6 +1494,8 @@
             </div>
           )}
 
+          {afterPitch && <div style={{ marginTop: 16 }}>{afterPitch}</div>}
+
           {/* Gameweek table — players ranked on this week's points only */}
           <div style={sect}>Gameweek {week.n} table</div>
           <div style={{ ...s.card, overflow: "hidden" }}>
@@ -1501,7 +1503,7 @@
               <span style={{ width: 28 }}>Pos</span><span style={{ flex: 1 }}>Player</span><span style={{ width: 52, textAlign: "right" }}>CL</span><span style={{ width: 44, textAlign: "right" }}>Pts</span>
             </div>
             {gw.players.map((p, i) => (
-              <div key={p.name} onClick={() => setViewing(p.name)} style={{ display: "flex", alignItems: "center", padding: "9px 12px", cursor: "pointer",
+              <div key={p.name} onClick={() => (onPlayerClick ? onPlayerClick(p.name) : setViewing(p.name))} style={{ display: "flex", alignItems: "center", padding: "9px 12px", cursor: "pointer",
                 background: p.name === who ? "rgba(34,197,94,0.08)" : "transparent", borderBottom: i < gw.players.length - 1 ? `1px solid ${C.border}` : "none" }}>
                 <span style={{ width: 28, fontSize: 13, color: C.muted, fontWeight: 800 }}>{gw.played > 0 ? p.rank : "–"}</span>
                 <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}{p.name === me ? <span style={{ fontSize: 10, color: C.accent }}> · you</span> : null}</span>
@@ -2123,13 +2125,26 @@
     }
 
     function HomeTab({ group, matches, ranked, badges, weekWindow, matchPtsById, hist, outcomes, anchorIso, setTab, openPlayerModal, openTeamModal, openMatchModal, familyRows = [], openFamilyModal, onOpenSwitcher }) {
-      const gwEmbed = <GameweekTab key={group ? group.code : "g"} embedded group={group} matches={matches} ranked={ranked} matchPtsById={matchPtsById} anchorIso={anchorIso} onTeamClick={openTeamModal} onMatchClick={openMatchModal} />;
       const newAccolades = useMemo(
         () => (typeof computeNewLeagueBadges === "function" ? computeNewLeagueBadges(badges, matches, anchorIso) : []),
         [badges, matches, anchorIso]
       );
       const rankColors = ["#84cc16", "#94a3b8", "#b45309"];
       const [showAllAccolades, setShowAllAccolades] = React.useState(false);
+      const accoladesPanel = (<>
+          {/* New accolades (last 7 days) — carousel shown under the gameweek pitch */}
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", margin: "2px 2px 8px" }}>
+            <div style={{ ...s.label, margin: 0, display: "flex", alignItems: "center", gap: 6 }}><span>🏅</span>New accolades</div>
+            <button onClick={() => setShowAllAccolades(true)} style={{ background: "none", border: "none", color: C.accent, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0 }}>View all ›</button>
+          </div>
+          {newAccolades.length === 0 ? (
+            <div style={{ ...s.card, padding: "14px", fontSize: 12, color: C.muted, marginBottom: 16 }}>No new accolades in the last 7 days.</div>
+          ) : (
+            <AccoladeCarousel items={newAccolades} onOpen={openPlayerModal} />
+          )}
+      </>);
+      const gwEmbed = <GameweekTab key={group ? group.code : "g"} embedded group={group} matches={matches} ranked={ranked} matchPtsById={matchPtsById} anchorIso={anchorIso} onTeamClick={openTeamModal} onMatchClick={openMatchModal} onPlayerClick={openPlayerModal} afterPitch={accoladesPanel} />;
+
 
       const posPill = (delta) => (
         <div style={{
@@ -2167,16 +2182,7 @@
 
       return (
         <div style={{ padding: "0 14px" }}>
-          {/* New accolades (last 7 days) — horizontally scrolling cards at the top of Home */}
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", margin: "2px 2px 8px" }}>
-            <div style={{ ...s.label, margin: 0, display: "flex", alignItems: "center", gap: 6 }}><span>🏅</span>New accolades</div>
-            <button onClick={() => setShowAllAccolades(true)} style={{ background: "none", border: "none", color: C.accent, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0 }}>View all ›</button>
-          </div>
-          {newAccolades.length === 0 ? (
-            <div style={{ ...s.card, padding: "14px", fontSize: 12, color: C.muted, marginBottom: 16 }}>No new accolades in the last 7 days.</div>
-          ) : (
-            <AccoladeCarousel items={newAccolades} onOpen={openPlayerModal} />
-          )}
+
 
           {gwEmbed}
 
