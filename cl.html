@@ -3093,32 +3093,11 @@ function StatRow({ label, hVal, aVal, hColor, aColor }) {
 // ── Head-to-head: "Meetings this season" — the next meeting between the two
 //    clubs (one row, ticking countdown) above every result between them. ───────
 const h2hPair = (x, h, a) => { const xh = x.homeTeam?.tla, xa = x.awayTeam?.tla; return (xh === h && xa === a) || (xh === a && xa === h); };
-// Stakes for an upcoming game, per side: what each result would be worth.
-function clStakes(m, side) {
-  const code = side === "home" ? m.homeTeam?.tla : m.awayTeam?.tla;
-  if (!code) return [];
-  const pot = potOf(code) - 1;
-  const st = (m.stage || "").toUpperCase();
-  if (st.includes("GROUP")) {
-    const out = [{ label: "Win", pts: GROUP_WIN_PTS[pot] }];
-    if (GROUP_DRAW_PTS[pot]) out.push({ label: "Draw", pts: GROUP_DRAW_PTS[pot] });
-    out.push({ label: "Clean sheet", pts: CLEAN_SHEET_PTS[pot], bonus: true });
-    out.push({ label: `Win by ${THRASHING_MARGIN}+`, pts: THRASHING_PTS[pot], bonus: true });
-    return out;
-  }
-  const map = { LAST_32: ["LAST_32", "LAST_16", "Last 16"], LAST_16: ["LAST_16", "QUARTER_FINALS", "Quarter-final"], QUARTER_FINALS: ["QUARTER_FINALS", "SEMI_FINALS", "Semi-final"], SEMI_FINALS: ["SEMI_FINALS", "FINALIST", "Final"], FINAL: ["FINALIST", "WINNER", "Champions"] }[st];
-  if (!map) return [];
-  const v = ptsTotal(code, map[1]) - ptsTotal(code, map[0]);
-  return [{ label: st === "FINAL" ? "Win the final" : `Win the tie → ${map[2]}`, pts: v }];
-}
-
-// Head-to-head: every meeting between the two clubs this season — the next one
-// (countdown) on top, then results, newest first. Tap a row to open it: a
-// played game shows each club's scoring contributions, an upcoming one the
-// stakes. The open match starts expanded; one row open at a time.
-function H2HMeetings({ h, a, m, matches = [], matchPtsById = {} }) {
+// Head-to-head: every meeting between the two clubs this season, drawn with
+// the Scores tab's own MatchCard (score, owners, "+N pts" with its breakdown,
+// 📊 Stakes on upcoming games). The next meeting sits on top with a countdown.
+function H2HMeetings({ h, a, m, matches = [], matchPtsById = {}, ranked = [] }) {
   const [now, setNow] = useState(Date.now());
-  const [open, setOpen] = useState(m.id);
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
   if (!h || !a) return null;
   const settled = (x) => x.status === "FINISHED" || x.status === "IN_PLAY" || x.status === "PAUSED";
@@ -3126,84 +3105,32 @@ function H2HMeetings({ h, a, m, matches = [], matchPtsById = {} }) {
     .sort((x, y) => new Date(x.utcDate) - new Date(y.utcDate))[0];
   const played = matches.filter(x => h2hPair(x, h, a) && settled(x) && x.score?.fullTime?.home != null)
     .sort((x, y) => new Date(y.utcDate) - new Date(x.utcDate));
-  const rows = [...(next ? [next] : []), ...played];
   const tally = { [h]: 0, [a]: 0, d: 0 };
   played.filter(x => x.status === "FINISHED").forEach(x => {
     const hs = x.score.fullTime.home, as_ = x.score.fullTime.away;
     if (hs === as_) tally.d++; else tally[hs > as_ ? x.homeTeam.tla : x.awayTeam.tla]++;
   });
   const name = (c) => (CL_CLUBS[c] && CL_CLUBS[c].name) || c;
-  const detail = (x) => {
-    const isPlayed = settled(x);
-    const mp = matchPtsById[x.id];
-    const side = (sd, align) => {
-      const code = sd === "home" ? x.homeTeam.tla : x.awayTeam.tla;
-      const items = isPlayed ? ((clMatchBreakdown(x, sd, mp) || {}).items || []) : clStakes(x, sd);
-      const tot = items.reduce((t, it) => t + it.pts, 0);
-      return (
-        <div style={{ flex: 1, minWidth: 0, textAlign: align }}>
-          <div style={{ fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name(code)}</div>
-          {items.map((it, i) => (
-            <div key={i} style={{ fontSize: 11, color: it.bonus ? C.muted : C.dim, lineHeight: 1.55 }}>
-              {align === "right" ? <>{it.label} <b style={{ color: C.accent }}>+{it.pts}</b></> : <><b style={{ color: C.accent }}>+{it.pts}</b> {it.label}</>}
-            </div>
-          ))}
-          {!items.length && <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.55 }}>{isPlayed ? "No points" : "—"}</div>}
-          {isPlayed && <div style={{ fontSize: 12, fontWeight: 800, color: tot > 0 ? C.text : C.muted, marginTop: 2 }}>{tot > 0 ? `+${tot}` : "0"} pts</div>}
-        </div>
-      );
-    };
-    const b = isPlayed ? clMatchBreakdown(x, "home", mp) : null;
-    const drought = isPlayed && (x.stage || "").includes("GROUP") && x.status === "FINISHED" && x.score.fullTime.home === 0 && x.score.fullTime.away === 0;
-    return (
-      <div style={{ padding: "8px 12px 12px", background: "rgba(0,0,0,0.12)" }}>
-        <div style={{ fontSize: 9, fontWeight: 800, color: C.muted, letterSpacing: "0.1em", textTransform: "uppercase", textAlign: "center", marginBottom: 6 }}>
-          {isPlayed ? `Sweepstake points${x.status !== "FINISHED" ? " · as it stands" : ""}` : "What's at stake"}
-        </div>
-        <div style={{ display: "flex", gap: 12 }}>{side("home", "left")}{side("away", "right")}</div>
-        {!isPlayed && (x.stage || "").includes("GROUP") && <div style={{ fontSize: 10, color: C.muted, textAlign: "center", marginTop: 6 }}>Bonuses stack on top of the result</div>}
-        {b && b.note && <div style={{ fontSize: 10, color: C.muted, textAlign: "center", marginTop: 6 }}>{b.note}</div>}
-        {drought && <div style={{ fontSize: 10, color: C.dangerText, textAlign: "center", marginTop: 6 }}>💀 0-0: +3 to the Grim Reaper</div>}
-      </div>
-    );
-  };
+  const label = (text, right) => (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: C.muted, margin: "2px 2px 6px" }}>
+      <span>{text}</span>{right}
+    </div>
+  );
   return (
     <div style={{ marginBottom: 18 }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8 }}>
         <div style={{ fontSize: 11, color: C.text, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}>Results &amp; fixtures</div>
         {played.length > 0 && <div style={{ fontSize: 11, color: C.muted }}>{name(h)} {tally[h]} · {tally.d} D · {tally[a]} {name(a)}</div>}
       </div>
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, overflow: "hidden" }}>
-        {rows.length === 0 && <div style={{ padding: "12px 14px", fontSize: 12, color: C.muted }}>No meetings this season.</div>}
-        {rows.map((x, i) => {
-          const isNext = next && x.id === next.id, self = x.id === m.id, isOpen = open === x.id;
-          const live = x.status === "IN_PLAY" || x.status === "PAUSED";
-          return (
-            <div key={x.id} style={{ borderBottom: i < rows.length - 1 ? `1px solid ${C.border}` : "none" }}>
-              <div className="player-card" onClick={() => setOpen(isOpen ? null : x.id)}
-                style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", cursor: "pointer", background: self ? "rgba(34,197,94,0.06)" : "transparent" }}>
-                <div style={{ width: 62, flexShrink: 0 }}>
-                  <div style={{ fontSize: 10, color: isNext ? C.accent : C.muted, fontWeight: isNext ? 800 : 400 }}>{isNext ? (self ? "Kick-off in" : "Next") : new Date(x.utcDate).toLocaleDateString(undefined, { day: "numeric", month: "short" })}</div>
-                  <div style={{ fontSize: 9, color: C.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{clStageText(x)}</div>
-                </div>
-                <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{x.homeTeam.name || x.homeTeam.tla}</span>
-                  <Flag code={x.homeTeam.tla} size={16} />
-                </div>
-                <span style={{ fontSize: isNext ? 11 : 14, fontWeight: 800, color: isNext ? C.accent : live ? C.red : C.text, minWidth: 58, textAlign: "center", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
-                  {isNext ? fmtCountdown(new Date(x.utcDate).getTime() - now) : `${x.score.fullTime.home}–${x.score.fullTime.away}`}
-                </span>
-                <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 6 }}>
-                  <Flag code={x.awayTeam.tla} size={16} />
-                  <span style={{ fontSize: 12, fontWeight: 700, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{x.awayTeam.name || x.awayTeam.tla}</span>
-                </div>
-                <span style={{ color: C.muted, fontSize: 11, flexShrink: 0, transform: isOpen ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>›</span>
-              </div>
-              {isOpen && detail(x)}
-            </div>
-          );
-        })}
-      </div>
+      {!next && !played.length && <div style={{ ...s.card, padding: "12px 14px", fontSize: 12, color: C.muted }}>No meetings this season.</div>}
+      {next && (
+        <>
+          {label(next.id === m.id ? "Kick-off in" : "Next meeting", <span style={{ color: C.accent, fontVariantNumeric: "tabular-nums", letterSpacing: 0 }}>{fmtCountdown(new Date(next.utcDate).getTime() - now)}</span>)}
+          <MatchCard m={next} ranked={ranked} upcoming={[]} pts={matchPtsById[next.id]} />
+        </>
+      )}
+      {played.length > 0 && label(played.length === 1 ? "Result" : "Results")}
+      {played.map(x => <MatchCard key={x.id} m={x} ranked={ranked} upcoming={[]} pts={matchPtsById[x.id]} />)}
     </div>
   );
 }
@@ -3419,7 +3346,7 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, matches = [], onMatc
       </div>
 
       <div ref={contentRef} style={{ flex: 1, padding: "16px 14px 28px", touchAction: "none" }}>
-        <H2HMeetings h={h} a={a} m={m} matches={matches} matchPtsById={matchPtsById} />
+        <H2HMeetings h={h} a={a} m={m} matches={matches} matchPtsById={matchPtsById} ranked={ranked} />
       </div>
     </>
   );
