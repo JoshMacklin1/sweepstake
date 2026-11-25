@@ -704,6 +704,32 @@ function clStageText(m) {
   return base;
 }
 
+// Sweepstake points a club earned from one match, as components:
+// league phase = Win/Draw (by pot) + Clean sheet + Win by 3+; knockout = the
+// round reached (from deriveMatchPts — only the deciding leg pays out).
+function clMatchBreakdown(m, side, matchPts) {
+  if (!m || !(m.status === "FINISHED" || m.status === "IN_PLAY" || m.status === "PAUSED")) return null;
+  const hs = m.score?.fullTime?.home, as_ = m.score?.fullTime?.away;
+  if (hs == null || as_ == null) return null;
+  const code = side === "home" ? m.homeTeam?.tla : m.awayTeam?.tla;
+  const gf = side === "home" ? hs : as_, ga = side === "home" ? as_ : hs;
+  const pot = potOf(code) - 1;
+  const items = [];
+  if ((m.stage || "").includes("GROUP")) {
+    if (gf > ga && GROUP_WIN_PTS[pot]) items.push({ label: "Win", pts: GROUP_WIN_PTS[pot] });
+    if (gf === ga && GROUP_DRAW_PTS[pot]) items.push({ label: "Draw", pts: GROUP_DRAW_PTS[pot] });
+    if (ga === 0 && typeof CLEAN_SHEET_PTS !== "undefined") items.push({ label: "Clean sheet", pts: CLEAN_SHEET_PTS[pot] });
+    if (typeof THRASHING_PTS !== "undefined" && gf - ga >= THRASHING_MARGIN) items.push({ label: `Win by ${THRASHING_MARGIN}+`, pts: THRASHING_PTS[pot] });
+  } else {
+    const v = matchPts ? matchPts[side] : 0;
+    const st = (m.stage || "").toUpperCase();
+    const next = { LAST_32: "Last 16", LAST_16: "Quarter-final", QUARTER_FINALS: "Semi-final", SEMI_FINALS: "Final" }[st];
+    if (v > 0) items.push({ label: st === "FINAL" ? "Champions" : next ? `Reached ${next}` : "Progressed", pts: v });
+    if (m._leg === 1) return { items, note: "1st leg — points come with the tie" };
+  }
+  return { items, note: null };
+}
+
 function MatchCard({ m, ranked, upcoming = [], pts, onPlayerClick, onTeamClick, onMatchClick }) {
   const h = m.homeTeam?.tla?.toUpperCase();
   const a = m.awayTeam?.tla?.toUpperCase();
@@ -861,6 +887,7 @@ function MatchCard({ m, ranked, upcoming = [], pts, onPlayerClick, onTeamClick, 
               <div style={{ fontSize:13, fontWeight:700, color: C.text }}>{ownerOf(h, ranked) || ""}</div>
               <div style={{ fontSize:11, color: C.muted }}>{m.homeTeam?.name || "TBD"}{POT[h] ? <span style={{ color:C.muted, fontSize:9 }}> (P{potOf(h)})</span> : ""}</div>
               {pts && <div style={{ fontSize:10, fontWeight:800, color: pts.home > 0 ? C.accent : C.muted, marginTop:2 }}>+{pts.home} pt{pts.home === 1 ? "" : "s"}</div>}
+              {pts && <PtsBits m={m} side="home" matchPts={pts} />}
             </div>
           </div>
           <div style={{ minWidth:64, textAlign:"center" }}>
@@ -898,6 +925,7 @@ function MatchCard({ m, ranked, upcoming = [], pts, onPlayerClick, onTeamClick, 
               <div style={{ fontSize:13, fontWeight:700, color: C.text }}>{ownerOf(a, ranked) || ""}</div>
               <div style={{ fontSize:11, color: C.muted }}>{m.awayTeam?.name || "TBD"}{POT[a] ? <span style={{ color:C.muted, fontSize:9 }}> (P{potOf(a)})</span> : ""}</div>
               {pts && <div style={{ fontSize:10, fontWeight:800, color: pts.away > 0 ? C.accent : C.muted, marginTop:2 }}>+{pts.away} pt{pts.away === 1 ? "" : "s"}</div>}
+              {pts && <PtsBits m={m} side="away" matchPts={pts} align="right" />}
             </div>
             <Flag code={a} size={22} />
           </div>
@@ -3144,6 +3172,13 @@ function fmtCountdown(ms) {
   return d > 0 ? `${d}d ${hh}h ${p2(mm)}m` : hh > 0 ? `${hh}h ${p2(mm)}m ${p2(ss)}s` : `${mm}m ${p2(ss)}s`;
 }
 
+// Compact per-side breakdown for match rows: "Win 4 · Clean sheet 2".
+function PtsBits({ m, side, matchPts, align = "left" }) {
+  const b = clMatchBreakdown(m, side, matchPts);
+  if (!b || !b.items.length || b.items.length < 2) return null; // a lone "Win 4" is already the +pts
+  return <div style={{ fontSize: 9, color: C.muted, marginTop: 1, textAlign: align, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{b.items.map(x => `${x.label} ${x.pts}`).join(" · ")}</div>;
+}
+
 function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, matches = [], onMatchClick, onTeamClick, onPlayerClick, onFamilyClick, groupKey, defaultView, onClose }) {
   const h = m.homeTeam?.tla?.toUpperCase();
   const a = m.awayTeam?.tla?.toUpperCase();
@@ -3285,6 +3320,37 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, matches = [], onMatc
                   {aOwner && <div style={{ fontSize: 11, fontWeight: 600, color: C.accent }}>{aOwner}</div>}
                 </div>
               </div>
+              {(() => {
+                const mp = matchPtsById && matchPtsById[m.id];
+                const hb = clMatchBreakdown(m, "home", mp), ab = clMatchBreakdown(m, "away", mp);
+                if (!hb && !ab) return null;
+                const col = (b, align) => {
+                  const tot = (b?.items || []).reduce((t, x) => t + x.pts, 0);
+                  return (
+                    <div style={{ flex: 1, minWidth: 0, textAlign: align }}>
+                      {(b?.items || []).map((x, i) => (
+                        <div key={i} style={{ fontSize: 11, color: C.dim, lineHeight: 1.6 }}>
+                          {align === "right" ? <>{x.label} <b style={{ color: C.accent }}>+{x.pts}</b></> : <><b style={{ color: C.accent }}>+{x.pts}</b> {x.label}</>}
+                        </div>
+                      ))}
+                      {!(b?.items || []).length && <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.6 }}>No points</div>}
+                      <div style={{ fontSize: 12, fontWeight: 800, color: tot > 0 ? C.text : C.muted, marginTop: 2 }}>{tot > 0 ? `+${tot}` : "0"} pts</div>
+                    </div>
+                  );
+                };
+                const note = (hb && hb.note) || (ab && ab.note);
+                const drought = (m.stage || "").includes("GROUP") && fin && hs === 0 && as_ === 0;
+                return (
+                  <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${C.border}` }}>
+                    <div style={{ fontSize: 9, fontWeight: 800, color: C.muted, letterSpacing: "0.1em", textTransform: "uppercase", textAlign: "center", marginBottom: 6 }}>
+                      Sweepstake points{live ? " · as it stands" : ""}
+                    </div>
+                    <div style={{ display: "flex", gap: 12 }}>{col(hb, "left")}{col(ab, "right")}</div>
+                    {note && <div style={{ fontSize: 10, color: C.muted, textAlign: "center", marginTop: 6 }}>{note}</div>}
+                    {drought && <div style={{ fontSize: 10, color: C.dangerText, textAlign: "center", marginTop: 6 }}>💀 0-0: +3 to the Grim Reaper</div>}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         ) : view === "players" ? (
@@ -3528,6 +3594,7 @@ function HomeMatchRow({ m, ranked, pts, onTeamClick, onMatchClick, isLast, banne
             <div style={{ fontSize: 12, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{hOwner || m.homeTeam?.name || "TBD"}</div>
             {hOwner && <div style={{ fontSize: 10, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.homeTeam?.name}{POT[h] ? <span style={{ fontSize: 9 }}> (P{POT[h]})</span> : ""}</div>}
             {pts?.home > 0 && <div style={{ fontSize: 10, fontWeight: 800, color: C.accent, marginTop: 1 }}>+{pts.home} pt{pts.home === 1 ? "" : "s"}</div>}
+              {pts && <PtsBits m={m} side="home" matchPts={pts} />}
           </div>
         </div>
         <div style={{ textAlign: "center", flexShrink: 0, minWidth: 44 }}>
@@ -3551,6 +3618,7 @@ function HomeMatchRow({ m, ranked, pts, onTeamClick, onMatchClick, isLast, banne
             <div style={{ fontSize: 12, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{aOwner || m.awayTeam?.name || "TBD"}</div>
             {aOwner && <div style={{ fontSize: 10, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.awayTeam?.name}{POT[a] ? <span style={{ fontSize: 9 }}> (P{POT[a]})</span> : ""}</div>}
             {pts?.away > 0 && <div style={{ fontSize: 10, fontWeight: 800, color: C.accent, marginTop: 1 }}>+{pts.away} pt{pts.away === 1 ? "" : "s"}</div>}
+              {pts && <PtsBits m={m} side="away" matchPts={pts} align="right" />}
           </div>
           <Flag code={a} size={20} />
         </div>
