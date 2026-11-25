@@ -4144,8 +4144,8 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
 
   return (
     <div>
-      {/* Slim countdown to the next game (live games lead Recent Results below) */}
-      {upNext[0] && (() => {
+      {/* Slim countdown to the next game — only when it kicks off within 24h */}
+      {upNext[0] && new Date(upNext[0].utcDate).getTime() - Date.now() <= 24 * 3600e3 && (() => {
         const n = upNext[0], h = n.homeTeam?.tla, a = n.awayTeam?.tla;
         return (
           <div className="player-card" onClick={() => openMatchModal && openMatchModal(n.id)}
