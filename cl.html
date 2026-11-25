@@ -4184,9 +4184,6 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
           onPlayerClick={(name) => { setShowAllAccolades(false); openPlayer(name); }} />
       )}
 
-      <Section icon="🏆" title="Table & Knockouts" onOpen={() => { window.history.pushState({ appTab: "table", appModal: null }, ""); window.scrollTo(0, 0); setTab("table"); setLeagueView("knockout"); }} linkLabel="View full table">
-        <KnockoutBracket matches={matches} matchPtsById={matchPtsById} onTeamClick={openTeamModal} homeMode />
-      </Section>
 
       <Section icon="🌐" title="Recent Results" onOpen={() => { window.history.pushState({ appTab: "scores", appModal: null }, ""); window.scrollTo(0, 0); setTab("scores"); }} linkLabel="View all scores"
         empty={recentResults.length === 0 ? "No matches in the last 24h" : null}>
