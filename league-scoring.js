@@ -31,7 +31,7 @@ var LEAGUE_API_URL = "https://sweepstake.joshmacklin7.workers.dev";
 function lgDraftableCompetitions() {
   if (typeof LEAGUE_COMPETITIONS === "undefined") return [];
   return Object.keys(LEAGUE_COMPETITIONS).filter(function (c) {
-    return typeof LEAGUE_MATCH_PTS !== "undefined" && LEAGUE_MATCH_PTS[c];
+    return lgScoringLeague(c);
   });
 }
 
@@ -45,7 +45,7 @@ function lgPoolTeamIds(comps) {
   var ids = [];
   Object.keys(LEAGUE_TEAMS).forEach(function (id) {
     var t = LEAGUE_TEAMS[id];
-    if (set[t.league] && typeof LEAGUE_MATCH_PTS !== "undefined" && LEAGUE_MATCH_PTS[t.league]) {
+    if (set[t.league] && lgScoringLeague(t.league)) {
       ids.push(Number(id));
     }
   });
@@ -87,7 +87,15 @@ var LEAGUE_COMPETITIONS = {
 // ─────────────────────────────────────────────────────────────────────────────
 var SWEEP_MODE = (typeof window !== "undefined" && window.SWEEP_MODE) || "top5";
 if (SWEEP_MODE === "top5") delete LEAGUE_COMPETITIONS.CL;
+if (SWEEP_MODE === "cl") Object.keys(LEAGUE_COMPETITIONS).forEach(function (c) { if (c !== "CL") delete LEAGUE_COMPETITIONS[c]; });
 function lgHasCL() { return !!LEAGUE_COMPETITIONS.CL; }
+function lgIsCLEdition() { return SWEEP_MODE === "cl"; }
+// Leagues whose clubs can be drawn/scored: the domestic leagues with a points
+// matrix, or — in the CL Edition — the Champions League itself.
+function lgScoringLeague(L) { return !!(typeof LEAGUE_MATCH_PTS !== "undefined" && LEAGUE_MATCH_PTS[L]) || (L === "CL" && SWEEP_MODE === "cl"); }
+// A game that counts as a "league game" for W/D/L, form and badges: domestic
+// regular-season fixtures, or — in the CL Edition — any CL fixture.
+function lgIsLeagueGame(m) { return m.stage === "REGULAR_SEASON" || (SWEEP_MODE === "cl" && !!(m.competition && m.competition.code === "CL")); }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TEAMS & POTS
@@ -404,6 +412,45 @@ var CL_TIER = {
   7397: 4, 10: 4, 546: 4, 930: 4, 1899: 4, 7509: 4, 2016: 4, 5720: 4, 10233: 4,
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// CHAMPIONS LEAGUE EDITION (SWEEP_MODE "cl") — the draw pool becomes the 36
+// clubs in CL_TIER, each with league "CL" and pot = its UEFA tier (the World
+// Cup Edition's pots, in CL form). Clubs from the big five keep their names;
+// the rest come from CL_EXTRA_CLUBS. `domestic` keeps the home league for
+// labels. Scoring is CL-only (clTeamPts: tier-gap match points + giant kills +
+// stage reached) — domestic points/bonuses have nothing to apply to.
+// ─────────────────────────────────────────────────────────────────────────────
+var CL_EXTRA_CLUBS = {
+  851: { name: "Club Brugge", tla: "BRU", country: "Belgium" },
+  498: { name: "Sporting CP", tla: "SPO", country: "Portugal" },
+  503: { name: "Porto", tla: "POR", country: "Portugal" },
+  674: { name: "PSV", tla: "PSV", country: "Netherlands" },
+  675: { name: "Feyenoord", tla: "FEY", country: "Netherlands" },
+  1887: { name: "Shakhtar", tla: "SHA", country: "Ukraine" },
+  610: { name: "Galatasaray", tla: "GAL", country: "Türkiye" },
+  613: { name: "Fenerbahçe", tla: "FEN", country: "Türkiye" },
+  5721: { name: "Bodø/Glimt", tla: "BOD", country: "Norway" },
+  930: { name: "Slavia Praha", tla: "SLA", country: "Czechia" },
+  1899: { name: "AEK Athens", tla: "AEK", country: "Greece" },
+  7509: { name: "Slovan Bratislava", tla: "SLO", country: "Slovakia" },
+  2016: { name: "LASK", tla: "LAS", country: "Austria" },
+  5720: { name: "Viking", tla: "VIK", country: "Norway" },
+  10233: { name: "Sabah", tla: "SAB", country: "Azerbaijan" },
+};
+if (SWEEP_MODE === "cl") {
+  var clRegistry = {};
+  Object.keys(CL_TIER).forEach(function (k) {
+    var id = Number(k), base = LEAGUE_TEAMS[id], extra = CL_EXTRA_CLUBS[id];
+    clRegistry[id] = {
+      id: id, name: base ? base.name : (extra ? extra.name : "#" + id),
+      tla: base ? base.tla : (extra ? extra.tla : ""),
+      league: "CL", pot: CL_TIER[id],
+      domestic: base ? base.league : null, country: extra ? extra.country : null,
+    };
+  });
+  LEAGUE_TEAMS = clRegistry;
+}
+
 var CL_OUTCOME_LABEL = {
   WINNER: "CL winners", FINAL: "CL final", SEMI: "CL semis", QF: "CL quarters",
   R16: "CL last 16", PLAYOFF: "CL play-off", LEAGUE_EXIT: "CL group exit",
@@ -598,7 +645,7 @@ function lgEnsureTeams(group) {
   var rng = lgMulberry32(lgHashStr("LGFAIR::" + (group.code || group.label || "")));
   var pool = [];
   Object.keys(LEAGUE_TEAMS).forEach(function (id) {
-    if (LEAGUE_MATCH_PTS[LEAGUE_TEAMS[id].league]) pool.push(Number(id)); // scoring leagues only
+    if (lgScoringLeague(LEAGUE_TEAMS[id].league)) pool.push(Number(id)); // scoring leagues only
   });
   var tierOf = function (id) { return (lgHasCL() && typeof CL_TIER !== "undefined" && CL_TIER[id]) || 0; };
   var leagueOf = function (id) { return LEAGUE_TEAMS[id].league; };
@@ -1141,7 +1188,7 @@ function deriveCLBracket(matches) {
 function deriveLeagueWDL(matches, teamId) {
   var wdl = { w: 0, d: 0, l: 0 };
   matches.forEach(function (m) {
-    if (m.stage !== "REGULAR_SEASON" || !lgIsSettled(m)) return;
+    if (!lgIsLeagueGame(m) || !lgIsSettled(m)) return;
     var r = lgResultFor(m, teamId);
     if (r === "W") wdl.w++; else if (r === "D") wdl.d++; else if (r === "L") wdl.l++;
   });
@@ -1564,7 +1611,7 @@ function computeLeagueBadges(ranked, matches, anchorIso) {
   var real = ranked;
   if (real.length === 0) return badges;
 
-  var played = matches.some(function (m) { return lgIsSettled(m) && m.stage === "REGULAR_SEASON"; });
+  var played = matches.some(function (m) { return lgIsSettled(m) && lgIsLeagueGame(m); });
   if (played) {
     give(real[0].name, "🏆", "Top Dog", "Top of the table. For now.");
     give(real[real.length - 1].name, "🥄", "Wooden Spoon", "Somebody has to hold it.", true);
@@ -1592,7 +1639,7 @@ function computeLeagueBadges(ranked, matches, anchorIso) {
   var bestUpset = null;                    // biggest pot-gap win by a weaker-pot team
   var chrono = matches.slice().sort(function (a, b) { return a.utcDate.localeCompare(b.utcDate); });
   chrono.forEach(function (m) {
-    if (m.stage !== "REGULAR_SEASON" || !lgIsSettled(m)) return;
+    if (!lgIsLeagueGame(m) || !lgIsSettled(m)) return;
     var hs = (m.score && m.score.fullTime && m.score.fullTime.home) || 0;
     var as = (m.score && m.score.fullTime && m.score.fullTime.away) || 0;
     [[m.homeTeam.id, hs, as], [m.awayTeam.id, as, hs]].forEach(function (side) {

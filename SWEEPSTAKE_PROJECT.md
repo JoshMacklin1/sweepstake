@@ -74,7 +74,28 @@ end-to-end against the 2025-26 replay data.
 |---|---|---|
 | **World Cup Edition** | `index.html` + `scoring.js` | WC 2026 (unchanged) |
 | **Sweepstaker Top 5** | `league.html` (`window.SWEEP_MODE = "top5"`) | Five domestic leagues, **no Champions League**: `league-scoring.js` drops `CL` from `LEAGUE_COMPETITIONS` (never fetched/scored/drawn on), the page strips CL fixtures from replay data, and the UI hides everything CL (`lgHasCL()`): UCL tab/sidebar, player-card CL strip, gameweek "From CL" (→ "Season total") and CL column, Rules CL section. |
-| **Champions League Edition** | `ucl.html` (`SWEEP_MODE = "cl"`) | 36 CL clubs drawn by UEFA tier — see its section |
+| **Champions League Edition** | `ucl.html` → `league.html?ed=cl` | 36 CL clubs drawn by UEFA tier — see below |
+
+Hub page: **`editions.html`** links all three (also More → Other editions).
+
+### Champions League Edition
+
+`ucl.html` redirects to `league.html?ed=cl` (keeping any `#g=`/`#j=` share
+fragment); the inline head script sets `window.SWEEP_MODE = "cl"`. In
+`league-scoring.js` the CL edition keeps only `CL` in `LEAGUE_COMPETITIONS` and
+**replaces `LEAGUE_TEAMS` with the 36 clubs in `CL_TIER`** (league `"CL"`,
+`pot` = UEFA tier, `domestic`/`country` for labels; non-big-five clubs from
+`CL_EXTRA_CLUBS`). `lgScoringLeague` / `lgIsLeagueGame` let the existing draw,
+W/D/L and badge code treat CL fixtures as the competition. Scoring is CL-only
+(`clTeamPts`: tier-gap match points + giant kills + stage reached). Same preset
+groups (Silverstream's 21): Rodents 4 each = one per tier, Macklins 5,
+Cornwall/Caversham 2, Silverstream 1 (15 unowned). UI (`CL_ED`): own
+per-phone storage (every key prefixed `ucl_`), "Champions League Edition"
+branding, **Matchday** instead of Gameweek, pitch rows by tier (Tier 1 ·
+favourites … Tier 4 · underdogs), "(T#)" tags, League tab = Players · Teams ·
+Table (league phase + knockouts) · Families, no Leagues tab / league pills /
+Scores filter, CL rules copy and tier tables. Verified on the 2025-26 replay:
+history and matchday totals both sum to season totals.
 
 ### Preset groups (teaser) — fair auto-draw + share links
 
