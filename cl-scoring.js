@@ -270,12 +270,23 @@ var PTS_INC = {
 var GROUP_WIN_PTS  = [1,  2,  4,  6];
 var GROUP_DRAW_PTS = [0,  1,  2,  3];
 
-function groupGamePts(code, result) {
+// Score bonuses (league phase, on top of W/D), pot-scaled like the win points
+// so favourites' frequent big wins don't run away with them (2025-26 rates:
+// clean sheet ~25% in every pot; won by 3+ Pot 1 25% … Pot 4 7%).
+var CLEAN_SHEET_PTS = [1, 1, 2, 3];   // conceded 0
+var THRASHING_PTS   = [1, 2, 4, 6];   // won by 3+
+var THRASHING_MARGIN = 3;
+function groupBonusPts(code, gf, ga) {
+  if (gf == null || ga == null) return 0;
+  const pot = potOf(code) - 1;
+  return (ga === 0 ? CLEAN_SHEET_PTS[pot] : 0) + (gf - ga >= THRASHING_MARGIN ? THRASHING_PTS[pot] : 0);
+}
+// gf/ga optional: with them, a result's score bonuses are included.
+function groupGamePts(code, result, gf, ga) {
   if (KNOCKOUT_ONLY) return 0;
   const pot = potOf(code) - 1;
-  if (result === "W") return GROUP_WIN_PTS[pot];
-  if (result === "D") return GROUP_DRAW_PTS[pot];
-  return 0;
+  const base = result === "W" ? GROUP_WIN_PTS[pot] : result === "D" ? GROUP_DRAW_PTS[pot] : 0;
+  return base + groupBonusPts(code, gf, ga);
 }
 
 // Compute group stage W/D/L points for all teams from finished group matches
@@ -291,8 +302,8 @@ function deriveGroupPts(matches) {
     if (hs > as_)       { hResult = "W"; aResult = "L"; }
     else if (as_ > hs)  { hResult = "L"; aResult = "W"; }
     else                 { hResult = "D"; aResult = "D"; }
-    groupPts[h] = (groupPts[h] || 0) + groupGamePts(h, hResult);
-    groupPts[a] = (groupPts[a] || 0) + groupGamePts(a, aResult);
+    groupPts[h] = (groupPts[h] || 0) + groupGamePts(h, hResult, hs, as_);
+    groupPts[a] = (groupPts[a] || 0) + groupGamePts(a, aResult, as_, hs);
   });
   return groupPts;
 }
@@ -655,8 +666,8 @@ function scorePlayers(matches) {
       const aRes = hs > as_ ? "L" : hs < as_ ? "W" : "D";
       let pts = 0;
       playerCodes.forEach(c => {
-        if (c === h) pts += groupGamePts(c, hRes);
-        if (c === a) pts += groupGamePts(c, aRes);
+        if (c === h) pts += groupGamePts(c, hRes, hs, as_);
+        if (c === a) pts += groupGamePts(c, aRes, as_, hs);
       });
       return pts;
     })();
@@ -1267,6 +1278,120 @@ function computeBadges(ranked, matches, rank24hChange, winPctPlayers) {
     if (blackSheep) add(blackSheep.name, { icon:"🐑", label:"Black Sheep", desc:`Contributing the least to the ${blackSheep.family} family (${Math.round(blackSheep.share * 100)}% of their points)`, tone:"bad" });
   }
 
+  // ── CL accolades (badges only) ───────────────────────────────────────────
+  // Real per-game results (legs, not aggregates) for the record-based ones.
+  const rawAll = (matches && matches._clRaw) || matches;
+  const finRaw = rawAll.filter(m => m.status === "FINISHED" && m.homeTeam?.tla && m.awayTeam?.tla && m.score?.fullTime?.home != null)
+    .sort((x, y) => new Date(x.utcDate) - new Date(y.utcDate));
+  const ownersOf = (code) => real.filter(p => (p.codes || []).includes(code)).map(p => p.name);
+  const clubName = (c) => (typeof CL_CLUBS !== "undefined" && CL_CLUBS[c] && CL_CLUBS[c].name) || c;
+  const perPlayerMost = (countByCode, min) => {
+    let best = null;
+    real.forEach(p => {
+      const n = (p.codes || []).reduce((s, c) => s + (countByCode[c] || 0), 0);
+      if (n >= min && (!best || n > best.n)) best = { name: p.name, n };
+    });
+    return best;
+  };
+  const homeW = {}, awayW = {}, draws = {};
+  finRaw.forEach(m => {
+    const h = m.homeTeam.tla, a = m.awayTeam.tla, hs = m.score.fullTime.home, as_ = m.score.fullTime.away;
+    if (hs > as_) homeW[h] = (homeW[h] || 0) + 1;
+    else if (as_ > hs) awayW[a] = (awayW[a] || 0) + 1;
+    else { draws[h] = (draws[h] || 0) + 1; draws[a] = (draws[a] || 0) + 1; }
+  });
+  // 🎢 Rollercoaster — owns a club in the season's highest-scoring game
+  let roller = null;
+  finRaw.forEach(m => { const g = m.score.fullTime.home + m.score.fullTime.away; if (!roller || g > roller.g) roller = { g, m }; });
+  if (roller && roller.g >= 5) {
+    const { m } = roller;
+    [...new Set([...ownersOf(m.homeTeam.tla), ...ownersOf(m.awayTeam.tla)])].forEach(n => add(n, { icon:"🎢", label:"Rollercoaster", desc:`In the season's wildest game: ${clubName(m.homeTeam.tla)} ${m.score.fullTime.home}–${m.score.fullTime.away} ${clubName(m.awayTeam.tla)}`, tone:"good" }));
+  }
+  // 🏠 Fortress / ✈️ Road Warriors / 🤝 Draw Specialist
+  const fort = perPlayerMost(homeW, 2);
+  if (fort) add(fort.name, { icon:"🏠", label:"Fortress", desc:`Most home wins (${fort.n})`, tone:"good" });
+  const road = perPlayerMost(awayW, 2);
+  if (road) add(road.name, { icon:"✈️", label:"Road Warriors", desc:`Most away wins (${road.n})`, tone:"good" });
+  const drawy = perPlayerMost(draws, 2);
+  if (drawy) add(drawy.name, { icon:"🤝", label:"Draw Specialist", desc:`Most draws (${drawy.n})`, tone:"bad" });
+  // 🔥 Hot Streak / 🧊 Cold Streak — longest CURRENT run among owned clubs (3+)
+  const runs = {};
+  finRaw.forEach(m => {
+    const hs = m.score.fullTime.home, as_ = m.score.fullTime.away;
+    [[m.homeTeam.tla, hs, as_], [m.awayTeam.tla, as_, hs]].forEach(([c, f, g]) => {
+      const r = runs[c] = runs[c] || { win: 0, winless: 0 };
+      if (f > g) { r.win++; r.winless = 0; } else { r.win = 0; r.winless++; }
+    });
+  });
+  let hot = null, cold = null;
+  Object.entries(runs).forEach(([c, r]) => {
+    const o = ownersOf(c); if (!o.length) return;
+    if (r.win >= 3 && (!hot || r.win > hot.n)) hot = { c, n: r.win, o };
+    if (r.winless >= 3 && (!cold || r.winless > cold.n)) cold = { c, n: r.winless, o };
+  });
+  if (hot) hot.o.forEach(n => add(n, { icon:"🔥", label:"Hot Streak", desc:`${clubName(hot.c)} have won ${hot.n} in a row`, tone:"good" }));
+  if (cold) cold.o.forEach(n => add(n, { icon:"🧊", label:"Cold Streak", desc:`${clubName(cold.c)} are ${cold.n} games without a win`, tone:"bad" }));
+  // 😬 Bottler (Pot 1 club beaten by a Pot 3/4 side) / 🛡️ Spoilsport (Pot 3/4 club holds a Pot 1) — most recent
+  let bottle = null, spoil = null;
+  finRaw.forEach(m => {
+    const h = m.homeTeam.tla, a = m.awayTeam.tla, hs = m.score.fullTime.home, as_ = m.score.fullTime.away;
+    [[h, a, hs, as_], [a, h, as_, hs]].forEach(([fav, dog, ff, fd]) => {
+      if (potOf(fav) !== 1 || potOf(dog) < 3) return;
+      if (fd > ff) bottle = { fav, dog, m };
+      else if (fd === ff) spoil = { fav, dog, m };
+    });
+  });
+  if (bottle) ownersOf(bottle.fav).forEach(n => add(n, { icon:"😬", label:"Bottler", desc:`${clubName(bottle.fav)} beaten by Pot ${potOf(bottle.dog)} ${clubName(bottle.dog)}`, tone:"bad" }));
+  if (spoil) ownersOf(spoil.dog).forEach(n => add(n, { icon:"🛡️", label:"Spoilsport", desc:`${clubName(spoil.dog)} held Pot 1 ${clubName(spoil.fav)}`, tone:"good" }));
+  // 👯 Double Trouble — two of your clubs won on the same day (most recent)
+  let dbl = null;
+  const winsByDay = {};
+  finRaw.forEach(m => {
+    const hs = m.score.fullTime.home, as_ = m.score.fullTime.away;
+    if (hs === as_) return;
+    const w = hs > as_ ? m.homeTeam.tla : m.awayTeam.tla, day = m.utcDate.slice(0, 10);
+    (winsByDay[day] = winsByDay[day] || new Set()).add(w);
+  });
+  Object.keys(winsByDay).sort().forEach(day => {
+    real.forEach(p => { const n = (p.codes || []).filter(c => winsByDay[day].has(c)).length; if (n >= 2) dbl = { name: p.name, n, day }; });
+  });
+  if (dbl) add(dbl.name, { icon:"👯", label:"Double Trouble", desc:`${dbl.n} clubs won on the same night`, tone:"good" });
+  // 🎯 Penalty Kings — won a shoot-out
+  finRaw.forEach(m => {
+    const pen = m.score?.penalties;
+    if (!pen || pen.home == null || pen.home === pen.away) return;
+    const w = pen.home > pen.away ? m.homeTeam.tla : m.awayTeam.tla;
+    ownersOf(w).forEach(n => { if (!(badges[n] || []).some(b => b.label === "Penalty Kings")) add(n, { icon:"🎯", label:"Penalty Kings", desc:`${clubName(w)} won a shoot-out`, tone:"good" }); });
+  });
+  // 💔 Nearly Men — lost a two-legged tie by one goal or on penalties (most recent)
+  let nearly = null;
+  done.filter(m => m._agg && m.status === "FINISHED").forEach(m => {
+    const hs = m.score.fullTime.home, as_ = m.score.fullTime.away, pen = m.score.penalties;
+    let loser = null;
+    if (Math.abs(hs - as_) === 1) loser = hs < as_ ? m.homeTeam.tla : m.awayTeam.tla;
+    else if (hs === as_ && pen) loser = pen.home < pen.away ? m.homeTeam.tla : m.awayTeam.tla;
+    if (loser) nearly = { loser, pens: hs === as_ };
+  });
+  if (nearly) ownersOf(nearly.loser).forEach(n => add(n, { icon:"💔", label:"Nearly Men", desc:`${clubName(nearly.loser)} went out ${nearly.pens ? "on penalties" : "by a single goal"}`, tone:"bad" }));
+  // 🧘 Steady Eddie — highest share of your clubs' league-phase games that
+  // earned points (W/D or a bonus); single holder, needs 6+ games.
+  const gp = {}; // name -> { n, scored }
+  finRaw.filter(m => (m.stage || "").includes("GROUP")).forEach(m => {
+    const hs = m.score.fullTime.home, as_ = m.score.fullTime.away;
+    [[m.homeTeam.tla, hs, as_], [m.awayTeam.tla, as_, hs]].forEach(([c, f, g]) => {
+      const r = f > g ? "W" : f === g ? "D" : "L";
+      const ok = groupGamePts(c, r, f, g) > 0;
+      ownersOf(c).forEach(n => { const o = gp[n] = gp[n] || { n: 0, scored: 0 }; o.n++; if (ok) o.scored++; });
+    });
+  });
+  let steady = null;
+  real.forEach(p => {
+    const o = gp[p.name]; if (!o || o.n < 6) return;
+    const r = o.scored / o.n;
+    if (!steady || r > steady.r) steady = { name: p.name, r };
+  });
+  if (steady) add(steady.name, { icon:"🧘", label:"Steady Eddie", desc:`Points from ${Math.round(steady.r * 100)}% of their clubs' games`, tone:"good" });
+
   // Order each player's badges rarest-first so the row preview (which shows only
   // the first couple) highlights what's UNIQUE to them rather than common
   // accolades (e.g. Underdog) that lots of players share. Stable sort keeps
@@ -1460,10 +1585,10 @@ function deriveHistory(matches) {
       else if (as_ > hs) { hResult = "L"; aResult = "W"; }
       else               { hResult = "D"; aResult = "D"; }
 
-      [[h, hResult], [a, aResult]].forEach(([code, result]) => {
+      [[h, hResult, hs, as_], [a, aResult, as_, hs]].forEach(([code, result, gf, ga]) => {
         const pls = teamPlayer[code] || [];
         pls.forEach(pl => {
-          if (result !== "L") running[pl] = (running[pl] || 0) + groupGamePts(code, result);
+          if (result !== "L") running[pl] = (running[pl] || 0) + groupGamePts(code, result, gf, ga);
         });
       });
 
@@ -1635,11 +1760,11 @@ function deriveSparklineHistory(matches) {
       if (hs > as_)      { hResult = "W"; aResult = "L"; }
       else if (as_ > hs) { hResult = "L"; aResult = "W"; }
       else               { hResult = "D"; aResult = "D"; }
-      [[h, hResult], [a, aResult]].forEach(([code, result]) => {
+      [[h, hResult, hs, as_], [a, aResult, as_, hs]].forEach(([code, result, gf, ga]) => {
         const pls = teamPlayer[code] || [];
         pls.forEach(pl => {
           if (result !== "L") {
-            running[pl] = (running[pl] || 0) + groupGamePts(code, result);
+            running[pl] = (running[pl] || 0) + groupGamePts(code, result, gf, ga);
             changedPlayers.add(pl);
           }
         });
@@ -1755,8 +1880,8 @@ function deriveMatchPts(matches) {
       if (hs > as_)      { hResult = "W"; aResult = "L"; }
       else if (as_ > hs) { hResult = "L"; aResult = "W"; }
       else               { hResult = "D"; aResult = "D"; }
-      hPts = groupGamePts(h, hResult);
-      aPts = groupGamePts(a, aResult);
+      hPts = groupGamePts(h, hResult, hs, as_);
+      aPts = groupGamePts(a, aResult, as_, hs);
     } else if (stage === "FINAL") {
       if (winner) { const d = award(winner, "WINNER");   if (winner === h) hPts = d; else aPts = d; }
       if (loser)  { const d = award(loser,  "FINALIST"); if (loser  === h) hPts = d; else aPts = d; }
@@ -1842,8 +1967,8 @@ function deriveTeamHistory(matches) {
       if (hs > as_)      { hR = "W"; aR = "L"; }
       else if (as_ > hs) { hR = "L"; aR = "W"; }
       else               { hR = "D"; aR = "D"; }
-      [[h, hR], [a, aR]].forEach(([c, r]) => {
-        if (c && (c in running) && r !== "L") { const p = groupGamePts(c, r); if (p) { running[c] += p; changed = true; } }
+      [[h, hR, hs, as_], [a, aR, as_, hs]].forEach(([c, r, gf, ga]) => {
+        if (c && (c in running) && r !== "L") { const p = groupGamePts(c, r, gf, ga); if (p) { running[c] += p; changed = true; } }
       });
       if (h && a) {
         if (!grpPts[h]) { grpPts[h]=0; grpGF[h]=0; grpGA[h]=0; }
