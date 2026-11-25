@@ -1443,7 +1443,7 @@
           </div>
           {pw.bonusPts !== 0 && (
             <div style={{ fontSize: 11, color: pw.bonusPts > 0 ? C.gold : C.red, textAlign: "center", marginBottom: 10 }}>
-              Includes {pw.bonusPts > 0 ? "+" : ""}{pw.bonusPts} in season / CL stage bonuses confirmed this week
+              Includes {pw.bonusPts > 0 ? "+" : ""}{pw.bonusPts} in {typeof lgHasCL === "function" && lgHasCL() ? (CL_ED ? "stage" : "season / CL stage") : "season"} bonuses confirmed this week
             </div>
           )}
           {/* Pitch / List */}
@@ -3369,6 +3369,31 @@
     //    pattern as LEAGUE_PLAYERS) so App can jump between the device's
     //    leagues without going back to the landing screen. ─────────────────
     let LEAGUE_SWITCHER = null; // { items: [{ id, name, sub, active, open }], toMenu }
+    // Edition picker — Top 5 / Champions League / World Cup. Same groups in
+    // all three; each edition keeps its own leagues & squads.
+    const EDITIONS = [
+      { id: "top5", label: "Top 5",           href: "league.html" },
+      { id: "cl",   label: "Champions League", href: "league.html?ed=cl" },
+      { id: "wc",   label: "World Cup",        href: "index.html" },
+    ];
+    function EditionPills({ style }) {
+      const cur = CL_ED ? "cl" : "top5";
+      return (
+        <div style={{ display: "flex", gap: 6, justifyContent: "center", flexWrap: "wrap", ...style }}>
+          {EDITIONS.map(e => {
+            const on = e.id === cur;
+            return (
+              <a key={e.id} href={on ? undefined : e.href} aria-current={on ? "page" : undefined} style={{
+                padding: "6px 12px", borderRadius: 999, fontSize: 12, fontWeight: 800, textDecoration: "none",
+                border: `1px solid ${on ? C.accent : C.border}`, background: on ? "rgba(34,197,94,0.12)" : "transparent",
+                color: on ? C.accent : C.muted, cursor: on ? "default" : "pointer",
+              }}>{e.label}</a>
+            );
+          })}
+        </div>
+      );
+    }
+
     function LeagueSwitcherSheet({ onClose }) {
       const sw = LEAGUE_SWITCHER;
       const items = sw ? sw.items : [];
@@ -3378,6 +3403,10 @@
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
               <div style={{ fontSize: 16, fontWeight: 900, color: C.text }}>Switch league</div>
               <button onClick={onClose} aria-label="Close" style={{ background: "transparent", border: "none", color: C.muted, fontSize: 20, cursor: "pointer", lineHeight: 1 }}>✕</button>
+            </div>
+            <div style={{ padding: "10px 16px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: C.dim, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>Edition</div>
+              <EditionPills style={{ justifyContent: "flex-start" }} />
             </div>
             <div style={{ overflowY: "auto", padding: "4px 0" }}>
               {items.map(it => (
@@ -4559,6 +4588,7 @@
         <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", justifyContent: "center", padding: "40px 24px", textAlign: "center", maxWidth: 480, margin: "0 auto" }}>
           <img src={LOGO_SRC} alt="Sweepstaker" style={{ width: 72, height: 72, display: "block", margin: "0 auto 14px" }} />
           <div style={{ fontSize: 26, fontWeight: 800, marginBottom: 4 }}>Sweepstaker <span style={{ color: C.accent }}>{EDITION_LABEL}</span></div>
+          <EditionPills style={{ margin: "8px 0 4px" }} />
           {children}
         </div>
       );
@@ -4647,6 +4677,7 @@
             <img src={LOGO_SRC} alt="Sweepstaker" style={{ width: 40, height: 40, display: "block" }} />
             <div style={{ fontSize: 22, fontWeight: 800 }}>Sweepstaker <span style={{ color: C.accent }}>{EDITION_LABEL}</span></div>
           </div>
+          <EditionPills style={{ marginTop: -8, marginBottom: 18 }} />
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", padding: "0 4px 8px" }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: C.dim, letterSpacing: "0.08em", textTransform: "uppercase" }}>Your leagues · {leagueItems.length}</div>
             <button onClick={() => setEditing(e => !e)} style={{ background: "none", border: "none", color: C.accent, fontSize: 13, fontWeight: 700, cursor: "pointer", padding: 2 }}>{editing ? "Done" : "Edit"}</button>

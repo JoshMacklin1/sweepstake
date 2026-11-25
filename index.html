@@ -5039,7 +5039,9 @@ function MoreMenu({ devMode, onToggleDevMode, onTakeTour, onViewRules, onSwitchG
     { label:"↻ Retake the tour", onClick:() => { onTakeTour(); onClose(); } },
     { label:"❓ Rules & Info",    onClick:() => { onViewRules(); onClose(); } },
     { label:"🔄 Switch group",    onClick:() => { onSwitchGroup(); onClose(); } },
-    { label:"⚽ League Sweeps 26/27", onClick:() => { window.location.href = "league.html"; } },
+    { label:"⚽ Sweepstaker Top 5",   onClick:() => { window.location.href = "league.html"; } },
+    { label:"🏆 Champions League",   onClick:() => { window.location.href = "league.html?ed=cl"; } },
+    { label:"🧭 All editions",       onClick:() => { window.location.href = "editions.html"; } },
   ];
 
   const rowBase = { display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 12px", borderBottom:`1px solid ${C.border}` };
