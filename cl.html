@@ -505,8 +505,8 @@ function FlagRow({ teams, baseHeight = 18 }) {
   const ordered = [...won, ...alive, ...dead];
   const n = ordered.length;
   const scale = n <= 3 ? 1 : n === 4 ? 0.94 : n === 5 ? 0.83 : 0.72;
-  const h = Math.round(baseHeight * scale);
-  const w = Math.round(h * 1.5);
+  const h = Math.round(baseHeight * scale * 1.15);
+  const w = h; // CL: crests are square (WC flags were 3:2)
   const gap = n <= 3 ? 4 : n === 4 ? 3 : n === 5 ? 2 : 1;
   return (
     <div style={{ display: "flex", gap, alignItems: "center", flexWrap: "nowrap", overflow: "hidden" }}>
@@ -518,7 +518,7 @@ function FlagRow({ teams, baseHeight = 18 }) {
           return (
             <div key={t.code} style={{ position: "relative", display: "inline-block", height: h, flexShrink: 0 }}>
               <img src={url} alt={t.name || t.code} {...flagHandlers(t.code, h)}
-                style={{ width: w, height: h, objectFit: "cover", borderRadius: 2, display: "block",
+                style={{ width: w, height: h, objectFit: "contain", display: "block",
                   opacity: dimmed ? 0.25 : 1,
                   outline: t.won ? "2px solid #f59e0b" : "none" }} />
               {dimmed && (
@@ -537,7 +537,7 @@ function FlagRow({ teams, baseHeight = 18 }) {
           <div key={t.code} style={{ position: "relative", display: "inline-block", height: h, flexShrink: 0 }}>
             <img src={url} alt={t.name || t.code} {...flagHandlers(t.code, h)}
               title={`${t.name} (Pot ${t.pot})${t.stage ? " — " + STAGE_LABEL[t.stage] : ""}`}
-              style={{ width: w, height: h, objectFit: "cover", borderRadius: 2, display: "block",
+              style={{ width: w, height: h, objectFit: "contain", display: "block",
                 opacity: dimmed ? 0.25 : 1,
                 outline: t.won ? "2px solid #f59e0b" : "none" }} />
             {dimmed && (
