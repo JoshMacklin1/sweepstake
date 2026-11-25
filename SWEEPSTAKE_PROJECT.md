@@ -145,7 +145,7 @@ flavour badges skipped). Top 5: under the gameweek pitch, last 7 days' new ones.
 ### Head-to-head card (CL)
 
 Clubs only: no Players or Family views. Top to bottom:
-1. The match card (emblems, score, owners) with the **sweepstake stats** underneath: status, stage, total points, record.
+1. The clubs card (emblems, owners, no score) with the **sweepstake stats** underneath: status, stage, total points, record.
 2. **Results & fixtures** (`H2HMeetings`): the next meeting first, as a countdown row, then every result between the two clubs this season with a win–draw–win tally. **Tap a row** to expand it, one at a time:
    - a played game shows each club's scoring contributions (`clMatchBreakdown`);
    - an upcoming game shows **what's at stake** (`clStakes`): win / draw points plus the clean-sheet and win-by-3+ bonuses, or "Win the tie → next round".

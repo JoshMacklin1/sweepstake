@@ -3349,13 +3349,8 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, matches = [], onMatc
                   <div style={{ fontSize: 13, fontWeight: 800, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>{m.homeTeam?.name || h}{POT[h] ? <span style={{ fontSize: 10, fontWeight: 600, color: C.muted }}> (P{POT[h]})</span> : ""}</div>
                   {hOwner && <div style={{ fontSize: 11, fontWeight: 600, color: C.accent }}>{hOwner}</div>}
                 </div>
-                <div style={{ flexShrink: 0, textAlign: "center", minWidth: 52 }}>
-                  {(fin || live) && hs !== null && as_ !== null
-                    ? <div style={{ fontSize: 22, fontWeight: 900, color: C.text, lineHeight: 1 }}>{hs} – {as_}</div>
-                    : <div style={{ fontSize: 13, fontWeight: 700, color: C.muted }}>vs</div>}
-                  {live && <div style={{ fontSize: 9, fontWeight: 800, color: C.red, marginTop: 3, letterSpacing: "0.08em" }}>LIVE</div>}
-                  {fin && <div style={{ fontSize: 9, fontWeight: 700, color: C.muted, marginTop: 4, letterSpacing: "0.06em", textTransform: "uppercase" }}>FT</div>}
-                </div>
+                {/* No score here — the club stats card; scores live in Results & fixtures below */}
+                <div style={{ flexShrink: 0, textAlign: "center", minWidth: 32, fontSize: 13, fontWeight: 700, color: C.muted }}>vs</div>
                 <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, textAlign: "center", minWidth: 0 }}>
                   <Flag code={a} size={32} />
                   <div style={{ fontSize: 13, fontWeight: 800, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>{m.awayTeam?.name || a}{POT[a] ? <span style={{ fontSize: 10, fontWeight: 600, color: C.muted }}> (P{POT[a]})</span> : ""}</div>
