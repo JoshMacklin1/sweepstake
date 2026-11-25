@@ -142,6 +142,16 @@ edge), auto-advance every 4s, swipe, touch pauses 8s. CL and WC: under the next-
 new-in-24h first (NEW tag) then everyone's current accolades (Grim Reaper / bot
 flavour badges skipped). Top 5: under the gameweek pitch, last 7 days' new ones.
 
+### Head-to-head card extras (CL)
+
+- **Next meeting**, at the top (`H2HNextMeeting`): the next live or upcoming match between the same
+  two clubs, with a countdown ticking every second. It says "Kick-off in" when that's the match already open
+  and "Next meeting" otherwise (e.g. the 2nd leg); tap to open it. If nothing else is scheduled it shows "No further meeting scheduled".
+- **Meetings this season**, at the top of the card body (`H2HMeetings`): every played or live meeting, newest first,
+  with a win–draw–win tally. The open match is highlighted; tap any other to open it.
+- Only the head-to-head card has this. Player, team and family cards don't show fixtures.
+- `clScoringView` also tags an unplayed 2nd leg `_leg: 2` (a display hint only, not used in scoring), so it reads "Play-off · 2nd leg".
+
 ### Simulate a past season (both CL and Top 5)
 
 `sim-seasons.js` (shared). More → **🎬 Simulate 2025-26 / 2024-25** stores the

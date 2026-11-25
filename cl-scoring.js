@@ -2148,6 +2148,7 @@ function clScoringView(ms) {
     legs.sort((x, y) => new Date(x.utcDate) - new Date(y.utcDate));
     const l1 = legs[0], l2 = legs[1];
     repl.set(l1, Object.assign({}, l1, { status: "SCHEDULED", _leg: 1 }));
+    if (l2 && !isSettled(l2.status)) repl.set(l2, Object.assign({}, l2, { _leg: 2 })); // display hint only
     if (!l2 || !isSettled(l2.status)) return;
     const g1 = clLegGoals(l1), g2 = clLegGoals(l2);
     const same = l1.homeTeam.tla === l2.homeTeam.tla;
