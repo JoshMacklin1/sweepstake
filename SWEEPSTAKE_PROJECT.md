@@ -133,6 +133,13 @@ league-app CL share links included).
   is still in `league.html`/`league-scoring.js` but unreachable (every
   `?ed=cl` redirects) — dead code, safe to delete later.
 
+### Accolades carousel (all three editions)
+
+`AccoladeCarousel` — full-width cards (normal card background + 3px green/red
+edge), auto-advance every 4s, swipe, touch pauses 8s. CL and WC: under the next-match card,
+new-in-24h first (NEW tag) then everyone's current accolades (Grim Reaper / bot
+flavour badges skipped). Top 5: under the gameweek pitch, last 7 days' new ones.
+
 ### Simulate a past season (both CL and Top 5)
 
 `sim-seasons.js` (shared). More → **🎬 Simulate 2025-26 / 2024-25** stores the
