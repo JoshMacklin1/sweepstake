@@ -4144,7 +4144,22 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
 
   return (
     <div>
-      {/* No live/next-match card here: live games lead Recent Results, Up Next has countdowns */}
+      {/* Slim countdown to the next game (live games lead Recent Results below) */}
+      {upNext[0] && (() => {
+        const n = upNext[0], h = n.homeTeam?.tla, a = n.awayTeam?.tla;
+        return (
+          <div className="player-card" onClick={() => openMatchModal && openMatchModal(n.id)}
+            style={{ ...s.card, padding: "10px 14px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginBottom: 16 }}>
+            <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: C.dim, flexShrink: 0 }}>Next</span>
+            <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+              <Flag code={h} size={16} />
+              <span style={{ fontSize: 12, fontWeight: 700, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{n.homeTeam?.name} v {n.awayTeam?.name}</span>
+              <Flag code={a} size={16} />
+            </div>
+            <span style={{ fontSize: 13, flexShrink: 0 }}><KickoffCountdown iso={n.utcDate} /></span>
+          </div>
+        );
+      })()}
       {/* Accolades carousel — new (last 24h) first, then everyone's current ones */}
       {(() => {
         const newKeys = new Set(newAccolades.map(b => b.name + "|" + b.label));
