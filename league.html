@@ -114,7 +114,8 @@
     if (window.SWEEP_MODE === "cl") location.replace("cl.html");
     if (window.SWEEP_MODE === "cl") document.title = "Sweepstaker — Champions League Edition";
   </script>
-  <script src="league-scoring.js?v=35"></script>
+  <script src="sim-seasons.js?v=1"></script>
+  <script src="league-scoring.js?v=36"></script>
   <script type="text/babel">
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
@@ -151,8 +152,11 @@
     const GROUP_STORAGE_KEY = LSP + "lsw_group";
     const NOTIF_SEEN_KEY = LSP + "lsw_notif_seen";
     const SEARCH_RECENT_KEY = LSP + "lsw_search_recent";
-    const REPLAY_START = "2025-08-01T00:00:00Z";
-    const REPLAY_END   = "2026-06-05T00:00:00Z";
+    // Past-season simulation (sim-seasons.js): a page-load mode. Otherwise the
+    // replay window is 2025-26 (used by the draft-preview "simulate" view).
+    const LG_SIM = typeof simActive === "function" ? simActive() : null;
+    const REPLAY_START = LG_SIM ? SIM_SEASONS[LG_SIM].start : "2025-08-01T00:00:00Z";
+    const REPLAY_END   = LG_SIM ? SIM_SEASONS[LG_SIM].end   : "2026-06-05T00:00:00Z";
     const compLabel = (code) => (typeof LEAGUE_COMPETITIONS !== "undefined" && LEAGUE_COMPETITIONS[code])
       ? LEAGUE_COMPETITIONS[code].label
       : (code === "L1" ? "League One" : (code || ""));
@@ -2899,10 +2903,15 @@
             <button style={row} onClick={() => { onClose(); onViewRules(); }}>
               <span style={{ fontSize: 18 }}>📖</span> Rules &amp; Info
             </button>
-            <button style={row} onClick={() => { onClose(); onToggleReplay(); }}>
-              <span style={{ fontSize: 18 }}>🎬</span> Simulate season <span style={{ fontSize: 11, fontWeight: 500, color: C.muted }}>(last season's results)</span>
-              <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, color: replayOn ? C.accent : C.muted }}>{replayOn ? "ON" : "OFF"}</span>
-            </button>
+            {LG_SIM ? (
+              <button style={row} onClick={() => { onClose(); simStart(null); }}>
+                <span style={{ fontSize: 18 }}>⏹</span> Stop simulating {SIM_SEASONS[LG_SIM].label}
+              </button>
+            ) : Object.keys(SIM_SEASONS).sort().reverse().map(se => (
+              <button key={se} style={row} onClick={() => { onClose(); simStart(se); }}>
+                <span style={{ fontSize: 18 }}>🎬</span> Simulate {SIM_SEASONS[se].label} <span style={{ fontSize: 11, fontWeight: 500, color: C.muted }}>(fresh draw)</span>
+              </button>
+            ))}
             <button style={row} onClick={() => { onClose(); window.location.href = "editions.html"; }}>
               <span style={{ fontSize: 18 }}>🧭</span> Other editions
             </button>
@@ -3453,7 +3462,7 @@
                       const t = new Date(REPLAY_START).getTime() + (e.target.value / 1000) * (new Date(REPLAY_END) - new Date(REPLAY_START));
                       onReplayDate(new Date(t).toISOString());
                     }} />
-                  <div style={{ fontSize: 11, color: C.gold, textAlign: "center" }}>🎬 Simulating last season · as of {fmtDay(replay.date)}</div>
+                  <div style={{ fontSize: 11, color: C.gold, textAlign: "center" }}>🎬 Simulating {LG_SIM ? SIM_SEASONS[LG_SIM].label : "last season"} · as of {fmtDay(replay.date)}</div>
                 </>
               )}
             </div>
@@ -3501,7 +3510,7 @@
                       const t = new Date(REPLAY_START).getTime() + (e.target.value / 1000) * (new Date(REPLAY_END) - new Date(REPLAY_START));
                       onReplayDate(new Date(t).toISOString());
                     }} />
-                  <div style={{ fontSize: 11, color: C.gold, textAlign: "center" }}>🎬 Simulating last season · as of {fmtDay(replay.date)}</div>
+                  <div style={{ fontSize: 11, color: C.gold, textAlign: "center" }}>🎬 Simulating {LG_SIM ? SIM_SEASONS[LG_SIM].label : "last season"} · as of {fmtDay(replay.date)}</div>
                 </>
               )}
             </div>
@@ -3512,6 +3521,13 @@
 
     // ── app shell ───────────────────────────────────────────────────────────
     function App({ group, onSwitchGroup, previewMode, onExitPreview }) {
+      // Simulating a past season: a FRESH fair draw over that season's clubs
+      // (LEAGUE_TEAMS was swapped at boot), whatever the group's real squads.
+      if (LG_SIM && group && group.players && !group._simDrawn && typeof lgEnsureTeams === "function") {
+        group.players.forEach(p => { p.teamIds = []; });
+        lgEnsureTeams(group);
+        group._simDrawn = true;
+      }
       // Family pools for this group (Caversham) — global read by the badge engine.
       const families = (group && group.families && group.families.length) ? group.families : null;
       LEAGUE_FAMILIES = families;
@@ -3547,7 +3563,7 @@
       tabRef.current = tab;
 
       const fetchMatches = useCallback(async (isManual) => {
-        if (replayRef.current.on) return;
+        if (replayRef.current.on || LG_SIM) return; // simulating: no live polling
         if (isManual) setRefreshing(true);
         try {
           // One request per competition in LEAGUE_COMPETITIONS (PL, ELC + the
@@ -3606,7 +3622,7 @@
 
       // Preview mode opens straight into the last-season simulation so waiting
       // players immediately see their random squads score across the season.
-      useEffect(() => { if (previewMode) toggleReplay(); }, []);
+      useEffect(() => { if (previewMode || LG_SIM) toggleReplay(); }, []);
 
       // Desktop ⇄ mobile switch. On desktop the app becomes a WC-style
       // sidebar + wider content column, so lift the global 480px #root cap
@@ -4714,7 +4730,55 @@
       );
     }
 
-    ReactDOM.createRoot(document.getElementById("root")).render(<GroupGate />);
+    // ── Past-season simulation boot ──────────────────────────────────────────
+    // Loads the season's results (+ the season before, whose final tables set
+    // the pots: quartiles of each league, promoted clubs in Pot 4), swaps in
+    // that season's LEAGUE_TEAMS, then mounts the app (App redraws squads).
+    function lgBuildSimTeams(cur, prev) {
+      const reg = {};
+      Object.keys(LEAGUE_COMPETITIONS).forEach(code => {
+        const cfg = LEAGUE_COMPETITIONS[code];
+        const clubs = {};
+        cur.filter(m => m.competition && m.competition.code === code && m.stage === "REGULAR_SEASON")
+          .forEach(m => [m.homeTeam, m.awayTeam].forEach(t => { if (t && t.id != null) clubs[t.id] = t; }));
+        const rank = {};
+        deriveLeagueTable(prev, code).forEach((r, i) => { rank[r.teamId] = i; });
+        Object.values(clubs).sort((a, b) => ((rank[a.id] ?? 999) - (rank[b.id] ?? 999)) || a.id - b.id).forEach((t, i) => {
+          reg[t.id] = { id: t.id, name: t.shortName || t.name, tla: t.tla, league: code, pot: Math.min(4, Math.floor(i / (cfg.potSize || 5)) + 1) };
+        });
+      });
+      return reg;
+    }
+    function SimBoot({ text, error }) {
+      return (
+        <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, textAlign: "center", gap: 14 }}>
+          <div style={{ fontSize: 32 }}>🎬</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: error ? C.red : C.text }}>{error ? "Couldn't load that season" : text}</div>
+          {error && <div style={{ fontSize: 12, color: C.muted, maxWidth: 300 }}>{error}</div>}
+          {!error && <div style={{ fontSize: 11, color: C.muted, maxWidth: 300 }}>First time only — older seasons load from the data feed (about a minute), then stay on this phone.</div>}
+          <button onClick={() => simStart(null)} style={{ background: "none", border: `1px solid ${C.border}`, color: C.muted, borderRadius: 10, padding: "8px 14px", cursor: "pointer" }}>Back to the live season</button>
+        </div>
+      );
+    }
+    const LG_ROOT = ReactDOM.createRoot(document.getElementById("root"));
+    if (!LG_SIM || CL_ED) {
+      LG_ROOT.render(<GroupGate />);
+    } else {
+      const codes = Object.keys(LEAGUE_COMPETITIONS);
+      const label = SIM_SEASONS[LG_SIM].label;
+      const prevSeason = String(Number(LG_SIM) - 1);
+      const steps = (LG_SIM === "2025" ? 0 : codes.length) + codes.length;
+      let done = 0;
+      const tick = () => { done++; LG_ROOT.render(<SimBoot text={`Loading ${label}… (${Math.min(done, steps)}/${steps})`} />); };
+      LG_ROOT.render(<SimBoot text={`Loading ${label}…`} />);
+      (async () => {
+        const cur = await simLoad(codes, LG_SIM, LG_SIM === "2025" ? null : tick);
+        const prev = await simLoad(codes, prevSeason, tick);
+        LEAGUE_TEAMS = lgBuildSimTeams(cur, prev);
+        window.LEAGUE_REPLAY_DATA = { season: label, matches: cur };
+        LG_ROOT.render(<GroupGate />);
+      })().catch(e => LG_ROOT.render(<SimBoot error={e.message} />));
+    }
   </script>
 </body>
 </html>

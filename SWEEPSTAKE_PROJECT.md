@@ -129,6 +129,33 @@ league-app CL share links included).
   is still in `league.html`/`league-scoring.js` but unreachable (every
   `?ed=cl` redirects) — dead code, safe to delete later.
 
+### Simulate a past season (both CL and Top 5)
+
+`sim-seasons.js` (shared). More → **🎬 Simulate 2025-26 / 2024-25** stores the
+season in sessionStorage (`sweepSim`) and reloads; **⏹ Stop simulating** clears
+it. A simulation is a **fresh fair draw over that season's real clubs**
+(deterministic per group + season), not your live squads.
+
+| | Champions League (`cl.html`) | Top 5 (`league.html`) |
+|---|---|---|
+| Data | 2025-26 bundled; 2024-25 fetched | 2025-26 bundled; 2024-25 + the previous season fetched |
+| Pots | UEFA's real pots (`CL_SIM_POTS`, by id then name; unmatched → Pot 4, listed on the sim bar) | Quartiles of the previous season's final table (`lgBuildSimTeams`); promoted clubs bottom |
+| Draw | `clUseSeason` → `simFairDeal` (Silverstream: `clTwoEach`) | `LEAGUE_TEAMS` swapped at boot; `App` clears + `lgEnsureTeams` |
+| Time | Floating sim bar slider; `clSimView` cuts results at the slider date and shifts every kickoff so it reads as "now" | Existing header scrubber (`REPLAY_START/END` from `SIM_SEASONS`) |
+
+Fetches go through the proxy one competition at a time, ≥6.5s apart (free tier
+10/min, 429 → wait and retry), then cache in localStorage (`simdata_CODE_SEASON`)
+— first 2024-25 Top 5 load ≈ 1 min, instant after. Only 2024-25 onwards: the
+free API stops at 2023-24 (needed for 2024-25 Top 5 pots), and the CL's 36-club
+format started in 2024-25.
+
+### Silverstream in the CL Edition — two clubs each
+
+21 players × 2 = 42 slots for 36 clubs (`twoEach: true`, `clTwoEach`): everyone
+keeps their original club and gets a second from the other half of the pots
+(Pots 1–2 ↔ 3–4). All 36 owned, 6 shared (INT, POR, COM, RCL, LOS, BVB) — the
+second owner is `lateB` (the WC app's "B" badge) and both score in full.
+
 ### Preset groups (teaser) — fair auto-draw + share links
 
 The five WC groups (Rodents, Silverstream, Cornwall, Macklins, Caversham — same

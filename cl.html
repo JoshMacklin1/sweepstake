@@ -336,7 +336,8 @@
   });
 </script>
 
-<script src="cl-scoring.js?v=20"></script>
+<script src="sim-seasons.js"></script>
+  <script src="cl-scoring.js?v=20"></script>
 <!-- scoring.js defines PLAYERS, POT, PTS_INC, scorePlayers, deriveStages, etc.
      as classic-script globals (see scoring.js header comment for why it's a
      classic script and not type="module"). The Babel script below depends on
@@ -4805,6 +4806,9 @@ function MoreMenu({ devMode, onToggleDevMode, onTakeTour, onViewRules, onSwitchG
     { label:"↻ Retake the tour", onClick:() => { onTakeTour(); onClose(); } },
     { label:"❓ Rules & Info",    onClick:() => { onViewRules(); onClose(); } },
     { label:"🔄 Switch group",    onClick:() => { onSwitchGroup(); onClose(); } },
+    ...(window.CL_SIMSTATE
+      ? [{ label:`⏹ Stop simulating ${SIM_SEASONS[window.CL_SIMSTATE.season].label}`, onClick:() => simStart(null) }]
+      : Object.keys(SIM_SEASONS).sort().reverse().map(se => ({ label:`🎬 Simulate ${SIM_SEASONS[se].label}`, onClick:() => simStart(se) }))),
     { label:"🌍 World Cup Edition",  onClick:() => { window.location.href = "index.html"; } },
     { label:"⚽ Sweepstaker Top 5",   onClick:() => { window.location.href = "league.html"; } },
     { label:"🧭 All editions",       onClick:() => { window.location.href = "editions.html"; } },
@@ -5989,6 +5993,15 @@ function App({ onSwitchGroup, onQuickSwitchGroup, groupKey, isAdmin = false, ini
 
   const fetchMatches = useCallback(async (isManual = false, forceDev = null) => {
     if (isManual) setRefreshing(true);
+    // Past-season simulation: the season's real results up to the slider date,
+    // replayed as if "now" (see clSimView) — no live polling.
+    if (window.CL_SIMSTATE) {
+      setMatches(clSimView());
+      setLastUpdated(new Date());
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
     const useDev = forceDev !== null ? forceDev : devMode;
     if (useDev) {
       setMatches(applySimCheckpoint(MOCK_MATCHES, simCheckpointRef.current));
@@ -6062,6 +6075,13 @@ function App({ onSwitchGroup, onQuickSwitchGroup, groupKey, isAdmin = false, ini
       setRefreshing(false);
     }
   }, []);
+
+  // Simulation slider moved → re-cut the season.
+  useEffect(() => {
+    const h = () => fetchMatches();
+    window.addEventListener("clsim", h);
+    return () => window.removeEventListener("clsim", h);
+  }, [fetchMatches]);
 
   // Polls every 60s normally, but drops to every 20s whenever a match is
   // live (IN_PLAY/PAUSED) — so points/positions in the league and family
@@ -7044,7 +7064,76 @@ function GroupGate() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(<GroupGate />);
+// ─────────────────────────────────────────────────────────────────────────────
+// PAST-SEASON SIMULATION — sim-seasons.js holds the chosen season; boot loads
+// it, swaps in that season's clubs + a fresh fair draw (clUseSeason), then the
+// app runs on clSimView(): results up to the slider date, with every kickoff
+// shifted so the slider date reads as "now" (live/upcoming/24h logic all work).
+// ─────────────────────────────────────────────────────────────────────────────
+function clSimView() {
+  const S = window.CL_SIMSTATE, T = Date.parse(S.date), shift = Date.now() - T;
+  const start = {};
+  S.matches.forEach(m => { const t = Date.parse(m.utcDate); if (!(m.stage in start) || t < start[m.stage]) start[m.stage] = t; });
+  const cut = S.matches.map(m => {
+    const { _leg, _tieWinner, _tieLoser, ...base } = m;
+    if (Date.parse(m.utcDate) <= T) return base;
+    const tbd = !(m.stage || "").includes("GROUP") && start[m.stage] - 10 * 864e5 > T; // draw not made yet
+    return { ...base, status: "TIMED", score: { fullTime: { home: null, away: null } },
+      ...(tbd ? { homeTeam: { id: null, tla: null, name: "TBD" }, awayTeam: { id: null, tla: null, name: "TBD" } } : {}) };
+  });
+  return clNormalizeMatches(cut).map(m => ({ ...m, utcDate: new Date(Date.parse(m.utcDate) + shift).toISOString() }));
+}
+
+function SimBar() {
+  const S = window.CL_SIMSTATE;
+  const [d, setD] = useState(S.date);
+  const t0 = Date.parse(S.start), t1 = Date.parse(S.end);
+  const pct = Math.round((Date.parse(d) - t0) / (t1 - t0) * 1000);
+  const move = (v) => {
+    const iso = new Date(t0 + (v / 1000) * (t1 - t0)).toISOString();
+    setD(iso); S.date = iso;
+    clearTimeout(SimBar._t); SimBar._t = setTimeout(() => window.dispatchEvent(new Event("clsim")), 120);
+  };
+  return (
+    <div style={{ position:"fixed", left:"50%", transform:"translateX(-50%)", bottom:"calc(84px + env(safe-area-inset-bottom))", zIndex:24,
+      width:"min(440px, calc(100% - 24px))", background:"rgba(13,26,17,0.94)", border:`1px solid ${C.gold}66`, borderRadius:12,
+      padding:"6px 10px 8px", boxShadow:"0 8px 24px rgba(0,0,0,0.5)", backdropFilter:"blur(6px)", WebkitBackdropFilter:"blur(6px)" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:8, fontSize:11, color:C.gold, fontWeight:700 }}>
+        <span style={{ flex:1 }}>🎬 Simulating {SIM_SEASONS[S.season].label} · {new Date(d).toLocaleDateString(undefined, { day:"numeric", month:"short", year:"numeric" })}</span>
+        <button onClick={() => simStart(null)} style={{ background:"none", border:`1px solid ${C.gold}66`, color:C.gold, borderRadius:6, fontSize:10, fontWeight:800, padding:"2px 7px", cursor:"pointer" }}>Exit</button>
+      </div>
+      <input type="range" min={0} max={1000} value={pct} onChange={e => move(+e.target.value)} style={{ width:"100%", accentColor:C.gold }} />
+      {S.unmatched.length > 0 && <div style={{ fontSize:9.5, color:C.muted }}>Pot guessed (Pot 4) for: {S.unmatched.join(", ")}</div>}
+    </div>
+  );
+}
+
+function SimLoading({ text, error }) {
+  return (
+    <div style={{ minHeight:"100vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24, textAlign:"center", gap:14 }}>
+      <div style={{ fontSize:32 }}>🎬</div>
+      <div style={{ fontSize:14, color: error ? C.dangerText : C.text, fontWeight:700 }}>{error ? "Couldn't load that season" : text}</div>
+      {error && <div style={{ fontSize:12, color:C.muted, maxWidth:300 }}>{error}</div>}
+      <button onClick={() => simStart(null)} style={{ background:"none", border:`1px solid ${C.border}`, color:C.muted, borderRadius:10, padding:"8px 14px", cursor:"pointer" }}>Back to the live season</button>
+    </div>
+  );
+}
+
+const CL_ROOT = ReactDOM.createRoot(document.getElementById("root"));
+const CL_SIM = typeof simActive === "function" ? simActive() : null;
+if (!CL_SIM || typeof clUseSeason !== "function") {
+  CL_ROOT.render(<GroupGate />);
+} else {
+  const label = SIM_SEASONS[CL_SIM].label;
+  CL_ROOT.render(<SimLoading text={`Loading the ${label} Champions League…`} />);
+  simLoad(["CL"], CL_SIM).then(raw => {
+    const unmatched = clUseSeason(CL_SIM, raw);
+    const norm = clNormalizeMatches(raw);
+    const dates = norm.map(m => m.utcDate).sort();
+    window.CL_SIMSTATE = { season: CL_SIM, matches: norm, start: dates[0], end: dates[dates.length - 1], date: dates[dates.length - 1], unmatched };
+    CL_ROOT.render(<><GroupGate /><SimBar /></>);
+  }).catch(e => CL_ROOT.render(<SimLoading error={e.message} />));
+}
 </script>
 </body>
 </html>
