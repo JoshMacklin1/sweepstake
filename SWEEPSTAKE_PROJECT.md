@@ -170,6 +170,16 @@ wins / draws, 2+), 🔥 Hot Streak / 🧊 Cold Streak (longest current win / win
 won the same night), 🎯 Penalty Kings (won a shoot-out), 💔 Nearly Men (out of a two-legged tie by one
 goal or on pens), 🧘 Steady Eddie (highest share of club games that earned points, 6+ games).
 
+### Points breakdown on scores (CL)
+
+`clMatchBreakdown(m, side, matchPts)` turns a club's points from one match into labelled parts:
+- League phase: Win / Draw (by pot) + Clean sheet + Win by 3+.
+- Knockouts: "Reached <next round>", or "Champions" for the final winner. A 1st leg gets the note that the tie pays out on the 2nd leg.
+
+Where it shows:
+- **Head-to-head match card**: a "Sweepstake points" panel under the score, per club with a total ("as it stands" while live), plus "💀 0-0: +3 to the Grim Reaper".
+- **Match rows** (Scores and Home): the `PtsBits` one-liner under "+N pts" whenever more than one part contributed.
+
 ### Simulate a past season (both CL and Top 5)
 
 `sim-seasons.js` (shared). More → **🎬 Simulate 2025-26 / 2024-25** stores the
