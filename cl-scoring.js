@@ -2080,12 +2080,35 @@ function clNormalizeMatches(ms) {
     if (!t || t.id == null) return t;
     const c = CL_CODE_BY_ID[t.id];
     if (!c) return t;
-    return Object.assign({}, t, { tla: c, name: t.name || CL_CLUBS[c].name, shortName: t.shortName || CL_CLUBS[c].name });
+    return Object.assign({}, t, { tla: c, name: CL_CLUBS[c].name, shortName: CL_CLUBS[c].name });
   };
-  return (ms || []).map(m => Object.assign({}, m, {
+  const out = (ms || []).map(m => Object.assign({}, m, {
     stage: CL_STAGE_MAP[(m.stage || "").toUpperCase()] || m.stage,
     homeTeam: fix(m.homeTeam), awayTeam: fix(m.awayTeam),
   }));
+  // Display hints for two-legged ties (the scoring view works these out itself):
+  // _leg = 1 | 2, and on a FINISHED 2nd leg _tieWinner / _tieLoser by aggregate.
+  const view = clScoringView(out);
+  out.forEach((m, i) => {
+    const v = view[i];
+    if (v._leg) m._leg = v._leg;
+    if (v._leg === 2 && v.status === "FINISHED") {
+      const h = v.homeTeam?.tla, a = v.awayTeam?.tla;
+      const hs = v.score.fullTime.home, as_ = v.score.fullTime.away, pen = v.score.penalties;
+      const w = hs > as_ ? h : as_ > hs ? a : pen ? (pen.home > pen.away ? h : a) : null;
+      if (w) { m._tieWinner = w; m._tieLoser = w === h ? a : h; }
+    }
+  });
+  return out;
+}
+// Feed clubs that aren't in the draw (wrong/renamed id) — surfaced in the UI so
+// a stale CL_CLUBS id never silently drops a club from everyone's score.
+function clUnknownClubs(ms) {
+  const seen = {};
+  (ms || []).forEach(m => [m.homeTeam, m.awayTeam].forEach(t => {
+    if (t && t.id != null && !CL_CODE_BY_ID[t.id] && (m.stage || "").toUpperCase().includes("GROUP")) seen[t.id] = t.shortName || t.name || t.tla || ("#" + t.id);
+  }));
+  return Object.keys(seen).map(id => ({ id: +id, name: seen[id] }));
 }
 
 // Goals a leg contributes to the aggregate (regular + extra time, never the
