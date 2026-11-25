@@ -146,11 +146,10 @@ flavour badges skipped). Top 5: under the gameweek pitch, last 7 days' new ones.
 
 Clubs only: no Players or Family views. Top to bottom:
 1. The clubs card (emblems, owners, no score) with the **sweepstake stats** underneath: status, stage, total points, record.
-2. **Results & fixtures** (`H2HMeetings`): the next meeting first, as a countdown row, then every result between the two clubs this season with a win–draw–win tally. **Tap a row** to expand it, one at a time:
-   - a played game shows each club's scoring contributions (`clMatchBreakdown`);
-   - an upcoming game shows **what's at stake** (`clStakes`): win / draw points plus the clean-sheet and win-by-3+ bonuses, or "Win the tie → next round".
-
-   The open match starts expanded.
+2. **Results & fixtures** (`H2HMeetings`): the Scores tab's own `MatchCard` for every meeting between the two clubs.
+   - The next meeting comes first, under a "Next meeting" label with a countdown ticking every second.
+   - Results follow, newest first, with a win–draw–win tally.
+   - Played games show "+N pts" plus the `PtsBits` breakdown; upcoming games have the 📊 Stakes toggle.
 3. Tap either club (badge, name, owner) in the top card to open its team card. There are no separate club buttons.
 
 `clScoringView` tags an unplayed 2nd leg `_leg: 2` as a display hint ("2nd leg").
