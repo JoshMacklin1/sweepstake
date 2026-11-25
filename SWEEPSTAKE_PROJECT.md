@@ -68,6 +68,14 @@ replay snapshots of 2025-26). UI (`league.html`) is built out — full
 group-gated app (Home / Sweeps / Tables / Scores / More) verified rendering
 end-to-end against the 2025-26 replay data.
 
+### Editions
+
+| Edition | Page | Notes |
+|---|---|---|
+| **World Cup Edition** | `index.html` + `scoring.js` | WC 2026 (unchanged) |
+| **Sweepstaker Top 5** | `league.html` (`window.SWEEP_MODE = "top5"`) | Five domestic leagues, **no Champions League**: `league-scoring.js` drops `CL` from `LEAGUE_COMPETITIONS` (never fetched/scored/drawn on), the page strips CL fixtures from replay data, and the UI hides everything CL (`lgHasCL()`): UCL tab/sidebar, player-card CL strip, gameweek "From CL" (→ "Season total") and CL column, Rules CL section. |
+| **Champions League Edition** | `ucl.html` (`SWEEP_MODE = "cl"`) | 36 CL clubs drawn by UEFA tier — see its section |
+
 ### Preset groups (teaser) — fair auto-draw + share links
 
 The five WC groups (Rodents, Silverstream, Cornwall, Macklins, Caversham — same
@@ -141,8 +149,8 @@ standings. On Home, tapping a name (week table, "Highest") opens that player's c
 (15 clubs, 3 per league, £100m, captain/vice, auto-subs, transfers & hits,
 chips, form-driven prices). Practice mode plays the real 2025-26 season week by
 week; live mode is phone-only until the server-side deadline lock (phase 2).
-Full rules, price model and calibration in **[FANTASY.md](FANTASY.md)**. Linked
-from the league app's More menu.
+Full rules, price model and calibration in **[FANTASY.md](FANTASY.md)**. Hidden
+for now (no menu link) — reachable directly at `fantasy.html`.
 
 ### Live multiplayer draft (hosted leagues)
 

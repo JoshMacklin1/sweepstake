@@ -78,6 +78,18 @@ var LEAGUE_COMPETITIONS = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// EDITION — the page sets window.SWEEP_MODE before loading this file:
+//   "top5" (league.html, Sweepstaker Top 5): the five domestic leagues only —
+//          the Champions League is dropped from LEAGUE_COMPETITIONS, so it's
+//          never fetched, scored, drawn on or shown.
+//   "cl"   (ucl.html, Champions League Edition): see the CL edition block.
+// Defaults to "top5". lgHasCL() is the single check the UI uses.
+// ─────────────────────────────────────────────────────────────────────────────
+var SWEEP_MODE = (typeof window !== "undefined" && window.SWEEP_MODE) || "top5";
+if (SWEEP_MODE === "top5") delete LEAGUE_COMPETITIONS.CL;
+function lgHasCL() { return !!LEAGUE_COMPETITIONS.CL; }
+
+// ─────────────────────────────────────────────────────────────────────────────
 // TEAMS & POTS
 //
 // Pot = quarter of each league's 2026-27 lineup, seeded by a weighted
@@ -588,7 +600,7 @@ function lgEnsureTeams(group) {
   Object.keys(LEAGUE_TEAMS).forEach(function (id) {
     if (LEAGUE_MATCH_PTS[LEAGUE_TEAMS[id].league]) pool.push(Number(id)); // scoring leagues only
   });
-  var tierOf = function (id) { return (typeof CL_TIER !== "undefined" && CL_TIER[id]) || 0; };
+  var tierOf = function (id) { return (lgHasCL() && typeof CL_TIER !== "undefined" && CL_TIER[id]) || 0; };
   var leagueOf = function (id) { return LEAGUE_TEAMS[id].league; };
   // Same squad size as the live draft (lgDraftPerPlayer): a multiple of the
   // league count whenever every league can give each player the same number.
