@@ -337,7 +337,7 @@
 </script>
 
 <script src="sim-seasons.js?v=2"></script>
-  <script src="cl-scoring.js?v=22"></script>
+  <script src="cl-scoring.js?v=23"></script>
 <!-- scoring.js defines PLAYERS, POT, PTS_INC, scorePlayers, deriveStages, etc.
      as classic-script globals (see scoring.js header comment for why it's a
      classic script and not type="module"). The Babel script below depends on
@@ -4803,7 +4803,7 @@ function InfoContent() {
     <>
             <div style={{ fontSize:11, color:C.text, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:8 }}>How the Champions League works</div>
             <div style={{ ...s.card, padding:"10px 12px", marginBottom:20, fontSize:12, color:C.muted, lineHeight:1.55 }}>
-              36 clubs, one league table, 8 games each. <b style={{ color:C.text }}>Top 8</b> go straight to the Last 16, <b style={{ color:C.text }}>9th–24th</b> play a two-legged knockout play-off, <b style={{ color:C.text }}>25th–36th</b> are out. Every knockout round before the final is two legs, decided on aggregate (then extra time and penalties). A place or an exit only counts once it's mathematically certain.
+              36 clubs, one league table, 8 games each. League-phase games also pay <b style={{ color:C.text }}>bonuses</b> on top of the win/draw points: a clean sheet, and a win by {THRASHING_MARGIN}+ goals, both scaled by pot like the win points. <b style={{ color:C.text }}>Top 8</b> go straight to the Last 16, <b style={{ color:C.text }}>9th–24th</b> play a two-legged knockout play-off, <b style={{ color:C.text }}>25th–36th</b> are out. Every knockout round before the final is two legs, decided on aggregate (then extra time and penalties). A place or an exit only counts once it's mathematically certain.
             </div>
             <div style={{ fontSize:11, color:C.text, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:8 }}>Points by Stage & Pot</div>
             <div style={{ ...s.card, overflowX:"auto", marginBottom:20 }}>
@@ -4824,6 +4824,14 @@ function InfoContent() {
                   <tr style={{ borderBottom:`1px solid ${C.border}` }}>
                     <td style={{ padding:"9px 12px", color:"#86efac", fontWeight:600, fontSize:11 }}>League Draw</td>
                     {GROUP_DRAW_PTS.map((v,i) => <td key={i} style={{ padding:"9px 8px", textAlign:"center", fontWeight:700, color:C.text }}>+{v}</td>)}
+                  </tr>
+                  <tr style={{ borderBottom:`1px solid ${C.border}` }}>
+                    <td style={{ padding:"9px 12px", color:"#7dd3fc", fontWeight:600, fontSize:11 }}>🧱 Clean Sheet bonus</td>
+                    {CLEAN_SHEET_PTS.map((v,i) => <td key={i} style={{ padding:"9px 8px", textAlign:"center", fontWeight:700, color:C.text }}>+{v}</td>)}
+                  </tr>
+                  <tr style={{ borderBottom:`1px solid ${C.border}` }}>
+                    <td style={{ padding:"9px 12px", color:"#fbbf24", fontWeight:600, fontSize:11 }}>💥 Thrashing bonus (win by {THRASHING_MARGIN}+)</td>
+                    {THRASHING_PTS.map((v,i) => <td key={i} style={{ padding:"9px 8px", textAlign:"center", fontWeight:700, color:C.text }}>+{v}</td>)}
                   </tr>
                   {Object.entries(PTS).map(([key, vals]) => (
                     <tr key={key} style={{ borderBottom:`1px solid ${C.border}` }}>
@@ -4892,8 +4900,20 @@ function InfoContent() {
                 { icon:"⚰️", label:"Wiped Out", desc:"First to lose all their teams", tone:"bad" },
                 { icon:"🍞", label:"Bread Winner", desc:"Carrying their family (highest share of its points) — family groups only", tone:"good" },
                 { icon:"🐑", label:"Black Sheep", desc:"Contributing the least to their family — family groups only", tone:"bad" },
+                { icon:"🎢", label:"Rollercoaster", desc:"Owns a club in the season's highest-scoring game (5+ goals)", tone:"good" },
+                { icon:"🏠", label:"Fortress", desc:"Most home wins", tone:"good" },
+                { icon:"✈️", label:"Road Warriors", desc:"Most away wins", tone:"good" },
+                { icon:"🤝", label:"Draw Specialist", desc:"Most draws", tone:"bad" },
+                { icon:"🔥", label:"Hot Streak", desc:"Owns the club on the longest current winning run (3+)", tone:"good" },
+                { icon:"🧊", label:"Cold Streak", desc:"Owns the club on the longest current winless run (3+)", tone:"bad" },
+                { icon:"😬", label:"Bottler", desc:"Pot 1 club beaten by a Pot 3/4 side (most recent)", tone:"bad" },
+                { icon:"🛡️", label:"Spoilsport", desc:"Pot 3/4 club held a Pot 1 side to a draw (most recent)", tone:"good" },
+                { icon:"👯", label:"Double Trouble", desc:"Two of your clubs won on the same night", tone:"good" },
+                { icon:"🎯", label:"Penalty Kings", desc:"Won a penalty shoot-out", tone:"good" },
+                { icon:"💔", label:"Nearly Men", desc:"Lost a two-legged tie by one goal or on penalties", tone:"bad" },
+                { icon:"🧘", label:"Steady Eddie", desc:"Highest share of club games that earned points", tone:"good" },
               ].map((b, i) => (
-                <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0", borderBottom: i < 17 ? `1px solid ${C.border}` : "none" }}>
+                <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0", borderBottom: i < 33 ? `1px solid ${C.border}` : "none" }}>
                   <span style={{ fontSize:20, flexShrink:0, width:24, textAlign:"center" }}>{b.icon}</span>
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontSize:13, fontWeight:700, color: b.tone === "bad" ? C.dangerText : C.accent }}>{b.label}</div>
@@ -5515,7 +5535,7 @@ function NotificationsDrawer({ matches, ranked, matchPtsById, onClose, onSeenUpd
 // ─────────────────────────────────────────────────────────────────────────────
 const TOUR_STEPS = [
   { icon: "🎰", title: "The Draw", desc: "The 36 Champions League clubs sit in UEFA's 4 pots — Pot 1 (favourites) down to Pot 4 (underdogs). Everyone got a balanced mix across the pots, so no one gets only giants and no one gets only minnows." },
-  { icon: "⚽", title: "League Phase", desc: "8 games each in one big table. Your clubs earn points for wins and draws — and underdogs earn more. A Pot 4 win is worth 6 pts; a Pot 1 win just 1." },
+  { icon: "⚽", title: "League Phase", desc: "8 games each in one big table. Your clubs earn points for wins and draws — and underdogs earn more. A Pot 4 win is worth 6 pts; a Pot 1 win just 1. Bonus points for clean sheets and winning by 3+." },
   { icon: "🥊", title: "Knockouts", desc: "Top 8 go straight to the Last 16; 9th–24th face a two-legged play-off. The further a club goes, the bigger the points — Pot 1 winning it all is 100 pts, Pot 4 doing it is 2,000." },
   { icon: "💸", title: "The Risk", desc: "If a Pot 1 club finishes 25th or lower and goes out in the league phase, you lose 50 pts. Pot 2 costs 15. Pot 3 and 4 carry no penalty — pure upside." },
   { icon: "💀", title: "The Grim Reaper", desc: "The Grim Reaper holds no clubs. It earns when big sides crash out in the league phase and from every 0-0. It can haunt the table — but can never actually win it." },

@@ -150,6 +150,26 @@ The "Meetings this season" section (`H2HMeetings`) sits at the top of the card b
 - Nothing is pinned at the top of the card. Player, team and family cards show no fixtures.
 - `clScoringView` tags an unplayed 2nd leg `_leg: 2` as a display hint ("2nd leg").
 
+### CL score bonuses + extra accolades
+
+**Bonuses** (league phase, on top of W/D; `groupBonusPts`, folded into `groupGamePts(code, result, gf, ga)`
+so every replay / table / match-points path includes them; pot-scaled like the win points):
+
+| Bonus | Pot 1 | Pot 2 | Pot 3 | Pot 4 | 2025-26 rate |
+|---|---|---|---|---|---|
+| 🧱 Clean sheet (`CLEAN_SHEET_PTS`) | 1 | 1 | 2 | 3 | ~25% of team-games, every pot |
+| 💥 Thrashing — win by 3+ (`THRASHING_PTS`) | 1 | 2 | 4 | 6 | Pot 1 25% … Pot 4 7% |
+
+Knockout legs don't pay them: the scoring engine reads ties on aggregate (a 1st leg isn't scored as a
+game), so per-leg bonuses would need a separate path. Replay invariants still hold at all 9 dates.
+
+**Accolades** (badges only, `computeBadges`, from real per-leg results): 🎢 Rollercoaster (season's
+highest-scoring game, 5+), 🏠 Fortress / ✈️ Road Warriors / 🤝 Draw Specialist (most home wins / away
+wins / draws, 2+), 🔥 Hot Streak / 🧊 Cold Streak (longest current win / winless run, 3+), 😬 Bottler /
+🛡️ Spoilsport (Pot 1 beaten by / held by a Pot 3–4 side, most recent), 👯 Double Trouble (two clubs
+won the same night), 🎯 Penalty Kings (won a shoot-out), 💔 Nearly Men (out of a two-legged tie by one
+goal or on pens), 🧘 Steady Eddie (highest share of club games that earned points, 6+ games).
+
 ### Simulate a past season (both CL and Top 5)
 
 `sim-seasons.js` (shared). More → **🎬 Simulate 2025-26 / 2024-25** stores the
