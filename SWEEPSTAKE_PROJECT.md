@@ -142,6 +142,16 @@ edge), auto-advance every 4s, swipe, touch pauses 8s. CL and WC: under the next-
 new-in-24h first (NEW tag) then everyone's current accolades (Grim Reaper / bot
 flavour badges skipped). Top 5: under the gameweek pitch, last 7 days' new ones.
 
+### Next-fixture strip on every card (CL)
+
+`NextFixtureStrip` sits at the top of the player, team, family and head-to-head
+cards in `cl.html`. It shows the next (or live) match involving those clubs: owners,
+stage, kickoff, and a countdown ticking every second ("12d 17h 44m" → "4h 03m 21s").
+It turns red with the score while that match is live, and says "No fixtures scheduled"
+once a club is done. The Grim Reaper's card shows the competition's next match. On the
+head-to-head card it is the two clubs' next match: "Kick-off in" when that is the match
+already open, otherwise tap to jump to it.
+
 ### Simulate a past season (both CL and Top 5)
 
 `sim-seasons.js` (shared). More → **🎬 Simulate 2025-26 / 2024-25** stores the

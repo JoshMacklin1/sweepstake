@@ -1225,6 +1225,63 @@ function stageBonusFor(tla, teamTotalPts, matches, matchPtsById) {
   return Math.round((teamTotalPts || 0) - attached);
 }
 
+// ── Next-fixture strip — top of every player / team / family / head-to-head
+//    card: the next (or live) match involving `codes`, with a ticking
+//    countdown. `codes` empty (Grim Reaper) = the competition's next match.
+//    Tap → that match's head-to-head (unless it's the card already open).
+function fmtCountdown(ms) {
+  if (ms <= 0) return "Kick-off";
+  const d = Math.floor(ms / 864e5), h = Math.floor(ms % 864e5 / 36e5), m = Math.floor(ms % 36e5 / 6e4), sec = Math.floor(ms % 6e4 / 1e3);
+  const p2 = (n) => String(n).padStart(2, "0");
+  return d > 0 ? `${d}d ${h}h ${p2(m)}m` : h > 0 ? `${h}h ${p2(m)}m ${p2(sec)}s` : `${m}m ${p2(sec)}s`;
+}
+function NextFixtureStrip({ codes = [], matches = [], ranked = [], onMatchClick, currentId = null, style }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
+  const set = new Set(codes);
+  const involves = (m) => !set.size || set.has(m.homeTeam?.tla) || set.has(m.awayTeam?.tla);
+  const live = (m) => m.status === "IN_PLAY" || m.status === "PAUSED";
+  const pending = matches.filter(m => (live(m) || m.status === "SCHEDULED" || m.status === "TIMED") && m.homeTeam?.tla && m.awayTeam?.tla && involves(m))
+    .sort((a, b) => (live(b) - live(a)) || (new Date(a.utcDate) - new Date(b.utcDate)));
+  const m = pending[0];
+  const box = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: "10px 12px", marginBottom: 14, ...style };
+  if (!m) return <div style={{ ...box, fontSize: 12, color: C.muted, textAlign: "center" }}>No fixtures scheduled</div>;
+  const isLive = live(m) || (new Date(m.utcDate).getTime() <= now);
+  const h = m.homeTeam.tla, a = m.awayTeam.tla;
+  const own = (c) => { const o = typeof ownerOf === "function" ? ownerOf(c, ranked && ranked.length ? ranked : PLAYERS) : null; return o || "Unowned"; };
+  const self = currentId != null && m.id === currentId;
+  const clickable = onMatchClick && !self;
+  const side = (c, name, right) => (
+    <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 7, flexDirection: right ? "row-reverse" : "row", textAlign: right ? "right" : "left" }}>
+      <Flag code={c} size={20} />
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 12, fontWeight: 800, color: set.has(c) ? C.text : C.dim, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</div>
+        <div style={{ fontSize: 10, color: C.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{own(c)}</div>
+      </div>
+    </div>
+  );
+  return (
+    <div className={clickable ? "player-card" : undefined} onClick={clickable ? () => onMatchClick(m.id) : undefined} style={{ ...box, cursor: clickable ? "pointer" : "default", borderColor: isLive ? C.red + "88" : C.border }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: isLive ? C.red : C.dim }}>
+          {isLive ? "● Live now" : self ? "Kick-off in" : "Next fixture"}
+        </span>
+        <span style={{ fontSize: 13, fontWeight: 800, fontVariantNumeric: "tabular-nums", color: isLive ? C.red : C.accent }}>
+          {isLive ? (m.score?.fullTime?.home != null ? `${m.score.fullTime.home}–${m.score.fullTime.away}` : "LIVE") : fmtCountdown(new Date(m.utcDate).getTime() - now)}
+        </span>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        {side(h, m.homeTeam.name || h, false)}
+        <span style={{ fontSize: 10, color: C.muted, fontWeight: 700, flexShrink: 0 }}>vs</span>
+        {side(a, m.awayTeam.name || a, true)}
+      </div>
+      <div style={{ fontSize: 10, color: C.muted, marginTop: 6, textAlign: "center" }}>
+        {typeof clStageText === "function" ? clStageText(m) : ""} · {new Date(m.utcDate).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+      </div>
+    </div>
+  );
+}
+
 function PlayerCardContent({ bodyRef, player, displayRank, winPct, predicted, winTeams, badges = [], matches = [], matchPtsById = {}, onTeamClick, onMatchClick, onFamilyClick, playerFamily, onClose }) {
   if (!player) return null;
   const isReaper = player.grimReaper;
@@ -1244,6 +1301,7 @@ function PlayerCardContent({ bodyRef, player, displayRank, winPct, predicted, wi
           <button onClick={onClose} aria-label="Close" style={{ background:"transparent", border:"none", color:C.muted, fontSize:22, cursor:"pointer", lineHeight:1 }}>✕</button>
         </div>
         <div ref={bodyRef} style={{ flex:1, overflowY:"auto", padding:"16px 14px 28px" }}>
+          <NextFixtureStrip codes={player.codes || []} matches={matches} ranked={PLAYERS} onMatchClick={onMatchClick} />
           {onFamilyClick && playerFamily && (
             <div onClick={() => onFamilyClick(playerFamily)} className="player-card"
               style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 12px", border: `1px solid ${C.border}`, borderRadius: s.card.borderRadius, background: C.card, marginBottom: 16, cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>
@@ -1330,7 +1388,7 @@ function PlayerCardContent({ bodyRef, player, displayRank, winPct, predicted, wi
                     </div>
                     <div style={{ textAlign:"right", flexShrink:0 }}>
                       <div style={{ fontSize:13, fontWeight:700, color: t.pts < 0 ? C.red : t.pts > 0 ? C.text : C.muted }}>{t.pts > 0 ? "+" : ""}{t.pts}pts</div>
-                      <div style={{ fontSize:10, color: out ? C.muted : C.accent }}>{out ? "out" : `${wc}% to win WC`}</div>
+                      <div style={{ fontSize:10, color: out ? C.muted : C.accent }}>{out ? "out" : `${wc}% to win the CL`}</div>
                     </div>
                     {onTeamClick && <span aria-hidden="true" style={{ marginLeft:8, color:C.muted, fontSize:18, lineHeight:1, flexShrink:0 }}>›</span>}
                   </div>
@@ -1583,6 +1641,7 @@ function TeamCardContent({ bodyRef, tla, matches, ranked, matchPtsById, onTeamCl
           <button onClick={onClose} aria-label="Close" style={{ background: "transparent", border: "none", color: C.muted, fontSize: 22, cursor: "pointer", lineHeight: 1 }}>✕</button>
         </div>
         <div ref={bodyRef} style={{ flex: 1, overflowY: "auto", padding: "16px 14px 28px" }}>
+          <NextFixtureStrip codes={[tla]} matches={matches} ranked={ranked} onMatchClick={onMatchClick} />
           {owner && (() => {
             const oe = ranked.find(p => p.name === owner);
             const r = oe ? (oe._displayRank || (ranked.indexOf(oe) + 1)) : null;
@@ -3062,7 +3121,7 @@ function StatRow({ label, hVal, aVal, hColor, aColor }) {
   );
 }
 
-function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onPlayerClick, onFamilyClick, groupKey, defaultView, onClose }) {
+function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, matches = [], onMatchClick, onTeamClick, onPlayerClick, onFamilyClick, groupKey, defaultView, onClose }) {
   const h = m.homeTeam?.tla?.toUpperCase();
   const a = m.awayTeam?.tla?.toUpperCase();
   const fin = m.status === "FINISHED";
@@ -3178,6 +3237,9 @@ function HeadToHeadCard({ bodyRef, m, ranked, matchPtsById, onTeamClick, onPlaye
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "14px 16px 12px", flexShrink: 0 }}>
           <div style={{ fontSize: 18, fontWeight: 900, color: C.text }}>Head to Head</div>
           <button onClick={onClose} aria-label="Close" style={{ background: "transparent", border: "none", color: C.muted, fontSize: 22, cursor: "pointer", lineHeight: 1 }}>✕</button>
+        </div>
+        <div style={{ padding: "0 14px" }}>
+          <NextFixtureStrip codes={[h, a].filter(Boolean)} matches={matches} ranked={ranked} onMatchClick={onMatchClick} currentId={m.id} style={{ marginBottom: 12 }} />
         </div>
 
         {/* Match block: teams view = single card with score; players/family view = two tappable cards */}
@@ -3511,6 +3573,7 @@ function FamilyCardContent({ bodyRef, familyName, ranked, groupKey, matches = []
       <button onClick={onClose} aria-label="Close" style={{ background: "transparent", border: "none", color: C.muted, fontSize: 22, cursor: "pointer", lineHeight: 1 }}>✕</button>
     </div>
     <div ref={bodyRef} style={{ flex: 1, overflowY: "auto", padding: "16px 14px 28px" }}>
+      <NextFixtureStrip codes={memberData.flatMap(md => md.p?.codes || [])} matches={matches} ranked={ranked} onMatchClick={onMatchClick} />
       <div style={{ display: "flex", gap: 10, marginBottom: 18 }}>
         <div style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: s.card.borderRadius, padding: "12px 8px", textAlign: "center" }}>
           <div style={{ fontSize: 24, fontWeight: 900, color: C.accent, lineHeight: 1 }}>{avg}</div>
@@ -6994,7 +7057,7 @@ function App({ onSwitchGroup, onQuickSwitchGroup, groupKey, isAdmin = false, ini
               if (selectedMatch) {
                 const matchObj = matches.find(m => String(m.id) === String(selectedMatch));
                 if (!matchObj) return null;
-                return <HeadToHeadCard key={selectedMatch} bodyRef={bodyRef} m={matchObj} ranked={ranked} matchPtsById={matchPtsById} onTeamClick={switchToTeamFromH2H} onPlayerClick={switchToPlayerFromH2H} onFamilyClick={switchToFamilyFromH2H} groupKey={groupKey} onClose={handleClose} />;
+                return <HeadToHeadCard key={selectedMatch} bodyRef={bodyRef} m={matchObj} ranked={ranked} matchPtsById={matchPtsById} matches={matches} onMatchClick={switchToMatchFromCard} onTeamClick={switchToTeamFromH2H} onPlayerClick={switchToPlayerFromH2H} onFamilyClick={switchToFamilyFromH2H} groupKey={groupKey} onClose={handleClose} />;
               }
               const idx = ranked.findIndex(x => x.name === selectedPlayer);
               const p = ranked[idx];
