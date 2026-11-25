@@ -1342,7 +1342,7 @@
         ? `${a.getUTCDate()}–${b.getUTCDate()} ${mon(b)}`
         : `${a.getUTCDate()} ${mon(a)} – ${b.getUTCDate()} ${mon(b)}`;
     };
-    function GameweekTab({ group, matches, ranked, matchPtsById, anchorIso, onTeamClick, onOpenRace, embedded }) {
+    function GameweekTab({ group, matches, ranked, matchPtsById, anchorIso, onTeamClick, onMatchClick, onOpenRace, embedded }) {
       const code = (group && (group.code || group.label)) || "LEAGUE";
       const weeks = useMemo(() => (typeof lgWeeks === "function" ? lgWeeks(matches) : []), [matches]);
       const teamHist = useMemo(() => (typeof deriveLeagueTeamHistory === "function" ? deriveLeagueTeamHistory(matches) : { frames: [], history: {} }), [matches]);
@@ -1493,6 +1493,49 @@
               ))}
             </div>
           )}
+
+          {/* Gameweek table — players ranked on this week's points only */}
+          <div style={sect}>Gameweek {week.n} table</div>
+          <div style={{ ...s.card, overflow: "hidden" }}>
+            <div style={{ display: "flex", padding: "7px 12px", fontSize: 10, color: C.muted, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", borderBottom: `1px solid ${C.border}` }}>
+              <span style={{ width: 28 }}>Pos</span><span style={{ flex: 1 }}>Player</span><span style={{ width: 52, textAlign: "right" }}>CL</span><span style={{ width: 44, textAlign: "right" }}>Pts</span>
+            </div>
+            {gw.players.map((p, i) => (
+              <div key={p.name} onClick={() => setViewing(p.name)} style={{ display: "flex", alignItems: "center", padding: "9px 12px", cursor: "pointer",
+                background: p.name === who ? "rgba(34,197,94,0.08)" : "transparent", borderBottom: i < gw.players.length - 1 ? `1px solid ${C.border}` : "none" }}>
+                <span style={{ width: 28, fontSize: 13, color: C.muted, fontWeight: 800 }}>{gw.played > 0 ? p.rank : "–"}</span>
+                <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}{p.name === me ? <span style={{ fontSize: 10, color: C.accent }}> · you</span> : null}</span>
+                <span style={{ width: 52, textAlign: "right", fontSize: 11, color: p.clPts ? C.gold : C.border }}>{p.clPts ? `${p.clPts > 0 ? "+" : ""}${p.clPts} 🏆` : "–"}</span>
+                <span style={{ width: 44, textAlign: "right", fontSize: 15, fontWeight: 900, color: p.pts < 0 ? C.red : C.text }}>{p.pts}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* This gameweek's games: results newest first (live on top), then fixtures soonest first */}
+          {(() => {
+            const inWeek = matches.filter(m => {
+              const d = m.utcDate.slice(0, 10), c = m.competition && m.competition.code;
+              if (d < week.start || d >= week.end) return false;
+              return c === "CL" || (typeof LEAGUE_COMPETITIONS !== "undefined" && LEAGUE_COMPETITIONS[c] && m.stage === "REGULAR_SEASON");
+            });
+            const settled = (m) => typeof lgIsSettled === "function" && lgIsSettled(m);
+            const live = (m) => m.status === "IN_PLAY" || m.status === "PAUSED";
+            const results = inWeek.filter(settled).sort((a, b) => (live(b) - live(a)) || b.utcDate.localeCompare(a.utcDate));
+            const fixtures = inWeek.filter(m => !settled(m)).sort((a, b) => a.utcDate.localeCompare(b.utcDate));
+            const list = (arr) => (
+              <div style={{ ...s.card, overflow: "hidden" }}>
+                {arr.map((m, i) => <HomeMatchRow key={m.id} m={m} matchPtsById={matchPtsById} onTeamClick={onTeamClick} onMatchClick={onMatchClick} isLast={i === arr.length - 1} banners />)}
+              </div>
+            );
+            return (<>
+              <div style={sect}>Gameweek {week.n} results{results.length ? ` · ${results.length}` : ""}</div>
+              {results.length ? list(results) : <div style={{ ...s.card, padding: 14, fontSize: 12, color: C.muted }}>No results yet this gameweek.</div>}
+              {fixtures.length > 0 && <>
+                <div style={sect}>Gameweek {week.n} fixtures · {fixtures.length}</div>
+                {list(fixtures)}
+              </>}
+            </>);
+          })()}
 
           {onOpenRace && !embedded && (
             <button onClick={onOpenRace} style={{ ...s.card, width: "100%", marginTop: 16, padding: "14px", color: C.accent, fontWeight: 800, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
@@ -2016,19 +2059,11 @@
     }
 
     function HomeTab({ group, matches, ranked, badges, weekWindow, matchPtsById, hist, outcomes, anchorIso, setTab, openPlayerModal, openTeamModal, openMatchModal, familyRows = [], openFamilyModal, onOpenSwitcher }) {
-      const gwEmbed = <GameweekTab key={group ? group.code : "g"} embedded group={group} matches={matches} ranked={ranked} matchPtsById={matchPtsById} anchorIso={anchorIso} onTeamClick={openTeamModal} />;
+      const gwEmbed = <GameweekTab key={group ? group.code : "g"} embedded group={group} matches={matches} ranked={ranked} matchPtsById={matchPtsById} anchorIso={anchorIso} onTeamClick={openTeamModal} onMatchClick={openMatchModal} />;
       const newAccolades = useMemo(
         () => (typeof computeNewLeagueBadges === "function" ? computeNewLeagueBadges(badges, matches, anchorIso) : []),
         [badges, matches, anchorIso]
       );
-      const cutoff = new Date(new Date(anchorIso).getTime() - 7 * 24 * 3600 * 1000).toISOString();
-      const recentResults = matches
-        .filter(m => m.status === "FINISHED" && m.utcDate >= cutoff && m.utcDate <= anchorIso)
-        .sort((a, b) => b.utcDate.localeCompare(a.utcDate))
-        .slice(0, 8);
-      const upNext = matches
-        .filter(m => (m.status === "SCHEDULED" || m.status === "TIMED") && m.utcDate > anchorIso)
-        .sort((a, b) => a.utcDate.localeCompare(b.utcDate)).slice(0, 6);
       const rankColors = ["#84cc16", "#94a3b8", "#b45309"];
       const [showAllAccolades, setShowAllAccolades] = React.useState(false);
 
@@ -2120,20 +2155,6 @@
               <CLBracket matches={matches} onTeamClick={openTeamModal} homeMode />
             </Section>
           )}
-
-          <Section icon="🌐" title="Recent Results" onOpen={() => { window.scrollTo(0, 0); setTab("scores"); }} linkLabel="View all scores"
-            empty={recentResults.length === 0 ? "No matches in the last 7 days" : null}>
-            {recentResults.map((m, i) => (
-              <HomeMatchRow key={m.id} m={m} matchPtsById={matchPtsById} onTeamClick={openTeamModal} onMatchClick={openMatchModal} isLast={i === recentResults.length - 1} banners />
-            ))}
-          </Section>
-
-          <Section icon="📅" title="Up Next" onOpen={() => { window.scrollTo(0, 0); setTab("scores"); }} linkLabel="View all scores"
-            empty={upNext.length === 0 ? "No upcoming fixtures" : null}>
-            {upNext.map((m, i) => (
-              <HomeMatchRow key={m.id} m={m} matchPtsById={matchPtsById} onTeamClick={openTeamModal} onMatchClick={openMatchModal} isLast={i === upNext.length - 1} banners />
-            ))}
-          </Section>
         </div>
       );
     }
@@ -3650,7 +3671,7 @@
                 : <LeaguesTab matches={matches} tables={tables} outcomes={outcomes} onTeamClick={openTeamModal} comp={leaguesComp} setComp={setLeaguesComp} />
               )
             : tab === "scores" ? <ScoresTab matches={scoresMatches} matchPtsById={matchPtsById} anchorIso={anchorIso} onTeamClick={openTeamModal} onMatchClick={openMatchModal} />
-            : tab === "gameweek" ? <GameweekTab key={group ? group.code : "g"} group={group} matches={matches} ranked={ranked} matchPtsById={matchPtsById} anchorIso={anchorIso} onTeamClick={openTeamModal} onOpenRace={() => navTo("race")} />
+            : tab === "gameweek" ? <GameweekTab key={group ? group.code : "g"} group={group} matches={matches} ranked={ranked} matchPtsById={matchPtsById} anchorIso={anchorIso} onTeamClick={openTeamModal} onMatchClick={openMatchModal} onOpenRace={() => navTo("race")} />
             : tab === "race" ? <RaceTab ranked={ranked} matches={matches} anchorIso={anchorIso} replayOn={replay.on} />
             : null}
 
