@@ -142,13 +142,18 @@ edge), auto-advance every 4s, swipe, touch pauses 8s. CL and WC: under the next-
 new-in-24h first (NEW tag) then everyone's current accolades (Grim Reaper / bot
 flavour badges skipped). Top 5: under the gameweek pitch, last 7 days' new ones.
 
-### Head-to-head card: meetings this season (CL)
+### Head-to-head card (CL)
 
-The "Meetings this season" section (`H2HMeetings`) sits at the top of the card body, above the sweepstake stats.
-- First row: the next meeting between the two clubs, with a countdown ticking every second. It is labelled "Kick-off in" when that is the match already open, otherwise "Next" (e.g. the 2nd leg); tap it to open that match.
-- Below it: every played or live meeting, newest first, with a win–draw–win tally in the header.
-- Nothing is pinned at the top of the card. Player, team and family cards show no fixtures.
-- `clScoringView` tags an unplayed 2nd leg `_leg: 2` as a display hint ("2nd leg").
+Clubs only: no Players or Family views. Top to bottom:
+1. The match card (emblems, score, owners) with the **sweepstake stats** underneath: status, stage, total points, record.
+2. **Results & fixtures** (`H2HMeetings`): the next meeting first, as a countdown row, then every result between the two clubs this season with a win–draw–win tally. **Tap a row** to expand it, one at a time:
+   - a played game shows each club's scoring contributions (`clMatchBreakdown`);
+   - an upcoming game shows **what's at stake** (`clStakes`): win / draw points plus the clean-sheet and win-by-3+ bonuses, or "Win the tie → next round".
+
+   The open match starts expanded.
+3. Buttons to each club's card.
+
+`clScoringView` tags an unplayed 2nd leg `_leg: 2` as a display hint ("2nd leg").
 
 ### CL score bonuses + extra accolades
 
