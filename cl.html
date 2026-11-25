@@ -4008,7 +4008,19 @@ function AccoladeCarousel({ items, onOpen }) {
 //    tap a title, to switch. No auto-advance (unlike the accolades carousel).
 function SwipePanes({ panes }) {
   const ref = React.useRef(null);
+  const paneRefs = React.useRef([]);
   const [idx, setIdx] = useState(0);
+  const [h, setH] = useState(null);
+  // The strip is as tall as the pane on show (lists differ in length), and
+  // follows it if its content changes.
+  useEffect(() => {
+    const el = paneRefs.current[idx]; if (!el) return;
+    const upd = () => setH(el.offsetHeight);
+    upd();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(upd); ro.observe(el);
+    return () => ro.disconnect();
+  }, [idx]);
   const go = (i) => { const el = ref.current; if (el) el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" }); };
   const onScroll = () => { const el = ref.current; if (el) setIdx(Math.round(el.scrollLeft / Math.max(1, el.clientWidth))); };
   return (
@@ -4023,9 +4035,9 @@ function SwipePanes({ panes }) {
         ))}
         <span style={{ marginLeft: "auto", fontSize: 10, color: C.muted, letterSpacing: 0, textTransform: "none", fontWeight: 600 }}>swipe ‹ ›</span>
       </div>
-      <div ref={ref} onScroll={onScroll} style={{ display: "flex", overflowX: "auto", scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", msOverflowStyle: "none", gap: 12 }}>
-        {panes.map(p => (
-          <div key={p.title} style={{ flex: "0 0 100%", scrollSnapAlign: "start", scrollSnapStop: "always", minWidth: 0 }}>
+      <div ref={ref} onScroll={onScroll} style={{ display: "flex", alignItems: "flex-start", overflowX: "auto", overflowY: "hidden", scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", msOverflowStyle: "none", gap: 12, height: h == null ? "auto" : h, transition: "height 0.25s ease" }}>
+        {panes.map((p, pi) => (
+          <div key={p.title} ref={el => { paneRefs.current[pi] = el; }} style={{ flex: "0 0 100%", scrollSnapAlign: "start", scrollSnapStop: "always", minWidth: 0 }}>
             <div style={{ ...s.card, marginBottom: 0 }}>
               {p.empty ? <div style={{ padding: "14px", fontSize: 12, color: C.muted }}>{p.empty}</div> : p.body}
               {p.onOpen && (
@@ -4274,19 +4286,19 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
       )}
 
 
-      <Section icon="📋" title="Recent Results" onOpen={() => { window.history.pushState({ appTab: "scores", appModal: null }, ""); window.scrollTo(0, 0); setTab("scores"); }} linkLabel="View all scores"
-        empty={recentResults.length === 0 ? "No matches in the last 24h" : null}>
-        {recentResults.map((m, i) => (
-          <HomeMatchRow key={m.id} m={m} ranked={ranked} pts={matchPtsById[m.id]} onMatchClick={openMatchModal} isLast={i === recentResults.length - 1} banners />
-        ))}
-      </Section>
-
-      <Section icon="📅" title="Up Next" onOpen={() => { window.history.pushState({ appTab: "scores", appModal: null }, ""); window.scrollTo(0, 0); setTab("scores"); }} linkLabel="View all scores"
-        empty={upNext.length === 0 ? "No upcoming fixtures" : null}>
-        {upNext.map((m, i) => (
-          <HomeMatchRow key={m.id} m={m} ranked={ranked} onMatchClick={openMatchModal} isLast={i === upNext.length - 1} />
-        ))}
-      </Section>
+      {/* Recent Results ⇄ Up Next — same swipe card as Top Players ⇄ Top Teams */}
+      <SwipePanes panes={[
+        { icon: "📋", title: "Recent Results", linkLabel: "View all scores", empty: recentResults.length === 0 ? "No matches in the last 24h" : null,
+          onOpen: () => { window.history.pushState({ appTab: "scores", appModal: null }, ""); window.scrollTo(0, 0); setTab("scores"); },
+          body: recentResults.map((m, i) => (
+            <HomeMatchRow key={m.id} m={m} ranked={ranked} pts={matchPtsById[m.id]} onMatchClick={openMatchModal} isLast={i === recentResults.length - 1} banners />
+          )) },
+        { icon: "📅", title: "Up Next", linkLabel: "View all scores", empty: upNext.length === 0 ? "No upcoming fixtures" : null,
+          onOpen: () => { window.history.pushState({ appTab: "scores", appModal: null }, ""); window.scrollTo(0, 0); setTab("scores"); },
+          body: upNext.map((m, i) => (
+            <HomeMatchRow key={m.id} m={m} ranked={ranked} onMatchClick={openMatchModal} isLast={i === upNext.length - 1} />
+          )) },
+      ]} />
 
     </div>
   );
