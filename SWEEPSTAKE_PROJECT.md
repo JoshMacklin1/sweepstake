@@ -118,7 +118,7 @@ The gameweek view is **embedded near the top of Home**, under the live / next-ma
 Team of the Week and the week standings lists were removed — highest scorer
 and week rank remain in the stat block);
 The Race is back in the bottom nav. The **pitch has one row per league**, each
-labelled with that league's points for the week. FPL-style, a club **yet to play** shows its fixture instead of a score (e.g. `HUL (A)`, `+1` if it has two games left; List view adds date/time); `–` = no game that week. Gameweeks are built from **calendar weeks, Mon–Sun UTC**, identical for every
+labelled with that league's points for the week. FPL-style, a club **yet to play** shows its fixture instead of a score (e.g. `HUL (A)`; every remaining fixture listed comma-separated, wrapping, e.g. `VFB (H), JUV (A)`; List view adds date/time); `–` = no game that week. Gameweeks are built from **calendar weeks, Mon–Sun UTC**, identical for every
 league (`lgWeeks`, `lgWeekIndexOf`); weeks with fewer than `LG_GW_MIN_FIXTURES` (5)
 fixtures — **international breaks** — are folded into the next gameweek (ranges stay
 contiguous, so no points are lost), GW numbers only count real football weeks, the

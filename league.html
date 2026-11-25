@@ -1457,7 +1457,7 @@
                             const left = fixturesLeft(t.teamId);
                             const showFixture = t.results.length === 0 && left.length > 0;
                             return showFixture
-                              ? <div style={{ width: "100%", background: "#f4f6f4", color: "#0d1f12", fontSize: 11, fontWeight: 800, textAlign: "center", padding: "3px 2px", borderRadius: "0 0 10px 10px", boxSizing: "border-box", borderTop: "1px solid #d6dcd7" }}>{fixtureLabel(left[0], t.teamId)}{left.length > 1 ? " +" + (left.length - 1) : ""}</div>
+                              ? <div style={{ width: "100%", background: "#f4f6f4", color: "#0d1f12", fontSize: left.length > 1 ? 10 : 11, fontWeight: 800, lineHeight: 1.25, textAlign: "center", padding: "3px 3px", borderRadius: "0 0 10px 10px", boxSizing: "border-box", borderTop: "1px solid #d6dcd7", whiteSpace: "normal", overflowWrap: "anywhere" }}>{left.map(m => fixtureLabel(m, t.teamId)).join(", ")}</div>
                               : <div style={{ width: "100%", background: "#0d1f12", color: t.pts < 0 ? C.red : "#fff", fontSize: 12, fontWeight: 900, textAlign: "center", padding: "3px 2px", borderRadius: "0 0 10px 10px", boxSizing: "border-box" }}>{t.results.length || t.pts ? t.pts : "–"}</div>;
                           })()}
                         </div>
