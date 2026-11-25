@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sweepstaker — Editions</title>
+  <meta name="theme-color" content="#0b160e"/>
+  <link rel="icon" type="image/png" href="league-icon-192.png"/>
+  <meta property="og:title" content="Sweepstaker"/>
+  <meta property="og:description" content="Pick your sweepstake: World Cup, Champions League or the Top 5 leagues."/>
+  <meta property="og:image" content="https://joshmacklin1.github.io/sweepstake/league-og.png"/>
+  <style>
+    :root { --bg: #0b160e; --card: #193322; --border: #2c5540; --muted: #6b9e7a; --text: #f0faf3; --accent: #22c55e; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+    main { max-width: 480px; margin: 0 auto; padding: 48px 18px 40px; }
+    header { text-align: center; margin-bottom: 26px; }
+    header img { width: 64px; height: 64px; border-radius: 14px; }
+    h1 { font-size: 26px; font-weight: 900; margin-top: 12px; }
+    header p { color: var(--muted); font-size: 13px; margin-top: 6px; line-height: 1.5; }
+    a.ed { display: flex; gap: 14px; align-items: center; text-decoration: none; color: var(--text); background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 12px; }
+    a.ed:active { transform: scale(0.99); }
+    .icon { font-size: 34px; line-height: 1; width: 44px; text-align: center; flex-shrink: 0; }
+    .name { font-size: 17px; font-weight: 900; }
+    .name span { color: var(--accent); }
+    .desc { font-size: 12px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+    .chev { margin-left: auto; color: var(--muted); font-size: 22px; }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <img src="league-icon-192.png" alt="" />
+      <h1>Sweepstaker</h1>
+      <p>Same groups, three ways to play. Pick an edition.</p>
+    </header>
+    <a class="ed" href="ucl.html">
+      <div class="icon">🏆</div>
+      <div><div class="name">Champions League <span>Edition</span></div><div class="desc">36 clubs drawn by UEFA pot. League phase, knockouts, final — upsets pay big.</div></div>
+      <div class="chev">›</div>
+    </a>
+    <a class="ed" href="league.html">
+      <div class="icon">⚽</div>
+      <div><div class="name">Sweepstaker <span>Top 5</span></div><div class="desc">The whole season across the Premier League, La Liga, Serie A, Bundesliga and Ligue 1.</div></div>
+      <div class="chev">›</div>
+    </a>
+    <a class="ed" href="index.html">
+      <div class="icon">🌍</div>
+      <div><div class="name">World Cup <span>Edition</span></div><div class="desc">The 2026 World Cup sweepstake — back for the next international tournament.</div></div>
+      <div class="chev">›</div>
+    </a>
+  </main>
+</body>
+</html>

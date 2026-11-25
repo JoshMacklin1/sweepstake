@@ -106,8 +106,12 @@
 <body>
   <div id="root"></div>
   <!-- Coupled: every league-scoring.js change must bump ?v=N (see SWEEPSTAKE_PROJECT.md cache-bust rule) -->
-  <script>window.SWEEP_MODE = "top5";</script>
-  <script src="league-scoring.js?v=34"></script>
+  <script>
+    // Edition: ?ed=cl → Champions League Edition (ucl.html redirects here), else Sweepstaker Top 5.
+    window.SWEEP_MODE = /[?&]ed=cl\b/.test(location.search) ? "cl" : "top5";
+    if (window.SWEEP_MODE === "cl") document.title = "Sweepstaker — Champions League Edition";
+  </script>
+  <script src="league-scoring.js?v=35"></script>
   <script type="text/babel">
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
@@ -132,9 +136,18 @@
       const i = (typeof LEAGUE_PLAYERS !== "undefined" ? LEAGUE_PLAYERS : []).findIndex(p => p.name === name);
       return i >= 0 ? PLAYER_COLORS[i % PLAYER_COLORS.length] : C.accent;
     };
-    const GROUP_STORAGE_KEY = "lsw_group";
-    const NOTIF_SEEN_KEY = "lsw_notif_seen";
-    const SEARCH_RECENT_KEY = "lsw_search_recent";
+    // Edition helpers. Each edition keeps its own per-phone storage (memberships,
+    // "who am I", filters…) — the CL Edition prefixes every key with "ucl_".
+    const CL_ED = typeof lgIsCLEdition === "function" && lgIsCLEdition();
+    const LSP = CL_ED ? "ucl_" : "";
+    const EDITION_LABEL = CL_ED ? "Champions League" : "Top 5";
+    const GW_WORD = CL_ED ? "Matchday" : "Gameweek";
+    const POT_WORD = CL_ED ? "Tier" : "Pot";
+    const POT_LETTER = CL_ED ? "T" : "P";
+    const hasDomestic = () => typeof LEAGUE_COMPETITIONS !== "undefined" && Object.keys(LEAGUE_COMPETITIONS).some(c => LEAGUE_COMPETITIONS[c].type !== "cup");
+    const GROUP_STORAGE_KEY = LSP + "lsw_group";
+    const NOTIF_SEEN_KEY = LSP + "lsw_notif_seen";
+    const SEARCH_RECENT_KEY = LSP + "lsw_search_recent";
     const REPLAY_START = "2025-08-01T00:00:00Z";
     const REPLAY_END   = "2026-06-05T00:00:00Z";
     const compLabel = (code) => (typeof LEAGUE_COMPETITIONS !== "undefined" && LEAGUE_COMPETITIONS[code])
@@ -423,7 +436,7 @@
           {(() => {
             // Champions League strip — same look as the team card's CL row.
             // Sum of clPts across this player's clubs (already in the total).
-            if (!(typeof lgHasCL === "function" && lgHasCL())) return null;
+            if (!(typeof lgHasCL === "function" && lgHasCL()) || CL_ED) return null;
             const clClubs = (player.teams || []).filter(t => (typeof CL_TIER !== "undefined" && CL_TIER[t.teamId]) || t.clPts);
             if (clClubs.length === 0) return null;
             const clTotal = (player.teams || []).reduce((sum, t) => sum + (t.clPts || 0), 0);
@@ -662,7 +675,7 @@
             <div>
               <div style={{ fontSize: 18, fontWeight: 900, color: C.text }}>{name}</div>
               <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
-                {team ? `Pot ${team.pot} · ${compLabel(team.league)}` : ""}{owner ? "" : " · Unowned"}
+                {team ? (CL_ED ? `Tier ${team.pot} · ${team.domestic ? compLabel(team.domestic) : (team.country || "Europe")}` : `Pot ${team.pot} · ${compLabel(team.league)}`) : ""}{owner ? "" : " · Unowned"}
               </div>
             </div>
           </div>
@@ -966,7 +979,7 @@
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 700, fontSize: 15, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.name}</div>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2, minWidth: 0 }}>
-                <span style={{ fontSize: 11, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Pot {row.pot} · {row.owner}</span>
+                <span style={{ fontSize: 11, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{POT_WORD} {row.pot} · {row.owner}</span>
                 {row.outcome && outcomeChip(row.outcome)}
               </div>
             </div>
@@ -1042,13 +1055,13 @@
       });
       return (
         <div>
-          <div style={{ display: "flex", gap: 8, overflowX: "auto", padding: "0 14px 10px", scrollbarWidth: "none", msOverflowStyle: "none" }}>
+          {comps.length > 0 && <div style={{ display: "flex", gap: 8, overflowX: "auto", padding: "0 14px 10px", scrollbarWidth: "none", msOverflowStyle: "none" }}>
             <button onClick={() => { window.scrollTo(0, 0); setShowAll(true); }} style={leaguePill(showAll)}>All</button>
             {comps.map(code => (
               <button key={code} onClick={() => { window.scrollTo(0, 0); setShowAll(false); if (setComp) setComp(code); }}
                 style={leaguePill(!showAll && active === code)}>{LEAGUE_COMPETITIONS[code].label}</button>
             ))}
-          </div>
+          </div>}
           <div style={{ padding: "0 14px" }}>
             {shown.map(({ t, rank }) => (
               <TeamLeagueRow key={t.teamId} row={t} rank={rank} hist={teamHist[t.teamId] || [0]}
@@ -1332,7 +1345,7 @@
     // ── GAMEWEEK — FPL-style week-by-week view (calendar weeks, Mon–Sun).
     //    Numbers come from lgGameweek (league-scoring.js). "This is me" is
     //    per league, per device (localStorage lsw_me). ─────────────────────
-    const ME_KEY = "lsw_me";
+    const ME_KEY = LSP + "lsw_me";
     const readMe = (code) => { try { return (JSON.parse(localStorage.getItem(ME_KEY) || "{}") || {})[code] || null; } catch (e) { return null; } };
     const writeMe = (code, name) => { try { const m = JSON.parse(localStorage.getItem(ME_KEY) || "{}") || {}; if (name) m[code] = name; else delete m[code]; localStorage.setItem(ME_KEY, JSON.stringify(m)); } catch (e) {} };
     const fmtRange = (w) => {
@@ -1398,7 +1411,7 @@
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
             {arrowBtn(-1, wi === 0)}
             <div style={{ flex: 1, textAlign: "center" }}>
-              <div style={{ fontSize: 22, fontWeight: 900, color: C.text }}>Gameweek {week.n}</div>
+              <div style={{ fontSize: 22, fontWeight: 900, color: C.text }}>{GW_WORD} {week.n}</div>
               <div style={{ fontSize: 12, color: C.muted }}>{fmtRange(week)}{wi === defaultIdx ? " · this week" : ""}</div>
             </div>
             {arrowBtn(1, wi === weeks.length - 1)}
@@ -1423,7 +1436,7 @@
             <div>
               {statCell(gw.played > 0 && typeof pw.rank === "number" ? ord(pw.rank) : "–", `Week rank of ${gw.players.length}`)}
               <div style={{ borderTop: `1px solid ${C.border}`, margin: "0 8px" }} />
-              {(typeof lgHasCL === "function" && lgHasCL())
+              {((typeof lgHasCL === "function" && lgHasCL()) && !CL_ED)
                 ? statCell(`${pw.clPts > 0 ? "+" : ""}${pw.clPts}`, "From CL 🏆")
                 : statCell(((ranked.find(r => r.name === who) || {}).total) ?? 0, "Season total")}
             </div>
@@ -1441,13 +1454,13 @@
           {mode === "pitch" ? (
             // One pitch row per league (league order), like the FPL pitch's position rows.
             <div style={{ borderRadius: 16, padding: "10px 8px", background: "repeating-linear-gradient(180deg, #1f7a3a 0 64px, #1b6e34 64px 128px)", border: `1px solid ${C.border}` }}>
-              {(typeof LEAGUE_COMPETITIONS !== "undefined" ? Object.keys(LEAGUE_COMPETITIONS).filter(c => LEAGUE_COMPETITIONS[c].type !== "cup") : []).map(L => {
-                const row = pw.teams.filter(t => t.league === L);
+              {(CL_ED ? [1, 2, 3, 4] : (typeof LEAGUE_COMPETITIONS !== "undefined" ? Object.keys(LEAGUE_COMPETITIONS).filter(c => LEAGUE_COMPETITIONS[c].type !== "cup") : [])).map(L => {
+                const row = CL_ED ? pw.teams.filter(t => t.pot === L) : pw.teams.filter(t => t.league === L);
                 if (!row.length) return null;
                 return (
                   <div key={L} style={{ marginBottom: 6 }}>
                     <div style={{ fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,0.78)", letterSpacing: "0.08em", textTransform: "uppercase", margin: "0 0 3px 4px" }}>
-                      {LEAGUE_COMPETITIONS[L].label} <span style={{ color: "rgba(255,255,255,0.55)" }}>· {row.reduce((a, t) => a + t.pts, 0)} pts</span>
+                      {CL_ED ? `Tier ${L}${L === 1 ? " · favourites" : L === 4 ? " · underdogs" : ""}` : LEAGUE_COMPETITIONS[L].label} <span style={{ color: "rgba(255,255,255,0.55)" }}>· {row.reduce((a, t) => a + t.pts, 0)} pts</span>
                     </div>
                     <div style={{ display: "flex", justifyContent: "center", gap: 8 }}>
                       {row.map(t => (
@@ -1501,17 +1514,17 @@
           {afterPitch && <div style={{ marginTop: 16 }}>{afterPitch}</div>}
 
           {/* Gameweek table — players ranked on this week's points only */}
-          <div style={sect}>Gameweek {week.n} table</div>
+          <div style={sect}>{GW_WORD} {week.n} table</div>
           <div style={{ ...s.card, overflow: "hidden" }}>
             <div style={{ display: "flex", padding: "7px 12px", fontSize: 10, color: C.muted, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", borderBottom: `1px solid ${C.border}` }}>
-              <span style={{ width: 28 }}>Pos</span><span style={{ flex: 1 }}>Player</span>{(typeof lgHasCL === "function" && lgHasCL()) && <span style={{ width: 52, textAlign: "right" }}>CL</span>}<span style={{ width: 44, textAlign: "right" }}>Pts</span>
+              <span style={{ width: 28 }}>Pos</span><span style={{ flex: 1 }}>Player</span>{(typeof lgHasCL === "function" && lgHasCL()) && !CL_ED && <span style={{ width: 52, textAlign: "right" }}>CL</span>}<span style={{ width: 44, textAlign: "right" }}>Pts</span>
             </div>
             {gw.players.map((p, i) => (
               <div key={p.name} onClick={() => (onPlayerClick ? onPlayerClick(p.name) : setViewing(p.name))} style={{ display: "flex", alignItems: "center", padding: "9px 12px", cursor: "pointer",
                 background: p.name === who ? "rgba(34,197,94,0.08)" : "transparent", borderBottom: i < gw.players.length - 1 ? `1px solid ${C.border}` : "none" }}>
                 <span style={{ width: 28, fontSize: 13, color: C.muted, fontWeight: 800 }}>{gw.played > 0 ? p.rank : "–"}</span>
                 <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}{p.name === me ? <span style={{ fontSize: 10, color: C.accent }}> · you</span> : null}</span>
-                {(typeof lgHasCL === "function" && lgHasCL()) && <span style={{ width: 52, textAlign: "right", fontSize: 11, color: p.clPts ? C.gold : C.border }}>{p.clPts ? `${p.clPts > 0 ? "+" : ""}${p.clPts} 🏆` : "–"}</span>}
+                {(typeof lgHasCL === "function" && lgHasCL()) && !CL_ED && <span style={{ width: 52, textAlign: "right", fontSize: 11, color: p.clPts ? C.gold : C.border }}>{p.clPts ? `${p.clPts > 0 ? "+" : ""}${p.clPts} 🏆` : "–"}</span>}
                 <span style={{ width: 44, textAlign: "right", fontSize: 15, fontWeight: 900, color: p.pts < 0 ? C.red : C.text }}>{p.pts}</span>
               </div>
             ))}
@@ -1534,10 +1547,10 @@
               </div>
             );
             return (<>
-              <div style={sect}>Gameweek {week.n} results{results.length ? ` · ${results.length}` : ""}</div>
+              <div style={sect}>{GW_WORD} {week.n} results{results.length ? ` · ${results.length}` : ""}</div>
               {results.length ? list(results) : <div style={{ ...s.card, padding: 14, fontSize: 12, color: C.muted }}>No results yet this gameweek.</div>}
               {fixtures.length > 0 && <>
-                <div style={sect}>Gameweek {week.n} fixtures · {fixtures.length}</div>
+                <div style={sect}>{GW_WORD} {week.n} fixtures · {fixtures.length}</div>
                 {list(fixtures)}
               </>}
             </>);
@@ -1548,7 +1561,7 @@
               🏁 The Race — season so far ›
             </button>
           )}
-          <div style={{ fontSize: 10, color: C.muted, textAlign: "center", margin: embedded ? "8px 0 18px" : "10px 0 4px" }}>Gameweeks run Monday–Sunday across every league; international breaks are skipped. Weekly points add up to the season total.</div>
+          <div style={{ fontSize: 10, color: C.muted, textAlign: "center", margin: embedded ? "8px 0 18px" : "10px 0 4px" }}>{CL_ED ? "A matchday is a Champions League week (Mon–Sun); weeks without CL games are skipped. Matchday points add up to the total." : "Gameweeks run Monday–Sunday across every league; international breaks are skipped. Weekly points add up to the season total."}</div>
 
           {(picker || needsMe) && (
             <div onClick={() => { setPicker(false); if (!me) { writeMe(code, "__browse__"); setMe("__browse__"); } }} style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
@@ -1606,7 +1619,7 @@
     // Pot tag shown after a club name everywhere it appears, e.g. "Inter (P1)".
     const potTag = (id) => {
       const t = typeof LEAGUE_TEAMS !== "undefined" && LEAGUE_TEAMS[id];
-      return t ? <span style={{ color: C.muted, fontSize: 9, fontWeight: 600 }}> (P{t.pot})</span> : null;
+      return t ? <span style={{ color: C.muted, fontSize: 9, fontWeight: 600 }}> ({POT_LETTER}{t.pot})</span> : null;
     };
     const lgPotOf = (id) => { const t = typeof LEAGUE_TEAMS !== "undefined" && LEAGUE_TEAMS[id]; return t ? t.pot : null; };
     // CL tier (UEFA draw pot) — every CL club has one, owned or not.
@@ -2503,7 +2516,7 @@
       // Order by competition points (the real table) or sweepstake points.
       // Default = Pts (real table order) everywhere. The choice is remembered
       // per device, separately for the UCL and for the league tables.
-      const SORT_KEY = isCL ? "lsw_table_sort_cl" : "lsw_table_sort_league";
+      const SORT_KEY = isCL ? LSP + "lsw_table_sort_cl" : LSP + "lsw_table_sort_league";
       const SORT_DEFAULT = "pts";
       const [sortBy, setSortByState] = useState(() => {
         try { const v = localStorage.getItem(SORT_KEY); return v === "sw" || v === "pts" ? v : SORT_DEFAULT; } catch (e) { return SORT_DEFAULT; }
@@ -2668,7 +2681,7 @@
       return { comps, active, toggle, clear: () => save([]) };
     }
     function CompFilterPills({ filter }) {
-      if (filter.comps.length === 0) return null;
+      if (filter.comps.length <= 1) return null;
       const pill = (on) => ({
         flexShrink: 0, padding: "7px 14px", borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
         background: on ? C.accent : "transparent", color: on ? C.bg : C.muted, border: `1px solid ${on ? C.accent : C.border}`,
@@ -2686,7 +2699,7 @@
 
     function ScoresTab({ matches, matchPtsById, anchorIso, onTeamClick, onMatchClick }) {
       const [selectedDay, setSelectedDay] = useState(null);
-      const filter = useCompFilter("lsw_scores_filter");
+      const filter = useCompFilter(LSP + "lsw_scores_filter");
       const activeFilter = filter.active;
       // Every calendar day spanned by the loaded matches (so browsing reveals
       // empty days rather than skipping them), mirroring the WC Scores tab.
@@ -2741,7 +2754,7 @@
           <div style={{ fontSize: 12, fontWeight: 700, color: C.dim, marginBottom: 4 }}>{label}</div>
           {[1, 2, 3, 4].map(pot => (
             <div key={pot} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 3, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 10, fontWeight: 800, color: POT_COLORS[pot], width: 24 }}>P{pot}</span>
+              <span style={{ fontSize: 10, fontWeight: 800, color: POT_COLORS[pot], width: 24 }}>{POT_LETTER}{pot}</span>
               {teams.filter(t => t.league === league && t.pot === pot).map(t => (
                 <span key={t.id} title={t.name}><Crest teamId={t.id} size={18} /></span>
               ))}
@@ -2758,6 +2771,16 @@
         <div>
           <div style={section}>
             <div style={h}>How it works</div>
+{CL_ED ? (
+            <div style={{ fontSize: 12, color: C.dim, lineHeight: 1.5 }}>
+              The 36 <strong>Champions League</strong> clubs are drawn by UEFA's own pots —
+              Tier 1 favourites to Tier 4 underdogs — so everyone gets a fair spread.
+              Every CL game scores, and upsets pay big: a win is worth more the more tiers
+              your club sits below its opponent. Knock a bigger club out of a tie for a
+              giant-killer bonus, and bank a payout for how far you go — favourites earn
+              little for a deep run and lose a little for an early exit; underdogs are all upside.
+            </div>
+            ) : (
             <div style={{ fontSize: 12, color: C.dim, lineHeight: 1.5 }}>
               Every player owns teams spread across Europe's five biggest leagues —
               the Premier League, La Liga, Serie A, Bundesliga and Ligue 1. Wins and
@@ -2769,10 +2792,11 @@
               scores too — priced by UEFA's own draw pots, so underdogs beating
               giants pay big, while a big favourite crashing out early costs you.</>}
             </div>
+            )}
           </div>
           <div style={section}>
-            <div style={h}>The pots</div>
-            {topLeagues.map(c => potTable(c, LEAGUE_COMPETITIONS[c].label))}
+            <div style={h}>{CL_ED ? "The tiers" : "The pots"}</div>
+            {(CL_ED ? ["CL"] : topLeagues).map(c => potTable(c, CL_ED ? "UEFA draw tiers" : LEAGUE_COMPETITIONS[c].label))}
           </div>
           {matchPts && refLg && (
             <div style={section}>
@@ -2875,6 +2899,9 @@
             <button style={row} onClick={() => { onClose(); onToggleReplay(); }}>
               <span style={{ fontSize: 18 }}>🎬</span> Simulate season <span style={{ fontSize: 11, fontWeight: 500, color: C.muted }}>(last season's results)</span>
               <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, color: replayOn ? C.accent : C.muted }}>{replayOn ? "ON" : "OFF"}</span>
+            </button>
+            <button style={row} onClick={() => { onClose(); window.location.href = "editions.html"; }}>
+              <span style={{ fontSize: 18 }}>🧭</span> Other editions
             </button>
             <button style={row} onClick={() => { onClose(); onSwitchGroup(); }}>
               <span style={{ fontSize: 18 }}>🔀</span> Switch league
@@ -3031,8 +3058,8 @@
         ["home", "Home", "home", null],
         ["table", "Players", "table", "players"],
         ["teams", "Teams", "table", "teams"],
-        ["leagues", "Leagues", "table", "leagues"],
-        ...((typeof lgHasCL === "function" && lgHasCL()) ? [["ucl", "UCL", "table", "ucl"]] : []),
+        ...(hasDomestic() ? [["leagues", "Leagues", "table", "leagues"]] : []),
+        ...((typeof lgHasCL === "function" && lgHasCL()) ? [["ucl", CL_ED ? "Table" : "UCL", "table", "ucl"]] : []),
         ...(hasFamilies ? [["table", "Families", "table", "families"]] : []),
         ["scores", "Scores", "scores", null],
         ["race", "The Race", "race", null],
@@ -3047,7 +3074,7 @@
           <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "0 8px 16px" }}>
             <img src={LOGO_SRC} alt="Sweepstaker" style={{ width: 42, height: 42, flexShrink: 0 }} />
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 16, fontWeight: 800, lineHeight: 1.15 }}>Sweepstaker <span style={{ color: C.accent }}>Top 5</span></div>
+              <div style={{ fontSize: 16, fontWeight: 800, lineHeight: 1.15 }}>Sweepstaker <span style={{ color: C.accent }}>{EDITION_LABEL}</span></div>
               {group && group.label && <div onClick={onOpenSwitcher} role="button" title="Switch league" style={{ fontSize: 11.5, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "pointer" }}>{group.label} ▾</div>}
             </div>
           </div>
@@ -3101,7 +3128,7 @@
         const players = [], teams = [];
         ranked.forEach(p => {
           players.push({ type: "player", id: p.name, label: p.name, sub: `${p.total} pts` });
-          (p.teams || []).forEach(t => teams.push({ type: "team", id: t.teamId, label: t.name, sub: `Pot ${t.pot} · ${p.name}` }));
+          (p.teams || []).forEach(t => teams.push({ type: "team", id: t.teamId, label: t.name, sub: `${POT_WORD} ${t.pot} · ${p.name}` }));
         });
         const families = familyRows.map(f => ({ type: "family", id: f.name, label: f.name, sub: `${f.avg} avg pts · ${f.members.length} members` }));
         return { players, teams, families };
@@ -3718,7 +3745,7 @@
           {!loading && tab === "table" && !isDesktop && (
             <div style={{ padding: "0 14px 10px" }}>
               <div className="tab-seg">
-                {[["players", "Players"], ["teams", "Teams"], ["leagues", "Leagues"], ...((typeof lgHasCL === "function" && lgHasCL()) ? [["ucl", "UCL"]] : []), ...(families ? [["families", "Families"]] : [])].map(([id, label]) => (
+                {[["players", "Players"], ["teams", "Teams"], ...(hasDomestic() ? [["leagues", "Leagues"]] : []), ...((typeof lgHasCL === "function" && lgHasCL()) ? [["ucl", CL_ED ? "Table" : "UCL"]] : []), ...(families ? [["families", "Families"]] : [])].map(([id, label]) => (
                   <button key={id} onClick={() => { window.scrollTo(0, 0); setLeagueView(id); }} style={{
                     background: leagueView === id ? C.accent : C.surface,
                     color: leagueView === id ? C.bg : C.dim, fontWeight: 700, fontSize: families ? 11 : 12,
@@ -3809,7 +3836,7 @@
 
     // ── group gate (same pattern as the WC app: reassign the roster global
     //    BEFORE App's first render, so every scoring call reads it live) ────
-    const CREATED_LEAGUES_KEY = "lsw_created";
+    const CREATED_LEAGUES_KEY = LSP + "lsw_created";
     function loadCreatedLeagues() {
       if (typeof LEAGUE_GROUPS === "undefined") return;
       try {
@@ -3824,10 +3851,10 @@
     // groups are held as a list of group keys. `active` ({ kind:"session"|
     // "group", id }) points at the one currently open — switching just moves
     // the pointer, so you never leave a league to open another.
-    const SESSION_KEY   = "lsw_session";      // legacy single-session (migrated)
-    const SESSIONS_KEY  = "lsw_sessions";
-    const MY_GROUPS_KEY = "lsw_mygroups";
-    const ACTIVE_KEY    = "lsw_active";
+    const SESSION_KEY   = LSP + "lsw_session";      // legacy single-session (migrated)
+    const SESSIONS_KEY  = LSP + "lsw_sessions";
+    const MY_GROUPS_KEY = LSP + "lsw_mygroups";
+    const ACTIVE_KEY    = LSP + "lsw_active";
     const _readJSON  = (k, dflt) => { try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? dflt : v; } catch (e) { return dflt; } };
     const _writeJSON = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* ignore */ } };
     function loadSessions() { const v = _readJSON(SESSIONS_KEY, []); return Array.isArray(v) ? v : []; }
@@ -3879,7 +3906,7 @@
       return (
         <div style={{ padding: "64px 24px 40px", textAlign: "center", maxWidth: 480, margin: "0 auto" }}>
           <img src={LOGO_SRC} alt="Sweepstaker" style={{ width: 72, height: 72, display: "block", margin: "0 auto 14px" }} />
-          <div style={{ fontSize: 26, fontWeight: 800, marginBottom: 4 }}>Sweepstaker <span style={{ color: C.accent }}>Top 5</span></div>
+          <div style={{ fontSize: 26, fontWeight: 800, marginBottom: 4 }}>Sweepstaker <span style={{ color: C.accent }}>{EDITION_LABEL}</span></div>
           {children}
         </div>
       );
@@ -4416,7 +4443,7 @@
 
       // ── membership helpers (persist + update state) ──
       // Most-recently-opened first: { "g-CAVERSHAM": ts, "s-ABC123": ts } per device.
-      const RECENT_KEY = "lsw_recent";
+      const RECENT_KEY = LSP + "lsw_recent";
       const goActive = (a) => {
         if (a) { const r = _readJSON(RECENT_KEY, {}) || {}; r[(a.kind === "session" ? "s-" : "g-") + a.id] = Date.now(); _writeJSON(RECENT_KEY, r); }
         saveActive(a); setActive(a);
@@ -4531,7 +4558,7 @@
       const shell = (children) => (
         <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", justifyContent: "center", padding: "40px 24px", textAlign: "center", maxWidth: 480, margin: "0 auto" }}>
           <img src={LOGO_SRC} alt="Sweepstaker" style={{ width: 72, height: 72, display: "block", margin: "0 auto 14px" }} />
-          <div style={{ fontSize: 26, fontWeight: 800, marginBottom: 4 }}>Sweepstaker <span style={{ color: C.accent }}>Top 5</span></div>
+          <div style={{ fontSize: 26, fontWeight: 800, marginBottom: 4 }}>Sweepstaker <span style={{ color: C.accent }}>{EDITION_LABEL}</span></div>
           {children}
         </div>
       );
@@ -4609,7 +4636,7 @@
       );
       if (!hasLeagues) {
         return shell(<>
-          <div style={{ color: C.muted, fontSize: 13, margin: "6px 0 22px" }}>Top-flight football sweepstake — create a league and draft teams with your mates.</div>
+          <div style={{ color: C.muted, fontSize: 13, margin: "6px 0 22px" }}>{CL_ED ? "Champions League sweepstake — 36 clubs drawn by UEFA pot, league phase to final. Join your group or create a league." : "Top-flight football sweepstake — create a league and draft teams with your mates."}</div>
           {bigBtn("Join a league", "Enter a code you've been given", () => { setMode("join"); }, true)}
           {bigBtn("Create a league", "Start one and invite your mates", () => { setMode("create"); }, false)}
         </>);
@@ -4618,7 +4645,7 @@
         <div style={{ minHeight: "100vh", padding: "28px 18px 32px", maxWidth: 480, margin: "0 auto", boxSizing: "border-box" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "center", marginBottom: 20 }}>
             <img src={LOGO_SRC} alt="Sweepstaker" style={{ width: 40, height: 40, display: "block" }} />
-            <div style={{ fontSize: 22, fontWeight: 800 }}>Sweepstaker <span style={{ color: C.accent }}>Top 5</span></div>
+            <div style={{ fontSize: 22, fontWeight: 800 }}>Sweepstaker <span style={{ color: C.accent }}>{EDITION_LABEL}</span></div>
           </div>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", padding: "0 4px 8px" }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: C.dim, letterSpacing: "0.08em", textTransform: "uppercase" }}>Your leagues · {leagueItems.length}</div>
