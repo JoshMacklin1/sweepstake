@@ -189,6 +189,13 @@ Where it shows: every played or live match row (Scores `MatchCard`, Home `HomeMa
 - **Each side:** if the club scored, the owner gets a **green "+N pts" pill** (`SidePts`). Home rows are slimmer and laid out like Up Next: a small "+N" `PtsPill` inline beside the owner, no breakdown line, no date in the header (just the stage and any banner). The full breakdown is in Scores and in the head-to-head card.
 - **Breakdown:** the `PtsBits` line ("Win 6 · Clean sheet 3 · Win by 3+ 6") sits under the pill whenever more than one part contributed.
 
+### Player-first fixtures on cards (CL)
+
+- **Results rows** on the player card (W/D/L badge, sweepstake points, score) lead with the opponent *player*:
+  "vs Toby", or "vs unowned", with "Sporting CP (P2) v Fenerbahçe · date" underneath.
+- **Upcoming rows** (`UpcomingMatchRow`, on player, team and family cards) show the owner on each side with their club
+  underneath, and a ticking countdown instead of the date.
+
 ### Simulate a past season (both CL and Top 5)
 
 `sim-seasons.js` (shared). More → **🎬 Simulate 2025-26 / 2024-25** stores the
