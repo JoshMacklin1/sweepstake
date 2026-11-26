@@ -70,6 +70,8 @@ end-to-end against the 2025-26 replay data.
 
 ### Editions
 
+**Default landing = Champions League Edition.** The installed "Sweepstaker" app (`league.webmanifest`, now also linked from `cl.html` along with the Sweepstaker title/icon) has `start_url: cl.html`. Home-screen installs made earlier still start on `league.html` (iOS never refreshes it), so `league.html`'s head script redirects to `cl.html` when it is running standalone **and** is the session's first page (`sessionStorage.sw_app_landed`, also set by `cl.html`) **and** has no query/hash (invite links untouched). Switching to Top 5 from the menu mid-session is therefore not bounced; a normal browser tab on `league.html` is never redirected.
+
 | Edition | Page | Notes |
 |---|---|---|
 | **World Cup Edition** | `index.html` + `scoring.js` | WC 2026 (unchanged) |
