@@ -2668,34 +2668,81 @@
       );
     }
 
+    // Shared swipe detection — a quick, clearly horizontal swipe calls
+    // onSwipe(+1) for left (next) / onSwipe(-1) for right (prev). Inside
+    // something that scrolls sideways itself (bracket, pill rows, carousels)
+    // that keeps its own scroll, and only hands over once it's already at
+    // that edge (left end + swipe right = prev, and vice versa).
+    function hScrollerOf(el, stop) {
+      for (; el && el !== stop; el = el.parentElement) {
+        if (el.scrollWidth > el.clientWidth + 2) {
+          const o = getComputedStyle(el).overflowX;
+          if (o === "auto" || o === "scroll") return el;
+        }
+      }
+      return null;
+    }
+    function useHSwipe(onSwipe) {
+      const start = React.useRef(null);
+      return {
+        onTouchStart: (e) => {
+          if (e.touches.length !== 1) { start.current = null; return; }
+          const sc = hScrollerOf(e.target, e.currentTarget);
+          const t = e.touches[0];
+          start.current = { x: t.clientX, y: t.clientY, t: Date.now(),
+            okPrev: !sc || sc.scrollLeft <= 1,
+            okNext: !sc || sc.scrollLeft + sc.clientWidth >= sc.scrollWidth - 1 };
+        },
+        onTouchEnd: (e) => {
+          const s = start.current; start.current = null;
+          if (!s || !e.changedTouches.length) return;
+          const t = e.changedTouches[0];
+          const dx = t.clientX - s.x, dy = t.clientY - s.y;
+          if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5 || Date.now() - s.t > 800) return;
+          const dir = dx < 0 ? 1 : -1;
+          if (dir > 0 ? !s.okNext : !s.okPrev) return;
+          onSwipe(dir);
+        },
+      };
+    }
+    const SWIPE_KF = "@keyframes dsInR{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}@keyframes dsInL{from{opacity:0;transform:translateX(-28px)}to{opacity:1;transform:none}}";
+
+    // Swipe left/right anywhere on the League tab to move between its sub-tabs
+    // (Players · Families · Teams · Table/Knockouts), in the toggle's order.
+    function TabSwipe({ ids, current, onSelect, children }) {
+      const [anim, setAnim] = React.useState(null);
+      const h = useHSwipe((dir) => {
+        const i = ids.indexOf(current), j = i + dir;
+        if (i < 0 || j < 0 || j >= ids.length) return;
+        setAnim({ id: ids[j], dir }); window.scrollTo(0, 0); onSelect(ids[j]);
+      });
+      const dir = anim && anim.id === current ? anim.dir : 0;
+      return (
+        <div {...h} style={{ minHeight: "60vh", overflowX: "clip" }}>
+          <style>{SWIPE_KF}</style>
+          <div key={current} style={{ animation: dir ? `${dir > 0 ? "dsInR" : "dsInL"} .2s ease-out` : undefined }}>{children}</div>
+        </div>
+      );
+    }
+
     // Swipe left/right anywhere on the Scores list (not just the day strip) to
     // step to the next/previous day that HAS matches — empty days are skipped
     // (still reachable by tapping the strip). Only clearly horizontal, quick
     // swipes count, so vertical scrolling is untouched.
     function DaySwipe({ days, selected, onSelect, hasMatches, children }) {
-      const start = React.useRef(null);
       const [anim, setAnim] = React.useState(null); // { key, dir } — slide only after a swipe
       const key = dayKey(selected);
-      const step = (dir) => {
+      const h = useHSwipe((dir) => {
         const i = days.findIndex(x => dayKey(x) === key);
         if (i < 0) return;
         for (let j = i + dir; j >= 0 && j < days.length; j += dir) {
           if (!hasMatches || hasMatches(days[j])) { setAnim({ key: dayKey(days[j]), dir }); onSelect(days[j]); return; }
         }
-      };
-      const onTouchStart = (e) => { const t = e.touches[0]; start.current = { x: t.clientX, y: t.clientY, t: Date.now() }; };
-      const onTouchEnd = (e) => {
-        const s = start.current; start.current = null;
-        if (!s || !e.changedTouches.length) return;
-        const t = e.changedTouches[0];
-        const dx = t.clientX - s.x, dy = t.clientY - s.y;
-        if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5 || Date.now() - s.t > 800) return;
-        step(dx < 0 ? 1 : -1);
-      };
+      });
       const dir = anim && anim.key === key ? anim.dir : 0;
       return (
-        <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} style={{ minHeight: "55vh", overflowX: "clip" }}>
-          <style>{"@keyframes dsInR{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}@keyframes dsInL{from{opacity:0;transform:translateX(-28px)}to{opacity:1;transform:none}}"}</style>
+        <div {...h} style={{ minHeight: "55vh", overflowX: "clip" }}>
+          <style>{SWIPE_KF}</style>
           <div key={key} style={{ animation: dir ? `${dir > 0 ? "dsInR" : "dsInL"} .2s ease-out` : undefined }}>{children}</div>
         </div>
       );
@@ -3802,6 +3849,8 @@
         [notifItems, notifSeenTs]
       );
 
+      const leagueTabs = [["players", "Players"], ["teams", "Teams"], ...(hasDomestic() ? [["leagues", "Leagues"]] : []), ...((typeof lgHasCL === "function" && lgHasCL()) ? [["ucl", CL_ED ? "Table" : "UCL"]] : []), ...(families ? [["families", "Families"]] : [])];
+
       return (
         <div style={{ display: isDesktop ? "flex" : "block", alignItems: "flex-start", minHeight: "100vh" }}>
           {isDesktop && <Sidebar group={group} tab={tab} leagueView={leagueView} showMore={showMore} onNav={navTo} onMore={() => setShowMore(true)} onOpenSearch={() => setShowSearch(true)} onOpenNotifications={() => setShowNotifications(true)} unreadCount={unreadCount} hasFamilies={!!families} onOpenSwitcher={openSwitcher} />}
@@ -3828,7 +3877,7 @@
           {!loading && tab === "table" && !isDesktop && (
             <div style={{ padding: "0 14px 10px" }}>
               <div className="tab-seg">
-                {[["players", "Players"], ["teams", "Teams"], ...(hasDomestic() ? [["leagues", "Leagues"]] : []), ...((typeof lgHasCL === "function" && lgHasCL()) ? [["ucl", CL_ED ? "Table" : "UCL"]] : []), ...(families ? [["families", "Families"]] : [])].map(([id, label]) => (
+                {leagueTabs.map(([id, label]) => (
                   <button key={id} onClick={() => { window.scrollTo(0, 0); setLeagueView(id); }} style={{
                     background: leagueView === id ? C.accent : C.surface,
                     color: leagueView === id ? C.bg : C.dim, fontWeight: 700, fontSize: families ? 11 : 12,
@@ -3842,13 +3891,13 @@
           {loading && !replay.on
             ? <div style={{ color: C.muted, textAlign: "center", padding: 40 }}>Loading fixtures…</div>
             : tab === "home" ? <HomeTab group={group} matches={matches} ranked={ranked} badges={badges} weekWindow={weekWindow} matchPtsById={matchPtsById} hist={hist} outcomes={outcomes} anchorIso={anchorIso} setTab={navTo} openPlayerModal={openPlayerModal} openTeamModal={openTeamModal} openMatchModal={openMatchModal} familyRows={familyRows} openFamilyModal={openFamilyModal} onOpenSwitcher={openSwitcher} />
-            : tab === "table" ? (
+            : tab === "table" ? (<TabSwipe ids={leagueTabs.map(([id]) => id)} current={leagueView} onSelect={setLeagueView}>{
                 leagueView === "players" ? <SweepsTab ranked={ranked} badges={badges} hist={hist} weekMove={weekMove} outcomes={outcomes} displayRanks={displayRanks} onOpenPlayer={openPlayerModal} />
                 : leagueView === "teams" ? <TeamsLeagueTab matches={matches} ranked={ranked} anchorIso={anchorIso} onTeamClick={openTeamModal} comp={leaguesComp} setComp={setLeaguesComp} />
                 : leagueView === "families" && families ? <FamilyLeagueTab familyRows={familyRows} onFamilyClick={openFamilyModal} />
                 : leagueView === "ucl" ? <ChampionsLeagueTab matches={matches} tables={tables} outcomes={outcomes} matchPtsById={matchPtsById} onTeamClick={openTeamModal} onMatchClick={openMatchModal} />
                 : <LeaguesTab matches={matches} tables={tables} outcomes={outcomes} onTeamClick={openTeamModal} comp={leaguesComp} setComp={setLeaguesComp} />
-              )
+              }</TabSwipe>)
             : tab === "scores" ? <ScoresTab matches={scoresMatches} matchPtsById={matchPtsById} anchorIso={anchorIso} onTeamClick={openTeamModal} onMatchClick={openMatchModal} />
             : tab === "gameweek" ? <GameweekTab key={group ? group.code : "g"} group={group} matches={matches} ranked={ranked} matchPtsById={matchPtsById} anchorIso={anchorIso} onTeamClick={openTeamModal} onMatchClick={openMatchModal} onOpenRace={() => navTo("race")} />
             : tab === "race" ? <RaceTab ranked={ranked} matches={matches} anchorIso={anchorIso} replayOn={replay.on} />
