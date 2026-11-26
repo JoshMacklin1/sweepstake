@@ -4128,6 +4128,7 @@ function SwipePanes({ panes }) {
   const paneRefs = React.useRef([]);
   const [idx, setIdx] = useState(0);
   const [h, setH] = useState(null);
+  useEffect(() => { if (idx > panes.length - 1) { setIdx(0); if (ref.current) ref.current.scrollLeft = 0; } }, [panes.length]);
   // The strip is as tall as the pane on show (lists differ in length), and
   // follows it if its content changes.
   useEffect(() => {
@@ -4150,7 +4151,7 @@ function SwipePanes({ panes }) {
             borderBottom: `2px solid ${i === idx ? C.accent : "transparent"}`, transition: "all 0.2s",
           }}><span>{p.icon}</span>{p.title}</button>
         ))}
-        {panes.length < 3 && <span style={{ marginLeft: "auto", fontSize: 10, color: C.muted, letterSpacing: 0, textTransform: "none", fontWeight: 600 }}>swipe ‹ ›</span>}
+        {panes.length === 2 && <span style={{ marginLeft: "auto", fontSize: 10, color: C.muted, letterSpacing: 0, textTransform: "none", fontWeight: 600 }}>swipe ‹ ›</span>}
       </div>
       <div ref={ref} onScroll={onScroll} style={{ display: "flex", alignItems: "flex-start", overflowX: "auto", overflowY: "hidden", scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", msOverflowStyle: "none", gap: 12, height: h == null ? "auto" : h, transition: "height 0.25s ease" }}>
         {panes.map((p, pi) => (
@@ -4168,11 +4169,11 @@ function SwipePanes({ panes }) {
           </div>
         ))}
       </div>
-      <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 8 }}>
+      {panes.length > 1 && <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 8 }}>
         {panes.map((p, i) => (
           <button key={p.title} aria-label={p.title} onClick={() => go(i)} style={{ width: i === idx ? 18 : 7, height: 7, borderRadius: 4, border: "none", padding: 0, cursor: "pointer", transition: "width 0.2s ease", background: i === idx ? C.accent : C.border }} />
         ))}
-      </div>
+      </div>}
     </div>
   );
 }
@@ -4413,12 +4414,13 @@ function HomeTab({ matches, ranked, badges, rank24hChange, rank24hPtsChange, mat
 
 
       {/* Recent Results ⇄ Up Next — same swipe card as Top Players ⇄ Top Teams */}
+      {/* Recent Results only appears when there's something in it */}
       <SwipePanes panes={[
-        { icon: "📋", title: "Recent Results", linkLabel: "View all scores", empty: recentResults.length === 0 ? "No live matches or results in the last 24h" : null,
+        ...(recentResults.length === 0 ? [] : [{ icon: "📋", title: "Recent Results", linkLabel: "View all scores",
           onOpen: () => { window.history.pushState({ appTab: "scores", appModal: null }, ""); window.scrollTo(0, 0); setTab("scores"); },
           body: recentResults.map((m, i) => (
             <HomeMatchRow key={m.id} m={m} ranked={ranked} pts={matchPtsById[m.id]} onMatchClick={openMatchModal} isLast={i === recentResults.length - 1} banners />
-          )) },
+          )) }]),
         { icon: "📅", title: "Up Next", linkLabel: "View all scores", empty: upNext.length === 0 ? "No upcoming fixtures" : null,
           onOpen: () => { window.history.pushState({ appTab: "scores", appModal: null }, ""); window.scrollTo(0, 0); setTab("scores"); },
           body: upNext.map((m, i) => (
