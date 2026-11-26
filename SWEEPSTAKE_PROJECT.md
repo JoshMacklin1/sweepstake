@@ -129,7 +129,9 @@ league-app CL share links included).
   touch pauses 8s; new-in-24h first with a NEW tag, then everyone's current
   accolades) → **Recent Results ⇄ Up Next** (same `SwipePanes`;
   Results starts with any live games, then the last 24h; Up Next rows show a
-  ticking `KickoffCountdown` instead of the date) (no Currently Leading /
+  ticking `KickoffCountdown` instead of the date; the Recent Results pane is
+  dropped entirely when it would be empty — `SwipePanes` with one pane hides
+  its swipe hint and dots) (no Currently Leading /
   Leading Team / Top Teams / Table & Knockouts — those live under League); 1st legs never trigger exit
   banners; CL rules/tour copy; **push alerts hidden** (the alert Worker and
   `sw.js` are World Cup only) and no service-worker registration.
