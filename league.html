@@ -113,6 +113,19 @@
     // every old ?ed=cl link goes there, share fragments included.
     if (window.SWEEP_MODE === "cl") location.replace("cl.html");
     if (window.SWEEP_MODE === "cl") document.title = "Sweepstaker — Champions League Edition";
+    // The Sweepstaker app opens on the Champions League Edition by default.
+    // Home-screen installs made before that keep league.html as their start
+    // URL (iOS never refreshes it), so: when launched as the installed app,
+    // as the session's first page, with no invite/share link → go to CL.
+    // Switching to Top 5 from the menu later in the session isn't redirected.
+    (function () {
+      try {
+        var standalone = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
+        var landed = sessionStorage.getItem("sw_app_landed");
+        sessionStorage.setItem("sw_app_landed", "1");
+        if (standalone && !landed && !location.search && !location.hash) location.replace("cl.html");
+      } catch (e) {}
+    })();
   </script>
   <script src="sim-seasons.js?v=1"></script>
   <script src="league-scoring.js?v=36"></script>
