@@ -2668,6 +2668,39 @@
       );
     }
 
+    // Swipe left/right anywhere on the Scores list (not just the day strip) to
+    // step to the next/previous day that HAS matches — empty days are skipped
+    // (still reachable by tapping the strip). Only clearly horizontal, quick
+    // swipes count, so vertical scrolling is untouched.
+    function DaySwipe({ days, selected, onSelect, hasMatches, children }) {
+      const start = React.useRef(null);
+      const [anim, setAnim] = React.useState(null); // { key, dir } — slide only after a swipe
+      const key = dayKey(selected);
+      const step = (dir) => {
+        const i = days.findIndex(x => dayKey(x) === key);
+        if (i < 0) return;
+        for (let j = i + dir; j >= 0 && j < days.length; j += dir) {
+          if (!hasMatches || hasMatches(days[j])) { setAnim({ key: dayKey(days[j]), dir }); onSelect(days[j]); return; }
+        }
+      };
+      const onTouchStart = (e) => { const t = e.touches[0]; start.current = { x: t.clientX, y: t.clientY, t: Date.now() }; };
+      const onTouchEnd = (e) => {
+        const s = start.current; start.current = null;
+        if (!s || !e.changedTouches.length) return;
+        const t = e.changedTouches[0];
+        const dx = t.clientX - s.x, dy = t.clientY - s.y;
+        if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5 || Date.now() - s.t > 800) return;
+        step(dx < 0 ? 1 : -1);
+      };
+      const dir = anim && anim.key === key ? anim.dir : 0;
+      return (
+        <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} style={{ minHeight: "55vh", overflowX: "clip" }}>
+          <style>{"@keyframes dsInR{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}@keyframes dsInL{from{opacity:0;transform:translateX(-28px)}to{opacity:1;transform:none}}"}</style>
+          <div key={key} style={{ animation: dir ? `${dir > 0 ? "dsInR" : "dsInL"} .2s ease-out` : undefined }}>{children}</div>
+        </div>
+      );
+    }
+
     // ── Competition filter (shared by Scores + League → Teams): multi-select
     //    pills, empty = All, remembered per device under `storageKey`
     //    (localStorage, guarded — private mode just means no memory). ───────
@@ -2733,6 +2766,8 @@
             <DayPicker days={scoreDays} selected={effectiveDay} onSelect={setSelectedDay} />
           </div>
           <CompFilterPills filter={filter} />
+          <DaySwipe days={scoreDays} selected={effectiveDay} onSelect={setSelectedDay}
+            hasMatches={d => matches.some(m => sameDay(new Date(m.utcDate), d) && (activeFilter.length === 0 || activeFilter.indexOf(m.competition && m.competition.code) !== -1))}>
           <div style={{ padding: "0 14px" }}>
             {dayGames.length === 0
               ? <div style={{ color: C.muted, fontSize: 13, padding: "28px 0", textAlign: "center" }}>
@@ -2742,6 +2777,7 @@
                   <LeagueMatchCard key={m.id} m={m} matchPtsById={matchPtsById} onMatchClick={onMatchClick} onTeamClick={onTeamClick} />
                 ))}
           </div>
+          </DaySwipe>
         </div>
       );
     }
