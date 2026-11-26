@@ -635,7 +635,7 @@ State: `tab` (`home`·`table`·`scores`·`race`) and `leagueView`
 - **League → Players** (`leagueView==="league"`) — the `PlayerRow` standings.
 - **League → Teams** (`leagueView==="teams"`) — `TeamsLeagueTab`: every team in one list ranked by sweepstake points, styled like the Players table (flag + `Sparkline` + points; pot + owning player as subtitle). Row → team card. Sparkline history from `deriveTeamHistory` (per-team cumulative sweepstake points, endpoint reconciled to the **confirmed** swPts — a live match doesn't move the line, see "Live vs confirmed split").
 - **League → Knockouts** — `TeamsTab` (knockout **bracket** via `BracketSlot`/`BracketMatch`/`BracketRound`). `TeamsTab` still contains a dormant `view==="groups"` group-tables block, no longer surfaced by the nav.
-- **Scores** (`DayPicker`) — combined day-by-day schedule **+** results, BBC-style day strip.
+- **Scores** (`DayPicker`) — combined day-by-day schedule **+** results, BBC-style day strip. **Swipe left/right on the match list itself** (`DaySwipe` wrapper, all three apps) steps to the next/previous day *with matches* — empty days are skipped (still tappable on the strip); only quick, clearly horizontal swipes count (|dx| ≥ 50px, ≥ 1.5× |dy|, < 800ms) so vertical scroll is unaffected; a short slide-in animation shows direction.
 - **The Race** (`BarRaceModal`) — full-screen animated bar race.
 - **More** (`MoreMenu`) — dev toggle, take the tour, view rules, subscribe to notifications, switch group.
 - **Header logo** — admin-only: tap opens `GroupSwitcherMenu` to jump directly to another group (see GroupGate section above).

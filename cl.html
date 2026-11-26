@@ -695,6 +695,39 @@ function DayPicker({ days, selected, onSelect }) {
   );
 }
 
+// Swipe left/right anywhere on the Scores list (not just the day strip) to
+// step to the next/previous day that HAS matches — empty days are skipped
+// (still reachable by tapping the strip). Only clearly horizontal, quick
+// swipes count, so vertical scrolling is untouched.
+function DaySwipe({ days, selected, onSelect, hasMatches, children }) {
+  const start = React.useRef(null);
+  const [anim, setAnim] = React.useState(null); // { key, dir } — slide only after a swipe
+  const key = dayKey(selected);
+  const step = (dir) => {
+    const i = days.findIndex(x => dayKey(x) === key);
+    if (i < 0) return;
+    for (let j = i + dir; j >= 0 && j < days.length; j += dir) {
+      if (!hasMatches || hasMatches(days[j])) { setAnim({ key: dayKey(days[j]), dir }); onSelect(days[j]); return; }
+    }
+  };
+  const onTouchStart = (e) => { const t = e.touches[0]; start.current = { x: t.clientX, y: t.clientY, t: Date.now() }; };
+  const onTouchEnd = (e) => {
+    const s = start.current; start.current = null;
+    if (!s || !e.changedTouches.length) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - s.x, dy = t.clientY - s.y;
+    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5 || Date.now() - s.t > 800) return;
+    step(dx < 0 ? 1 : -1);
+  };
+  const dir = anim && anim.key === key ? anim.dir : 0;
+  return (
+    <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} style={{ minHeight: "55vh", overflowX: "clip" }}>
+      <style>{"@keyframes dsInR{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}@keyframes dsInL{from{opacity:0;transform:translateX(-28px)}to{opacity:1;transform:none}}"}</style>
+      <div key={key} style={{ animation: dir ? `${dir > 0 ? "dsInR" : "dsInL"} .2s ease-out` : undefined }}>{children}</div>
+    </div>
+  );
+}
+
 // CL stage label for match rows: "League phase · MD5", "Last 16 · 2nd leg"…
 function clStageText(m) {
   const st = (m && m.stage || "").toUpperCase();
@@ -6518,6 +6551,7 @@ function App({ onSwitchGroup, onQuickSwitchGroup, groupKey, isAdmin = false, ini
     : today > scoreDays[scoreDays.length - 1] ? scoreDays[scoreDays.length - 1]
     : today;
   const effectiveScoreDay = selectedDay || defaultScoreDay;
+  const scoreMatchDayKeys = new Set(matches.map(m => dayKey(new Date(m.utcDate))));
   const dayMatches = matches
     .filter(m => sameDay(new Date(m.utcDate), effectiveScoreDay))
     .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
@@ -6982,9 +7016,11 @@ function App({ onSwitchGroup, onQuickSwitchGroup, groupKey, isAdmin = false, ini
         )}
         {/* ── SCORES (combined day-by-day schedule + results, BBC-style day strip above) ── */}
         {tab === "scores" && !loading && (
-          dayMatches.length === 0
-            ? <div style={{ color:C.muted, textAlign:"center", padding:32, fontSize:14 }}>No matches on this day</div>
-            : <div className="league-grid fixture-grid">{dayMatches.map(m => <MatchCard key={m.id} m={m} ranked={ranked} upcoming={upcoming} pts={matchPtsById[m.id]} onMatchClick={openMatchModal} onTeamClick={openTeamModal} />)}</div>
+          <DaySwipe days={scoreDays} selected={effectiveScoreDay} onSelect={setSelectedDay} hasMatches={d => scoreMatchDayKeys.has(dayKey(d))}>
+            {dayMatches.length === 0
+              ? <div style={{ color:C.muted, textAlign:"center", padding:32, fontSize:14 }}>No matches on this day</div>
+              : <div className="league-grid fixture-grid">{dayMatches.map(m => <MatchCard key={m.id} m={m} ranked={ranked} upcoming={upcoming} pts={matchPtsById[m.id]} onMatchClick={openMatchModal} onTeamClick={openTeamModal} />)}</div>}
+          </DaySwipe>
         )}
 
         {/* ── THE RACE ── */}
